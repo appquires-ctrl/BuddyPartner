@@ -1,0 +1,682 @@
+import 'package:dating_app/features/auth/application/auth_state_provider.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:dating_app/app/router/route_names.dart';
+import 'package:dating_app/app/theme/app_spacing.dart';
+import 'package:dating_app/app/theme/app_radius.dart';
+import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:dating_app/features/home/presentation/widgets/matching_illustration.dart';
+import 'package:dating_app/features/recharge/presentation/providers/recharge_providers.dart';
+import 'package:dating_app/features/call/application/matchmaking_controller.dart';
+import 'package:dating_app/features/call/application/matchmaking_state.dart';
+
+/// HomePage renders the primary "stranger search" radar screen.
+/// Matches screenshots/home.jpeg exactly.
+class HomePage extends ConsumerStatefulWidget {
+  const HomePage({super.key});
+
+  @override
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage> {
+  bool _isRefreshing = false;
+
+  void _startMatchmaking() {
+    ref.read(matchmakingControllerProvider.notifier).joinQueue();
+  }
+
+  void _cancelMatchmaking() {
+    ref.read(matchmakingControllerProvider.notifier).leaveQueue();
+  }
+
+  Future<void> _handleRefresh() async {
+    if (_isRefreshing) return;
+    setState(() {
+      _isRefreshing = true;
+    });
+    // Simulate refresh check
+    await Future.delayed(const Duration(seconds: 2));
+    if (mounted) {
+      setState(() {
+        _isRefreshing = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Checking for available telecallers...'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final typography = context.typography;
+
+    final userAsync = ref.watch(authStateProvider);
+    final profileAsync = ref.watch(userProfileProvider);
+    final balanceAsync = ref.watch(walletBalanceProvider);
+    final matchmakingState = ref.watch(matchmakingControllerProvider);
+    
+    final currentUser = userAsync.value;
+    final profile = profileAsync.value;
+    final balance = balanceAsync.value ?? 100;
+    
+    final String fullName = profile?.fullName ?? currentUser?.email?.split('@')[0] ?? 'User';
+    final String initials = getInitials(fullName);
+    final bool isMatching = matchmakingState.phase == MatchmakingPhase.queued;
+
+    // Navigate to active call screen when match is found and call starts
+    ref.listen<MatchmakingState>(matchmakingControllerProvider, (prev, next) {
+      if (next.phase == MatchmakingPhase.inCall && prev?.phase != MatchmakingPhase.inCall) {
+        if (mounted) {
+          context.push(RouteNames.activeCall);
+        }
+      }
+      // Show error snackbar if there's an error
+      if (next.errorMessage != null && next.errorMessage != prev?.errorMessage) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(next.errorMessage!)),
+          );
+        }
+      }
+    });
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9F9FB), // Clean off-white background
+      appBar: isMatching
+          ? AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0.5,
+              shadowColor: const Color(0xFFF0F0F2),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: _cancelMatchmaking,
+              ),
+              centerTitle: true,
+              title: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Finding your match',
+                    style: typography.titleCard.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Please stay on this screen',
+                    style: typography.bodySmall.copyWith(
+                      color: const Color(0xFF8E8E93),
+                      fontSize: 12,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0.5,
+              shadowColor: const Color(0xFFF0F0F2),
+              automaticallyImplyLeading: false,
+              titleSpacing: 16.0,
+              title: Row(
+                children: [
+                  // User Avatar ST block
+                  GestureDetector(
+                    onTap: () {
+                      context.push(RouteNames.account);
+                    },
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE5DFFF), // Light lavender background
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        initials,
+                        style: const TextStyle(
+                          color: Color(0xFF6B4EFF), // Purple text
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // User Greeting Info
+                  GestureDetector(
+                    onTap: () {
+                      context.push(RouteNames.account);
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'Hey,',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
+                          ),
+                        ),
+                        Text(
+                          fullName,
+                          style: typography.bodyMedium.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                ],
+              ),
+              actions: [
+                // Coins Balance Chip Button
+                Padding(
+                  padding: const EdgeInsets.only(right: 16.0),
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: () {
+                        context.go(RouteNames.recharge);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12.0),
+                          border: Border.all(
+                            color: const Color(0xFFF0F0F2),
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Coin stacks icon
+                            const Icon(
+                              Icons.monetization_on,
+                              color: Color(0xFFF2A93B), // Gold coin color
+                              size: 20,
+                            ),
+                            const SizedBox(width: 6),
+                            // Balance label and amount column
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'Balance',
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 9,
+                                    height: 1.0,
+                                  ),
+                                ),
+                                Text(
+                                  '$balance',
+                                  style: typography.bodySmall.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: Colors.black,
+                                    height: 1.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+      body: isMatching
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.space24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 48),
+
+                  // Radar illustration with progress spinner in the center
+                  Center(
+                    child: MatchingIllustration(
+                      centerWidget: const Center(
+                        child: SizedBox(
+                          width: 30,
+                          height: 30,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3.0,
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B4EFF)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 40),
+
+                  // Looking for someone text
+                  Text(
+                    'Looking for someone...',
+                    style: typography.titleCard.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                      color: Colors.black,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Description
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Text(
+                      "We're checking who's available for a friendly conversation. This usually takes a few seconds.",
+                      style: typography.bodySmall.copyWith(
+                        color: const Color(0xFF8E8E93),
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  // Pill badge matching mockup
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3EFFF),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const _DynamicDots(),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Matching in progress',
+                          style: TextStyle(
+                            color: const Color(0xFF6B4EFF),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const Spacer(),
+
+                  // Cancel button at bottom
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: OutlinedButton(
+                      onPressed: _cancelMatchmaking,
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(
+                          color: Color(0xFFECEBF3),
+                          width: 1.5,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel search',
+                        style: typography.bodyMedium.copyWith(
+                          color: const Color(0xFF4A4A4A),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 32),
+                ],
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _handleRefresh,
+              color: const Color(0xFF6B4EFF),
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.space24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 16),
+
+                      // Matchmaking Banner Card
+                      GestureDetector(
+                        onTap: _startMatchmaking,
+                  child: Container(
+                    height: 132,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(24),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF7A58FF),
+                          Color(0xFFC69CFF),
+                        ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF7A58FF).withValues(alpha: 0.3),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      children: [
+                        // Background semi-transparent concentric circle patterns
+                        Positioned(
+                          right: -30,
+                          top: -20,
+                          child: Container(
+                            width: 140,
+                            height: 140,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withValues(alpha: 0.06),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.08),
+                                width: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: 20,
+                          bottom: -45,
+                          child: Container(
+                            width: 110,
+                            height: 110,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withValues(alpha: 0.04),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.06),
+                                width: 8,
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Card Content
+                        Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    // Row with Sparkle icon and MEET SOMEONE NEW
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.auto_awesome,
+                                          color: Colors.white70,
+                                          size: 14,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'MEET SOMEONE NEW',
+                                          style: typography.bodySmall.copyWith(
+                                            color: Colors.white.withValues(alpha: 0.85),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    // Start matchmaking heading text
+                                    Text(
+                                      'Start matchmaking',
+                                      style: typography.titleCard.copyWith(
+                                        color: Colors.white,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                        height: 1.2,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    // Subtitle details text
+                                    Text(
+                                      'A random voice connection awaits',
+                                      style: typography.bodySmall.copyWith(
+                                        color: Colors.white.withValues(alpha: 0.8),
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Glassmorphic outlines icon container
+                              Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.18),
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.25),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.people_outline_rounded,
+                                    color: Colors.white,
+                                    size: 28,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // DISCOVER and History Row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'DISCOVER',
+                      style: typography.bodySmall.copyWith(
+                        color: const Color(0xFF8E8E93),
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                        fontSize: 13,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        context.push(RouteNames.history);
+                      },
+                      child: Text(
+                        'History',
+                        style: typography.bodySmall.copyWith(
+                          color: const Color(0xFF6B4EFF),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 40),
+
+                // Centered rotating orbits radar illustration
+                const Center(
+                  child: MatchingIllustration(),
+                ),
+                const SizedBox(height: 40),
+
+                // Heading Status text
+                Text(
+                  'No Telecallers Available',
+                  style: typography.titleCard.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                    color: Colors.black,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+
+                // Helper Subtitle information
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Text(
+                    'It looks like all our telecallers are busy at the moment. Please check back in a few minutes!',
+                    style: typography.bodySmall.copyWith(
+                      color: Colors.grey,
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                // Lavender pull down action button
+                GestureDetector(
+                  onTap: _handleRefresh,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3EFFF), // light lavender fill
+                      borderRadius: AppRadius.pill,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(
+                          Icons.refresh,
+                          color: Color(0xFF6B4EFF), // purple icon
+                          size: 16,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Pull down to refresh',
+                          style: TextStyle(
+                            color: Color(0xFF6B4EFF), // purple text
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 80),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DynamicDots extends StatefulWidget {
+  const _DynamicDots();
+
+  @override
+  State<_DynamicDots> createState() => _DynamicDotsState();
+}
+
+class _DynamicDotsState extends State<_DynamicDots> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (index) {
+            final double delay = index * 0.20;
+            double progress = _controller.value - delay;
+            if (progress < 0) progress += 1.0;
+            if (progress > 1.0) progress -= 1.0;
+
+            final double opacity = 0.2 + 0.8 * (1.0 - (progress - 0.5).abs() * 2).clamp(0.0, 1.0);
+
+            return Opacity(
+              opacity: opacity,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 1.0),
+                child: Text(
+                  '•',
+                  style: TextStyle(
+                    color: Color(0xFF6B4EFF),
+                    fontSize: 25,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+}

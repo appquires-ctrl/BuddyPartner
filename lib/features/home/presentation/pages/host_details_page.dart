@@ -1,0 +1,265 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:dating_app/app/router/route_names.dart';
+import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:dating_app/app/theme/app_spacing.dart';
+import 'package:dating_app/app/theme/app_radius.dart';
+import 'package:dating_app/core/widgets/image/app_network_image.dart';
+import 'package:dating_app/core/widgets/cards/app_card.dart';
+
+/// HostDetailsPage displays a host telecaller profile with large avatar
+/// cover photo, overlapping stats card, bios, languages, and action triggers.
+class HostDetailsPage extends StatefulWidget {
+  final String hostId;
+
+  const HostDetailsPage({
+    super.key,
+    required this.hostId,
+  });
+
+  @override
+  State<HostDetailsPage> createState() => _HostDetailsPageState();
+}
+
+class _HostDetailsPageState extends State<HostDetailsPage> {
+  bool _isFavorited = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final typography = context.typography;
+
+    // Mock profiles database lookup
+    final name = widget.hostId == 'host_2' ? 'Rohan' : 'Priya';
+    final age = widget.hostId == 'host_2' ? 23 : 21;
+    final rate = widget.hostId == 'host_2' ? 12 : 10;
+    final rating = widget.hostId == 'host_2' ? 4.5 : 4.8;
+    final reviews = widget.hostId == 'host_2' ? 16 : 24;
+    final imgUrl = widget.hostId == 'host_2' 
+        ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400'
+        : 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400';
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          // Cover picture
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: MediaQuery.of(context).size.height * 0.45,
+            child: AppNetworkImage(
+              imageUrl: imgUrl,
+              fit: BoxFit.cover,
+            ),
+          ),
+          
+          // Back button and favorite overlays
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            left: 16,
+            right: 16,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                CircleAvatar(
+                  backgroundColor: Colors.black.withOpacity(0.3),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => context.pop(),
+                  ),
+                ),
+                CircleAvatar(
+                  backgroundColor: Colors.black.withOpacity(0.3),
+                  child: IconButton(
+                    icon: Icon(
+                      _isFavorited ? Icons.favorite : Icons.favorite_border,
+                      color: _isFavorited ? colors.danger : Colors.white,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isFavorited = !_isFavorited;
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Profile Content details sheet
+          Positioned(
+            top: MediaQuery.of(context).size.height * 0.4,
+            left: 0,
+            right: 0,
+            bottom: 80,
+            child: Container(
+              decoration: BoxDecoration(
+                color: colors.surfaceMuted,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(28),
+                  topRight: Radius.circular(28),
+                ),
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(AppSpacing.space24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Main name card
+                    AppCard(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '$name, $age',
+                                style: typography.titleCard.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  const Icon(Icons.star, color: Colors.amber, size: 18),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$rating ($reviews reviews)',
+                                    style: typography.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          Text(
+                            '₹$rate/min',
+                            style: typography.headlineGreeting.copyWith(
+                              color: colors.primary,
+                              fontSize: 22,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.space24),
+
+                    // Bios description
+                    Text(
+                      'About Me',
+                      style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: AppSpacing.space8),
+                    Text(
+                      'Hey there! I love speaking to new people and sharing stories. Let’s connect and talk about travel, music, life, or whatever is on your mind today! I’m highly active and love to keep the conversation positive and fun.',
+                      style: typography.bodySmall.copyWith(height: 1.4),
+                    ),
+                    const SizedBox(height: AppSpacing.space24),
+
+                    // Language chips
+                    Text(
+                      'Languages',
+                      style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: AppSpacing.space8),
+                    Row(
+                      children: [
+                        _buildTag('Hindi', colors),
+                        const SizedBox(width: 8),
+                        _buildTag('English', colors),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.space24),
+
+                    // Interest chips
+                    Text(
+                      'Interests',
+                      style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: AppSpacing.space8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _buildTag('Music', colors),
+                        _buildTag('Travel', colors),
+                        _buildTag('Gaming', colors),
+                        _buildTag('Movies', colors),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Bottom Bar action row
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 80,
+            child: Container(
+              color: colors.surface,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        fixedSize: const Size.fromHeight(52),
+                        side: BorderSide(color: colors.primary),
+                        shape: const RoundedRectangleBorder(borderRadius: AppRadius.pill),
+                      ),
+                      icon: Icon(Icons.chat_bubble_outline, color: colors.primary),
+                      label: Text('Chat', style: TextStyle(color: colors.primary)),
+                      onPressed: () {
+                        context.push(RouteNames.chat);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 3,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        fixedSize: const Size.fromHeight(52),
+                        backgroundColor: colors.success,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: const RoundedRectangleBorder(borderRadius: AppRadius.pill),
+                      ),
+                      icon: const Icon(Icons.call),
+                      label: const Text('Call Now'),
+                      onPressed: () {
+                        context.push(RouteNames.calling);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTag(String text, dynamic colors) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: colors.chipLavender,
+        borderRadius: AppRadius.pill,
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: colors.primary,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
