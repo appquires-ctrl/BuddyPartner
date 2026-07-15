@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
@@ -68,12 +69,75 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
       backgroundColor: const Color(0xFF0F0C22), // Solid dark purple-blue background
       body: Stack(
         children: [
-          // Concentric circular paths in the background
-          const Positioned.fill(
-            child: CustomPaint(
-              painter: _ConcentricCirclesPainter(),
+          // Background - either remote video view or concentric circles
+          if (matchState.isVideoEnabled)
+            Positioned.fill(
+              child: controller.agoraEngine != null && matchState.remoteUid != null
+                  ? AgoraVideoView(
+                      controller: VideoViewController.remote(
+                        rtcEngine: controller.agoraEngine!,
+                        canvas: VideoCanvas(uid: matchState.remoteUid),
+                        connection: RtcConnection(channelId: matchState.agoraChannel),
+                      ),
+                    )
+                  : Container(
+                      color: const Color(0xFF0F0C22),
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const CircularProgressIndicator(color: Color(0xFF7A58FF)),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Waiting for ${matchState.matchedUser?.fullName ?? "user"} to share video...',
+                              style: const TextStyle(color: Colors.white70, fontSize: 15),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+            )
+          else
+            // Concentric circular paths in the background for voice calls
+            const Positioned.fill(
+              child: CustomPaint(
+                painter: _ConcentricCirclesPainter(),
+              ),
             ),
-          ),
+
+          // Floating local video view (PiP)
+          if (matchState.isVideoEnabled && controller.agoraEngine != null)
+            Positioned(
+              top: 96,
+              right: 24,
+              child: Container(
+                width: 110,
+                height: 160,
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF7A58FF), width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: AgoraVideoView(
+                    controller: VideoViewController(
+                      rtcEngine: controller.agoraEngine!,
+                      canvas: const VideoCanvas(uid: 0),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+
 
           SafeArea(
             child: Padding(
@@ -154,7 +218,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          matchState.isVideoEnabled ? 'Video Call' : 'Connected',
+                          matchState.isVideoEnabled ? displayName : 'Connected',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -165,189 +229,184 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                     ),
                   ),
 
-                  const Spacer(flex: 2),
+                  if (!matchState.isVideoEnabled) ...[
+                    const Spacer(flex: 2),
 
-                  // Circular Profile Avatar with purple glowing ring
-                  Container(
-                    width: 172,
-                    height: 172,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFF7A58FF), // Violet glowing outline ring
-                        width: 4.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF7A58FF).withValues(alpha: 0.25),
-                          blurRadius: 24,
-                          spreadRadius: 4,
-                        ),
-                      ],
-                    ),
-                    child: CircleAvatar(
-                      backgroundColor: const Color(0xFFE5DFFF), // Light lavender background
-                      backgroundImage: matchedUser?.avatarUrl != null
-                          ? NetworkImage(matchedUser!.avatarUrl!)
-                          : null,
-                      child: matchedUser?.avatarUrl == null
-                          ? Text(
-                              initials,
-                              style: const TextStyle(
-                                color: Color(0xFF6B4EFF), // Purple initials text
-                                fontSize: 52,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.0,
-                              ),
-                            )
-                          : null,
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // User name with verified badge placeholder
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        displayName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      const Icon(
-                        Icons.verified_rounded,
-                        color: Color(0xFF9E7CFF), // Violet verified checkmark
-                        size: 22,
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 6),
-
-                  // Placeholder location/age info (not wired to real data per prompt)
-                  const Text(
-                    'Voice Call',
-                    style: TextStyle(
-                      color: Color(0xFFA19EBB),
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Action Buttons row: Follow & Message (no-op stubs)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildActionButton(
-                        icon: Icons.person_add_alt_1_outlined,
-                        label: 'Follow',
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Coming soon!'),
-                              duration: Duration(seconds: 1),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 16),
-                      _buildActionButton(
-                        icon: Icons.chat_bubble_outline_rounded,
-                        label: 'Message',
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Coming soon!'),
-                              duration: Duration(seconds: 1),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-
-                  const Spacer(flex: 3),
-
-                  // Switch to Video Call banner card
-                  GestureDetector(
-                    onTap: () {
-                      controller.upgradeToVideo();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    // Circular Profile Avatar with purple glowing ring
+                    Container(
+                      width: 172,
+                      height: 172,
                       decoration: BoxDecoration(
-                        color: matchState.isVideoEnabled
-                            ? const Color(0xFF7A58FF).withValues(alpha: 0.2)
-                            : Colors.white.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(20),
+                        shape: BoxShape.circle,
                         border: Border.all(
-                          color: matchState.isVideoEnabled
-                              ? const Color(0xFF7A58FF).withValues(alpha: 0.4)
-                              : Colors.white.withValues(alpha: 0.08),
-                          width: 1.0,
+                          color: const Color(0xFF7A58FF), // Violet glowing outline ring
+                          width: 4.5,
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 44,
-                            height: 60,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Color(0xFF7A58FF),
-                            ),
-                            child: Icon(
-                              matchState.isVideoEnabled
-                                  ? Icons.videocam_rounded
-                                  : Icons.videocam_outlined,
-                              color: Colors.white,
-                              size: 22,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  matchState.isVideoEnabled ? 'Video' : 'Switch to',
-                                  style: const TextStyle(
-                                    color: Color(0xFFA19EBB),
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  matchState.isVideoEnabled ? 'Enabled' : 'Video Call',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Icon(
-                            matchState.isVideoEnabled
-                                ? Icons.check_circle_rounded
-                                : Icons.chevron_right_rounded,
-                            color: matchState.isVideoEnabled
-                                ? const Color(0xFF2DCE89)
-                                : Colors.white60,
-                            size: 24,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF7A58FF).withValues(alpha: 0.25),
+                            blurRadius: 24,
+                            spreadRadius: 4,
                           ),
                         ],
                       ),
+                      child: CircleAvatar(
+                        backgroundColor: const Color(0xFFE5DFFF), // Light lavender background
+                        backgroundImage: matchedUser?.avatarUrl != null
+                            ? NetworkImage(matchedUser!.avatarUrl!)
+                            : null,
+                        child: matchedUser?.avatarUrl == null
+                            ? Text(
+                                initials,
+                                style: const TextStyle(
+                                  color: Color(0xFF6B4EFF), // Purple initials text
+                                  fontSize: 52,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.0,
+                                ),
+                              )
+                            : null,
+                      ),
                     ),
-                  ),
+
+                    const SizedBox(height: 24),
+
+                    // User name with verified badge placeholder
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          displayName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(
+                          Icons.verified_rounded,
+                          color: Color(0xFF9E7CFF), // Violet verified checkmark
+                          size: 22,
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    // Placeholder location/age info (not wired to real data per prompt)
+                    const Text(
+                      'Voice Call',
+                      style: TextStyle(
+                        color: Color(0xFFA19EBB),
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Action Buttons row: Follow & Message (no-op stubs)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildActionButton(
+                          icon: Icons.person_add_alt_1_outlined,
+                          label: 'Follow',
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Coming soon!'),
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 16),
+                        _buildActionButton(
+                          icon: Icons.chat_bubble_outline_rounded,
+                          label: 'Message',
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Coming soon!'),
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+
+                    const Spacer(flex: 3),
+                  ] else ...[
+                    const Spacer(flex: 5),
+                  ],
+
+                  // Switch to Video Call banner card
+                  if (!matchState.isVideoEnabled)
+                    GestureDetector(
+                      onTap: () {
+                        controller.upgradeToVideo();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.08),
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 60,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Color(0xFF7A58FF),
+                              ),
+                              child: const Icon(
+                                Icons.videocam_outlined,
+                                color: Colors.white,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Switch to',
+                                    style: TextStyle(
+                                      color: Color(0xFFA19EBB),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    'Video Call',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right_rounded,
+                              color: Colors.white60,
+                              size: 24,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
 
                   const Spacer(flex: 2),
 

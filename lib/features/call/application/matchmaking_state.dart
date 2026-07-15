@@ -31,8 +31,8 @@ class MatchedUserInfo {
   factory MatchedUserInfo.fromJson(Map<String, dynamic> json) {
     return MatchedUserInfo(
       id: json['id'] as String? ?? '',
-      fullName: json['fullName'] as String? ?? 'User',
-      avatarUrl: json['avatarUrl'] as String?,
+      fullName: (json['fullName'] ?? json['full_name']) as String? ?? 'User',
+      avatarUrl: (json['avatarUrl'] ?? json['avatar_url']) as String?,
     );
   }
 }
@@ -44,6 +44,7 @@ class MatchmakingState {
   final String? agoraChannel;
   final String? agoraToken;
   final int? agoraUid;
+  final int? remoteUid;
   final MatchedUserInfo? matchedUser;
 
   /// Countdown timer value (300 → 0) for display purposes only.
@@ -61,6 +62,7 @@ class MatchmakingState {
     this.agoraChannel,
     this.agoraToken,
     this.agoraUid,
+    this.remoteUid,
     this.matchedUser,
     this.remainingSeconds = 300,
     this.isVideoEnabled = false,
@@ -75,6 +77,8 @@ class MatchmakingState {
     String? agoraChannel,
     String? agoraToken,
     int? agoraUid,
+    int? remoteUid,
+    bool clearRemoteUid = false,
     MatchedUserInfo? matchedUser,
     int? remainingSeconds,
     bool? isVideoEnabled,
@@ -88,6 +92,7 @@ class MatchmakingState {
       agoraChannel: agoraChannel ?? this.agoraChannel,
       agoraToken: agoraToken ?? this.agoraToken,
       agoraUid: agoraUid ?? this.agoraUid,
+      remoteUid: clearRemoteUid ? null : (remoteUid ?? this.remoteUid),
       matchedUser: matchedUser ?? this.matchedUser,
       remainingSeconds: remainingSeconds ?? this.remainingSeconds,
       isVideoEnabled: isVideoEnabled ?? this.isVideoEnabled,

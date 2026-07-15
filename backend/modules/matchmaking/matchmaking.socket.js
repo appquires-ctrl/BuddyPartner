@@ -240,9 +240,11 @@ async function fetchPublicProfile(supabase, userId) {
     .single();
 
   if (error || !data) {
+    console.error(`❌ Error fetching profile for user ${userId}:`, error || 'No data found');
     return { id: userId, fullName: 'User', avatarUrl: null };
   }
 
+  console.log(`✅ Fetched profile for user ${userId}: ${data.full_name}`);
   return {
     id: data.id,
     fullName: data.full_name || 'User',

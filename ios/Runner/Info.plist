@@ -81,5 +81,11 @@
 	<string>LoopCall needs microphone access for voice calls</string>
 	<key>NSCameraUsageDescription</key>
 	<string>LoopCall needs camera access for video calls</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Dating App needs photo library access to upload profile pictures</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Dating App needs Bluetooth access to connect to wireless headsets during calls</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Dating App needs Bluetooth access to connect to wireless headsets during calls</string>
 </dict>
 </plist>

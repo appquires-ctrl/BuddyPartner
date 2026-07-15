@@ -19,11 +19,15 @@ class MatchmakingController extends Notifier<MatchmakingState> {
   RtcEngine? _agoraEngine;
   Timer? _countdownTimer;
   String? _agoraAppId;
-  bool _hasJoinedQueue = false;
+
+  /// Expose the Agora RTC engine for rendering video in the UI
+  RtcEngine? get agoraEngine => _agoraEngine;
 
   @override
   MatchmakingState build() {
     ref.onDispose(_cleanup);
+    // Pre-initialize and connect the socket when the provider builds
+    Future.microtask(() => _initSocket());
     return const MatchmakingState();
   }
 
@@ -34,9 +38,11 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     if (state.phase != MatchmakingPhase.idle) return;
 
     try {
-      // Request mic permission upfront — before connecting to the queue.
-      // This prevents an async race between the permission dialog and match_found.
-      final micGranted = await Permission.microphone.request().isGranted;
+      // 1. Optimized permission check (avoid native channel overhead if already granted)
+      bool micGranted = await Permission.microphone.isGranted;
+      if (!micGranted) {
+        micGranted = await Permission.microphone.request().isGranted;
+      }
       if (!micGranted) {
         state = state.copyWith(
           phase: MatchmakingPhase.idle,
@@ -45,7 +51,13 @@ class MatchmakingController extends Notifier<MatchmakingState> {
         return;
       }
 
-      _connectSocket();
+      // Ensure socket is initialized and connected
+      _initSocket();
+
+      if (_socket != null && _socket!.connected) {
+        _socket!.emit('join_queue');
+      }
+
       state = state.copyWith(phase: MatchmakingPhase.queued);
     } catch (e) {
       state = state.copyWith(
@@ -60,7 +72,6 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     if (state.phase != MatchmakingPhase.queued) return;
 
     _socket?.emit('leave_queue');
-    _disconnectSocket();
     state = state.reset();
   }
 
@@ -78,7 +89,6 @@ class MatchmakingController extends Notifier<MatchmakingState> {
 
     await _leaveAgoraChannel();
     _stopCountdown();
-    _disconnectSocket();
     state = state.copyWith(phase: MatchmakingPhase.ended);
 
     // Brief delay before resetting to idle so the UI can react to `ended`
@@ -117,7 +127,10 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     if (state.phase != MatchmakingPhase.inCall) return;
     if (state.isVideoEnabled) return; // Already in video mode
 
-    final cameraGranted = await Permission.camera.request().isGranted;
+    bool cameraGranted = await Permission.camera.isGranted;
+    if (!cameraGranted) {
+      cameraGranted = await Permission.camera.request().isGranted;
+    }
     if (!cameraGranted) {
       state = state.copyWith(errorMessage: 'Camera permission denied');
       return;
@@ -129,14 +142,12 @@ class MatchmakingController extends Notifier<MatchmakingState> {
 
   // ── Socket.io connection ────────────────────────────────────────────────
 
-  void _connectSocket() {
+  void _initSocket() {
+    if (_socket != null) return;
+
     final accessToken =
         Supabase.instance.client.auth.currentSession?.accessToken;
-    if (accessToken == null) {
-      throw Exception('Not authenticated');
-    }
-
-    _hasJoinedQueue = false;
+    if (accessToken == null) return;
 
     _socket = sio.io(
       AppConfig.backendUrl,
@@ -149,9 +160,9 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     );
 
     _socket!.onConnect((_) {
-      // Emit join_queue only once — guard against reconnect re-emission
-      if (!_hasJoinedQueue) {
-        _hasJoinedQueue = true;
+      debugPrint('Socket connected to backend');
+      // If we got disconnected during an active queue, re-join the queue
+      if (state.phase == MatchmakingPhase.queued) {
         _socket!.emit('join_queue');
       }
     });
@@ -163,17 +174,14 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     _socket!.on('match_error', _onMatchError);
 
     _socket!.onDisconnect((_) {
+      debugPrint('Socket disconnected');
       if (state.phase == MatchmakingPhase.inCall) {
-        // Server disconnected during call — treat as call ended
         _handleServerDisconnect();
       }
     });
 
     _socket!.onConnectError((err) {
-      state = state.copyWith(
-        phase: MatchmakingPhase.idle,
-        errorMessage: 'Connection failed. Please try again.',
-      );
+      debugPrint('Socket connection error: $err');
     });
 
     _socket!.connect();
@@ -189,6 +197,7 @@ class MatchmakingController extends Notifier<MatchmakingState> {
   Future<void> _onMatchFound(dynamic data) async {
     try {
       final map = Map<String, dynamic>.from(data as Map);
+      debugPrint('MATCH DATA RECEIVED: $map');
       final callId = map['callId'] as String;
       final channelName = map['agoraChannelName'] as String;
       final agoraToken = map['agoraToken'] as String;
@@ -220,14 +229,12 @@ class MatchmakingController extends Notifier<MatchmakingState> {
         phase: MatchmakingPhase.idle,
         errorMessage: 'Failed to join call: $e',
       );
-      _disconnectSocket();
     }
   }
 
   void _onCallEnded(dynamic data) async {
     await _leaveAgoraChannel();
     _stopCountdown();
-    _disconnectSocket();
     state = state.copyWith(phase: MatchmakingPhase.ended);
 
     await Future.delayed(const Duration(milliseconds: 300));
@@ -253,7 +260,6 @@ class MatchmakingController extends Notifier<MatchmakingState> {
       phase: MatchmakingPhase.idle,
       errorMessage: 'Matchmaking error. Please try again.',
     );
-    _disconnectSocket();
   }
 
   void _handleServerDisconnect() async {
@@ -293,10 +299,14 @@ class MatchmakingController extends Notifier<MatchmakingState> {
       },
       onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
         // The matched user has joined
+        state = state.copyWith(remoteUid: remoteUid);
       },
       onUserOffline: (RtcConnection connection, int remoteUid,
           UserOfflineReasonType reason) {
-        // Remote user left — the server's call_ended event will handle cleanup
+        // Remote user left
+        if (state.remoteUid == remoteUid) {
+          state = state.copyWith(clearRemoteUid: true);
+        }
       },
       onError: (ErrorCodeType code, String msg) {
         // Agora engine error
