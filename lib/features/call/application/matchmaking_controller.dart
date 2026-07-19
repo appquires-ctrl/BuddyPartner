@@ -21,6 +21,8 @@ class MatchmakingController extends Notifier<MatchmakingState> {
   Timer? _countdownTimer;
   String? _agoraAppId;
 
+  Timer? _callingTimeoutTimer;
+
   /// Tracks a pending direct-call target so we can re-emit the event
   /// if the socket wasn't connected when `callUser()` was called.
   String? _pendingDirectCallUserId;
@@ -99,6 +101,8 @@ class MatchmakingController extends Notifier<MatchmakingState> {
   void leaveQueue() {
     if (state.phase != MatchmakingPhase.queued) return;
 
+    _callingTimeoutTimer?.cancel();
+    _callingTimeoutTimer = null;
     _pendingDirectCallUserId = null;
     _socket?.emit('leave_queue');
     state = state.reset();
@@ -157,7 +161,20 @@ class MatchmakingController extends Notifier<MatchmakingState> {
         _socket!.emit('direct_call', {'targetUserId': targetUserId});
         _pendingDirectCallUserId = null;
       }
+
+      // 5. Start a 15-second connection timeout timer
+      _callingTimeoutTimer?.cancel();
+      _callingTimeoutTimer = Timer(const Duration(seconds: 15), () {
+        if (state.phase == MatchmakingPhase.queued) {
+          leaveQueue();
+          state = state.copyWith(
+            phase: MatchmakingPhase.idle,
+            errorMessage: 'Connection timed out. Target user might be offline or busy.',
+          );
+        }
+      });
     } catch (e) {
+      _callingTimeoutTimer?.cancel();
       state = state.copyWith(
         phase: MatchmakingPhase.idle,
         errorMessage: 'Failed to start call: $e',
@@ -308,6 +325,10 @@ class MatchmakingController extends Notifier<MatchmakingState> {
         state.phase != MatchmakingPhase.idle) {
       return;
     }
+    
+    // Cancel connection timeout timer since we got matched/connected
+    _callingTimeoutTimer?.cancel();
+    _callingTimeoutTimer = null;
     try {
       final map = Map<String, dynamic>.from(data as Map);
       debugPrint('MATCH DATA RECEIVED: $map');
@@ -534,6 +555,8 @@ class MatchmakingController extends Notifier<MatchmakingState> {
   // ── Cleanup ───────────────────────────────────────────────────────────
 
   void _cleanup() {
+    _callingTimeoutTimer?.cancel();
+    _callingTimeoutTimer = null;
     _stopCountdown();
     _leaveAgoraChannel();
     _disconnectSocket();
