@@ -20,6 +20,10 @@ class MatchmakingController extends Notifier<MatchmakingState> {
   Timer? _countdownTimer;
   String? _agoraAppId;
 
+  /// Tracks a pending direct-call target so we can re-emit the event
+  /// if the socket wasn't connected when `callUser()` was called.
+  String? _pendingDirectCallUserId;
+
   /// Expose the Agora RTC engine for rendering video in the UI
   RtcEngine? get agoraEngine => _agoraEngine;
 
@@ -79,8 +83,70 @@ class MatchmakingController extends Notifier<MatchmakingState> {
   void leaveQueue() {
     if (state.phase != MatchmakingPhase.queued) return;
 
+    _pendingDirectCallUserId = null;
     _socket?.emit('leave_queue');
     state = state.reset();
+  }
+
+  /// Initiate a direct call to a specific user (e.g. from call history).
+  /// The server handles this via the 'direct_call' event and responds with
+  /// 'match_found' using the same flow as random matchmaking.
+  Future<void> callUser({
+    required String targetUserId,
+    required String targetUserName,
+    String? targetUserAvatar,
+  }) async {
+    if (state.phase != MatchmakingPhase.idle) return;
+
+    try {
+      // 1. Ensure mic + camera permissions
+      bool micGranted = await Permission.microphone.isGranted;
+      bool cameraGranted = await Permission.camera.isGranted;
+
+      if (!micGranted || !cameraGranted) {
+        final statuses = await [
+          Permission.microphone,
+          Permission.camera,
+        ].request();
+        micGranted = statuses[Permission.microphone]?.isGranted ?? false;
+        cameraGranted = statuses[Permission.camera]?.isGranted ?? false;
+      }
+
+      if (!micGranted || !cameraGranted) {
+        state = state.copyWith(
+          phase: MatchmakingPhase.idle,
+          errorMessage: 'Microphone and Camera permissions are required.',
+        );
+        return;
+      }
+
+      // 2. Ensure socket is initialised and connected
+      _initSocket();
+
+      // 3. Set state to queued and pre-fill matched user info so the
+      //    calling/connecting UI can show who we're calling.
+      state = state.copyWith(
+        phase: MatchmakingPhase.queued,
+        matchedUser: MatchedUserInfo(
+          id: targetUserId,
+          fullName: targetUserName,
+          avatarUrl: targetUserAvatar,
+        ),
+      );
+
+      // 4. Ask the server to initiate a direct call.
+      //    Store the target so onConnect can re-emit if socket isn't ready yet.
+      _pendingDirectCallUserId = targetUserId;
+      if (_socket != null && _socket!.connected) {
+        _socket!.emit('direct_call', {'targetUserId': targetUserId});
+        _pendingDirectCallUserId = null;
+      }
+    } catch (e) {
+      state = state.copyWith(
+        phase: MatchmakingPhase.idle,
+        errorMessage: 'Failed to start call: $e',
+      );
+    }
   }
 
   /// Manually end the current call. Navigating back to home is handled by the UI.
@@ -169,9 +235,14 @@ class MatchmakingController extends Notifier<MatchmakingState> {
 
     _socket!.onConnect((_) {
       debugPrint('Socket connected to backend');
-      // If we got disconnected during an active queue, re-join the queue
+      // If we got disconnected during an active queue, re-emit the pending event
       if (state.phase == MatchmakingPhase.queued) {
-        _socket!.emit('join_queue');
+        if (_pendingDirectCallUserId != null) {
+          _socket!.emit('direct_call', {'targetUserId': _pendingDirectCallUserId});
+          _pendingDirectCallUserId = null;
+        } else {
+          _socket!.emit('join_queue');
+        }
       }
     });
 
@@ -203,6 +274,11 @@ class MatchmakingController extends Notifier<MatchmakingState> {
   // ── Socket event handlers ─────────────────────────────────────────────
 
   Future<void> _onMatchFound(dynamic data) async {
+    // Guard: only accept match_found when we're actually waiting for one
+    if (state.phase != MatchmakingPhase.queued &&
+        state.phase != MatchmakingPhase.idle) {
+      return;
+    }
     try {
       final map = Map<String, dynamic>.from(data as Map);
       debugPrint('MATCH DATA RECEIVED: $map');
@@ -259,7 +335,7 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     }
   }
 
-  void _onCallEnded(dynamic data) async {
+  Future<void> _onCallEnded(dynamic data) async {
     await _leaveAgoraChannel();
     _stopCountdown();
     state = state.copyWith(phase: MatchmakingPhase.ended);
@@ -268,7 +344,7 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     state = state.reset();
   }
 
-  void _onVideoUpgradeRequest(dynamic data) async {
+  Future<void> _onVideoUpgradeRequest(dynamic data) async {
     // Phase 1: auto-accept video upgrade requests
     final callId = state.callId;
     if (callId == null) return;
@@ -277,7 +353,7 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     await _enableVideo();
   }
 
-  void _onVideoUpgradeAccepted(dynamic data) async {
+  Future<void> _onVideoUpgradeAccepted(dynamic data) async {
     // The other party accepted our video request — enable video on our side too
     await _enableVideo();
   }
@@ -289,7 +365,7 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     );
   }
 
-  void _handleServerDisconnect() async {
+  Future<void> _handleServerDisconnect() async {
     await _leaveAgoraChannel();
     _stopCountdown();
     state = state.copyWith(phase: MatchmakingPhase.ended);

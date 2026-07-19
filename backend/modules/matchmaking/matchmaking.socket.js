@@ -115,6 +115,96 @@ function registerMatchmakingHandlers(io, socket, redis, supabase) {
     }
   });
 
+  // ── direct_call ────────────────────────────────────────────────────────
+  // Allows a user to call a specific person directly (e.g. from call history)
+  // bypassing the matchmaking queue. Uses the same Agora + 5-min timer flow.
+  socket.on('direct_call', async ({ targetUserId }) => {
+    try {
+      // 1. Prevent calling yourself
+      if (targetUserId === userId) {
+        socket.emit('match_error', { error: 'Cannot call yourself' });
+        return;
+      }
+
+      // 2. Prevent calling if already in an active call
+      if (socketToCall.has(socket.id)) {
+        socket.emit('match_error', { error: 'Already in an active call' });
+        return;
+      }
+
+      // 3. Check if target user is online
+      const targetSocketId = userSockets.get(targetUserId);
+      if (!targetSocketId) {
+        socket.emit('match_error', { error: 'User is currently offline' });
+        return;
+      }
+
+      // 4. Check if target user is already in a call
+      if (socketToCall.has(targetSocketId)) {
+        socket.emit('match_error', { error: 'User is currently on another call' });
+        return;
+      }
+
+      // 5. Remove both users from the matchmaking queue if they were in it
+      await matchmakingService.leaveQueue(userId);
+      await matchmakingService.leaveQueue(targetUserId);
+
+      // 6. Set up the call — same logic as attemptMatch
+      const channelName = matchmakingService.generateChannelName();
+      const uidA = matchmakingService.uuidToAgoraUid(userId);
+      const uidB = matchmakingService.uuidToAgoraUid(targetUserId);
+      const tokenA = callsService.generateAgoraToken(channelName, uidA);
+      const tokenB = callsService.generateAgoraToken(channelName, uidB);
+
+      // 7. Create call record in DB
+      const callId = await callsService.createCall(userId, targetUserId);
+
+      // 8. Fetch profiles for both users
+      const [profileA, profileB] = await Promise.all([
+        fetchPublicProfile(supabase, userId),
+        fetchPublicProfile(supabase, targetUserId),
+      ]);
+
+      // 9. Track active call
+      activeCalls.set(callId, {
+        userA: { userId, socketId: socket.id, agoraUid: uidA },
+        userB: { userId: targetUserId, socketId: targetSocketId, agoraUid: uidB },
+        channelName,
+      });
+      socketToCall.set(socket.id, callId);
+      socketToCall.set(targetSocketId, callId);
+
+      // 10. Emit match_found to both users (same payload as random match)
+      io.to(socket.id).emit('match_found', {
+        callId,
+        agoraAppId: process.env.AGORA_APP_ID,
+        agoraChannelName: channelName,
+        agoraToken: tokenA,
+        agoraUid: uidA,
+        matchedUser: profileB,
+      });
+
+      io.to(targetSocketId).emit('match_found', {
+        callId,
+        agoraAppId: process.env.AGORA_APP_ID,
+        agoraChannelName: channelName,
+        agoraToken: tokenB,
+        agoraUid: uidB,
+        matchedUser: profileA,
+      });
+
+      // 11. Start server-authoritative 5-minute timer
+      callsService.startCallTimer(callId, (expiredCallId) => {
+        handleCallEnd(expiredCallId, callsService, io, 'timer');
+      });
+
+      console.log(`📞 Direct call ${callId} started: ${userId} → ${targetUserId} on channel ${channelName}`);
+    } catch (err) {
+      console.error('Error in direct_call:', err);
+      socket.emit('match_error', { error: 'Failed to set up direct call' });
+    }
+  });
+
   // ── disconnect ────────────────────────────────────────────────────────
   socket.on('disconnect', async () => {
     try {

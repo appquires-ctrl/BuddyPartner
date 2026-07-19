@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/features/home/presentation/widgets/matching_illustration.dart';
 import 'package:dating_app/features/history/data/call_history_provider.dart';
+import 'package:dating_app/features/call/application/matchmaking_controller.dart';
+import 'package:dating_app/features/call/application/matchmaking_state.dart';
 
 /// CallHistoryPage renders the list of call logs fetched dynamically from Supabase.
 class CallHistoryPage extends ConsumerStatefulWidget {
@@ -55,6 +58,40 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
       return '${parts[0][0]}${parts[1][0]}';
     }
     return parts[0].isNotEmpty ? parts[0][0] : 'U';
+  }
+
+  /// Initiate a direct call to this user and navigate to the calling screen.
+  void _callUser(CallLog log) {
+    final controller = ref.read(matchmakingControllerProvider.notifier);
+    final currentState = ref.read(matchmakingControllerProvider);
+
+    // Only start if not already in a call/queue
+    if (currentState.phase != MatchmakingPhase.idle) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('A call is already in progress.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // Determine the other user's ID (caller or matched, whichever isn't us)
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final targetUserId = log.matchedUserId == currentUserId
+        ? log.callerId
+        : log.matchedUserId;
+
+    controller.callUser(
+      targetUserId: targetUserId,
+      targetUserName: log.otherUserName,
+      targetUserAvatar: log.otherUserAvatar,
+    );
+
+    // Navigate to the "Connecting..." screen
+    if (mounted) {
+      context.push(RouteNames.calling);
+    }
   }
 
   @override
@@ -314,22 +351,34 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
                         ),
                       ),
 
-                      // Call duration & Type Indicator
+                      // Call duration & Call-back button
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Icon(
-                            isVideo ? Icons.videocam_rounded : Icons.phone_rounded,
-                            color: const Color(0xFF7A58FF),
-                            size: 20,
+                          // Tappable call button
+                          GestureDetector(
+                            onTap: () => _callUser(log),
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFF3EFFF),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                isVideo ? Icons.videocam_rounded : Icons.phone_rounded,
+                                color: const Color(0xFF7A58FF),
+                                size: 20,
+                              ),
+                            ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 4),
                           Text(
                             _formatDuration(log.durationSeconds),
                             style: TextStyle(
-                              color: colors.textPrimary,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
+                              color: colors.textSecondary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
