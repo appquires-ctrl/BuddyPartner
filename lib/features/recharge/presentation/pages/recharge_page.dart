@@ -56,13 +56,13 @@ class RechargePage extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.space12),
             
-            // 2-Column Grid of plans
+            // Dynamic column count responsive Grid of plans
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: plans.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: MediaQuery.of(context).size.width > 800 ? 4 : (MediaQuery.of(context).size.width > 600 ? 3 : 2),
                 crossAxisSpacing: AppSpacing.space16,
                 mainAxisSpacing: AppSpacing.space16,
                 childAspectRatio: 1.0,

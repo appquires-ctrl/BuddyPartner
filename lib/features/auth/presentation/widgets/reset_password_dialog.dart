@@ -77,13 +77,14 @@ class _ResetPasswordDialogState extends State<ResetPasswordDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final typography = context.typography;
 
     return PopScope(
       canPop: false, // Prevent dismissing by back button
       child: AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: AppRadius.lg),
-        backgroundColor: Colors.white,
+        backgroundColor: colors.surface,
         title: Center(
           child: Column(
             children: [
@@ -121,7 +122,7 @@ class _ResetPasswordDialogState extends State<ResetPasswordDialog> {
                 children: [
                   Text(
                     'Enter a new password below to log back into your account.',
-                    style: typography.bodySmall.copyWith(color: Colors.grey),
+                    style: typography.bodySmall.copyWith(color: colors.textSecondary),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
@@ -213,24 +214,25 @@ class _ResetPasswordDialogState extends State<ResetPasswordDialog> {
   }
 
   InputDecoration _getInputDecoration({required String hintText, required Widget suffixIcon}) {
+    final colors = context.colors;
     return InputDecoration(
       hintText: hintText,
-      hintStyle: context.typography.bodySmall.copyWith(color: Colors.black38),
+      hintStyle: context.typography.bodySmall.copyWith(color: colors.textSecondary.withOpacity(0.6)),
       suffixIcon: suffixIcon,
       filled: true,
-      fillColor: const Color(0xFFF9F9FB),
+      fillColor: colors.surfaceMuted,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       border: OutlineInputBorder(
         borderRadius: AppRadius.md,
-        borderSide: const BorderSide(color: Color(0xFFF0F0F2)),
+        borderSide: BorderSide(color: colors.border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: AppRadius.md,
-        borderSide: const BorderSide(color: Color(0xFFF0F0F2)),
+        borderSide: BorderSide(color: colors.border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: AppRadius.md,
-        borderSide: BorderSide(color: context.colors.primary),
+        borderSide: BorderSide(color: colors.primary),
       ),
     );
   }

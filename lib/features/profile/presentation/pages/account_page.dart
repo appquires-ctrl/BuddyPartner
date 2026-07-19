@@ -13,6 +13,7 @@ class AccountPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
     final typography = context.typography;
     final userAsync = ref.watch(authStateProvider);
     final profileAsync = ref.watch(userProfileProvider);
@@ -35,23 +36,22 @@ class AccountPage extends ConsumerWidget {
     final String language = profile?.language ?? 'English';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9FB), // Clean off-white background
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back, color: colors.textPrimary),
           onPressed: () => context.pop(),
         ),
         centerTitle: true,
         title: Column(
           children: [
-            const Text(
+            Text(
               'Account',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
-                color: Colors.black,
+                color: colors.textPrimary,
               ),
             ),
             const SizedBox(height: 2),
@@ -59,7 +59,7 @@ class AccountPage extends ConsumerWidget {
               'Manage your profile',
               style: typography.bodySmall.copyWith(
                 fontSize: 12,
-                color: Colors.grey,
+                color: colors.textSecondary,
               ),
             ),
           ],
@@ -100,17 +100,17 @@ class AccountPage extends ConsumerWidget {
               // Dynamic User details name
               Text(
                 fullName,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 22,
-                  color: Colors.black,
+                  color: colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 email,
-                style: const TextStyle(
-                  color: Colors.grey,
+                style: TextStyle(
+                  color: colors.textSecondary,
                   fontSize: 14,
                 ),
               ),
@@ -156,14 +156,14 @@ class AccountPage extends ConsumerWidget {
               const SizedBox(height: 28),
 
               // PERSONAL INFORMATION section header
-              const Align(
+              Align(
                 alignment: Alignment.centerLeft,
                 child: Padding(
-                  padding: EdgeInsets.only(left: 4, bottom: 8),
+                  padding: const EdgeInsets.only(left: 4, bottom: 8),
                   child: Text(
                     'PERSONAL INFORMATION',
                     style: TextStyle(
-                      color: Colors.grey,
+                      color: colors.textSecondary,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.5,
@@ -175,45 +175,50 @@ class AccountPage extends ConsumerWidget {
               // Details card list container populated dynamically
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colors.surface,
                   borderRadius: AppRadius.lg,
-                  border: Border.all(color: const Color(0xFFF0F0F2)),
+                  border: Border.all(color: colors.border),
                 ),
                 child: Column(
                   children: [
                     _buildInfoTile(
+                      context,
                       icon: Icons.person_outline,
                       iconBgColor: const Color(0xFFEFEAFF),
                       iconColor: const Color(0xFF6B4EFF),
                       label: 'Full Name',
                       value: fullName,
                     ),
-                    _buildDivider(),
+                    _buildDivider(context),
                     _buildInfoTile(
+                      context,
                       icon: Icons.email_outlined,
                       iconBgColor: const Color(0xFFE8F8F0),
                       iconColor: const Color(0xFF22C55E),
                       label: 'Email Address',
                       value: email,
                     ),
-                    _buildDivider(),
+                    _buildDivider(context),
                     _buildInfoTile(
+                      context,
                       icon: Icons.transgender_outlined,
                       iconBgColor: const Color(0xFFFFEAF2),
                       iconColor: const Color(0xFFEC4899),
                       label: 'Gender',
                       value: gender,
                     ),
-                    _buildDivider(),
+                    _buildDivider(context),
                     _buildInfoTile(
+                      context,
                       icon: Icons.calendar_today_outlined,
                       iconBgColor: const Color(0xFFFFF7EA),
                       iconColor: const Color(0xFFF59E0B),
                       label: 'Date of Birth',
                       value: dobStr,
                     ),
-                    _buildDivider(),
+                    _buildDivider(context),
                     _buildInfoTile(
+                      context,
                       icon: Icons.language,
                       iconBgColor: const Color(0xFFEAF5FF),
                       iconColor: const Color(0xFF3B82F6),
@@ -231,20 +236,23 @@ class AccountPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildDivider() {
-    return const Padding(
-      padding: EdgeInsets.only(left: 72, right: 16),
-      child: Divider(color: Color(0xFFF0F0F2), height: 1),
+  Widget _buildDivider(BuildContext context) {
+    final colors = context.colors;
+    return Padding(
+      padding: const EdgeInsets.only(left: 72, right: 16),
+      child: Divider(color: colors.border, height: 1),
     );
   }
 
-  Widget _buildInfoTile({
+  Widget _buildInfoTile(
+    BuildContext context, {
     required IconData icon,
     required Color iconBgColor,
     required Color iconColor,
     required String label,
     required String value,
   }) {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -269,18 +277,18 @@ class AccountPage extends ConsumerWidget {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
-                    color: Colors.grey,
+                  style: TextStyle(
+                    color: colors.textSecondary,
                     fontSize: 12,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
-                    color: Colors.black,
+                    color: colors.textPrimary,
                   ),
                 ),
               ],

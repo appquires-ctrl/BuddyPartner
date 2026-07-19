@@ -50,7 +50,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final authState = ref.watch(authControllerProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9FB), // light gray off-white background
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(
@@ -94,7 +93,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 const SizedBox(height: AppSpacing.space8),
                 Text(
                   'Sign in to your LoopCall account.',
-                  style: typography.bodySmall.copyWith(color: Colors.grey),
+                  style: typography.bodySmall.copyWith(color: colors.textSecondary),
                 ),
                 const SizedBox(height: AppSpacing.space24),
 
@@ -132,7 +131,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   'Email Address',
                   style: typography.bodySmall.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -142,21 +141,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   style: typography.bodyMedium,
                   decoration: InputDecoration(
                     hintText: 'yourname@example.com',
-                    hintStyle: typography.bodySmall.copyWith(color: Colors.black38),
+                    hintStyle: typography.bodySmall.copyWith(color: colors.textSecondary.withOpacity(0.6)),
                     prefixIcon: const Icon(Icons.email_outlined, size: 20),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: colors.surface,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.space16,
                       vertical: AppSpacing.space12,
                     ),
                     border: OutlineInputBorder(
                       borderRadius: AppRadius.md,
-                      borderSide: const BorderSide(color: Color(0xFFF0F0F2)),
+                      borderSide: BorderSide(color: colors.border),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: AppRadius.md,
-                      borderSide: const BorderSide(color: Color(0xFFF0F0F2)),
+                      borderSide: BorderSide(color: colors.border),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: AppRadius.md,
@@ -188,7 +187,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       'Password',
                       style: typography.bodySmall.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        color: colors.textPrimary,
                       ),
                     ),
                     GestureDetector(
@@ -211,13 +210,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   style: typography.bodyMedium,
                   decoration: InputDecoration(
                     hintText: '••••••••',
-                    hintStyle: typography.bodySmall.copyWith(color: Colors.black38),
+                    hintStyle: typography.bodySmall.copyWith(color: colors.textSecondary.withOpacity(0.6)),
                     prefixIcon: const Icon(Icons.lock_outline, size: 20),
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                         size: 20,
-                        color: Colors.black45,
+                        color: colors.textSecondary,
                       ),
                       onPressed: () {
                         setState(() {
@@ -226,18 +225,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       },
                     ),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: colors.surface,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.space16,
                       vertical: AppSpacing.space12,
                     ),
                     border: OutlineInputBorder(
                       borderRadius: AppRadius.md,
-                      borderSide: const BorderSide(color: Color(0xFFF0F0F2)),
+                      borderSide: BorderSide(color: colors.border),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: AppRadius.md,
-                      borderSide: const BorderSide(color: Color(0xFFF0F0F2)),
+                      borderSide: BorderSide(color: colors.border),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: AppRadius.md,
@@ -273,7 +272,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     onTap: () => context.push(RouteNames.signup),
                     child: RichText(
                       text: TextSpan(
-                        style: typography.bodySmall.copyWith(color: Colors.black54),
+                        style: typography.bodySmall.copyWith(color: colors.textSecondary),
                         children: [
                           const TextSpan(text: "Don't have an account? "),
                           TextSpan(

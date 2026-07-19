@@ -40,13 +40,21 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     try {
       // 1. Optimized permission check (avoid native channel overhead if already granted)
       bool micGranted = await Permission.microphone.isGranted;
-      if (!micGranted) {
-        micGranted = await Permission.microphone.request().isGranted;
+      bool cameraGranted = await Permission.camera.isGranted;
+
+      if (!micGranted || !cameraGranted) {
+        final statuses = await [
+          Permission.microphone,
+          Permission.camera,
+        ].request();
+        micGranted = statuses[Permission.microphone]?.isGranted ?? false;
+        cameraGranted = statuses[Permission.camera]?.isGranted ?? false;
       }
-      if (!micGranted) {
+
+      if (!micGranted || !cameraGranted) {
         state = state.copyWith(
           phase: MatchmakingPhase.idle,
-          errorMessage: 'Microphone permission is required for calls',
+          errorMessage: 'Microphone and Camera permissions are required to start matchmaking.',
         );
         return;
       }
@@ -204,9 +212,28 @@ class MatchmakingController extends Notifier<MatchmakingState> {
       final agoraUid = map['agoraUid'] as int;
       // Read Agora App ID from server payload (avoids needing --dart-define)
       _agoraAppId = map['agoraAppId'] as String?;
-      final matchedUser = MatchedUserInfo.fromJson(
+      var matchedUser = MatchedUserInfo.fromJson(
         Map<String, dynamic>.from(map['matchedUser'] as Map),
       );
+
+      if (matchedUser.fullName == 'User' && matchedUser.id.isNotEmpty) {
+        try {
+          final profileData = await Supabase.instance.client
+              .from('users')
+              .select('full_name')
+              .eq('id', matchedUser.id)
+              .maybeSingle();
+          if (profileData != null && profileData['full_name'] != null) {
+            matchedUser = MatchedUserInfo(
+              id: matchedUser.id,
+              fullName: profileData['full_name'] as String,
+              avatarUrl: matchedUser.avatarUrl,
+            );
+          }
+        } catch (e) {
+          debugPrint('Error fetching matching user name fallback: $e');
+        }
+      }
 
       state = state.copyWith(
         phase: MatchmakingPhase.matched,

@@ -235,7 +235,7 @@ async function handleCallEnd(callId, callsService, io, reason) {
 async function fetchPublicProfile(supabase, userId) {
   const { data, error } = await supabase
     .from('users')
-    .select('id, full_name, avatar_url')
+    .select('id, full_name')
     .eq('id', userId)
     .single();
 
@@ -248,7 +248,7 @@ async function fetchPublicProfile(supabase, userId) {
   return {
     id: data.id,
     fullName: data.full_name || 'User',
-    avatarUrl: data.avatar_url || null,
+    avatarUrl: null,
   };
 }
 

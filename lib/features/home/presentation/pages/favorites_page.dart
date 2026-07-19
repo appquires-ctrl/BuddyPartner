@@ -38,10 +38,10 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final typography = context.typography;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9FB), // Clean off-white background
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -54,7 +54,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
               style: typography.titleCard.copyWith(
                 fontWeight: FontWeight.bold,
                 fontSize: 20,
-                color: Colors.black,
+                color: colors.textPrimary,
               ),
             ),
             const SizedBox(height: 2),
@@ -62,7 +62,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
               'Your saved telecallers',
               style: typography.bodySmall.copyWith(
                 fontSize: 12,
-                color: Colors.grey,
+                color: colors.textSecondary,
               ),
             ),
           ],
@@ -97,7 +97,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                   style: typography.titleCard.copyWith(
                     fontWeight: FontWeight.bold,
                     fontSize: 20,
-                    color: Colors.black,
+                    color: colors.textPrimary,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -109,7 +109,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                   child: Text(
                     'Start adding telecallers to your favorites and they will appear here!',
                     style: typography.bodySmall.copyWith(
-                      color: Colors.grey,
+                      color: colors.textSecondary,
                       fontSize: 13,
                       height: 1.4,
                     ),

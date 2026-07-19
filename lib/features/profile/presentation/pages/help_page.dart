@@ -11,26 +11,26 @@ class HelpPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final typography = context.typography;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9FB), // Clean off-white background
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back, color: colors.textPrimary),
           onPressed: () => context.pop(),
         ),
         centerTitle: true,
         title: Column(
           children: [
-            const Text(
+            Text(
               'Help',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
-                color: Colors.black,
+                color: colors.textPrimary,
               ),
             ),
             const SizedBox(height: 2),
@@ -38,7 +38,7 @@ class HelpPage extends StatelessWidget {
               'Support & FAQs',
               style: typography.bodySmall.copyWith(
                 fontSize: 12,
-                color: Colors.grey,
+                color: colors.textSecondary,
               ),
             ),
           ],
@@ -57,12 +57,12 @@ class HelpPage extends StatelessWidget {
               const SizedBox(height: 12),
 
               // GET HELP section
-              const Padding(
-                padding: EdgeInsets.only(left: 4, bottom: 8),
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 8),
                 child: Text(
                   'GET HELP',
                   style: TextStyle(
-                    color: Colors.grey,
+                    color: colors.textSecondary,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.5,
@@ -71,13 +71,14 @@ class HelpPage extends StatelessWidget {
               ),
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colors.surface,
                   borderRadius: AppRadius.lg,
-                  border: Border.all(color: const Color(0xFFF0F0F2)),
+                  border: Border.all(color: colors.border),
                 ),
                 child: Column(
                   children: [
                     _buildHelpTile(
+                      context,
                       icon: Icons.mail_outline,
                       iconBgColor: const Color(0xFFEFEAFF),
                       iconColor: const Color(0xFF6B4EFF),
@@ -89,8 +90,9 @@ class HelpPage extends StatelessWidget {
                         );
                       },
                     ),
-                    _buildDivider(),
+                    _buildDivider(context),
                     _buildHelpTile(
+                      context,
                       icon: Icons.bug_report_outlined,
                       iconBgColor: const Color(0xFFFFEAEA),
                       iconColor: const Color(0xFFEF4444),
@@ -108,12 +110,12 @@ class HelpPage extends StatelessWidget {
               const SizedBox(height: AppSpacing.space20),
 
               // LEGAL section
-              const Padding(
-                padding: EdgeInsets.only(left: 4, bottom: 8),
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 8),
                 child: Text(
                   'LEGAL',
                   style: TextStyle(
-                    color: Colors.grey,
+                    color: colors.textSecondary,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.5,
@@ -122,13 +124,14 @@ class HelpPage extends StatelessWidget {
               ),
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colors.surface,
                   borderRadius: AppRadius.lg,
-                  border: Border.all(color: const Color(0xFFF0F0F2)),
+                  border: Border.all(color: colors.border),
                 ),
                 child: Column(
                   children: [
                     _buildHelpTile(
+                      context,
                       icon: Icons.shield_outlined,
                       iconBgColor: const Color(0xFFE8F8F0),
                       iconColor: const Color(0xFF22C55E),
@@ -140,8 +143,9 @@ class HelpPage extends StatelessWidget {
                         );
                       },
                     ),
-                    _buildDivider(),
+                    _buildDivider(context),
                     _buildHelpTile(
+                      context,
                       icon: Icons.credit_card_outlined,
                       iconBgColor: const Color(0xFFFFF7EA),
                       iconColor: const Color(0xFFF59E0B),
@@ -153,8 +157,9 @@ class HelpPage extends StatelessWidget {
                         );
                       },
                     ),
-                    _buildDivider(),
+                    _buildDivider(context),
                     _buildHelpTile(
+                      context,
                       icon: Icons.description_outlined,
                       iconBgColor: const Color(0xFFEAF5FF),
                       iconColor: const Color(0xFF3B82F6),
@@ -172,12 +177,12 @@ class HelpPage extends StatelessWidget {
               const SizedBox(height: AppSpacing.space20),
 
               // APP INFO section
-              const Padding(
-                padding: EdgeInsets.only(left: 4, bottom: 8),
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 8),
                 child: Text(
                   'APP INFO',
                   style: TextStyle(
-                    color: Colors.grey,
+                    color: colors.textSecondary,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.5,
@@ -186,14 +191,15 @@ class HelpPage extends StatelessWidget {
               ),
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colors.surface,
                   borderRadius: AppRadius.lg,
-                  border: Border.all(color: const Color(0xFFF0F0F2)),
+                  border: Border.all(color: colors.border),
                 ),
                 child: _buildHelpTile(
+                  context,
                   icon: Icons.info_outline,
                   iconBgColor: const Color(0xFFF0F0F2),
-                  iconColor: Colors.black54,
+                  iconColor: colors.textSecondary,
                   title: 'App Version',
                   subtitle: 'v1.0.0',
                   showChevron: false,
@@ -208,14 +214,16 @@ class HelpPage extends StatelessWidget {
     );
   }
 
-  Widget _buildDivider() {
-    return const Padding(
-      padding: EdgeInsets.only(left: 72, right: 16),
-      child: Divider(color: Color(0xFFF0F0F2), height: 1),
+  Widget _buildDivider(BuildContext context) {
+    final colors = context.colors;
+    return Padding(
+      padding: const EdgeInsets.only(left: 72, right: 16),
+      child: Divider(color: colors.border, height: 1),
     );
   }
 
-  Widget _buildHelpTile({
+  Widget _buildHelpTile(
+    BuildContext context, {
     required IconData icon,
     required Color iconBgColor,
     required Color iconColor,
@@ -224,6 +232,7 @@ class HelpPage extends StatelessWidget {
     bool showChevron = true,
     required VoidCallback onTap,
   }) {
+    final colors = context.colors;
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: Container(
@@ -238,23 +247,23 @@ class HelpPage extends StatelessWidget {
       ),
       title: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontWeight: FontWeight.bold,
           fontSize: 15,
-          color: Colors.black,
+          color: colors.textPrimary,
         ),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(
-          color: Colors.grey,
+        style: TextStyle(
+          color: colors.textSecondary,
           fontSize: 12,
         ),
       ),
       trailing: showChevron
-          ? const Icon(
+          ? Icon(
               Icons.chevron_right,
-              color: Colors.black26,
+              color: colors.textSecondary.withOpacity(0.5),
               size: 18,
             )
           : null,

@@ -51,12 +51,11 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
     final authState = ref.watch(authControllerProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9FB), // light gray background
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back, color: colors.textPrimary),
           onPressed: () => context.pop(),
         ),
       ),
@@ -82,7 +81,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                 Text(
                   "Enter the email address associated with your account and we'll send a link to reset your password.",
                   style: typography.bodySmall.copyWith(
-                    color: Colors.grey,
+                    color: colors.textSecondary,
                     height: 1.4,
                   ),
                 ),
@@ -122,7 +121,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                   'Email Address',
                   style: typography.bodySmall.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -132,21 +131,21 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                   style: typography.bodyMedium,
                   decoration: InputDecoration(
                     hintText: 'yourname@example.com',
-                    hintStyle: typography.bodySmall.copyWith(color: Colors.black38),
+                    hintStyle: typography.bodySmall.copyWith(color: colors.textSecondary.withOpacity(0.6)),
                     prefixIcon: const Icon(Icons.email_outlined, size: 20),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: colors.surface,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.space16,
                       vertical: AppSpacing.space12,
                     ),
                     border: OutlineInputBorder(
                       borderRadius: AppRadius.md,
-                      borderSide: const BorderSide(color: Color(0xFFF0F0F2)),
+                      borderSide: BorderSide(color: colors.border),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: AppRadius.md,
-                      borderSide: const BorderSide(color: Color(0xFFF0F0F2)),
+                      borderSide: BorderSide(color: colors.border),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: AppRadius.md,

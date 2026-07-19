@@ -38,44 +38,51 @@ class AppBarWidget extends StatelessWidget implements PreferredSizeWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             // Left Side: Avatar + Greeting Header
-            Row(
-              children: [
-                GestureDetector(
-                  onTap: onAvatarPressed,
-                  child: CircleAvatar(
-                    radius: 22,
-                    backgroundColor: colors.primary,
-                    backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-                    child: avatarUrl.isEmpty
-                        ? Text(
-                            greeting.isNotEmpty ? greeting[0].toUpperCase() : 'U',
-                            style: typography.labelPill.copyWith(color: colors.surface),
-                          )
-                        : null,
+            Expanded(
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: onAvatarPressed,
+                    child: CircleAvatar(
+                      radius: 22,
+                      backgroundColor: colors.primary,
+                      backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                      child: avatarUrl.isEmpty
+                          ? Text(
+                              greeting.isNotEmpty ? greeting[0].toUpperCase() : 'U',
+                              style: typography.labelPill.copyWith(color: colors.surface),
+                            )
+                          : null,
+                    ),
                   ),
-                ),
-                const SizedBox(width: AppSpacing.space12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      greeting,
-                      style: typography.headlineGreeting.copyWith(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  const SizedBox(width: AppSpacing.space12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          greeting,
+                          overflow: TextOverflow.ellipsis,
+                          style: typography.headlineGreeting.copyWith(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          subtitle,
+                          overflow: TextOverflow.ellipsis,
+                          style: typography.bodySmall.copyWith(
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      subtitle,
-                      style: typography.bodySmall.copyWith(
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(width: 8),
 
             // Right Side: Coin Balance Chip
             InkWell(

@@ -115,12 +115,11 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     final authState = ref.watch(authControllerProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9FB), // light gray background
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back, color: colors.textPrimary),
           onPressed: () => context.pop(),
         ),
       ),
@@ -145,7 +144,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                 const SizedBox(height: AppSpacing.space8),
                 Text(
                   'Join LoopCall and start connecting instantly.',
-                  style: typography.bodySmall.copyWith(color: Colors.grey),
+                  style: typography.bodySmall.copyWith(color: colors.textSecondary),
                 ),
                 const SizedBox(height: AppSpacing.space24),
 
@@ -383,7 +382,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                       child: Text(
                         'I confirm that I am 18 years of age or older. I understand that this app contains services intended for adult users.',
                         style: typography.bodySmall.copyWith(
-                          color: Colors.black54,
+                          color: colors.textSecondary,
                           height: 1.4,
                         ),
                       ),
@@ -407,13 +406,14 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   }
 
   Widget _buildLabel(String labelText) {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Text(
         labelText,
-        style: const TextStyle(
+        style: TextStyle(
           fontWeight: FontWeight.bold,
-          color: Colors.black87,
+          color: colors.textPrimary,
           fontSize: 13,
         ),
       ),
@@ -421,28 +421,29 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   }
 
   InputDecoration _getInputDecoration({required String hintText, required Widget prefixIcon, Widget? suffixIcon}) {
+    final colors = context.colors;
     return InputDecoration(
       hintText: hintText,
-      hintStyle: context.typography.bodySmall.copyWith(color: Colors.black38),
+      hintStyle: context.typography.bodySmall.copyWith(color: colors.textSecondary.withOpacity(0.6)),
       prefixIcon: prefixIcon,
       suffixIcon: suffixIcon,
       filled: true,
-      fillColor: Colors.white,
+      fillColor: colors.surface,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.space16,
         vertical: AppSpacing.space12,
       ),
       border: OutlineInputBorder(
         borderRadius: AppRadius.md,
-        borderSide: const BorderSide(color: Color(0xFFF0F0F2)),
+        borderSide: BorderSide(color: colors.border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: AppRadius.md,
-        borderSide: const BorderSide(color: Color(0xFFF0F0F2)),
+        borderSide: BorderSide(color: colors.border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: AppRadius.md,
-        borderSide: BorderSide(color: context.colors.primary, width: 1.5),
+        borderSide: BorderSide(color: colors.primary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: AppRadius.md,

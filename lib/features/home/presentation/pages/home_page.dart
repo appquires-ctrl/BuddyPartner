@@ -6,6 +6,7 @@ import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:dating_app/features/home/presentation/widgets/matching_illustration.dart';
 import 'package:dating_app/features/recharge/presentation/providers/recharge_providers.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
@@ -23,7 +24,27 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   bool _isRefreshing = false;
 
-  void _startMatchmaking() {
+  Future<void> _startMatchmaking() async {
+    final statuses = await [
+      Permission.microphone,
+      Permission.camera,
+    ].request();
+
+    final micGranted = statuses[Permission.microphone]?.isGranted ?? false;
+    final cameraGranted = statuses[Permission.camera]?.isGranted ?? false;
+
+    if (!micGranted || !cameraGranted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Microphone and Camera permissions are required to start matchmaking.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
     ref.read(matchmakingControllerProvider.notifier).joinQueue();
   }
 
@@ -53,6 +74,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final typography = context.typography;
 
     final userAsync = ref.watch(authStateProvider);
@@ -85,14 +107,13 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     });
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9FB), // Clean off-white background
       appBar: isMatching
           ? AppBar(
-              backgroundColor: Colors.white,
+              backgroundColor: colors.surface,
               elevation: 0.5,
-              shadowColor: const Color(0xFFF0F0F2),
+              shadowColor: colors.border,
               leading: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                icon: Icon(Icons.arrow_back, color: colors.textPrimary),
                 onPressed: _cancelMatchmaking,
               ),
               centerTitle: true,
@@ -104,14 +125,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                     style: typography.titleCard.copyWith(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
-                      color: Colors.black,
+                      color: colors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     'Please stay on this screen',
                     style: typography.bodySmall.copyWith(
-                      color: const Color(0xFF8E8E93),
+                      color: colors.textSecondary,
                       fontSize: 12,
                       fontWeight: FontWeight.normal,
                     ),
@@ -120,9 +141,9 @@ class _HomePageState extends ConsumerState<HomePage> {
               ),
             )
           : AppBar(
-              backgroundColor: Colors.white,
+              backgroundColor: colors.surface,
               elevation: 0.5,
-              shadowColor: const Color(0xFFF0F0F2),
+              shadowColor: colors.border,
               automaticallyImplyLeading: false,
               titleSpacing: 16.0,
               title: Row(
@@ -160,10 +181,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
+                        Text(
                           'Hey,',
                           style: TextStyle(
-                            color: Colors.grey,
+                            color: colors.textSecondary,
                             fontSize: 12,
                           ),
                         ),
@@ -172,7 +193,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           style: typography.bodyMedium.copyWith(
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
-                            color: Colors.black,
+                            color: colors.textPrimary,
                           ),
                         ),
                       ],
@@ -195,10 +216,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: colors.surface,
                           borderRadius: BorderRadius.circular(12.0),
                           border: Border.all(
-                            color: const Color(0xFFF0F0F2),
+                            color: colors.border,
                             width: 1.0,
                           ),
                         ),
@@ -217,10 +238,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Text(
+                                Text(
                                   'Balance',
                                   style: TextStyle(
-                                    color: Colors.grey,
+                                    color: colors.textSecondary,
                                     fontSize: 9,
                                     height: 1.0,
                                   ),
@@ -230,7 +251,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   style: typography.bodySmall.copyWith(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,
-                                    color: Colors.black,
+                                    color: colors.textPrimary,
                                     height: 1.2,
                                   ),
                                 ),
@@ -245,118 +266,132 @@ class _HomePageState extends ConsumerState<HomePage> {
               ],
             ),
       body: isMatching
-          ? Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.space24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 48),
+          ? LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: IntrinsicHeight(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.space24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const SizedBox(height: 48),
 
-                  // Radar illustration with progress spinner in the center
-                  Center(
-                    child: MatchingIllustration(
-                      centerWidget: const Center(
-                        child: SizedBox(
-                          width: 30,
-                          height: 30,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 3.0,
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B4EFF)),
-                          ),
+                            // Radar illustration with progress spinner in the center
+                            Center(
+                              child: MatchingIllustration(
+                                centerWidget: const Center(
+                                  child: SizedBox(
+                                    width: 30,
+                                    height: 30,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 3.0,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B4EFF)),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 40),
+
+                            // Looking for someone text
+                            Text(
+                              'Looking for someone...',
+                              style: typography.titleCard.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 22,
+                                color: colors.textPrimary,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            // Description
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: Text(
+                                "We're checking who's available for a friendly conversation. This usually takes a few seconds.",
+                                style: typography.bodySmall.copyWith(
+                                  color: colors.textSecondary,
+                                  fontSize: 14,
+                                  height: 1.4,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+
+                            const SizedBox(height: 32),
+
+                            // Pill badge matching mockup
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF3EFFF),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const _DynamicDots(),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Matching in progress',
+                                    style: TextStyle(
+                                      color: const Color(0xFF6B4EFF),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const Spacer(),
+
+                            // Cancel button at bottom
+                            SizedBox(
+                              width: double.infinity,
+                              height: 56,
+                              child: OutlinedButton(
+                                onPressed: _cancelMatchmaking,
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(
+                                    color: colors.border,
+                                    width: 1.5,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Cancel search',
+                                  style: typography.bodyMedium.copyWith(
+                                    color: colors.textPrimary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 32),
+                          ],
                         ),
                       ),
                     ),
                   ),
-
-                  const SizedBox(height: 40),
-
-                  // Looking for someone text
-                  Text(
-                    'Looking for someone...',
-                    style: typography.titleCard.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
-                      color: Colors.black,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Description
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Text(
-                      "We're checking who's available for a friendly conversation. This usually takes a few seconds.",
-                      style: typography.bodySmall.copyWith(
-                        color: const Color(0xFF8E8E93),
-                        fontSize: 14,
-                        height: 1.4,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // Pill badge matching mockup
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF3EFFF),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const _DynamicDots(),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Matching in progress',
-                          style: TextStyle(
-                            color: const Color(0xFF6B4EFF),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // Cancel button at bottom
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: OutlinedButton(
-                      onPressed: _cancelMatchmaking,
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(
-                          color: Color(0xFFECEBF3),
-                          width: 1.5,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: Text(
-                        'Cancel search',
-                        style: typography.bodyMedium.copyWith(
-                          color: const Color(0xFF4A4A4A),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 32),
-                ],
-              ),
+                );
+              },
             )
           : RefreshIndicator(
               onRefresh: _handleRefresh,
@@ -520,7 +555,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     Text(
                       'DISCOVER',
                       style: typography.bodySmall.copyWith(
-                        color: const Color(0xFF8E8E93),
+                        color: colors.textSecondary,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.5,
                         fontSize: 13,
@@ -556,7 +591,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   style: typography.titleCard.copyWith(
                     fontWeight: FontWeight.bold,
                     fontSize: 20,
-                    color: Colors.black,
+                    color: colors.textPrimary,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -568,7 +603,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   child: Text(
                     'It looks like all our telecallers are busy at the moment. Please check back in a few minutes!',
                     style: typography.bodySmall.copyWith(
-                      color: Colors.grey,
+                      color: colors.textSecondary,
                       fontSize: 13,
                       height: 1.4,
                     ),

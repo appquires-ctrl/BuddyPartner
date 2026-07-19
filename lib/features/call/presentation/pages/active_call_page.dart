@@ -140,11 +140,18 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
 
 
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    child: IntrinsicHeight(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
                   const SizedBox(height: 12),
                   // Top Navigation & Timer Row
                   Row(
@@ -363,7 +370,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                           children: [
                             Container(
                               width: 44,
-                              height: 60,
+                              height: 44,
                               decoration: const BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: Color(0xFF7A58FF),
@@ -469,6 +476,11 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
               ),
             ),
           ),
+        ),
+      );
+    },
+  ),
+),
         ],
       ),
     );

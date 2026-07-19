@@ -16,6 +16,7 @@ class ProfilePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
     final typography = context.typography;
     final userAsync = ref.watch(authStateProvider);
     final profileAsync = ref.watch(userProfileProvider);
@@ -28,7 +29,6 @@ class ProfilePage extends ConsumerWidget {
     final String initials = getInitials(fullName);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9FB), // light gray off-white background
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -41,7 +41,6 @@ class ProfilePage extends ConsumerWidget {
               style: typography.titleCard.copyWith(
                 fontWeight: FontWeight.bold,
                 fontSize: 20,
-                color: Colors.black,
               ),
             ),
             const SizedBox(height: 2),
@@ -49,7 +48,7 @@ class ProfilePage extends ConsumerWidget {
               'Manage your preferences',
               style: typography.bodySmall.copyWith(
                 fontSize: 12,
-                color: Colors.grey,
+                color: colors.textSecondary,
               ),
             ),
           ],
@@ -72,8 +71,6 @@ class ProfilePage extends ConsumerWidget {
                   context.push(RouteNames.account);
                 },
                 child: AppCard(
-                  backgroundColor: Colors.white,
-                  border: Border.all(color: const Color(0xFFF0F0F2)),
                   padding: const EdgeInsets.all(AppSpacing.space16),
                   child: Row(
                     children: [
@@ -107,7 +104,6 @@ class ProfilePage extends ConsumerWidget {
                               style: typography.titleCard.copyWith(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 18,
-                                color: Colors.black,
                               ),
                             ),
                             const SizedBox(height: 6),
@@ -157,12 +153,12 @@ class ProfilePage extends ConsumerWidget {
               const SizedBox(height: AppSpacing.space20),
 
               // GENERAL section title
-              const Padding(
-                padding: EdgeInsets.only(left: 4, bottom: 8),
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 8),
                 child: Text(
                   'GENERAL',
                   style: TextStyle(
-                    color: Colors.grey,
+                    color: colors.textSecondary,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.5,
@@ -173,13 +169,14 @@ class ProfilePage extends ConsumerWidget {
               // General Options container list
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colors.surface,
                   borderRadius: AppRadius.lg,
-                  border: Border.all(color: const Color(0xFFF0F0F2)),
+                  border: Border.all(color: colors.border),
                 ),
                 child: Column(
                   children: [
                     _buildSettingsTile(
+                      context,
                       icon: Icons.person_outline,
                       iconBgColor: const Color(0xFFEFEAFF),
                       iconColor: const Color(0xFF6B4EFF),
@@ -189,8 +186,9 @@ class ProfilePage extends ConsumerWidget {
                         context.push(RouteNames.account);
                       },
                     ),
-                    _buildDivider(),
+                    _buildDivider(context),
                     _buildSettingsTile(
+                      context,
                       icon: Icons.phone_outlined,
                       iconBgColor: const Color(0xFFE8F8F0),
                       iconColor: const Color(0xFF22C55E),
@@ -201,8 +199,9 @@ class ProfilePage extends ConsumerWidget {
                         context.push(RouteNames.history);
                       },
                     ),
-                    _buildDivider(),
+                    _buildDivider(context),
                     _buildSettingsTile(
+                      context,
                       icon: Icons.receipt_long_outlined,
                       iconBgColor: const Color(0xFFEAF5FF),
                       iconColor: const Color(0xFF3B82F6),
@@ -212,8 +211,9 @@ class ProfilePage extends ConsumerWidget {
                         context.push(RouteNames.recharge); // store history
                       },
                     ),
-                    _buildDivider(),
+                    _buildDivider(context),
                     _buildSettingsTile(
+                      context,
                       icon: Icons.favorite_border,
                       iconBgColor: const Color(0xFFFFEAF2),
                       iconColor: const Color(0xFFEC4899),
@@ -229,12 +229,12 @@ class ProfilePage extends ConsumerWidget {
               const SizedBox(height: AppSpacing.space20),
 
               // SUPPORT section title
-              const Padding(
-                padding: EdgeInsets.only(left: 4, bottom: 8),
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 8),
                 child: Text(
                   'SUPPORT',
                   style: TextStyle(
-                    color: Colors.grey,
+                    color: colors.textSecondary,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.5,
@@ -245,11 +245,12 @@ class ProfilePage extends ConsumerWidget {
               // Support Options container
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colors.surface,
                   borderRadius: AppRadius.lg,
-                  border: Border.all(color: const Color(0xFFF0F0F2)),
+                  border: Border.all(color: colors.border),
                 ),
                 child: _buildSettingsTile(
+                  context,
                   icon: Icons.help_outline,
                   iconBgColor: const Color(0xFFFFF7EA),
                   iconColor: const Color(0xFFF59E0B),
@@ -265,11 +266,12 @@ class ProfilePage extends ConsumerWidget {
               // Logout Option card
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colors.surface,
                   borderRadius: AppRadius.lg,
-                  border: Border.all(color: const Color(0xFFF0F0F2)),
+                  border: Border.all(color: colors.border),
                 ),
                 child: _buildSettingsTile(
+                  context,
                   icon: Icons.logout,
                   iconBgColor: const Color(0xFFFFEAEA),
                   iconColor: const Color(0xFFEF4444),
@@ -289,12 +291,13 @@ class ProfilePage extends ConsumerWidget {
   }
 
   void _showLogoutBottomSheet(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      backgroundColor: Colors.white,
+      backgroundColor: colors.surface,
       builder: (context) {
         final typography = context.typography;
         return Padding(
@@ -307,7 +310,7 @@ class ProfilePage extends ConsumerWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.black12,
+                  color: colors.border,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -343,7 +346,7 @@ class ProfilePage extends ConsumerWidget {
                 'Are you sure you want to log out? You will need to sign in again to receive and make calls.',
                 textAlign: TextAlign.center,
                 style: typography.bodySmall.copyWith(
-                  color: Colors.grey,
+                  color: colors.textSecondary,
                   height: 1.4,
                   fontSize: 13,
                 ),
@@ -360,13 +363,13 @@ class ProfilePage extends ConsumerWidget {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        side: const BorderSide(color: Color(0xFFF0F0F2)),
+                        side: BorderSide(color: colors.border),
                       ),
                       onPressed: () => Navigator.pop(context),
-                      child: const Text(
+                      child: Text(
                         'Cancel',
                         style: TextStyle(
-                          color: Colors.black87,
+                          color: colors.textPrimary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -406,14 +409,16 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildDivider() {
-    return const Padding(
-      padding: EdgeInsets.only(left: 72, right: 16),
-      child: Divider(color: Color(0xFFF0F0F2), height: 1),
+  Widget _buildDivider(BuildContext context) {
+    final colors = context.colors;
+    return Padding(
+      padding: const EdgeInsets.only(left: 72, right: 16),
+      child: Divider(color: colors.border, height: 1),
     );
   }
 
-  Widget _buildSettingsTile({
+  Widget _buildSettingsTile(
+    BuildContext context, {
     required IconData icon,
     required Color iconBgColor,
     required Color iconColor,
@@ -421,6 +426,7 @@ class ProfilePage extends ConsumerWidget {
     required String subtitle,
     required VoidCallback onTap,
   }) {
+    final colors = context.colors;
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: Container(
@@ -435,22 +441,22 @@ class ProfilePage extends ConsumerWidget {
       ),
       title: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontWeight: FontWeight.bold,
           fontSize: 15,
-          color: Colors.black,
+          color: colors.textPrimary,
         ),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(
-          color: Colors.grey,
+        style: TextStyle(
+          color: colors.textSecondary,
           fontSize: 12,
         ),
       ),
-      trailing: const Icon(
+      trailing: Icon(
         Icons.chevron_right,
-        color: Colors.black26,
+        color: colors.textSecondary.withOpacity(0.5),
         size: 18,
       ),
       onTap: onTap,
