@@ -23,11 +23,8 @@ class CallingPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final matchState = ref.watch(matchmakingControllerProvider);
 
-    // Auto-navigate to active call when in-call, or home if idle
+    // Auto-navigate to home if call cancelled or fails (phase becomes idle)
     ref.listen<MatchmakingState>(matchmakingControllerProvider, (prev, next) {
-      if (next.phase == MatchmakingPhase.inCall && mounted(context)) {
-        context.pushReplacement(RouteNames.activeCall);
-      }
       if (next.phase == MatchmakingPhase.idle && mounted(context)) {
         context.go(RouteNames.home);
       }

@@ -90,22 +90,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     final String initials = getInitials(fullName);
     final bool isMatching = matchmakingState.phase == MatchmakingPhase.queued;
 
-    // Navigate to active call screen when match is found and call starts
-    ref.listen<MatchmakingState>(matchmakingControllerProvider, (prev, next) {
-      if (next.phase == MatchmakingPhase.inCall && prev?.phase != MatchmakingPhase.inCall) {
-        if (mounted) {
-          context.push(RouteNames.activeCall);
-        }
-      }
-      // Show error snackbar if there's an error
-      if (next.errorMessage != null && next.errorMessage != prev?.errorMessage) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(next.errorMessage!)),
-          );
-        }
-      }
-    });
     return Scaffold(
       appBar: isMatching
           ? AppBar(

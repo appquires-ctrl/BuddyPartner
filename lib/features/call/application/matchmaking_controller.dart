@@ -7,6 +7,7 @@ import 'package:socket_io_client/socket_io_client.dart' as sio;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:dating_app/core/config/app_config.dart';
+import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 import 'matchmaking_state.dart';
 
 /// MatchmakingController manages the full matchmaking lifecycle:
@@ -30,8 +31,23 @@ class MatchmakingController extends Notifier<MatchmakingState> {
   @override
   MatchmakingState build() {
     ref.onDispose(_cleanup);
-    // Pre-initialize and connect the socket when the provider builds
-    Future.microtask(() => _initSocket());
+
+    // Listen to authentication state changes to initialize or clean up the socket
+    ref.listen<AsyncValue<User?>>(authStateProvider, (prev, next) {
+      final user = next.value;
+      if (user != null) {
+        _initSocket();
+      } else {
+        _cleanup();
+      }
+    });
+
+    // Also run initial socket setup if user is already logged in
+    final user = ref.read(authStateProvider).value;
+    if (user != null) {
+      Future.microtask(() => _initSocket());
+    }
+
     return const MatchmakingState();
   }
 
@@ -151,6 +167,11 @@ class MatchmakingController extends Notifier<MatchmakingState> {
 
   /// Manually end the current call. Navigating back to home is handled by the UI.
   Future<void> endCall() async {
+    if (state.phase == MatchmakingPhase.queued) {
+      leaveQueue();
+      return;
+    }
+
     if (state.phase != MatchmakingPhase.inCall &&
         state.phase != MatchmakingPhase.matched) {
       return;
@@ -254,6 +275,14 @@ class MatchmakingController extends Notifier<MatchmakingState> {
 
     _socket!.onDisconnect((_) {
       debugPrint('Socket disconnected');
+      
+      // Update with the latest access token to ensure reconnection doesn't fail
+      // after the old token expires (typically 1 hour)
+      final token = Supabase.instance.client.auth.currentSession?.accessToken;
+      if (token != null && _socket != null && _socket!.io.options != null) {
+        _socket!.io.options!['auth'] = {'token': token};
+      }
+
       if (state.phase == MatchmakingPhase.inCall) {
         _handleServerDisconnect();
       }
@@ -332,6 +361,8 @@ class MatchmakingController extends Notifier<MatchmakingState> {
         phase: MatchmakingPhase.idle,
         errorMessage: 'Failed to join call: $e',
       );
+      // Notify server and cleanly teardown the call for both parties
+      endCall();
     }
   }
 
@@ -359,9 +390,15 @@ class MatchmakingController extends Notifier<MatchmakingState> {
   }
 
   void _onMatchError(dynamic data) {
+    String errorMsg = 'Matchmaking error. Please try again.';
+    if (data is Map && data['error'] != null) {
+      errorMsg = data['error'].toString();
+    } else if (data is String) {
+      errorMsg = data;
+    }
     state = state.copyWith(
       phase: MatchmakingPhase.idle,
-      errorMessage: 'Matchmaking error. Please try again.',
+      errorMessage: errorMsg,
     );
   }
 
@@ -381,63 +418,68 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     String token,
     int uid,
   ) async {
-    // Mic permission is already granted in joinQueue() — no need to re-request here
-
-    // Use Agora App ID from server payload, fall back to compile-time config
-    final appId = _agoraAppId ?? AppConfig.agoraAppId;
-    if (appId.isEmpty) {
-      throw Exception('Agora App ID is not configured');
-    }
-
-    _agoraEngine = createAgoraRtcEngine();
-    await _agoraEngine!.initialize(RtcEngineContext(
-      appId: appId,
-      channelProfile: ChannelProfileType.channelProfileCommunication,
-    ));
-
-    // Register event handlers
-    _agoraEngine!.registerEventHandler(RtcEngineEventHandler(
-      onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
-        // Successfully joined the Agora channel
-      },
-      onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
-        // The matched user has joined
-        state = state.copyWith(remoteUid: remoteUid);
-      },
-      onUserOffline: (RtcConnection connection, int remoteUid,
-          UserOfflineReasonType reason) {
-        // Remote user left
-        if (state.remoteUid == remoteUid) {
-          state = state.copyWith(clearRemoteUid: true);
-        }
-      },
-      onError: (ErrorCodeType code, String msg) {
-        // Agora engine error
-      },
-    ));
-
-    // Enable audio, disable video initially
     try {
-      await _agoraEngine!.enableAudio();
-      await _agoraEngine!.setEnableSpeakerphone(false);
-    } catch (e) {
-      // Log and ignore to prevent failing the call setup on emulators
-      debugPrint('Warning: Failed to configure audio/speakerphone properties: $e');
-    }
+      // Mic permission is already granted in joinQueue() — no need to re-request here
 
-    // Join channel in audio-only mode
-    await _agoraEngine!.joinChannel(
-      token: token,
-      channelId: channelName,
-      uid: uid,
-      options: const ChannelMediaOptions(
-        autoSubscribeAudio: true,
-        autoSubscribeVideo: false,
-        publishCameraTrack: false,
-        publishMicrophoneTrack: true,
-        clientRoleType: ClientRoleType.clientRoleBroadcaster,
-      ),
-    );
+      // Use Agora App ID from server payload, fall back to compile-time config
+      final appId = _agoraAppId ?? AppConfig.agoraAppId;
+      if (appId.isEmpty) {
+        throw Exception('Agora App ID is not configured');
+      }
+
+      _agoraEngine = createAgoraRtcEngine();
+      await _agoraEngine!.initialize(RtcEngineContext(
+        appId: appId,
+        channelProfile: ChannelProfileType.channelProfileCommunication,
+      ));
+
+      // Register event handlers
+      _agoraEngine!.registerEventHandler(RtcEngineEventHandler(
+        onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
+          // Successfully joined the Agora channel
+        },
+        onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
+          // The matched user has joined
+          state = state.copyWith(remoteUid: remoteUid);
+        },
+        onUserOffline: (RtcConnection connection, int remoteUid,
+            UserOfflineReasonType reason) {
+          // Remote user left
+          if (state.remoteUid == remoteUid) {
+            state = state.copyWith(clearRemoteUid: true);
+          }
+        },
+        onError: (ErrorCodeType code, String msg) {
+          // Agora engine error
+        },
+      ));
+
+      // Enable audio, disable video initially
+      try {
+        await _agoraEngine!.enableAudio();
+        await _agoraEngine!.setEnableSpeakerphone(false);
+      } catch (e) {
+        // Log and ignore to prevent failing the call setup on emulators
+        debugPrint('Warning: Failed to configure audio/speakerphone properties: $e');
+      }
+
+      // Join channel in audio-only mode
+      await _agoraEngine!.joinChannel(
+        token: token,
+        channelId: channelName,
+        uid: uid,
+        options: const ChannelMediaOptions(
+          autoSubscribeAudio: true,
+          autoSubscribeVideo: false,
+          publishCameraTrack: false,
+          publishMicrophoneTrack: true,
+          clientRoleType: ClientRoleType.clientRoleBroadcaster,
+        ),
+      );
+    } catch (e) {
+      await _leaveAgoraChannel(); // Release resources immediately on failure
+      rethrow;
+    }
   }
 
   Future<void> _enableVideo() async {

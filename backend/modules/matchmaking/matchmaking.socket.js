@@ -71,6 +71,15 @@ function registerMatchmakingHandlers(io, socket, redis, supabase) {
   // ── end_call ──────────────────────────────────────────────────────────
   socket.on('end_call', async ({ callId }) => {
     try {
+      const callInfo = activeCalls.get(callId);
+      if (!callInfo) return;
+
+      // Security Check: Authorize sender participant
+      if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) {
+        console.warn(`⚠️ Unauthorized attempt to end call by ${userId}`);
+        return;
+      }
+
       await handleCallEnd(callId, callsService, io, 'manual');
     } catch (err) {
       console.error('Error in end_call:', err);
@@ -82,6 +91,12 @@ function registerMatchmakingHandlers(io, socket, redis, supabase) {
     try {
       const callInfo = activeCalls.get(callId);
       if (!callInfo) return;
+
+      // Security Check: Authorize sender participant
+      if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) {
+        console.warn(`⚠️ Unauthorized attempt to upgrade call to video by ${userId}`);
+        return;
+      }
 
       await callsService.upgradeToVideo(callId);
 
@@ -103,6 +118,12 @@ function registerMatchmakingHandlers(io, socket, redis, supabase) {
       const callInfo = activeCalls.get(callId);
       if (!callInfo) return;
 
+      // Security Check: Authorize sender participant
+      if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) {
+        console.warn(`⚠️ Unauthorized attempt to accept video upgrade by ${userId}`);
+        return;
+      }
+
       // Relay acceptance to the other party
       const otherSocketId = callInfo.userA.userId === userId
         ? callInfo.userB.socketId
@@ -119,33 +140,45 @@ function registerMatchmakingHandlers(io, socket, redis, supabase) {
   // Allows a user to call a specific person directly (e.g. from call history)
   // bypassing the matchmaking queue. Uses the same Agora + 5-min timer flow.
   socket.on('direct_call', async ({ targetUserId }) => {
+    // 1. Prevent calling yourself
+    if (targetUserId === userId) {
+      socket.emit('match_error', { error: 'Cannot call yourself' });
+      return;
+    }
+
+    // 2. Prevent calling if already in an active call
+    if (socketToCall.has(socket.id)) {
+      socket.emit('match_error', { error: 'Already in an active call' });
+      return;
+    }
+
+    // 3. Check if target user is online
+    const targetSocketId = userSockets.get(targetUserId);
+    if (!targetSocketId) {
+      socket.emit('match_error', { error: 'User is currently offline' });
+      return;
+    }
+
+    // 4. Check if target user is already in a call
+    if (socketToCall.has(targetSocketId)) {
+      socket.emit('match_error', { error: 'User is currently on another call' });
+      return;
+    }
+
+    // 5. Prevent concurrent setup race condition with Redis locks
+    const lockKeyA = `call_lock:${userId}`;
+    const lockKeyB = `call_lock:${targetUserId}`;
+    const lockedA = await redis.set(lockKeyA, '1', 'NX', 'EX', 10);
+    const lockedB = await redis.set(lockKeyB, '1', 'NX', 'EX', 10);
+    if (!lockedA || !lockedB) {
+      if (lockedA) await redis.del(lockKeyA);
+      if (lockedB) await redis.del(lockKeyB);
+      socket.emit('match_error', { error: 'Line is busy. Please try again.' });
+      return;
+    }
+
     try {
-      // 1. Prevent calling yourself
-      if (targetUserId === userId) {
-        socket.emit('match_error', { error: 'Cannot call yourself' });
-        return;
-      }
-
-      // 2. Prevent calling if already in an active call
-      if (socketToCall.has(socket.id)) {
-        socket.emit('match_error', { error: 'Already in an active call' });
-        return;
-      }
-
-      // 3. Check if target user is online
-      const targetSocketId = userSockets.get(targetUserId);
-      if (!targetSocketId) {
-        socket.emit('match_error', { error: 'User is currently offline' });
-        return;
-      }
-
-      // 4. Check if target user is already in a call
-      if (socketToCall.has(targetSocketId)) {
-        socket.emit('match_error', { error: 'User is currently on another call' });
-        return;
-      }
-
-      // 5. Remove both users from the matchmaking queue if they were in it
+      // Remove both users from the matchmaking queue if they were in it
       await matchmakingService.leaveQueue(userId);
       await matchmakingService.leaveQueue(targetUserId);
 
@@ -202,6 +235,10 @@ function registerMatchmakingHandlers(io, socket, redis, supabase) {
     } catch (err) {
       console.error('Error in direct_call:', err);
       socket.emit('match_error', { error: 'Failed to set up direct call' });
+    } finally {
+      // Release locks
+      await redis.del(lockKeyA);
+      await redis.del(lockKeyB);
     }
   });
 
