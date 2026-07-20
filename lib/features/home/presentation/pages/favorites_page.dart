@@ -78,12 +78,15 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                   crossAxisCount: 2,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
-                  childAspectRatio: 0.8,
+                  childAspectRatio: 0.68,
                 ),
                 itemCount: favoriteUsers.length,
                 itemBuilder: (context, index) {
                   final user = favoriteUsers[index];
-                  return MatchedUserCard(user: user);
+                  return MatchedUserCard(
+                    user: user,
+                    isGrid: true,
+                  );
                 },
               )
             : SingleChildScrollView(

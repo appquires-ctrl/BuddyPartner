@@ -10,10 +10,12 @@ import 'package:dating_app/features/auth/application/auth_state_provider.dart'; 
 
 class MatchedUserCard extends ConsumerWidget {
   final MatchedUser user;
+  final bool isGrid;
 
   const MatchedUserCard({
     super.key,
     required this.user,
+    this.isGrid = false,
   });
 
   @override
@@ -22,9 +24,11 @@ class MatchedUserCard extends ConsumerWidget {
     final typography = context.typography;
     final initials = getInitials(user.fullName);
 
+    final avatarSize = isGrid ? 48.0 : 56.0;
+
     return Container(
-      width: 150,
-      margin: const EdgeInsets.only(right: 16, bottom: 8),
+      width: isGrid ? null : 150,
+      margin: isGrid ? EdgeInsets.zero : const EdgeInsets.only(right: 16, bottom: 8),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(20),
@@ -38,14 +42,14 @@ class MatchedUserCard extends ConsumerWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Avatar with initials
             Container(
-              width: 56,
-              height: 56,
+              width: avatarSize,
+              height: avatarSize,
               decoration: const BoxDecoration(
                 color: Color(0xFFE5DFFF), // Light lavender
                 shape: BoxShape.circle,
@@ -53,14 +57,14 @@ class MatchedUserCard extends ConsumerWidget {
               alignment: Alignment.center,
               child: Text(
                 initials,
-                style: const TextStyle(
-                  color: Color(0xFF6B4EFF),
-                  fontSize: 18,
+                style: TextStyle(
+                  color: const Color(0xFF6B4EFF),
+                  fontSize: isGrid ? 16 : 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             
             // Name
             Text(
@@ -73,32 +77,32 @@ class MatchedUserCard extends ConsumerWidget {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
 
             // Online/Offline status row
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  width: 8,
-                  height: 8,
+                  width: 6,
+                  height: 6,
                   decoration: BoxDecoration(
                     color: user.isOnline ? colors.success : colors.textSecondary.withValues(alpha: 0.4),
                     shape: BoxShape.circle,
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 Text(
                   user.isOnline ? 'Online' : 'Offline',
                   style: typography.bodySmall.copyWith(
                     color: user.isOnline ? colors.success : colors.textSecondary,
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
             // Action Buttons Row
             Row(
