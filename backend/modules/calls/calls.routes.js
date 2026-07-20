@@ -167,23 +167,4 @@ router.delete('/favorites/:favoriteUserId', authMiddleware, async (req, res) => 
   }
 });
 
-const logs = [];
-const originalLog = console.log;
-console.log = (...args) => {
-  logs.push('[INFO] ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' '));
-  if (logs.length > 500) logs.shift();
-  originalLog(...args);
-};
-
-const originalError = console.error;
-console.error = (...args) => {
-  logs.push('[ERROR] ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' '));
-  if (logs.length > 500) logs.shift();
-  originalError(...args);
-};
-
-router.get('/public-logs-temp', (req, res) => {
-  res.json(logs);
-});
-
 module.exports = router;
