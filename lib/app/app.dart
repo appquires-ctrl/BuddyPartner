@@ -24,6 +24,20 @@ class LoopCallApp extends ConsumerWidget {
         }
       }
 
+      if (next.phase == MatchmakingPhase.incomingRequest && prev?.phase != MatchmakingPhase.incomingRequest) {
+        final context = rootNavigatorKey.currentContext;
+        if (context != null && context.mounted) {
+          context.go(RouteNames.incomingCall);
+        }
+      }
+
+      if (next.phase == MatchmakingPhase.outgoingRequest && prev?.phase != MatchmakingPhase.outgoingRequest) {
+        final context = rootNavigatorKey.currentContext;
+        if (context != null && context.mounted) {
+          context.go(RouteNames.calling);
+        }
+      }
+
       if (next.errorMessage != null && next.errorMessage != prev?.errorMessage) {
         final context = rootNavigatorKey.currentContext;
         if (context != null && context.mounted) {

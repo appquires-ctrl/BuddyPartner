@@ -4,74 +4,63 @@ import 'package:go_router/go_router.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
+import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 
-/// CallingPage renders a brief "connecting" or "ringing" screen
-/// shown before the Agora channel is fully joined.
-class CallingPage extends ConsumerWidget {
-  final String name;
-  final String imageUrl;
-
-  const CallingPage({
-    super.key,
-    this.name = 'Connecting...',
-    this.imageUrl = '',
-  });
-
-  String getInitials(String name) {
-    return name.isNotEmpty ? name.trim().split(' ').map((e) => e[0]).take(2).join().toUpperCase() : '?';
-  }
+class IncomingCallPage extends ConsumerWidget {
+  const IncomingCallPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final matchState = ref.watch(matchmakingControllerProvider);
+    final controller = ref.read(matchmakingControllerProvider.notifier);
 
-    // Auto-navigate to home if call cancelled or fails (phase becomes idle)
+    // Auto-navigate to home if request is cancelled, declined, or fails (phase becomes idle)
     ref.listen<MatchmakingState>(matchmakingControllerProvider, (prev, next) {
       if (next.phase == MatchmakingPhase.idle && mounted(context)) {
         context.go(RouteNames.home);
       }
     });
 
-    final displayName = matchState.matchedUser?.fullName ?? name;
-    final initials = getInitials(displayName);
+    final String displayName = matchState.matchedUser?.fullName ?? 'User';
+    final String initials = getInitials(displayName);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F0C22), // Solid dark purple-blue background
       body: Stack(
         children: [
-          // Concentric circular paths in the background
+          // Background concentric circles
           const Positioned.fill(
             child: CustomPaint(
               painter: _ConcentricCirclesPainter(),
             ),
           ),
 
-          // Central Profile Avatar and Text info
+          // Central Profile Avatar and Caller name
           SafeArea(
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const SizedBox(height: 40),
-                  // Pulsing Ring avatar
+                  // Pulsing avatar circle
                   Container(
                     width: 140,
                     height: 140,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: const Color(0xFF7A58FF).withValues(alpha: 0.4),
+                        color: const Color(0xFF6B4EFF).withValues(alpha: 0.4),
                         width: 3.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF7A58FF).withValues(alpha: 0.15),
+                          color: const Color(0xFF6B4EFF).withValues(alpha: 0.15),
                           blurRadius: 16,
                         ),
                       ],
                     ),
                     child: CircleAvatar(
-                      backgroundColor: const Color(0xFFE5DFFF), // Light lavender background
+                      backgroundColor: const Color(0xFFE5DFFF), // Light lavender
                       child: Text(
                         initials,
                         style: const TextStyle(
@@ -92,11 +81,9 @@ class CallingPage extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    matchState.phase == MatchmakingPhase.outgoingRequest
-                        ? 'Ringing...'
-                        : 'Connecting...',
-                    style: const TextStyle(
+                  const Text(
+                    'Incoming Call...',
+                    style: TextStyle(
                       color: Colors.white70,
                       fontWeight: FontWeight.w500,
                       fontSize: 16,
@@ -107,32 +94,80 @@ class CallingPage extends ConsumerWidget {
             ),
           ),
 
-          // Bottom Call action bar
+          // Accept/Decline action buttons at bottom
           Positioned(
             left: 0,
             right: 0,
-            bottom: 48,
+            bottom: 64,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                // End Call / Cancel button
-                GestureDetector(
-                  onTap: () {
-                    if (matchState.phase == MatchmakingPhase.outgoingRequest) {
-                      ref.read(matchmakingControllerProvider.notifier).cancelCallRequest();
-                    } else {
-                      ref.read(matchmakingControllerProvider.notifier).endCall();
-                    }
-                  },
-                  child: Container(
-                    width: 68,
-                    height: 68,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFEF5350), // Red end call button color
-                      shape: BoxShape.circle,
+                // Decline Button (Red)
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        controller.declineCall();
+                      },
+                      child: Container(
+                        width: 68,
+                        height: 68,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFEF5350), // Red
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.call_end_rounded,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
                     ),
-                    child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 28),
-                  ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Decline',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Accept Button (Green)
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        controller.acceptCall();
+                      },
+                      child: Container(
+                        width: 68,
+                        height: 68,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF4CAF50), // Green
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.phone_rounded,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Accept',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -152,13 +187,12 @@ class CallingPage extends ConsumerWidget {
   }
 }
 
-/// Custom Painter to draw faint concentric circle outlines in the background.
 class _ConcentricCirclesPainter extends CustomPainter {
   const _ConcentricCirclesPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height * 0.45); // Centered behind avatar position
+    final center = Offset(size.width / 2, size.height * 0.45);
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..color = const Color(0xFF7A58FF).withValues(alpha: 0.15)

@@ -12,6 +12,7 @@ import 'package:dating_app/features/home/presentation/pages/host_details_page.da
 import 'package:dating_app/features/home/presentation/pages/favorites_page.dart';
 import 'package:dating_app/features/call/presentation/pages/calling_page.dart';
 import 'package:dating_app/features/call/presentation/pages/active_call_page.dart';
+import 'package:dating_app/features/call/presentation/pages/incoming_call_page.dart';
 import 'package:dating_app/features/call/presentation/pages/call_summary_page.dart';
 import 'package:dating_app/features/chat/presentation/pages/chat_page.dart';
 import 'package:dating_app/features/history/presentation/pages/call_history_page.dart';
@@ -104,6 +105,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteNames.activeCall,
         builder: (context, state) => const ActiveCallPage(),
+      ),
+      GoRoute(
+        path: RouteNames.incomingCall,
+        builder: (context, state) => const IncomingCallPage(),
       ),
       GoRoute(
         path: RouteNames.callSummary,

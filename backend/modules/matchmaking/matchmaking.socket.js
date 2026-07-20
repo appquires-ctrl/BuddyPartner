@@ -8,6 +8,8 @@ const activeCalls = new Map();
 const socketToCall = new Map();
 // Map: userId → socketId (for disconnect cleanup)
 const userSockets = new Map();
+// Map: callRequestId -> { callerId, callerSocketId, targetUserId, targetSocketId, timer }
+const pendingCallRequests = new Map();
 
 /**
  * Register all matchmaking-related Socket.io event handlers for a connected socket.
@@ -136,9 +138,119 @@ function registerMatchmakingHandlers(io, socket, redis) {
     }
   });
 
+  // ── accept_call_request ────────────────────────────────────────────────
+  socket.on('accept_call_request', async ({ callRequestId }) => {
+    try {
+      const request = pendingCallRequests.get(callRequestId);
+      if (!request) {
+        socket.emit('match_error', { error: 'Call request expired or does not exist.' });
+        return;
+      }
+
+      if (request.targetUserId !== userId) {
+        socket.emit('match_error', { error: 'Unauthorized call acceptance.' });
+        return;
+      }
+
+      clearTimeout(request.timer);
+      pendingCallRequests.delete(callRequestId);
+
+      const channelName = matchmakingService.generateChannelName();
+      const uidA = matchmakingService.uuidToAgoraUid(request.callerId);
+      const uidB = matchmakingService.uuidToAgoraUid(request.targetUserId);
+      const tokenA = callsService.generateAgoraToken(channelName, uidA);
+      const tokenB = callsService.generateAgoraToken(channelName, uidB);
+
+      const callId = await callsService.createCall(request.callerId, request.targetUserId);
+
+      const [profileA, profileB] = await Promise.all([
+        fetchPublicProfile(request.callerId),
+        fetchPublicProfile(request.targetUserId),
+      ]);
+
+      activeCalls.set(callId, {
+        userA: { userId: request.callerId, socketId: request.callerSocketId, agoraUid: uidA },
+        userB: { userId: request.targetUserId, socketId: socket.id, agoraUid: uidB },
+        channelName,
+      });
+      socketToCall.set(request.callerSocketId, callId);
+      socketToCall.set(socket.id, callId);
+
+      io.to(request.callerSocketId).emit('match_found', {
+        callId,
+        agoraAppId: process.env.AGORA_APP_ID,
+        agoraChannelName: channelName,
+        agoraToken: tokenA,
+        agoraUid: uidA,
+        matchedUser: profileB,
+      });
+
+      socket.emit('match_found', {
+        callId,
+        agoraAppId: process.env.AGORA_APP_ID,
+        agoraChannelName: channelName,
+        agoraToken: tokenB,
+        agoraUid: uidB,
+        matchedUser: profileA,
+      });
+
+      callsService.startCallTimer(callId, (expiredCallId) => {
+        handleCallEnd(expiredCallId, callsService, io, 'timer');
+      });
+
+      console.log(`✅ Direct call ${callId} established: ${request.callerId} ↔ ${request.targetUserId}`);
+    } catch (err) {
+      console.error('Error in accept_call_request:', err);
+      socket.emit('match_error', { error: 'Failed to establish call connection.' });
+    }
+  });
+
+  // ── decline_call_request ────────────────────────────────────────────────
+  socket.on('decline_call_request', async ({ callRequestId }) => {
+    try {
+      const request = pendingCallRequests.get(callRequestId);
+      if (!request) return;
+
+      if (request.targetUserId !== userId) return;
+
+      clearTimeout(request.timer);
+      pendingCallRequests.delete(callRequestId);
+
+      io.to(request.callerSocketId).emit('call_response', {
+        callRequestId,
+        status: 'declined',
+      });
+      
+      console.log(`❌ Call request ${callRequestId} declined by target user ${userId}`);
+    } catch (err) {
+      console.error('Error in decline_call_request:', err);
+    }
+  });
+
+  // ── cancel_call_request ─────────────────────────────────────────────────
+  socket.on('cancel_call_request', async ({ callRequestId }) => {
+    try {
+      const request = pendingCallRequests.get(callRequestId);
+      if (!request) return;
+
+      if (request.callerId !== userId) return;
+
+      clearTimeout(request.timer);
+      pendingCallRequests.delete(callRequestId);
+
+      io.to(request.targetSocketId).emit('call_response', {
+        callRequestId,
+        status: 'cancelled',
+      });
+
+      console.log(`🛑 Call request ${callRequestId} cancelled by caller ${userId}`);
+    } catch (err) {
+      console.error('Error in cancel_call_request:', err);
+    }
+  });
+
   // ── direct_call ────────────────────────────────────────────────────────
-  // Allows a user to call a specific person directly (e.g. from call history)
-  // bypassing the matchmaking queue. Uses the same Agora + 5-min timer flow.
+  // Initiates a calling request to a specific user.
   socket.on('direct_call', async ({ targetUserId }) => {
     // 1. Prevent calling yourself
     if (targetUserId === userId) {
@@ -155,13 +267,22 @@ function registerMatchmakingHandlers(io, socket, redis) {
     // 3. Check if target user is online
     const targetSocketId = userSockets.get(targetUserId);
     if (!targetSocketId) {
-      socket.emit('match_error', { error: 'User is currently offline' });
+      socket.emit('call_response', { status: 'offline' });
       return;
     }
 
-    // 4. Check if target user is already in a call
-    if (socketToCall.has(targetSocketId)) {
-      socket.emit('match_error', { error: 'User is currently on another call' });
+    // 4. Check if target user is already in a call or has a pending call request (busy)
+    let isBusy = socketToCall.has(targetSocketId);
+    if (!isBusy) {
+      for (const reqVal of pendingCallRequests.values()) {
+        if (reqVal.callerId === targetUserId || reqVal.targetUserId === targetUserId) {
+          isBusy = true;
+          break;
+        }
+      }
+    }
+    if (isBusy) {
+      socket.emit('call_response', { status: 'busy' });
       return;
     }
 
@@ -173,7 +294,7 @@ function registerMatchmakingHandlers(io, socket, redis) {
     if (!lockedA || !lockedB) {
       if (lockedA) await redis.del(lockKeyA);
       if (lockedB) await redis.del(lockKeyB);
-      socket.emit('match_error', { error: 'Line is busy. Please try again.' });
+      socket.emit('call_response', { status: 'busy' });
       return;
     }
 
@@ -182,59 +303,47 @@ function registerMatchmakingHandlers(io, socket, redis) {
       await matchmakingService.leaveQueue(userId);
       await matchmakingService.leaveQueue(targetUserId);
 
-      // 6. Set up the call — same logic as attemptMatch
-      const channelName = matchmakingService.generateChannelName();
-      const uidA = matchmakingService.uuidToAgoraUid(userId);
-      const uidB = matchmakingService.uuidToAgoraUid(targetUserId);
-      const tokenA = callsService.generateAgoraToken(channelName, uidA);
-      const tokenB = callsService.generateAgoraToken(channelName, uidB);
+      // Generate a unique callRequestId
+      const callRequestId = matchmakingService.generateChannelName();
 
-      // 7. Create call record in DB
-      const callId = await callsService.createCall(userId, targetUserId);
+      // Fetch profile for Caller
+      const callerProfile = await fetchPublicProfile(userId);
 
-      // 8. Fetch profiles for both users
-      const [profileA, profileB] = await Promise.all([
-        fetchPublicProfile(userId),
-        fetchPublicProfile(targetUserId),
-      ]);
+      // Start 30-second server timeout timer
+      const timer = setTimeout(() => {
+        if (pendingCallRequests.has(callRequestId)) {
+          console.log(`⏰ Call request ${callRequestId} timed out (no answer)`);
+          io.to(socket.id).emit('call_response', { callRequestId, status: 'no_answer' });
+          io.to(targetSocketId).emit('call_response', { callRequestId, status: 'no_answer' });
+          pendingCallRequests.delete(callRequestId);
+        }
+      }, 30000);
 
-      // 9. Track active call
-      activeCalls.set(callId, {
-        userA: { userId, socketId: socket.id, agoraUid: uidA },
-        userB: { userId: targetUserId, socketId: targetSocketId, agoraUid: uidB },
-        channelName,
-      });
-      socketToCall.set(socket.id, callId);
-      socketToCall.set(targetSocketId, callId);
-
-      // 10. Emit match_found to both users (same payload as random match)
-      io.to(socket.id).emit('match_found', {
-        callId,
-        agoraAppId: process.env.AGORA_APP_ID,
-        agoraChannelName: channelName,
-        agoraToken: tokenA,
-        agoraUid: uidA,
-        matchedUser: profileB,
+      // Store in-memory
+      pendingCallRequests.set(callRequestId, {
+        callerId: userId,
+        callerSocketId: socket.id,
+        targetUserId,
+        targetSocketId,
+        timer,
       });
 
-      io.to(targetSocketId).emit('match_found', {
-        callId,
-        agoraAppId: process.env.AGORA_APP_ID,
-        agoraChannelName: channelName,
-        agoraToken: tokenB,
-        agoraUid: uidB,
-        matchedUser: profileA,
+      // Emit incoming call request to recipient
+      io.to(targetSocketId).emit('incoming_call_request', {
+        callRequestId,
+        caller: callerProfile,
       });
 
-      // 11. Start server-authoritative 5-minute timer
-      callsService.startCallTimer(callId, (expiredCallId) => {
-        handleCallEnd(expiredCallId, callsService, io, 'timer');
+      // Emit outgoing call ringing to caller
+      socket.emit('outgoing_call_ringing', {
+        callRequestId,
+        targetUser: { id: targetUserId },
       });
 
-      console.log(`📞 Direct call ${callId} started: ${userId} → ${targetUserId} on channel ${channelName}`);
+      console.log(`🔔 Call request initiated: ${userId} → ${targetUserId} (req: ${callRequestId})`);
     } catch (err) {
       console.error('Error in direct_call:', err);
-      socket.emit('match_error', { error: 'Failed to set up direct call' });
+      socket.emit('match_error', { error: 'Failed to initiate call request' });
     } finally {
       // Release locks
       await redis.del(lockKeyA);
@@ -247,6 +356,19 @@ function registerMatchmakingHandlers(io, socket, redis) {
     try {
       // Remove from queue if they were waiting
       await matchmakingService.leaveQueue(userId);
+
+      // Clean up pending call requests involving this user
+      for (const [callRequestId, reqVal] of pendingCallRequests.entries()) {
+        if (reqVal.callerId === userId) {
+          io.to(reqVal.targetSocketId).emit('call_response', { callRequestId, status: 'cancelled' });
+          clearTimeout(reqVal.timer);
+          pendingCallRequests.delete(callRequestId);
+        } else if (reqVal.targetUserId === userId) {
+          io.to(reqVal.callerSocketId).emit('call_response', { callRequestId, status: 'offline' });
+          clearTimeout(reqVal.timer);
+          pendingCallRequests.delete(callRequestId);
+        }
+      }
 
       // End active call if in one
       const callId = socketToCall.get(socket.id);

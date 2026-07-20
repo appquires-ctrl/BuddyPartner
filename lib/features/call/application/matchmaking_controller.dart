@@ -144,10 +144,10 @@ class MatchmakingController extends Notifier<MatchmakingState> {
       // 2. Ensure socket is initialised and connected
       _initSocket();
 
-      // 3. Set state to queued and pre-fill matched user info so the
+      // 3. Set state to outgoingRequest and pre-fill matched user info so the
       //    calling/connecting UI can show who we're calling.
       state = state.copyWith(
-        phase: MatchmakingPhase.queued,
+        phase: MatchmakingPhase.outgoingRequest,
         matchedUser: MatchedUserInfo(
           id: targetUserId,
           fullName: targetUserName,
@@ -163,14 +163,14 @@ class MatchmakingController extends Notifier<MatchmakingState> {
         _pendingDirectCallUserId = null;
       }
 
-      // 5. Start a 15-second connection timeout timer
+      // 5. Start a 32-second connection timeout timer
       _callingTimeoutTimer?.cancel();
-      _callingTimeoutTimer = Timer(const Duration(seconds: 15), () {
-        if (state.phase == MatchmakingPhase.queued) {
-          leaveQueue();
+      _callingTimeoutTimer = Timer(const Duration(seconds: 32), () {
+        if (state.phase == MatchmakingPhase.outgoingRequest) {
+          cancelCallRequest();
           state = state.copyWith(
             phase: MatchmakingPhase.idle,
-            errorMessage: 'Connection timed out. Target user might be offline or busy.',
+            errorMessage: 'No answer. Target user might be offline or busy.',
           );
         }
       });
@@ -181,6 +181,57 @@ class MatchmakingController extends Notifier<MatchmakingState> {
         errorMessage: 'Failed to start call: $e',
       );
     }
+  }
+
+  /// Accept the incoming direct call request.
+  Future<void> acceptCall() async {
+    if (state.phase != MatchmakingPhase.incomingRequest || state.callId == null) return;
+
+    try {
+      bool micGranted = await Permission.microphone.isGranted;
+      bool cameraGranted = await Permission.camera.isGranted;
+
+      if (!micGranted || !cameraGranted) {
+        final statuses = await [
+          Permission.microphone,
+          Permission.camera,
+        ].request();
+        micGranted = statuses[Permission.microphone]?.isGranted ?? false;
+        cameraGranted = statuses[Permission.camera]?.isGranted ?? false;
+      }
+
+      if (!micGranted || !cameraGranted) {
+        declineCall();
+        state = state.copyWith(
+          errorMessage: 'Permissions are required to accept the call.',
+        );
+        return;
+      }
+
+      _socket?.emit('accept_call_request', {'callRequestId': state.callId});
+    } catch (e) {
+      debugPrint('Error accepting call request: $e');
+      state = state.copyWith(errorMessage: 'Failed to accept call request.');
+    }
+  }
+
+  /// Decline the incoming direct call request.
+  void declineCall() {
+    if (state.phase != MatchmakingPhase.incomingRequest || state.callId == null) return;
+    _socket?.emit('decline_call_request', {'callRequestId': state.callId});
+    _callingTimeoutTimer?.cancel();
+    _callingTimeoutTimer = null;
+    state = state.reset();
+  }
+
+  /// Cancel the outgoing direct call request before it is accepted.
+  void cancelCallRequest() {
+    if (state.phase != MatchmakingPhase.outgoingRequest || state.callId == null) return;
+    _socket?.emit('cancel_call_request', {'callRequestId': state.callId});
+    _callingTimeoutTimer?.cancel();
+    _callingTimeoutTimer = null;
+    _pendingDirectCallUserId = null;
+    state = state.reset();
   }
 
   /// Manually end the current call. Navigating back to home is handled by the UI.
@@ -299,6 +350,9 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     });
 
     _socket!.on('match_found', _onMatchFound);
+    _socket!.on('incoming_call_request', _onIncomingCallRequest);
+    _socket!.on('outgoing_call_ringing', _onOutgoingCallRinging);
+    _socket!.on('call_response', _onCallResponse);
     _socket!.on('call_ended', _onCallEnded);
     _socket!.on('video_upgrade_request', _onVideoUpgradeRequest);
     _socket!.on('video_upgrade_accepted', _onVideoUpgradeAccepted);
@@ -336,7 +390,9 @@ class MatchmakingController extends Notifier<MatchmakingState> {
   Future<void> _onMatchFound(dynamic data) async {
     // Guard: only accept match_found when we're actually waiting for one
     if (state.phase != MatchmakingPhase.queued &&
-        state.phase != MatchmakingPhase.idle) {
+        state.phase != MatchmakingPhase.idle &&
+        state.phase != MatchmakingPhase.outgoingRequest &&
+        state.phase != MatchmakingPhase.incomingRequest) {
       return;
     }
     
@@ -431,6 +487,73 @@ class MatchmakingController extends Notifier<MatchmakingState> {
       phase: MatchmakingPhase.idle,
       errorMessage: errorMsg,
     );
+  }
+
+  Future<void> _onIncomingCallRequest(dynamic data) async {
+    try {
+      final map = Map<String, dynamic>.from(data as Map);
+      final callRequestId = map['callRequestId'] as String;
+      final caller = MatchedUserInfo.fromJson(
+        Map<String, dynamic>.from(map['caller'] as Map),
+      );
+
+      state = state.copyWith(
+        phase: MatchmakingPhase.incomingRequest,
+        callId: callRequestId,
+        matchedUser: caller,
+      );
+
+      _callingTimeoutTimer?.cancel();
+      _callingTimeoutTimer = Timer(const Duration(seconds: 32), () {
+        if (state.phase == MatchmakingPhase.incomingRequest) {
+          declineCall();
+        }
+      });
+    } catch (e) {
+      debugPrint('Error parsing incoming call request: $e');
+    }
+  }
+
+  void _onOutgoingCallRinging(dynamic data) {
+    try {
+      final map = Map<String, dynamic>.from(data as Map);
+      final callRequestId = map['callRequestId'] as String;
+      state = state.copyWith(
+        callId: callRequestId,
+      );
+    } catch (e) {
+      debugPrint('Error parsing outgoing call ringing: $e');
+    }
+  }
+
+  void _onCallResponse(dynamic data) {
+    try {
+      final map = Map<String, dynamic>.from(data as Map);
+      final status = map['status'] as String;
+
+      _callingTimeoutTimer?.cancel();
+      _callingTimeoutTimer = null;
+      _pendingDirectCallUserId = null;
+
+      String message = 'Call request ended';
+      if (status == 'declined') {
+        message = 'Call declined';
+      } else if (status == 'busy') {
+        message = 'User is busy';
+      } else if (status == 'offline') {
+        message = 'User is offline';
+      } else if (status == 'no_answer') {
+        message = 'No answer';
+      } else if (status == 'cancelled') {
+        message = 'Call cancelled';
+      }
+
+      state = state.reset().copyWith(
+        errorMessage: message,
+      );
+    } catch (e) {
+      debugPrint('Error parsing call response: $e');
+    }
   }
 
   Future<void> _handleServerDisconnect() async {

@@ -6,6 +6,12 @@ enum MatchmakingPhase {
   /// User has been added to the server queue, waiting for a match.
   queued,
 
+  /// Direct call request is outgoing, waiting for target user response.
+  outgoingRequest,
+
+  /// Direct call request is incoming, awaiting acceptance.
+  incomingRequest,
+
   /// A match has been found, Agora channel setup is in progress.
   matched,
 
