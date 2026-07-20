@@ -24,8 +24,8 @@ class ProfilePage extends ConsumerWidget {
     final currentUser = userAsync.value;
     final profile = profileAsync.value;
     
-    final String fullName = profile?.fullName ?? currentUser?.email?.split('@')[0] ?? 'User';
-    final String email = currentUser?.email ?? '';
+    final String fullName = profile?.fullName ?? 'User';
+    final String phoneNumber = currentUser?.phoneNumber ?? '';
     final String initials = getInitials(fullName);
 
     return Scaffold(
@@ -121,13 +121,13 @@ class ProfilePage extends ConsumerWidget {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   const Icon(
-                                    Icons.email_outlined,
+                                    Icons.phone_outlined,
                                     color: Color(0xFF6B4EFF),
                                     size: 12,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    email,
+                                    phoneNumber,
                                     style: TextStyle(
                                       color: const Color(0xFF6B4EFF),
                                       fontSize: 11,

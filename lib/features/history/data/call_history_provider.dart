@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:dating_app/core/services/api_client.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 
 /// CallLog represents an individual call history record.
@@ -28,7 +28,6 @@ class CallLog {
   });
 
   factory CallLog.fromJson(Map<String, dynamic> json, String currentUserId) {
-    // Print the raw JSON to the debug console to inspect what Supabase is returning
     debugPrint('CallLog JSON row: $json');
     debugPrint('CallLog currentUserId: $currentUserId');
 
@@ -43,7 +42,7 @@ class CallLog {
     } else if (matchedUserJson != null && matchedUserJson is Map && matchedUserJson['id'] != currentUserId) {
       otherUserJson = matchedUserJson;
     } else {
-      // Fallback if one of the sides is null (common if RLS blocks reading the other user's profile)
+      // Fallback if one of the sides is null
       final isCaller = json['caller_id'] == currentUserId;
       otherUserJson = isCaller ? matchedUserJson : callerJson;
     }
@@ -76,22 +75,13 @@ final callHistoryProvider = FutureProvider.autoDispose<List<CallLog>>((ref) asyn
   final user = authState.value;
   if (user == null) return const [];
 
-  final supabase = Supabase.instance.client;
-
   try {
-    // Query calls where current user is either caller_id or matched_user_id
-    // Joining on caller_id and matched_user_id to retrieve caller/recipient profile details
-    final response = await supabase
-        .from('calls')
-        .select('''
-          *,
-          caller:caller_id(id, full_name),
-          matched_user:matched_user_id(id, full_name)
-        ''')
-        .or('caller_id.eq.${user.id},matched_user_id.eq.${user.id}')
-        .order('started_at', ascending: false);
-
-    final list = List<Map<String, dynamic>>.from(response);
+    final apiClient = ref.watch(apiClientProvider);
+    final response = await apiClient.dio.get('/api/calls/history');
+    
+    if (response.data == null) return const [];
+    
+    final list = List<Map<String, dynamic>>.from(response.data as List);
     return list.map((json) => CallLog.fromJson(json, user.id)).toList();
   } catch (e, stackTrace) {
     debugPrint('Error fetching call history: $e\n$stackTrace');

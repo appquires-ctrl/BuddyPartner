@@ -6,12 +6,13 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
 const Redis = require('ioredis');
-const { createClient } = require('@supabase/supabase-js');
+const jwt = require('jsonwebtoken');
+const db = require('./db');
 
 // ── Validate required env vars ──────────────────────────────────────────────
 const REQUIRED_ENV = [
-  'SUPABASE_URL',
-  'SUPABASE_SERVICE_ROLE_KEY',
+  'DATABASE_URL',
+  'JWT_SECRET',
   'REDIS_URL',
   'AGORA_APP_ID',
   'AGORA_APP_CERTIFICATE',
@@ -29,6 +30,13 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
+// Import and mount custom modules REST endpoints
+const authRoutes = require('./modules/auth/auth.routes');
+const callsRoutes = require('./modules/calls/calls.routes');
+
+app.use('/api/auth', authRoutes);
+app.use('/api/calls', callsRoutes);
+
 const server = http.createServer(app);
 
 // ── Redis client ────────────────────────────────────────────────────────────
@@ -43,12 +51,6 @@ const redis = new Redis(process.env.REDIS_URL, {
 redis.on('connect', () => console.log('✅ Redis connected'));
 redis.on('error', (err) => console.error('❌ Redis error:', err.message));
 
-// ── Supabase service-role client (server-only, never exposed to clients) ───
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-);
-
 // ── Socket.io setup ─────────────────────────────────────────────────────────
 const io = new Server(server, {
   cors: {
@@ -59,8 +61,7 @@ const io = new Server(server, {
   pingInterval: 10000,
 });
 
-// Socket.io authentication middleware — validates Supabase JWT
-// Uses supabase.auth.getUser() which works with both HS256 and ES256 tokens
+// Socket.io authentication middleware — validates custom JWT session
 io.use(async (socket, next) => {
   const token = socket.handshake.auth?.token;
   if (!token) {
@@ -68,15 +69,11 @@ io.use(async (socket, next) => {
   }
 
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    const secret = process.env.JWT_SECRET || 'loopcall_fallback_jwt_secret_key_change_me_in_prod';
+    const decoded = jwt.verify(token, secret);
 
-    if (error || !user) {
-      console.error('Socket auth failed:', error?.message || 'No user returned');
-      return next(new Error('Authentication error: invalid token'));
-    }
-
-    socket.userId = user.id;
-    socket.userEmail = user.email;
+    socket.userId = decoded.id;
+    socket.userPhone = decoded.phone;
     next();
   } catch (err) {
     console.error('Socket auth failed:', err.message);
@@ -89,7 +86,7 @@ const { registerMatchmakingHandlers } = require('./modules/matchmaking/matchmaki
 
 io.on('connection', (socket) => {
   console.log(`🔌 User connected: ${socket.userId} (socket: ${socket.id})`);
-  registerMatchmakingHandlers(io, socket, redis, supabase);
+  registerMatchmakingHandlers(io, socket, redis);
 
   socket.on('disconnect', (reason) => {
     console.log(`🔌 User disconnected: ${socket.userId} — ${reason}`);
@@ -101,10 +98,22 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
 
+// ── Periodically clean up expired OTPs (every 1 hour) ────────────────────────
+setInterval(async () => {
+  try {
+    const result = await db.query('DELETE FROM public.otp_verifications WHERE expires_at < NOW()');
+    if (result.rowCount > 0) {
+      console.log(`🧹 Cleaned up ${result.rowCount} expired OTP verification records.`);
+    }
+  } catch (err) {
+    console.error('❌ Error cleaning up expired OTPs:', err.message);
+  }
+}, 60 * 60 * 1000);
+
 // ── Start server ────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`🚀 LoopCall server listening on port ${PORT}`);
 });
 
-module.exports = { app, server, io, redis, supabase };
+module.exports = { app, server, io, redis, db };

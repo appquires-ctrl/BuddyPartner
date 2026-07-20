@@ -1,75 +1,186 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:dating_app/core/services/api_client.dart';
+import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 
 /// AuthController coordinates client-side authentication triggers
-/// against the Supabase backend.
+/// against the custom Node.js/Neon backend.
 class AuthController extends AutoDisposeAsyncNotifier<void> {
+  String? _verificationId;
+  int? _resendToken;
+
   @override
   FutureOr<void> build() {
     // Initial state is idle (AsyncData(null))
   }
 
-  /// Sign in using email and password.
-  Future<bool> signIn({
-    required String email,
-    required String password,
-  }) async {
+  /// Request SMS OTP to the provided phone number using Firebase Auth.
+  Future<bool> sendOtp(String phone) async {
     state = const AsyncLoading();
-    final result = await AsyncValue.guard(() async {
-      await Supabase.instance.client.auth.signInWithPassword(
-        email: email,
-        password: password,
+    final completer = Completer<bool>();
+    
+    try {
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: phone,
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          try {
+            final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+            final idToken = await userCredential.user?.getIdToken();
+            if (idToken != null) {
+              final loginSuccess = await _loginToBackend(phone, idToken);
+              if (loginSuccess && !completer.isCompleted) {
+                completer.complete(true);
+              }
+            }
+          } catch (e) {
+            if (!completer.isCompleted) {
+              completer.completeError(e);
+            }
+          }
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          if (!completer.isCompleted) {
+            completer.completeError(Exception(e.message ?? 'Firebase Phone verification failed.'));
+          }
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          _verificationId = verificationId;
+          _resendToken = resendToken;
+          state = const AsyncData(null);
+          if (!completer.isCompleted) {
+            completer.complete(true);
+          }
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          _verificationId = verificationId;
+        },
+        forceResendingToken: _resendToken,
       );
-    });
-    if (result.hasError) {
-      state = AsyncError(result.error!, result.stackTrace!);
-      return false;
+    } catch (e, stack) {
+      state = AsyncError(e, stack);
+      if (!completer.isCompleted) {
+        completer.complete(false);
+      }
     }
-    state = const AsyncData(null);
-    return true;
+    
+    return completer.future;
   }
 
-  /// Sign up a new user, attaching profile metadata that the DB trigger reads.
-  Future<bool> signUp({
-    required String email,
-    required String password,
+  /// Helper to exchange the verified Firebase IdToken for our backend JWT token.
+  Future<bool> _loginToBackend(String phone, String idToken) async {
+    final apiClient = ref.read(apiClientProvider);
+    final response = await apiClient.dio.post(
+      '/api/auth/firebase-login',
+      data: {'phone': phone, 'idToken': idToken},
+    );
+    
+    if (response.statusCode == 200 && response.data != null) {
+      final token = response.data['token'] as String;
+      final isProfileComplete = response.data['isProfileComplete'] as bool? ?? false;
+      
+      // Save backend token
+      await apiClient.saveToken(token);
+      
+      // Fetch profile
+      final userProfileResponse = await apiClient.dio.get('/api/auth/me');
+      if (userProfileResponse.statusCode == 200 && userProfileResponse.data != null) {
+        final userMap = userProfileResponse.data['user'];
+        ref.read(authStateProvider.notifier).setSession(
+          CustomUser(
+            id: userMap['id'] as String,
+            phoneNumber: userMap['phoneNumber'] as String,
+            isProfileComplete: isProfileComplete,
+          ),
+        );
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Verify the OTP with Firebase and trade for a backend session token.
+  /// Returns a Map containing verification result:
+  /// - 'success': bool
+  /// - 'isProfileComplete': bool (if user already filled metadata)
+  Future<Map<String, dynamic>> verifyOtp(String phone, String otp) async {
+    state = const AsyncLoading();
+    
+    try {
+      if (_verificationId == null) {
+        throw Exception("Verification ID is missing. Please send OTP first.");
+      }
+      
+      final credential = PhoneAuthProvider.credential(
+        verificationId: _verificationId!,
+        smsCode: otp,
+      );
+      
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final idToken = await userCredential.user?.getIdToken();
+      if (idToken == null) {
+        throw Exception("Failed to retrieve Firebase authentication token.");
+      }
+      
+      final success = await _loginToBackend(phone, idToken);
+      state = const AsyncData(null);
+      return {
+        'success': success,
+        'isProfileComplete': ref.read(authStateProvider).value?.isProfileComplete ?? false,
+      };
+    } catch (e, stack) {
+      state = AsyncError(e, stack);
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// Update profile metadata for onboarding completion.
+  Future<bool> completeProfile({
     required String fullName,
     required DateTime dob,
     required String gender,
     required String language,
   }) async {
     state = const AsyncLoading();
+    final apiClient = ref.read(apiClientProvider);
+    
     final result = await AsyncValue.guard(() async {
-      await Supabase.instance.client.auth.signUp(
-        email: email,
-        password: password,
+      final response = await apiClient.dio.post(
+        '/api/auth/profile',
         data: {
-          'full_name': fullName,
+          'fullName': fullName,
           'dob': dob.toIso8601String(),
           'gender': gender,
           'language': language,
         },
       );
+      
+      if (response.statusCode != 200) {
+        throw Exception(response.data['error'] ?? 'Failed to update profile.');
+      }
+      
+      // Fetch updated profile state and update session notifier
+      final userProfileResponse = await apiClient.dio.get('/api/auth/me');
+      if (userProfileResponse.statusCode == 200 && userProfileResponse.data != null) {
+        final userMap = userProfileResponse.data['user'];
+        ref.read(authStateProvider.notifier).setSession(
+          CustomUser(
+            id: userMap['id'] as String,
+            phoneNumber: userMap['phoneNumber'] as String,
+            isProfileComplete: true,
+          ),
+        );
+      }
+      
+      // Refresh userProfileProvider to notify profile widget listeners
+      ref.invalidate(userProfileProvider);
     });
-    if (result.hasError) {
-      state = AsyncError(result.error!, result.stackTrace!);
-      return false;
-    }
-    state = const AsyncData(null);
-    return true;
-  }
 
-  /// Trigger a password reset email for the user.
-  Future<bool> resetPassword({required String email}) async {
-    state = const AsyncLoading();
-    final result = await AsyncValue.guard(() async {
-      await Supabase.instance.client.auth.resetPasswordForEmail(email);
-    });
     if (result.hasError) {
       state = AsyncError(result.error!, result.stackTrace!);
       return false;
     }
+    
     state = const AsyncData(null);
     return true;
   }
@@ -78,8 +189,10 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
   Future<void> signOut() async {
     state = const AsyncLoading();
     final result = await AsyncValue.guard(() async {
-      await Supabase.instance.client.auth.signOut();
+      await FirebaseAuth.instance.signOut();
+      await ref.read(authStateProvider.notifier).clearSession();
     });
+    
     if (result.hasError) {
       state = AsyncError(result.error!, result.stackTrace!);
     } else {

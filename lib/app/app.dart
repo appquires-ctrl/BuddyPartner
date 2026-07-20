@@ -38,12 +38,14 @@ class LoopCallApp extends ConsumerWidget {
       }
     });
 
+    final router = ref.watch(routerProvider);
+
     return MaterialApp.router(
       title: 'LoopCall',
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: ThemeMode.system,
-      routerConfig: appRouter,
+      routerConfig: router,
       builder: (context, child) {
         final mediaQueryData = MediaQuery.of(context);
         return MediaQuery(

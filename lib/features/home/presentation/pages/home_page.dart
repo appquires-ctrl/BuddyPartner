@@ -77,16 +77,14 @@ class _HomePageState extends ConsumerState<HomePage> {
     final colors = context.colors;
     final typography = context.typography;
 
-    final userAsync = ref.watch(authStateProvider);
     final profileAsync = ref.watch(userProfileProvider);
     final balanceAsync = ref.watch(walletBalanceProvider);
     final matchmakingState = ref.watch(matchmakingControllerProvider);
     
-    final currentUser = userAsync.value;
     final profile = profileAsync.value;
     final balance = balanceAsync.value ?? 100;
     
-    final String fullName = profile?.fullName ?? currentUser?.email?.split('@')[0] ?? 'User';
+    final String fullName = profile?.fullName ?? 'User';
     final String initials = getInitials(fullName);
     final bool isMatching = matchmakingState.phase == MatchmakingPhase.queued;
 

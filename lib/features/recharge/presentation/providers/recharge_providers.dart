@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:dating_app/core/services/api_client.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 
 /// RechargePlanUiModel represents the coin purchase pricing model.
@@ -19,20 +19,22 @@ class RechargePlanUiModel {
   });
 }
 
-/// walletBalanceProvider supplies the user's active wallet balance from Supabase.
+/// walletBalanceProvider supplies the user's active wallet balance from standard API endpoint.
 final walletBalanceProvider = FutureProvider<int>((ref) async {
   final authState = ref.watch(authStateProvider);
   final user = authState.value;
   if (user == null) return 0;
 
-  final response = await Supabase.instance.client
-      .from('wallets')
-      .select('balance')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-  if (response == null) return 100; // Default welcome bonus fallback
-  return response['balance'] as int? ?? 100;
+  try {
+    final apiClient = ref.watch(apiClientProvider);
+    final response = await apiClient.dio.get('/api/auth/me');
+    if (response.data != null && response.data['user'] != null) {
+      return response.data['user']['walletBalance'] as int? ?? 100;
+    }
+  } catch (e) {
+    // Return fallback on network error
+  }
+  return 100; // Default welcome bonus fallback
 });
 
 /// rechargePlansProvider supplies list of plans with rupee costs matching screenshots.

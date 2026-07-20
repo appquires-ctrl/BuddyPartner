@@ -9,7 +9,9 @@ import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/core/widgets/buttons/app_primary_button.dart';
 
-/// SignupPage collects user details during registration and registers them on Supabase.
+/// SignupPage is repurposed as the Profile Onboarding/Completion Setup Page.
+/// It collects profile details (Full Name, Date of Birth, Gender, Language)
+/// for users who verified their OTP but do not have metadata populated.
 class SignupPage extends ConsumerStatefulWidget {
   const SignupPage({super.key});
 
@@ -21,27 +23,17 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   final _formKey = GlobalKey<FormState>();
   
   final _fullNameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-  
   DateTime? _selectedDob;
   String? _selectedGender;
   String? _selectedLanguage;
   bool _is18Plus = false;
   
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
-
   final List<String> _genders = ['Male', 'Female', 'Other'];
   final List<String> _languages = ['English', 'Hindi', 'Spanish', 'French', 'Arabic', 'Portuguese'];
 
   @override
   void dispose() {
     _fullNameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -76,12 +68,26 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     }
   }
 
-  Future<void> _handleSignup() async {
+  Future<void> _handleCompleteProfile() async {
     if (!_formKey.currentState!.validate()) return;
     
     if (_selectedDob == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select your date of birth')),
+      );
+      return;
+    }
+
+    if (_selectedGender == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select your gender')),
+      );
+      return;
+    }
+
+    if (_selectedLanguage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select your language')),
       );
       return;
     }
@@ -93,17 +99,14 @@ class _SignupPageState extends ConsumerState<SignupPage> {
       return;
     }
 
-    final success = await ref.read(authControllerProvider.notifier).signUp(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
+    final success = await ref.read(authControllerProvider.notifier).completeProfile(
           fullName: _fullNameController.text.trim(),
           dob: _selectedDob!,
-          gender: _selectedGender ?? 'Other',
-          language: _selectedLanguage ?? 'English',
+          gender: _selectedGender!,
+          language: _selectedLanguage!,
         );
 
     if (success && mounted) {
-      // Supabase email confirmation is disabled, so we route immediately
       context.go(RouteNames.home);
     }
   }
@@ -115,40 +118,43 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     final authState = ref.watch(authControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: colors.textPrimary),
-          onPressed: () => context.pop(),
-        ),
-      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.space24,
-            vertical: AppSpacing.space16,
+            vertical: AppSpacing.space32,
           ),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Center(
+                  child: Text(
+                    'LoopCall',
+                    style: typography.displayWordmark.copyWith(
+                      color: colors.primary,
+                      fontSize: 32,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.space32),
+                
                 Text(
-                  'Create Account',
+                  'Complete Your Profile',
                   style: typography.headlineGreeting.copyWith(
-                    fontSize: 24,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.space8),
                 Text(
-                  'Join LoopCall and start connecting instantly.',
+                  'Let strangers know a bit about you before connecting.',
                   style: typography.bodySmall.copyWith(color: colors.textSecondary),
                 ),
                 const SizedBox(height: AppSpacing.space24),
 
-                // Error Banner
+                // Error message banner
                 if (authState.hasError) ...[
                   Container(
                     width: double.infinity,
@@ -177,149 +183,125 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                   ),
                 ],
 
-                // Full Name field
-                _buildLabel('Full Name'),
+                // Full Name
+                Text(
+                  'Full Name',
+                  style: typography.bodySmall.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 TextFormField(
                   controller: _fullNameController,
                   style: typography.bodyMedium,
-                  decoration: _getInputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'John Doe',
+                    hintStyle: typography.bodySmall.copyWith(color: colors.textSecondary.withOpacity(0.6)),
                     prefixIcon: const Icon(Icons.person_outline, size: 20),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your name';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: AppSpacing.space16),
-
-                // Email field
-                _buildLabel('Email Address'),
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  style: typography.bodyMedium,
-                  decoration: _getInputDecoration(
-                    hintText: 'john@example.com',
-                    prefixIcon: const Icon(Icons.email_outlined, size: 20),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your email';
-                    }
-                    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
-                    if (!emailRegex.hasMatch(value.trim())) {
-                      return 'Please enter a valid email address';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: AppSpacing.space16),
-
-                // Password field
-                _buildLabel('Password'),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  style: typography.bodyMedium,
-                  decoration: _getInputDecoration(
-                    hintText: '••••••••',
-                    prefixIcon: const Icon(Icons.lock_outline, size: 20),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                        size: 20,
-                        color: Colors.black45,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
+                    filled: true,
+                    fillColor: colors.surface,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.space16,
+                      vertical: AppSpacing.space12,
                     ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your password';
-                    }
-                    if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: AppSpacing.space16),
-
-                // Confirm Password field
-                _buildLabel('Confirm Password'),
-                TextFormField(
-                  controller: _confirmPasswordController,
-                  obscureText: _obscureConfirmPassword,
-                  style: typography.bodyMedium,
-                  decoration: _getInputDecoration(
-                    hintText: '••••••••',
-                    prefixIcon: const Icon(Icons.lock_outline, size: 20),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                        size: 20,
-                        color: Colors.black45,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscureConfirmPassword = !_obscureConfirmPassword;
-                        });
-                      },
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value != _passwordController.text) {
-                      return 'Passwords do not match';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: AppSpacing.space16),
-
-                // Date of Birth selection
-                _buildLabel('Date of Birth'),
-                GestureDetector(
-                  onTap: _pickDob,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
+                    border: OutlineInputBorder(
                       borderRadius: AppRadius.md,
-                      border: Border.all(color: const Color(0xFFF0F0F2)),
+                      borderSide: BorderSide(color: colors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: AppRadius.md,
+                      borderSide: BorderSide(color: colors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: AppRadius.md,
+                      borderSide: BorderSide(color: colors.primary, width: 1.5),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: AppRadius.md,
+                      borderSide: const BorderSide(color: Color(0xFFEF4444)),
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter your full name';
+                    }
+                    if (value.trim().length < 3) {
+                      return 'Name must be at least 3 characters';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: AppSpacing.space20),
+
+                // Date of Birth
+                Text(
+                  'Date of Birth',
+                  style: typography.bodySmall.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: _pickDob,
+                  borderRadius: AppRadius.md,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.space16,
+                      vertical: AppSpacing.space12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      borderRadius: AppRadius.md,
+                      border: Border.all(color: colors.border),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_month_outlined, color: Colors.black45, size: 20),
+                        Icon(Icons.calendar_today_outlined, size: 20, color: colors.textSecondary),
                         const SizedBox(width: 12),
                         Text(
                           _selectedDob == null
                               ? 'Select Date of Birth'
                               : '${_selectedDob!.day}/${_selectedDob!.month}/${_selectedDob!.year}',
                           style: typography.bodyMedium.copyWith(
-                            color: _selectedDob == null ? Colors.black38 : Colors.black87,
+                            color: _selectedDob == null ? colors.textSecondary.withOpacity(0.6) : colors.textPrimary,
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.space16),
+                const SizedBox(height: AppSpacing.space20),
 
-                // Gender Selection (Dropdown)
-                _buildLabel('Gender'),
+                // Gender
+                Text(
+                  'Gender',
+                  style: typography.bodySmall.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: _selectedGender,
-                  style: typography.bodyMedium.copyWith(color: Colors.black87),
-                  decoration: _getInputDecoration(
-                    hintText: 'Select Gender',
+                  style: typography.bodyMedium.copyWith(color: colors.textPrimary),
+                  decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.transgender_outlined, size: 20),
+                    filled: true,
+                    fillColor: colors.surface,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.space16,
+                      vertical: AppSpacing.space12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: AppRadius.md,
+                      borderSide: BorderSide(color: colors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: AppRadius.md,
+                      borderSide: BorderSide(color: colors.border),
+                    ),
                   ),
                   items: _genders.map((gender) {
                     return DropdownMenuItem(
@@ -327,23 +309,39 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                       child: Text(gender),
                     );
                   }).toList(),
-                  onChanged: (val) {
-                    setState(() {
-                      _selectedGender = val;
-                    });
-                  },
-                  validator: (val) => val == null ? 'Please select your gender' : null,
+                  onChanged: (val) => setState(() => _selectedGender = val),
+                  validator: (value) => value == null ? 'Please select your gender' : null,
                 ),
-                const SizedBox(height: AppSpacing.space16),
+                const SizedBox(height: AppSpacing.space20),
 
-                // Preferred Language (Dropdown)
-                _buildLabel('Preferred Language'),
+                // Preferred Language
+                Text(
+                  'Preferred Language',
+                  style: typography.bodySmall.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: _selectedLanguage,
-                  style: typography.bodyMedium.copyWith(color: Colors.black87),
-                  decoration: _getInputDecoration(
-                    hintText: 'Select Preferred Language',
+                  style: typography.bodyMedium.copyWith(color: colors.textPrimary),
+                  decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.language_outlined, size: 20),
+                    filled: true,
+                    fillColor: colors.surface,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.space16,
+                      vertical: AppSpacing.space12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: AppRadius.md,
+                      borderSide: BorderSide(color: colors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: AppRadius.md,
+                      borderSide: BorderSide(color: colors.border),
+                    ),
                   ),
                   items: _languages.map((lang) {
                     return DropdownMenuItem(
@@ -351,103 +349,33 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                       child: Text(lang),
                     );
                   }).toList(),
-                  onChanged: (val) {
-                    setState(() {
-                      _selectedLanguage = val;
-                    });
-                  },
-                  validator: (val) => val == null ? 'Please select your language' : null,
+                  onChanged: (val) => setState(() => _selectedLanguage = val),
+                  validator: (value) => value == null ? 'Please select your language' : null,
                 ),
                 const SizedBox(height: AppSpacing.space24),
 
-                // 18+ Checkbox (Required)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      height: 24,
-                      width: 24,
-                      child: Checkbox(
-                        value: _is18Plus,
-                        activeColor: colors.primary,
-                        onChanged: (val) {
-                          setState(() {
-                            _is18Plus = val ?? false;
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'I confirm that I am 18 years of age or older. I understand that this app contains services intended for adult users.',
-                        style: typography.bodySmall.copyWith(
-                          color: colors.textSecondary,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ],
+                // 18+ Checkbox
+                CheckboxListTile(
+                  title: Text(
+                    'I confirm that I am 18 years of age or older.',
+                    style: typography.bodySmall.copyWith(color: colors.textSecondary),
+                  ),
+                  value: _is18Plus,
+                  activeColor: colors.primary,
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  onChanged: (val) => setState(() => _is18Plus = val ?? false),
                 ),
                 const SizedBox(height: AppSpacing.space32),
 
-                // Sign Up trigger Button
                 AppPrimaryButton(
-                  text: authState.isLoading ? 'Registering...' : 'Create Account',
-                  onPressed: authState.isLoading ? null : _handleSignup,
+                  text: authState.isLoading ? 'Saving Profile...' : 'Complete Setup',
+                  onPressed: authState.isLoading ? null : _handleCompleteProfile,
                 ),
-                const SizedBox(height: AppSpacing.space24),
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildLabel(String labelText) {
-    final colors = context.colors;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Text(
-        labelText,
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          color: colors.textPrimary,
-          fontSize: 13,
-        ),
-      ),
-    );
-  }
-
-  InputDecoration _getInputDecoration({required String hintText, required Widget prefixIcon, Widget? suffixIcon}) {
-    final colors = context.colors;
-    return InputDecoration(
-      hintText: hintText,
-      hintStyle: context.typography.bodySmall.copyWith(color: colors.textSecondary.withOpacity(0.6)),
-      prefixIcon: prefixIcon,
-      suffixIcon: suffixIcon,
-      filled: true,
-      fillColor: colors.surface,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.space16,
-        vertical: AppSpacing.space12,
-      ),
-      border: OutlineInputBorder(
-        borderRadius: AppRadius.md,
-        borderSide: BorderSide(color: colors.border),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: AppRadius.md,
-        borderSide: BorderSide(color: colors.border),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: AppRadius.md,
-        borderSide: BorderSide(color: colors.primary, width: 1.5),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: AppRadius.md,
-        borderSide: const BorderSide(color: Color(0xFFEF4444)),
       ),
     );
   }

@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:socket_io_client/socket_io_client.dart' as sio;
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:dating_app/core/services/api_client.dart';
 
 import 'package:dating_app/core/config/app_config.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
@@ -35,7 +35,7 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     ref.onDispose(_cleanup);
 
     // Listen to authentication state changes to initialize or clean up the socket
-    ref.listen<AsyncValue<User?>>(authStateProvider, (prev, next) {
+    ref.listen<AsyncValue<CustomUser?>>(authStateProvider, (prev, next) {
       final user = next.value;
       if (user != null) {
         _initSocket();
@@ -254,11 +254,11 @@ class MatchmakingController extends Notifier<MatchmakingState> {
 
   // ── Socket.io connection ────────────────────────────────────────────────
 
-  void _initSocket() {
+  Future<void> _initSocket() async {
     if (_socket != null) return;
 
     final accessToken =
-        Supabase.instance.client.auth.currentSession?.accessToken;
+        await ref.read(apiClientProvider).getToken();
     if (accessToken == null) return;
 
     _socket = sio.io(
@@ -290,12 +290,12 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     _socket!.on('video_upgrade_accepted', _onVideoUpgradeAccepted);
     _socket!.on('match_error', _onMatchError);
 
-    _socket!.onDisconnect((_) {
+    _socket!.onDisconnect((_) async {
       debugPrint('Socket disconnected');
       
       // Update with the latest access token to ensure reconnection doesn't fail
       // after the old token expires (typically 1 hour)
-      final token = Supabase.instance.client.auth.currentSession?.accessToken;
+      final token = await ref.read(apiClientProvider).getToken();
       if (token != null && _socket != null && _socket!.io.options != null) {
         _socket!.io.options!['auth'] = {'token': token};
       }
@@ -342,24 +342,8 @@ class MatchmakingController extends Notifier<MatchmakingState> {
         Map<String, dynamic>.from(map['matchedUser'] as Map),
       );
 
-      if (matchedUser.fullName == 'User' && matchedUser.id.isNotEmpty) {
-        try {
-          final profileData = await Supabase.instance.client
-              .from('users')
-              .select('full_name')
-              .eq('id', matchedUser.id)
-              .maybeSingle();
-          if (profileData != null && profileData['full_name'] != null) {
-            matchedUser = MatchedUserInfo(
-              id: matchedUser.id,
-              fullName: profileData['full_name'] as String,
-              avatarUrl: matchedUser.avatarUrl,
-            );
-          }
-        } catch (e) {
-          debugPrint('Error fetching matching user name fallback: $e');
-        }
-      }
+      // Matched profile details are already fetched and provided by Neon backend inside the event payload.
+      // So no fallback database query is required.
 
       state = state.copyWith(
         phase: MatchmakingPhase.matched,

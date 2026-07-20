@@ -21,8 +21,8 @@ class AccountPage extends ConsumerWidget {
     final currentUser = userAsync.value;
     final profile = profileAsync.value;
 
-    final String fullName = profile?.fullName ?? currentUser?.email?.split('@')[0] ?? 'User';
-    final String email = currentUser?.email ?? '';
+    final String fullName = profile?.fullName ?? 'User';
+    final String phoneNumber = currentUser?.phoneNumber ?? '';
     final String initials = getInitials(fullName);
     final String gender = profile?.gender.toUpperCase() ?? 'OTHER';
     
@@ -108,7 +108,7 @@ class AccountPage extends ConsumerWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                email,
+                phoneNumber,
                 style: TextStyle(
                   color: colors.textSecondary,
                   fontSize: 14,
@@ -192,11 +192,11 @@ class AccountPage extends ConsumerWidget {
                     _buildDivider(context),
                     _buildInfoTile(
                       context,
-                      icon: Icons.email_outlined,
+                      icon: Icons.phone_outlined,
                       iconBgColor: const Color(0xFFE8F8F0),
                       iconColor: const Color(0xFF22C55E),
-                      label: 'Email Address',
-                      value: email,
+                      label: 'Phone Number',
+                      value: phoneNumber,
                     ),
                     _buildDivider(context),
                     _buildInfoTile(

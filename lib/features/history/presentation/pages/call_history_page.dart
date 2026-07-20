@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
@@ -77,7 +77,7 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
     }
 
     // Determine the other user's ID (caller or matched, whichever isn't us)
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final currentUserId = ref.read(authStateProvider).value?.id;
     final targetUserId = log.matchedUserId == currentUserId
         ? log.callerId
         : log.matchedUserId;
@@ -260,7 +260,7 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
               itemCount: logs.length,
               itemBuilder: (context, index) {
                 final log = logs[index];
-                final isOutgoing = log.callerId == Supabase.instance.client.auth.currentUser?.id;
+                final isOutgoing = log.callerId == ref.read(authStateProvider).value?.id;
                 final isVideo = log.callType == 'video';
 
                 return Container(

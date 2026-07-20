@@ -1,5 +1,6 @@
 const { MatchmakingService } = require('./matchmaking.service');
 const { CallsService } = require('../calls/calls.service');
+const db = require('../../db');
 
 // In-memory map of active calls: callId → { userA: { userId, socketId }, userB: { userId, socketId } }
 const activeCalls = new Map();
@@ -14,11 +15,10 @@ const userSockets = new Map();
  * @param {import('socket.io').Server} io
  * @param {import('socket.io').Socket} socket
  * @param {import('ioredis').Redis} redis
- * @param {import('@supabase/supabase-js').SupabaseClient} supabase
  */
-function registerMatchmakingHandlers(io, socket, redis, supabase) {
+function registerMatchmakingHandlers(io, socket, redis) {
   const matchmakingService = new MatchmakingService(redis);
-  const callsService = new CallsService(supabase);
+  const callsService = new CallsService();
   const userId = socket.userId;
 
   // Track this user's socket
@@ -46,7 +46,7 @@ function registerMatchmakingHandlers(io, socket, redis, supabase) {
       cb({ success: true });
 
       // Try to find a match
-      await attemptMatch(io, redis, supabase, matchmakingService, callsService);
+      await attemptMatch(io, redis, matchmakingService, callsService);
     } catch (err) {
       console.error('Error in join_queue:', err);
       const cb = typeof callback === 'function' ? callback : () => {};
@@ -194,8 +194,8 @@ function registerMatchmakingHandlers(io, socket, redis, supabase) {
 
       // 8. Fetch profiles for both users
       const [profileA, profileB] = await Promise.all([
-        fetchPublicProfile(supabase, userId),
-        fetchPublicProfile(supabase, targetUserId),
+        fetchPublicProfile(userId),
+        fetchPublicProfile(targetUserId),
       ]);
 
       // 9. Track active call
@@ -267,7 +267,7 @@ function registerMatchmakingHandlers(io, socket, redis, supabase) {
  * Attempt to match two users from the queue.
  * Called after every joinQueue to check if a pair is available.
  */
-async function attemptMatch(io, redis, supabase, matchmakingService, callsService) {
+async function attemptMatch(io, redis, matchmakingService, callsService) {
   const match = await matchmakingService.tryMatch();
   if (!match) return;
 
@@ -287,8 +287,8 @@ async function attemptMatch(io, redis, supabase, matchmakingService, callsServic
 
     // Fetch public user info for both users
     const [profileA, profileB] = await Promise.all([
-      fetchPublicProfile(supabase, userA.userId),
-      fetchPublicProfile(supabase, userB.userId),
+      fetchPublicProfile(userA.userId),
+      fetchPublicProfile(userB.userId),
     ]);
 
     // Track active call
@@ -359,24 +359,28 @@ async function handleCallEnd(callId, callsService, io, reason) {
 /**
  * Fetch public profile info for a user (name + avatar only).
  */
-async function fetchPublicProfile(supabase, userId) {
-  const { data, error } = await supabase
-    .from('users')
-    .select('id, full_name')
-    .eq('id', userId)
-    .single();
+async function fetchPublicProfile(userId) {
+  try {
+    const result = await db.query(
+      'SELECT id, full_name FROM public.users WHERE id = $1',
+      [userId]
+    );
 
-  if (error || !data) {
-    console.error(`❌ Error fetching profile for user ${userId}:`, error || 'No data found');
+    if (result.rows.length === 0) {
+      return { id: userId, fullName: 'User', avatarUrl: null };
+    }
+
+    const user = result.rows[0];
+    console.log(`✅ Fetched profile for user ${userId}: ${user.full_name}`);
+    return {
+      id: user.id,
+      fullName: user.full_name || 'User',
+      avatarUrl: null,
+    };
+  } catch (err) {
+    console.error(`❌ Error fetching profile for user ${userId}:`, err.message);
     return { id: userId, fullName: 'User', avatarUrl: null };
   }
-
-  console.log(`✅ Fetched profile for user ${userId}: ${data.full_name}`);
-  return {
-    id: data.id,
-    fullName: data.full_name || 'User',
-    avatarUrl: null,
-  };
 }
 
 module.exports = { registerMatchmakingHandlers };

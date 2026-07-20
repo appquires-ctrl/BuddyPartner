@@ -1,11 +1,11 @@
 const { RtcTokenBuilder, RtcRole } = require('agora-access-token');
+const db = require('../../db');
 
 const CALL_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 const TOKEN_EXPIRY_SECONDS = 6 * 60;     // 6 minutes (5 min call + 1 min buffer)
 
 class CallsService {
-  constructor(supabase) {
-    this.supabase = supabase;
+  constructor() {
     // Map of callId → setTimeout handle for server-authoritative 5-min timer
     this.callTimers = new Map();
   }
@@ -18,23 +18,23 @@ class CallsService {
    * @returns {string} callId (UUID)
    */
   async createCall(userAId, userBId) {
-    const { data, error } = await this.supabase
-      .from('calls')
-      .insert({
-        caller_id: userAId,
-        matched_user_id: userBId,
-        status: 'active',
-        call_type: 'voice',
-      })
-      .select('id')
-      .single();
+    try {
+      const result = await db.query(
+        `INSERT INTO public.calls (caller_id, matched_user_id, status, call_type)
+         VALUES ($1, $2, 'active', 'voice')
+         RETURNING id`,
+        [userAId, userBId]
+      );
 
-    if (error) {
-      console.error('Error creating call:', error);
+      if (result.rows.length === 0) {
+        throw new Error('No row returned on call insertion');
+      }
+
+      return result.rows[0].id;
+    } catch (err) {
+      console.error('Error creating call in Postgres:', err.message);
       throw new Error('Failed to create call record');
     }
-
-    return data.id;
   }
 
   /**
@@ -46,37 +46,36 @@ class CallsService {
     // Clear the server-side timer if still running
     this.clearCallTimer(callId);
 
-    const { data: call, error: fetchError } = await this.supabase
-      .from('calls')
-      .select('started_at, status')
-      .eq('id', callId)
-      .single();
+    try {
+      const result = await db.query(
+        'SELECT started_at, status FROM public.calls WHERE id = $1',
+        [callId]
+      );
 
-    if (fetchError || !call) {
-      console.error('Error fetching call for end:', fetchError);
-      return;
-    }
+      if (result.rows.length === 0) {
+        console.error(`Call record not found: ${callId}`);
+        return;
+      }
 
-    // Guard against double-ending
-    if (call.status === 'ended') {
-      return;
-    }
+      const call = result.rows[0];
 
-    const endedAt = new Date();
-    const startedAt = new Date(call.started_at);
-    const durationSeconds = Math.floor((endedAt - startedAt) / 1000);
+      // Guard against double-ending
+      if (call.status === 'ended') {
+        return;
+      }
 
-    const { error: updateError } = await this.supabase
-      .from('calls')
-      .update({
-        status: 'ended',
-        ended_at: endedAt.toISOString(),
-        duration_seconds: durationSeconds,
-      })
-      .eq('id', callId);
+      const endedAt = new Date();
+      const startedAt = new Date(call.started_at);
+      const durationSeconds = Math.floor((endedAt - startedAt) / 1000);
 
-    if (updateError) {
-      console.error('Error ending call:', updateError);
+      await db.query(
+        `UPDATE public.calls 
+         SET status = 'ended', ended_at = $1, duration_seconds = $2 
+         WHERE id = $3`,
+        [endedAt.toISOString(), durationSeconds, callId]
+      );
+    } catch (err) {
+      console.error('Error ending call in Postgres:', err.message);
     }
   }
 
@@ -86,13 +85,13 @@ class CallsService {
    * @param {string} callId
    */
   async upgradeToVideo(callId) {
-    const { error } = await this.supabase
-      .from('calls')
-      .update({ call_type: 'video' })
-      .eq('id', callId);
-
-    if (error) {
-      console.error('Error upgrading call to video:', error);
+    try {
+      await db.query(
+        "UPDATE public.calls SET call_type = 'video' WHERE id = $1",
+        [callId]
+      );
+    } catch (err) {
+      console.error('Error upgrading call to video in Postgres:', err.message);
     }
   }
 
