@@ -5,7 +5,7 @@ import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/features/home/presentation/widgets/matching_illustration.dart';
 import 'package:dating_app/features/home/presentation/providers/matched_users_provider.dart';
-import 'package:dating_app/features/home/presentation/widgets/matched_user_card.dart';
+import 'package:dating_app/features/home/presentation/widgets/favorite_user_card.dart';
 
 /// FavoritesPage renders the user's favorited telecallers.
 class FavoritesPage extends ConsumerStatefulWidget {
@@ -71,22 +71,14 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         onRefresh: _handleRefresh,
         color: const Color(0xFFFF4E64), // Pink/Red refresh color
         child: favoriteUsers.isNotEmpty
-            ? GridView.builder(
+            ? ListView.separated(
                 padding: const EdgeInsets.all(AppSpacing.space24),
                 physics: const AlwaysScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.68,
-                ),
                 itemCount: favoriteUsers.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 16),
                 itemBuilder: (context, index) {
                   final user = favoriteUsers[index];
-                  return MatchedUserCard(
-                    user: user,
-                    isGrid: true,
-                  );
+                  return FavoriteUserCard(user: user);
                 },
               )
             : SingleChildScrollView(
