@@ -38,7 +38,7 @@ class MatchedUser {
   }
 }
 
-final matchedUsersProvider = FutureProvider.autoDispose<List<MatchedUser>>((ref) async {
+final matchedUsersProvider = FutureProvider<List<MatchedUser>>((ref) async {
   final apiClient = ref.watch(apiClientProvider);
   final response = await apiClient.dio.get('/api/calls/matches');
   if (response.data == null) return const [];
@@ -46,7 +46,7 @@ final matchedUsersProvider = FutureProvider.autoDispose<List<MatchedUser>>((ref)
   return list.map((json) => MatchedUser.fromJson(json)).toList();
 });
 
-final favoriteUsersProvider = FutureProvider.autoDispose<List<MatchedUser>>((ref) async {
+final favoriteUsersProvider = FutureProvider<List<MatchedUser>>((ref) async {
   final apiClient = ref.watch(apiClientProvider);
   final response = await apiClient.dio.get('/api/calls/favorites');
   if (response.data == null) return const [];
