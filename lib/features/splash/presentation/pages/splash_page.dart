@@ -2,33 +2,49 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 
 /// SplashPage displays the application launch screen
 /// with animated logo wordmark and subtitle tagline.
-class SplashPage extends StatefulWidget {
+class SplashPage extends ConsumerStatefulWidget {
   const SplashPage({super.key});
 
   @override
-  State<SplashPage> createState() => _SplashPageState();
+  ConsumerState<SplashPage> createState() => _SplashPageState();
 }
 
-class _SplashPageState extends State<SplashPage> {
+class _SplashPageState extends ConsumerState<SplashPage> {
   @override
   void initState() {
     super.initState();
     _navigateToNext();
   }
 
-  void _navigateToNext() {
-    Future.delayed(const Duration(milliseconds: 1500), () {
+  Future<void> _navigateToNext() async {
+    // Keep splash visible for 1.5 seconds
+    await Future.delayed(const Duration(milliseconds: 1500));
+    
+    if (!mounted) return;
+
+    try {
+      final user = await ref.read(authStateProvider.future);
+      if (!mounted) return;
+      
+      if (user != null && user.isProfileComplete) {
+        context.go(RouteNames.home);
+      } else {
+        context.go(RouteNames.login);
+      }
+    } catch (_) {
       if (mounted) {
         context.go(RouteNames.login);
       }
-    });
+    }
   }
 
   @override
