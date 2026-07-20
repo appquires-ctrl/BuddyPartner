@@ -50,4 +50,121 @@ router.get('/history', authMiddleware, async (req, res) => {
   }
 });
 
+const { userSockets } = require('../matchmaking/matchmaking.socket');
+
+/**
+ * Endpoint: GET /api/calls/matches
+ * Returns a list of users matched with the current user.
+ */
+router.get('/matches', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    const result = await db.query(
+      `SELECT DISTINCT u.id, u.full_name,
+              EXISTS(
+                SELECT 1 FROM public.favorites f 
+                WHERE f.user_id = $1 AND f.favorite_user_id = u.id
+              ) AS is_favorite
+       FROM public.users u
+       JOIN public.calls c ON (c.caller_id = u.id OR c.matched_user_id = u.id)
+       WHERE u.id != $1 AND (c.caller_id = $1 OR c.matched_user_id = $1)
+       ORDER BY u.full_name ASC`,
+      [userId]
+    );
+
+    const matches = result.rows.map(row => ({
+      id: row.id,
+      fullName: row.full_name || 'User',
+      isOnline: userSockets ? userSockets.has(row.id) : false,
+      isFavorite: row.is_favorite
+    }));
+
+    res.json(matches);
+  } catch (err) {
+    console.error('Error fetching matches:', err.message);
+    res.status(500).json({ error: 'Internal server error loading matches.' });
+  }
+});
+
+/**
+ * Endpoint: GET /api/calls/favorites
+ * Returns the current user's favorited users.
+ */
+router.get('/favorites', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    const result = await db.query(
+      `SELECT u.id, u.full_name, true AS is_favorite
+       FROM public.users u
+       JOIN public.favorites f ON f.favorite_user_id = u.id
+       WHERE f.user_id = $1
+       ORDER BY f.created_at DESC`,
+      [userId]
+    );
+
+    const favorites = result.rows.map(row => ({
+      id: row.id,
+      fullName: row.full_name || 'User',
+      isOnline: userSockets ? userSockets.has(row.id) : false,
+      isFavorite: true
+    }));
+
+    res.json(favorites);
+  } catch (err) {
+    console.error('Error fetching favorites:', err.message);
+    res.status(500).json({ error: 'Internal server error loading favorites.' });
+  }
+});
+
+/**
+ * Endpoint: POST /api/calls/favorites
+ * Adds a user to the current user's favorites.
+ */
+router.post('/favorites', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  const { favoriteUserId } = req.body;
+
+  if (!favoriteUserId) {
+    return res.status(400).json({ error: 'favoriteUserId is required.' });
+  }
+
+  try {
+    await db.query(
+      `INSERT INTO public.favorites (user_id, favorite_user_id)
+       VALUES ($1, $2)
+       ON CONFLICT (user_id, favorite_user_id) DO NOTHING`,
+      [userId, favoriteUserId]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error adding favorite:', err.message);
+    res.status(500).json({ error: 'Internal server error adding favorite.' });
+  }
+});
+
+/**
+ * Endpoint: DELETE /api/calls/favorites/:favoriteUserId
+ * Removes a user from the current user's favorites.
+ */
+router.delete('/favorites/:favoriteUserId', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  const { favoriteUserId } = req.params;
+
+  try {
+    await db.query(
+      `DELETE FROM public.favorites
+       WHERE user_id = $1 AND favorite_user_id = $2`,
+      [userId, favoriteUserId]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error removing favorite:', err.message);
+    res.status(500).json({ error: 'Internal server error removing favorite.' });
+  }
+});
+
 module.exports = router;

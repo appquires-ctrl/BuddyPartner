@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
@@ -6,17 +7,19 @@ import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/core/widgets/cards/app_card.dart';
 import 'package:dating_app/core/widgets/buttons/app_primary_button.dart';
+import 'package:dating_app/features/call/application/call_summary_provider.dart';
+import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 
 /// CallSummaryPage displays the final call duration and cost summaries,
 /// prompting users to provide ratings and optional text reviews.
-class CallSummaryPage extends StatefulWidget {
+class CallSummaryPage extends ConsumerStatefulWidget {
   const CallSummaryPage({super.key});
 
   @override
-  State<CallSummaryPage> createState() => _CallSummaryPageState();
+  ConsumerState<CallSummaryPage> createState() => _CallSummaryPageState();
 }
 
-class _CallSummaryPageState extends State<CallSummaryPage> {
+class _CallSummaryPageState extends ConsumerState<CallSummaryPage> {
   int _selectedStars = 5;
   final _reviewController = TextEditingController();
 
@@ -26,11 +29,26 @@ class _CallSummaryPageState extends State<CallSummaryPage> {
     super.dispose();
   }
 
+  String _formatDuration(int seconds) {
+    if (seconds <= 0) return '0s';
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    if (m > 0) {
+      return '${m}m ${s}s';
+    }
+    return '${s}s';
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final typography = context.typography;
-    const imgUrl = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150';
+    
+    final summary = ref.watch(lastCallSummaryProvider);
+    final String matchedName = summary?.matchedUserName ?? 'User';
+    final String matchedInitials = getInitials(matchedName);
+    final String durationText = _formatDuration(summary?.durationSeconds ?? 0);
+    final int cost = summary?.totalCost ?? 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -52,13 +70,21 @@ class _CallSummaryPageState extends State<CallSummaryPage> {
               AppCard(
                 child: Column(
                   children: [
-                    const CircleAvatar(
+                    CircleAvatar(
                       radius: 40,
-                      backgroundImage: NetworkImage(imgUrl),
+                      backgroundColor: const Color(0xFFE5DFFF),
+                      child: Text(
+                        matchedInitials,
+                        style: const TextStyle(
+                          color: Color(0xFF6B4EFF),
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.space16),
                     Text(
-                      'Priya',
+                      matchedName,
                       style: typography.titleCard.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: AppSpacing.space4),
@@ -78,7 +104,7 @@ class _CallSummaryPageState extends State<CallSummaryPage> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '5m 12s',
+                              durationText,
                               style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
                             ),
                           ],
@@ -91,7 +117,7 @@ class _CallSummaryPageState extends State<CallSummaryPage> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '₹52',
+                              '₹$cost',
                               style: typography.bodyMedium.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: colors.primary,

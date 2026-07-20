@@ -9,6 +9,7 @@ import 'package:dating_app/core/services/api_client.dart';
 import 'package:dating_app/core/config/app_config.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 import 'matchmaking_state.dart';
+import 'package:dating_app/features/call/application/call_summary_provider.dart';
 
 /// MatchmakingController manages the full matchmaking lifecycle:
 ///   idle → queued → matched → inCall → ended → idle
@@ -201,6 +202,19 @@ class MatchmakingController extends Notifier<MatchmakingState> {
 
     await _leaveAgoraChannel();
     _stopCountdown();
+
+    if (state.matchedUser != null) {
+      final elapsed = 300 - state.remainingSeconds;
+      final cost = (elapsed / 60.0 * 10).ceil();
+      ref.read(lastCallSummaryProvider.notifier).state = CallSummaryInfo(
+        matchedUserId: state.matchedUser!.id,
+        matchedUserName: state.matchedUser!.fullName,
+        matchedUserAvatar: state.matchedUser!.avatarUrl,
+        durationSeconds: elapsed,
+        totalCost: cost,
+      );
+    }
+
     state = state.copyWith(phase: MatchmakingPhase.ended);
 
     // Brief delay before resetting to idle so the UI can react to `ended`
@@ -372,6 +386,18 @@ class MatchmakingController extends Notifier<MatchmakingState> {
   }
 
   Future<void> _onCallEnded(dynamic data) async {
+    if (state.matchedUser != null) {
+      final elapsed = 300 - state.remainingSeconds;
+      final cost = (elapsed / 60.0 * 10).ceil();
+      ref.read(lastCallSummaryProvider.notifier).state = CallSummaryInfo(
+        matchedUserId: state.matchedUser!.id,
+        matchedUserName: state.matchedUser!.fullName,
+        matchedUserAvatar: state.matchedUser!.avatarUrl,
+        durationSeconds: elapsed,
+        totalCost: cost,
+      );
+    }
+
     await _leaveAgoraChannel();
     _stopCountdown();
     state = state.copyWith(phase: MatchmakingPhase.ended);
@@ -408,6 +434,18 @@ class MatchmakingController extends Notifier<MatchmakingState> {
   }
 
   Future<void> _handleServerDisconnect() async {
+    if (state.matchedUser != null) {
+      final elapsed = 300 - state.remainingSeconds;
+      final cost = (elapsed / 60.0 * 10).ceil();
+      ref.read(lastCallSummaryProvider.notifier).state = CallSummaryInfo(
+        matchedUserId: state.matchedUser!.id,
+        matchedUserName: state.matchedUser!.fullName,
+        matchedUserAvatar: state.matchedUser!.avatarUrl,
+        durationSeconds: elapsed,
+        totalCost: cost,
+      );
+    }
+
     await _leaveAgoraChannel();
     _stopCountdown();
     state = state.copyWith(phase: MatchmakingPhase.ended);

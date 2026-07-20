@@ -1,21 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/features/call/presentation/widgets/report_block_dialog.dart';
+import 'package:dating_app/features/call/application/matchmaking_controller.dart';
+import 'package:dating_app/features/call/application/matchmaking_state.dart';
+import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 
 /// ChatPage renders the scrollable messaging page for textual chat.
 /// Features customized message bubbles and quick access to voice calls/reporting dialogs.
-class ChatPage extends StatefulWidget {
-  const ChatPage({super.key});
+class ChatPage extends ConsumerStatefulWidget {
+  final String userId;
+  final String userName;
+  final String? userAvatar;
+
+  const ChatPage({
+    super.key,
+    this.userId = 'priya_1',
+    this.userName = 'Priya',
+    this.userAvatar,
+  });
 
   @override
-  State<ChatPage> createState() => _ChatPageState();
+  ConsumerState<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> {
+class _ChatPageState extends ConsumerState<ChatPage> {
   final _messageController = TextEditingController();
   final List<Map<String, dynamic>> _messages = [];
 
@@ -47,7 +60,7 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final typography = context.typography;
-    const imgUrl = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100';
+    final initials = getInitials(widget.userName);
 
     return Scaffold(
       appBar: AppBar(
@@ -60,16 +73,24 @@ class _ChatPageState extends State<ChatPage> {
         ),
         title: Row(
           children: [
-            const CircleAvatar(
+            CircleAvatar(
               radius: 18,
-              backgroundImage: NetworkImage(imgUrl),
+              backgroundColor: const Color(0xFFE5DFFF),
+              child: Text(
+                initials,
+                style: const TextStyle(
+                  color: Color(0xFF6B4EFF),
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
             const SizedBox(width: 8),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Priya',
+                  widget.userName,
                   style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
                 ),
                 Text(
@@ -88,7 +109,16 @@ class _ChatPageState extends State<ChatPage> {
           // Quick call action
           IconButton(
             icon: Icon(Icons.call, color: colors.primary),
-            onPressed: () => context.push(RouteNames.calling),
+            onPressed: () {
+              final currentState = ref.read(matchmakingControllerProvider);
+              if (currentState.phase != MatchmakingPhase.idle) return;
+
+              context.push(RouteNames.calling);
+              ref.read(matchmakingControllerProvider.notifier).callUser(
+                targetUserId: widget.userId,
+                targetUserName: widget.userName,
+              );
+            },
           ),
           // Report option
           IconButton(
@@ -199,3 +229,4 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 }
+

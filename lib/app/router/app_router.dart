@@ -111,7 +111,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RouteNames.chat,
-        builder: (context, state) => const ChatPage(),
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          final userId = extra['userId'] as String? ?? 'priya_1';
+          final userName = extra['userName'] as String? ?? 'Priya';
+          final userAvatar = extra['userAvatar'] as String?;
+          return ChatPage(
+            userId: userId,
+            userName: userName,
+            userAvatar: userAvatar,
+          );
+        },
       ),
       GoRoute(
         path: '${RouteNames.hostDetails}/:id',

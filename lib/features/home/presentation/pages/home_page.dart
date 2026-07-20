@@ -11,6 +11,8 @@ import 'package:dating_app/features/home/presentation/widgets/matching_illustrat
 import 'package:dating_app/features/recharge/presentation/providers/recharge_providers.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
+import 'package:dating_app/features/home/presentation/providers/matched_users_provider.dart';
+import 'package:dating_app/features/home/presentation/widgets/matched_user_card.dart';
 
 /// HomePage renders the primary "stranger search" radar screen.
 /// Matches screenshots/home.jpeg exactly.
@@ -57,18 +59,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     setState(() {
       _isRefreshing = true;
     });
-    // Simulate refresh check
-    await Future.delayed(const Duration(seconds: 2));
+    ref.invalidate(matchedUsersProvider);
+    await ref.read(matchedUsersProvider.future).catchError((_) => <MatchedUser>[]);
     if (mounted) {
       setState(() {
         _isRefreshing = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Checking for available telecallers...'),
-          duration: Duration(seconds: 1),
-        ),
-      );
     }
   }
 
@@ -80,9 +76,11 @@ class _HomePageState extends ConsumerState<HomePage> {
     final profileAsync = ref.watch(userProfileProvider);
     final balanceAsync = ref.watch(walletBalanceProvider);
     final matchmakingState = ref.watch(matchmakingControllerProvider);
+    final matchedUsersAsync = ref.watch(matchedUsersProvider);
     
     final profile = profileAsync.value;
     final balance = balanceAsync.value ?? 100;
+    final matchedUsers = matchedUsersAsync.value ?? const [];
     
     final String fullName = profile?.fullName ?? 'User';
     final String initials = getInitials(fullName);
@@ -559,75 +557,92 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ],
                 ),
 
-                const SizedBox(height: 40),
-
-                // Centered rotating orbits radar illustration
-                const Center(
-                  child: MatchingIllustration(),
-                ),
-                const SizedBox(height: 40),
-
-                // Heading Status text
-                Text(
-                  'No Telecallers Available',
-                  style: typography.titleCard.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                    color: colors.textPrimary,
+                if (matchedUsers.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    height: 180,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: matchedUsers.length,
+                      itemBuilder: (context, index) {
+                        final user = matchedUsers[index];
+                        return MatchedUserCard(user: user);
+                      },
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 40),
+                ] else ...[
+                  const SizedBox(height: 40),
 
-                // Helper Subtitle information
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Text(
-                    'It looks like all our telecallers are busy at the moment. Please check back in a few minutes!',
-                    style: typography.bodySmall.copyWith(
-                      color: colors.textSecondary,
-                      fontSize: 13,
-                      height: 1.4,
+                  // Centered rotating orbits radar illustration
+                  const Center(
+                    child: MatchingIllustration(),
+                  ),
+                  const SizedBox(height: 40),
+
+                  // Heading Status text
+                  Text(
+                    'No Telecallers Available',
+                    style: typography.titleCard.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                      color: colors.textPrimary,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                ),
-                const SizedBox(height: 32),
+                  const SizedBox(height: 12),
 
-                // Lavender pull down action button
-                GestureDetector(
-                  onTap: _handleRefresh,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF3EFFF), // light lavender fill
-                      borderRadius: AppRadius.pill,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(
-                          Icons.refresh,
-                          color: Color(0xFF6B4EFF), // purple icon
-                          size: 16,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'Pull down to refresh',
-                          style: TextStyle(
-                            color: Color(0xFF6B4EFF), // purple text
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+                  // Helper Subtitle information
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Text(
+                      'It looks like all our telecallers are busy at the moment. Please check back in a few minutes!',
+                      style: typography.bodySmall.copyWith(
+                        color: colors.textSecondary,
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
-                ),
-                const SizedBox(height: 80),
+                  const SizedBox(height: 32),
+
+                  // Lavender pull down action button
+                  GestureDetector(
+                    onTap: _handleRefresh,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3EFFF), // light lavender fill
+                        borderRadius: AppRadius.pill,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(
+                            Icons.refresh,
+                            color: Color(0xFF6B4EFF), // purple icon
+                            size: 16,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Pull down to refresh',
+                            style: TextStyle(
+                              color: Color(0xFF6B4EFF), // purple text
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 80),
+                ],
               ],
             ),
           ),

@@ -383,4 +383,4 @@ async function fetchPublicProfile(userId) {
   }
 }
 
-module.exports = { registerMatchmakingHandlers };
+module.exports = { registerMatchmakingHandlers, userSockets };

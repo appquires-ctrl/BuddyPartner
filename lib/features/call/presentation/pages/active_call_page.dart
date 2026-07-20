@@ -33,23 +33,11 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
     final matchState = ref.watch(matchmakingControllerProvider);
     final controller = ref.read(matchmakingControllerProvider.notifier);
 
-    // Listen for call_ended (server-driven) — navigate home
+    // Listen for call_ended — navigate to call summary page
     ref.listen<MatchmakingState>(matchmakingControllerProvider, (prev, next) {
-      if (next.phase == MatchmakingPhase.idle &&
-          prev?.phase == MatchmakingPhase.ended) {
+      if (next.phase == MatchmakingPhase.ended) {
         if (mounted) {
-          context.go(RouteNames.home);
-        }
-      }
-      if (next.phase == MatchmakingPhase.ended &&
-          prev?.phase == MatchmakingPhase.inCall) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Call ended'),
-              duration: Duration(seconds: 2),
-            ),
-          );
+          context.go(RouteNames.callSummary);
         }
       }
     });

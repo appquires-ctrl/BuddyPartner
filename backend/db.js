@@ -25,6 +25,20 @@ pool.on('error', (err) => {
   console.error('❌ Unexpected database error on idle client:', err.message);
 });
 
+// Initialize the favorites table if it doesn't exist
+pool.query(`
+  CREATE TABLE IF NOT EXISTS public.favorites (
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+    favorite_user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, favorite_user_id)
+  );
+`).then(() => {
+  console.log('✅ Favorites table checked/initialized in database.');
+}).catch((err) => {
+  console.error('❌ Failed to initialize favorites table:', err.message);
+});
+
 module.exports = {
   query: (text, params) => pool.query(text, params),
   pool,
