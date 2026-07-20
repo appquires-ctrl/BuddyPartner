@@ -33,12 +33,13 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
     final matchState = ref.watch(matchmakingControllerProvider);
     final controller = ref.read(matchmakingControllerProvider.notifier);
 
-    // Listen for call_ended — navigate to call summary page
     ref.listen<MatchmakingState>(matchmakingControllerProvider, (prev, next) {
       if (next.phase == MatchmakingPhase.ended) {
-        if (mounted) {
-          context.go(RouteNames.callSummary);
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            context.go(RouteNames.callSummary);
+          }
+        });
       }
     });
 

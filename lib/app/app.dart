@@ -18,24 +18,30 @@ class LoopCallApp extends ConsumerWidget {
     // Globally listen to call state changes
     ref.listen<MatchmakingState>(matchmakingControllerProvider, (prev, next) {
       if (next.phase == MatchmakingPhase.inCall && prev?.phase != MatchmakingPhase.inCall) {
-        final context = rootNavigatorKey.currentContext;
-        if (context != null && context.mounted) {
-          context.go(RouteNames.activeCall);
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final context = rootNavigatorKey.currentContext;
+          if (context != null && context.mounted) {
+            context.go(RouteNames.activeCall);
+          }
+        });
       }
 
       if (next.phase == MatchmakingPhase.incomingRequest && prev?.phase != MatchmakingPhase.incomingRequest) {
-        final context = rootNavigatorKey.currentContext;
-        if (context != null && context.mounted) {
-          context.go(RouteNames.incomingCall);
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final context = rootNavigatorKey.currentContext;
+          if (context != null && context.mounted) {
+            context.go(RouteNames.incomingCall);
+          }
+        });
       }
 
       if (next.phase == MatchmakingPhase.outgoingRequest && prev?.phase != MatchmakingPhase.outgoingRequest) {
-        final context = rootNavigatorKey.currentContext;
-        if (context != null && context.mounted) {
-          context.go(RouteNames.calling);
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final context = rootNavigatorKey.currentContext;
+          if (context != null && context.mounted) {
+            context.go(RouteNames.calling);
+          }
+        });
       }
 
       if (next.errorMessage != null && next.errorMessage != prev?.errorMessage) {

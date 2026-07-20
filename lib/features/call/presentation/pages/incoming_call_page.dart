@@ -14,10 +14,13 @@ class IncomingCallPage extends ConsumerWidget {
     final matchState = ref.watch(matchmakingControllerProvider);
     final controller = ref.read(matchmakingControllerProvider.notifier);
 
-    // Auto-navigate to home if request is cancelled, declined, or fails (phase becomes idle)
     ref.listen<MatchmakingState>(matchmakingControllerProvider, (prev, next) {
-      if (next.phase == MatchmakingPhase.idle && mounted(context)) {
-        context.go(RouteNames.home);
+      if (next.phase == MatchmakingPhase.idle) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted(context)) {
+            context.go(RouteNames.home);
+          }
+        });
       }
     });
 
