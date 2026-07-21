@@ -8,6 +8,7 @@ import 'package:dating_app/features/call/application/matchmaking_controller.dart
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart'; // for getInitials
 import 'package:dating_app/features/chat/data/chat_repository.dart';
+import 'package:dating_app/core/widgets/gradient_avatar.dart';
 
 class MatchedUserCard extends ConsumerWidget {
   final MatchedUser user;
@@ -48,22 +49,12 @@ class MatchedUserCard extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Avatar with initials
-            Container(
-              width: avatarSize,
-              height: avatarSize,
-              decoration: const BoxDecoration(
-                color: Color(0xFFE5DFFF), // Light lavender
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                initials,
-                style: TextStyle(
-                  color: const Color(0xFF6B4EFF),
-                  fontSize: isGrid ? 16 : 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+            GradientAvatar(
+              initials: initials,
+              radius: avatarSize / 2,
+              showStatus: true,
+              isOnline: user.isOnline,
+              statusIndicatorSize: isGrid ? 14 : 16,
             ),
             const SizedBox(height: 8),
             

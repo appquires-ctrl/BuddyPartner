@@ -10,6 +10,7 @@ import 'package:dating_app/features/call/application/matchmaking_controller.dart
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 import 'package:dating_app/features/chat/application/chat_controller.dart';
+import 'package:dating_app/core/widgets/gradient_avatar.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   final String conversationId;
@@ -94,17 +95,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         ),
         title: Row(
           children: [
-            CircleAvatar(
+            GradientAvatar(
+              initials: initials,
               radius: 18,
-              backgroundColor: const Color(0xFFE5DFFF),
-              child: Text(
-                initials,
-                style: const TextStyle(
-                  color: Color(0xFF6B4EFF),
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              showStatus: false,
             ),
             const SizedBox(width: 8),
             Column(

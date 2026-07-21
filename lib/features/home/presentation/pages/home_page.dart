@@ -14,6 +14,7 @@ import 'package:dating_app/features/call/application/matchmaking_state.dart';
 import 'package:dating_app/features/home/presentation/providers/matched_users_provider.dart';
 import 'package:dating_app/features/home/presentation/widgets/matched_user_card.dart';
 import 'package:dating_app/features/home/presentation/widgets/home_skeleton.dart';
+import 'package:dating_app/core/widgets/gradient_avatar.dart';
 
 /// HomePage renders the primary "stranger search" radar screen.
 /// Matches screenshots/home.jpeg exactly.
@@ -142,22 +143,12 @@ class _HomePageState extends ConsumerState<HomePage> {
                     onTap: () {
                       context.push(RouteNames.account);
                     },
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFE5DFFF), // Light lavender background
-                        shape: BoxShape.circle,
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        initials,
-                        style: const TextStyle(
-                          color: Color(0xFF6B4EFF), // Purple text
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    child: GradientAvatar(
+                      initials: initials,
+                      radius: 20,
+                      showStatus: true,
+                      isOnline: true,
+                      statusIndicatorSize: 12,
                     ),
                   ),
                   const SizedBox(width: 12),

@@ -7,6 +7,7 @@ import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/features/chat/application/conversations_provider.dart';
 import 'package:dating_app/features/chat/domain/conversation.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
+import 'package:dating_app/core/widgets/gradient_avatar.dart';
 
 class ConversationsListPage extends ConsumerWidget {
   const ConversationsListPage({super.key});
@@ -104,17 +105,9 @@ class _ConversationTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.space16, vertical: 12),
         child: Row(
           children: [
-            CircleAvatar(
+            GradientAvatar(
+              initials: initials,
               radius: 26,
-              backgroundColor: const Color(0xFFE5DFFF),
-              child: Text(
-                initials,
-                style: const TextStyle(
-                  color: Color(0xFF6B4EFF),
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
             ),
             const SizedBox(width: AppSpacing.space16),
             Expanded(

@@ -7,8 +7,10 @@ import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/features/home/presentation/providers/matched_users_provider.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
+import 'package:dating_app/features/call/application/matchmaking_state.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 import 'package:dating_app/features/chat/data/chat_repository.dart';
+import 'package:dating_app/core/widgets/gradient_avatar.dart';
 
 class FavoriteUserCard extends ConsumerWidget {
   final MatchedUser user;
@@ -59,22 +61,12 @@ class FavoriteUserCard extends ConsumerWidget {
             child: Row(
               children: [
                 // Avatar with initials
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFE5DFFF), // Light lavender
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    initials,
-                    style: const TextStyle(
-                      color: Color(0xFF6B4EFF),
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                GradientAvatar(
+                  initials: initials,
+                  radius: 26,
+                  showStatus: true,
+                  isOnline: user.isOnline,
+                  statusIndicatorSize: 14,
                 ),
                 const SizedBox(width: 14),
 
