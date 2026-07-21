@@ -6,6 +6,7 @@ import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/features/home/presentation/widgets/matching_illustration.dart';
 import 'package:dating_app/features/home/presentation/providers/matched_users_provider.dart';
 import 'package:dating_app/features/home/presentation/widgets/favorite_user_card.dart';
+import 'package:dating_app/features/home/presentation/widgets/favorites_skeleton.dart';
 
 /// FavoritesPage renders the user's favorited telecallers.
 class FavoritesPage extends ConsumerStatefulWidget {
@@ -39,9 +40,16 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 
     final favoriteUsersAsync = ref.watch(favoriteUsersProvider);
     final favoriteUsers = favoriteUsersAsync.value ?? const [];
+    
+    final bool showSkeleton = favoriteUsersAsync.isLoading && !favoriteUsersAsync.hasValue;
 
-    return Scaffold(
-      appBar: AppBar(
+    Widget content;
+    if (showSkeleton) {
+      content = const FavoritesSkeleton();
+    } else {
+      content = Scaffold(
+        key: const ValueKey('favorites_content'),
+        appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         automaticallyImplyLeading: false,
@@ -167,6 +175,11 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                 ),
               ),
       ),
+    );
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      child: content,
     );
   }
 }

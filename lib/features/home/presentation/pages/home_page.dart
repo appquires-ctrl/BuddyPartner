@@ -13,6 +13,7 @@ import 'package:dating_app/features/call/application/matchmaking_controller.dart
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
 import 'package:dating_app/features/home/presentation/providers/matched_users_provider.dart';
 import 'package:dating_app/features/home/presentation/widgets/matched_user_card.dart';
+import 'package:dating_app/features/home/presentation/widgets/home_skeleton.dart';
 
 /// HomePage renders the primary "stranger search" radar screen.
 /// Matches screenshots/home.jpeg exactly.
@@ -85,9 +86,17 @@ class _HomePageState extends ConsumerState<HomePage> {
     final String fullName = profile?.fullName ?? 'User';
     final String initials = getInitials(fullName);
     final bool isMatching = matchmakingState.phase == MatchmakingPhase.queued;
+    
+    // Only show skeleton on initial load (when it's loading and there's no data yet)
+    final bool showSkeleton = (profileAsync.isLoading || matchedUsersAsync.isLoading) && !matchedUsersAsync.hasValue;
 
-    return Scaffold(
-      appBar: isMatching
+    Widget content;
+    if (showSkeleton) {
+      content = const HomeSkeleton();
+    } else {
+      content = Scaffold(
+        key: const ValueKey('home_content'),
+        appBar: isMatching
           ? AppBar(
               backgroundColor: colors.surface,
               elevation: 0.5,
@@ -648,6 +657,11 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ),
       ),
+    );
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      child: content,
     );
   }
 }
