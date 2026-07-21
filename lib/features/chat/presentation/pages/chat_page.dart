@@ -168,9 +168,20 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       body: Column(
         children: [
           Expanded(
-            child: chatState.messages.isEmpty && chatState.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
+            child: chatState.errorMessage != null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        'Error: ${chatState.errorMessage}',
+                        style: TextStyle(color: colors.error),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  )
+                : chatState.messages.isEmpty && chatState.isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : ListView.builder(
                     controller: _scrollController,
                     reverse: true, // newest messages at the bottom
                     padding: const EdgeInsets.all(AppSpacing.space16),

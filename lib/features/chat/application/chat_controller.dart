@@ -10,6 +10,7 @@ class ChatState {
   final bool hasMore;
   final String? nextCursor;
   final String? typingUserId;
+  final String? errorMessage;
 
   const ChatState({
     this.messages = const [],
@@ -17,6 +18,7 @@ class ChatState {
     this.hasMore = true,
     this.nextCursor,
     this.typingUserId,
+    this.errorMessage,
   });
 
   ChatState copyWith({
@@ -25,6 +27,7 @@ class ChatState {
     bool? hasMore,
     String? nextCursor,
     String? typingUserId,
+    String? errorMessage,
     bool clearTypingUser = false,
   }) {
     return ChatState(
@@ -33,6 +36,7 @@ class ChatState {
       hasMore: hasMore ?? this.hasMore,
       nextCursor: nextCursor ?? this.nextCursor,
       typingUserId: clearTypingUser ? null : (typingUserId ?? this.typingUserId),
+      errorMessage: errorMessage ?? this.errorMessage,
     );
   }
 }
@@ -94,8 +98,9 @@ class ChatController extends FamilyNotifier<ChatState, String> {
       if (msgs.isNotEmpty) {
         _markAsRead(msgs.first.id);
       }
-    } catch (e) {
-      state = state.copyWith(isLoading: false, hasMore: false);
+    } catch (e, st) {
+      debugPrint('Error in loadInitial: $e\n$st');
+      state = state.copyWith(isLoading: false, hasMore: false, errorMessage: e.toString());
     }
   }
 
@@ -120,8 +125,9 @@ class ChatController extends FamilyNotifier<ChatState, String> {
         hasMore: next != null,
         isLoading: false,
       );
-    } catch (e) {
-      state = state.copyWith(isLoading: false, hasMore: false);
+    } catch (e, st) {
+      debugPrint('Error in loadMore: $e\n$st');
+      state = state.copyWith(isLoading: false, hasMore: false, errorMessage: e.toString());
     }
   }
 
