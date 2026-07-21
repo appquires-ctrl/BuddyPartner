@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:dating_app/app/theme/skeleton_colors.dart';
 
 class HomeSkeleton extends StatelessWidget {
   const HomeSkeleton({super.key});
@@ -11,12 +12,15 @@ class HomeSkeleton extends StatelessWidget {
     final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
-    final baseColor = isDark ? Colors.grey[800]! : Colors.grey[300]!;
-    final highlightColor = isDark ? Colors.grey[700]! : Colors.grey[100]!;
+    final baseColor = SkeletonColors.baseColor(isDark);
+    final highlightColor = SkeletonColors.highlightColor(isDark);
+    final bgColor = SkeletonColors.background(isDark);
+    final accentColor = SkeletonColors.accentColor(isDark);
     
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: colors.surface,
+        backgroundColor: bgColor,
         elevation: 0.5,
         shadowColor: colors.border,
         automaticallyImplyLeading: false,
@@ -29,8 +33,8 @@ class HomeSkeleton extends StatelessWidget {
               Container(
                 width: 40,
                 height: 40,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
+                decoration: BoxDecoration(
+                  color: accentColor,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -43,7 +47,7 @@ class HomeSkeleton extends StatelessWidget {
                     width: 30,
                     height: 12,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: accentColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -52,7 +56,7 @@ class HomeSkeleton extends StatelessWidget {
                     width: 80,
                     height: 16,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: accentColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -72,7 +76,7 @@ class HomeSkeleton extends StatelessWidget {
                   width: 90,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: accentColor,
                     borderRadius: BorderRadius.circular(12.0),
                   ),
                 ),
@@ -97,7 +101,7 @@ class HomeSkeleton extends StatelessWidget {
                 Container(
                   height: 132,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: accentColor,
                     borderRadius: BorderRadius.circular(24),
                   ),
                 ),
@@ -112,7 +116,7 @@ class HomeSkeleton extends StatelessWidget {
                       width: 70,
                       height: 16,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: accentColor,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -120,7 +124,7 @@ class HomeSkeleton extends StatelessWidget {
                       width: 50,
                       height: 16,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: accentColor,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -142,7 +146,7 @@ class HomeSkeleton extends StatelessWidget {
                         child: Container(
                           width: 140, // Match typical card width
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: accentColor,
                             borderRadius: BorderRadius.circular(16),
                           ),
                         ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:dating_app/app/theme/skeleton_colors.dart';
 
 class FavoritesSkeleton extends StatelessWidget {
   const FavoritesSkeleton({super.key});
@@ -12,12 +13,15 @@ class FavoritesSkeleton extends StatelessWidget {
     final typography = context.typography;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
-    final baseColor = isDark ? Colors.grey[800]! : Colors.grey[300]!;
-    final highlightColor = isDark ? Colors.grey[700]! : Colors.grey[100]!;
+    final baseColor = SkeletonColors.baseColor(isDark);
+    final highlightColor = SkeletonColors.highlightColor(isDark);
+    final bgColor = SkeletonColors.background(isDark);
+    final accentColor = SkeletonColors.accentColor(isDark);
 
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: bgColor,
         elevation: 0,
         automaticallyImplyLeading: false,
         centerTitle: true,
@@ -54,7 +58,7 @@ class FavoritesSkeleton extends StatelessWidget {
             return Container(
               height: 88,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: accentColor,
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Padding(
@@ -65,8 +69,8 @@ class FavoritesSkeleton extends StatelessWidget {
                     Container(
                       width: 52,
                       height: 52,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
+                      decoration: BoxDecoration(
+                        color: accentColor,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -82,7 +86,7 @@ class FavoritesSkeleton extends StatelessWidget {
                             width: 120,
                             height: 16,
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: accentColor,
                               borderRadius: BorderRadius.circular(4),
                             ),
                           ),
@@ -91,7 +95,7 @@ class FavoritesSkeleton extends StatelessWidget {
                             width: 60,
                             height: 12,
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: accentColor,
                               borderRadius: BorderRadius.circular(4),
                             ),
                           ),
@@ -106,8 +110,8 @@ class FavoritesSkeleton extends StatelessWidget {
                         Container(
                           width: 38,
                           height: 38,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
+                          decoration: BoxDecoration(
+                            color: accentColor,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -115,8 +119,8 @@ class FavoritesSkeleton extends StatelessWidget {
                         Container(
                           width: 38,
                           height: 38,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
+                          decoration: BoxDecoration(
+                            color: accentColor,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -124,8 +128,8 @@ class FavoritesSkeleton extends StatelessWidget {
                         Container(
                           width: 38,
                           height: 38,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
+                          decoration: BoxDecoration(
+                            color: accentColor,
                             shape: BoxShape.circle,
                           ),
                         ),
