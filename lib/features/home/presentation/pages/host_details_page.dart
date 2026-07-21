@@ -6,10 +6,12 @@ import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/core/widgets/image/app_network_image.dart';
 import 'package:dating_app/core/widgets/cards/app_card.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dating_app/features/chat/data/chat_repository.dart';
 
 /// HostDetailsPage displays a host telecaller profile with large avatar
 /// cover photo, overlapping stats card, bios, languages, and action triggers.
-class HostDetailsPage extends StatefulWidget {
+class HostDetailsPage extends ConsumerStatefulWidget {
   final String hostId;
 
   const HostDetailsPage({
@@ -18,10 +20,10 @@ class HostDetailsPage extends StatefulWidget {
   });
 
   @override
-  State<HostDetailsPage> createState() => _HostDetailsPageState();
+  ConsumerState<HostDetailsPage> createState() => _HostDetailsPageState();
 }
 
-class _HostDetailsPageState extends State<HostDetailsPage> {
+class _HostDetailsPageState extends ConsumerState<HostDetailsPage> {
   bool _isFavorited = false;
 
   @override
@@ -213,8 +215,24 @@ class _HostDetailsPageState extends State<HostDetailsPage> {
                       ),
                       icon: Icon(Icons.chat_bubble_outline, color: colors.primary),
                       label: Text('Chat', style: TextStyle(color: colors.primary)),
-                      onPressed: () {
-                        context.push(RouteNames.chat);
+                      onPressed: () async {
+                        try {
+                          final repo = ref.read(chatRepositoryProvider);
+                          final conv = await repo.findOrCreateConversation(widget.hostId);
+                          if (context.mounted) {
+                            context.push(RouteNames.chat, extra: {
+                              'conversationId': conv.id,
+                              'userId': widget.hostId,
+                              'userName': name,
+                            });
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Failed to open chat: $e')),
+                            );
+                          }
+                        }
                       },
                     ),
                   ),

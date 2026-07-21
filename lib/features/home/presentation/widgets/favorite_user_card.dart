@@ -8,6 +8,7 @@ import 'package:dating_app/features/home/presentation/providers/matched_users_pr
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
+import 'package:dating_app/features/chat/data/chat_repository.dart';
 
 class FavoriteUserCard extends ConsumerWidget {
   final MatchedUser user;
@@ -127,14 +128,27 @@ class FavoriteUserCard extends ConsumerWidget {
                     _ActionButton(
                       icon: Icons.chat_bubble_outline_rounded,
                       color: colors.primary,
-                      onTap: () {
-                        context.push(
-                          RouteNames.chat,
-                          extra: {
-                            'userId': user.id,
-                            'userName': user.fullName,
-                          },
-                        );
+                      onTap: () async {
+                        try {
+                          final repo = ref.read(chatRepositoryProvider);
+                          final conv = await repo.findOrCreateConversation(user.id);
+                          if (context.mounted) {
+                            context.push(
+                              RouteNames.chat,
+                              extra: {
+                                'conversationId': conv.id,
+                                'userId': user.id,
+                                'userName': user.fullName,
+                              },
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Failed to open chat: $e')),
+                            );
+                          }
+                        }
                       },
                     ),
                     const SizedBox(width: 8),
