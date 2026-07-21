@@ -174,6 +174,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                   ),
                 ),
               ),
+      ),
     );
     }
 
