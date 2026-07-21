@@ -44,7 +44,7 @@ class MatchedUserCard extends ConsumerWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -102,7 +102,7 @@ class MatchedUserCard extends ConsumerWidget {
               children: [
                 // Chat Button
                 _ActionButton(
-                  icon: Icons.chat_bubble_outline_rounded,
+                  icon: Icons.chat_bubble,
                   color: colors.primary,
                   onTap: () async {
                     try {
@@ -175,7 +175,7 @@ class _ActionButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(6),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.08),
           shape: BoxShape.circle,
@@ -183,7 +183,7 @@ class _ActionButton extends StatelessWidget {
         child: Icon(
           icon,
           color: color,
-          size: 14,
+          size: 20,
         ),
       ),
     );

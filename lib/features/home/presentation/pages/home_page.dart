@@ -560,7 +560,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 if (matchedUsers.isNotEmpty) ...[
                   const SizedBox(height: 24),
                   SizedBox(
-                    height: 180,
+                    height: 220,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       physics: const BouncingScrollPhysics(),
