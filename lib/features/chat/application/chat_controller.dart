@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dating_app/core/services/socket_provider.dart';
 import 'package:dating_app/features/chat/data/chat_repository.dart';

@@ -174,7 +174,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       padding: const EdgeInsets.all(16.0),
                       child: Text(
                         'Error: ${chatState.errorMessage}',
-                        style: TextStyle(color: colors.error),
+                        style: const TextStyle(color: Colors.red),
                         textAlign: TextAlign.center,
                       ),
                     ),
