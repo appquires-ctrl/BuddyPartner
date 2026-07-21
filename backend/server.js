@@ -33,9 +33,11 @@ app.use(express.json());
 // Import and mount custom modules REST endpoints
 const authRoutes = require('./modules/auth/auth.routes');
 const callsRoutes = require('./modules/calls/calls.routes');
+const messagingRoutes = require('./modules/messaging/messaging.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/calls', callsRoutes);
+app.use('/api', messagingRoutes);
 
 const server = http.createServer(app);
 
@@ -81,12 +83,14 @@ io.use(async (socket, next) => {
   }
 });
 
-// ── Register matchmaking socket handlers ────────────────────────────────────
+// ── Register socket handlers ────────────────────────────────────────────────
 const { registerMatchmakingHandlers } = require('./modules/matchmaking/matchmaking.socket');
+const { registerMessagingHandlers } = require('./modules/messaging/messaging.socket');
 
 io.on('connection', (socket) => {
   console.log(`🔌 User connected: ${socket.userId} (socket: ${socket.id})`);
   registerMatchmakingHandlers(io, socket, redis);
+  registerMessagingHandlers(io, socket, redis);
 
   socket.on('disconnect', (reason) => {
     console.log(`🔌 User disconnected: ${socket.userId} — ${reason}`);

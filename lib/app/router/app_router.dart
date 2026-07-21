@@ -12,8 +12,8 @@ import 'package:dating_app/features/home/presentation/pages/host_details_page.da
 import 'package:dating_app/features/home/presentation/pages/favorites_page.dart';
 import 'package:dating_app/features/call/presentation/pages/calling_page.dart';
 import 'package:dating_app/features/call/presentation/pages/active_call_page.dart';
-import 'package:dating_app/features/call/presentation/pages/incoming_call_page.dart';
 import 'package:dating_app/features/call/presentation/pages/call_summary_page.dart';
+import 'package:dating_app/features/chat/presentation/pages/conversations_list_page.dart';
 import 'package:dating_app/features/chat/presentation/pages/chat_page.dart';
 import 'package:dating_app/features/history/presentation/pages/call_history_page.dart';
 import 'package:dating_app/features/recharge/presentation/pages/recharge_page.dart';
@@ -118,10 +118,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RouteNames.chat,
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>? ?? {};
+          final conversationId = extra['conversationId'] as String? ?? '';
           final userId = extra['userId'] as String? ?? 'priya_1';
           final userName = extra['userName'] as String? ?? 'Priya';
           final userAvatar = extra['userAvatar'] as String?;
           return ChatPage(
+            conversationId: conversationId,
             userId: userId,
             userName: userName,
             userAvatar: userAvatar,
@@ -185,7 +187,17 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           
-          // Tab 3: Store Wallet Recharge
+          // Tab 3: Chat/Messages
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RouteNames.conversations,
+                builder: (context, state) => const ConversationsListPage(),
+              ),
+            ],
+          ),
+          
+          // Tab 4: Store Wallet Recharge
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -195,7 +207,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           
-          // Tab 4: User Settings
+          // Tab 5: User Settings
           StatefulShellBranch(
             routes: [
               GoRoute(

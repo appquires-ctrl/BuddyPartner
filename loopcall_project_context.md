@@ -10,10 +10,27 @@
 
 ## 2. Current state of this directory
 
-- **Frontend:** Flutter app — UI/design-system layer only has been scaffolded so far (Clean Architecture, Feature-First, Riverpod 3 provider *shells* with mock data, go_router, Material 3). No business logic, no API integration, no real state management yet.
-- **Backend:** Node.js + Express + JavaScript, Supabase for auth and Postgres — architecture and schema planned (modular/layered: routes → controllers → services), not yet implemented at the time of this note.
+- **Frontend:** Flutter app — UI/design-system layer scaffolded (Clean Architecture, Feature-First, Riverpod 3, go_router, Material 3). Auth (signup/login forms) and Matchmaking (Redis queue, Socket.io, Agora call UI) have real implementations built on top of that scaffold — see Section 3 for a stack change affecting both.
+- **Backend:** Node.js + Express + JavaScript. Auth verification middleware and matchmaking (Redis + Socket.io + Agora token generation) implemented. **Database/auth provider changed mid-project — see Section 3.**
 
-## 3. Build sequencing
+## 3. ⚠️ Stack change: Supabase → Neon + Firebase Auth
+
+**This project originally used Supabase (Auth + Postgres + Storage). That decision has been reversed.** Current stack:
+- **Database:** Neon (plain hosted Postgres — no built-in Auth, Storage, or Realtime, no Row Level Security tied to a session)
+- **Auth:** Firebase Auth (email/password) — client-side, via `firebase_auth` in Flutter
+- **DB access from Node:** raw `pg` driver, hand-written SQL — no ORM, no Supabase client
+- **Storage:** not needed yet — chat media/avatars deferred, no provider chosen
+
+**What this invalidates from earlier work — do not assume these still apply:**
+- The Postgres trigger on `auth.users` (auto-creating `users`/`wallets`/`wallet_transactions` rows on signup) **no longer exists** — Neon has no `auth.users` table, since Firebase Auth is a separate external service, not part of the Postgres database. **User provisioning is now explicit Node backend application code**, run after the backend verifies a Firebase ID token: check if a `users` row exists for that Firebase UID, and if not, insert `users` + `wallets` + `wallet_transactions` (welcome bonus) rows in one transaction.
+- RLS policies referencing `auth.uid()` **do not work on Neon** — there is no session context for Postgres to check. **All authorization is now enforced entirely in Node backend code** (every query must explicitly filter by the requesting user's ID from the verified Firebase token) — there is no database-level safety net anymore.
+- `auth.middleware.js` must be rewritten to verify **Firebase ID tokens** via the `firebase-admin` SDK (`admin.auth().verifyIdToken()`), not Supabase's `getUser()`.
+- The primary key linking a user across tables is now the **Firebase UID** (a string, not a Postgres-generated UUID) — schema should use `TEXT PRIMARY KEY` (or similar) for `users.id`, not `UUID`, unless you deliberately map Firebase UID → a generated UUID at signup (adds complexity, not recommended unless there's a specific reason).
+- Supabase Storage references for future media messages are void — no replacement chosen yet, revisit when messaging needs it.
+
+**What's unaffected by this change:** Redis (matchmaking queue), Socket.io (real-time events), Agora (calls) — none of these depended on Supabase and all decisions there still stand.
+
+## 4. Build sequencing
 
 We are recreating the functionality of `com.dating.for.all` (Play Store), but **not all at once**. Build order:
 1. **Phase 1 (current focus):** Authentication → Matchmaking → Messaging (chat) — the three core features below, in this order.
@@ -21,10 +38,10 @@ We are recreating the functionality of `com.dating.for.all` (Play Store), but **
 
 Do not jump ahead to Phase 2 features unless explicitly asked — get auth, matchmaking, and messaging solid first.
 
-## 4. Full product scope (for future reference — not all built yet)
+## 5. Full product scope (for future reference — not all built yet)
 
 **Core user flow:**
-1. Splash → signup/login — **email + password via Supabase Auth only. No phone/OTP login.**
+1. Splash → signup/login — **email + password via Firebase Auth only. No phone/OTP login.**
 2. Home screen — a "Matchmaking" entry point (see below) plus, later, browsing available telecallers, coin balance, empty states
 3. Matchmaking call — connects two random users, then later spends coins per telecaller-connect (per-minute or per-call — TBD)
 4. Chat/messaging — 1:1 text chat, likely tied to matched/connected users (see below)
@@ -61,29 +78,29 @@ Do not jump ahead to Phase 2 features unless explicitly asked — get auth, matc
   - `messages` — id, conversation_id, sender_id, content, type (text/image/system), status (sent/delivered/read), created_at
   - `message_reads` — conversation_id, user_id, last_read_message_id (drives unread counts without scanning all messages)
 - **Transport:** reuse **Socket.io** (already in the stack for matchmaking/calls) for real-time delivery, typing indicators, and read receipts — no second real-time system.
-- **Persistence:** every message is written to **Postgres (Supabase)** first as source of truth, then broadcast over the socket. Never broadcast-then-persist, or messages can be lost if the socket drops mid-send.
+- **Persistence:** every message is written to **Postgres (Neon)** first as source of truth, then broadcast over the socket. Never broadcast-then-persist, or messages can be lost if the socket drops mid-send.
 - **Offline delivery:** no separate queue needed — offline recipients just pull backlog from Postgres on reconnect/history fetch.
-- **Media messages:** attachments (images/voice notes) go to **Supabase Storage**, message row stores a URL + type, not the binary.
+- **Media messages:** storage provider not yet chosen (Supabase Storage no longer applies) — deferred until messaging actually needs media; text-only for the first pass.
 - **REST endpoints (history, not live delivery):** `GET /conversations` (list + unread counts), `GET /conversations/:id/messages` (cursor-paginated), `POST /conversations/:id/messages` (fallback/write path).
 - **Safety:** blocked users' messages must be rejected **server-side**, not just hidden client-side; report-message ties into the existing `reports` table; rate-limit message sends to prevent spam/harassment.
-- **Explicitly NOT used for this feature:** Redis (scoped to matchmaking queue only, not chat storage), Firebase/Firestore, Supabase Realtime, or any other real-time provider — Socket.io + Postgres + Supabase Storage is the full stack for messaging. Firebase Cloud Messaging (FCM) may re-enter later, but only for background push notifications, not for chat delivery itself — that's a separate, later concern.
+- **Explicitly NOT used for this feature:** Redis (scoped to matchmaking queue only, not chat storage), Firebase Firestore/Realtime Database (Firebase is used for **Auth only** in this project, not as a data store), Supabase Realtime, or any other real-time provider — Socket.io + Postgres is the stack for messaging. Firebase Cloud Messaging (FCM) may re-enter later, but only for background push notifications, not for chat delivery itself — that's a separate, later concern.
 
-## 5. Tech stack (both sides)
+## 6. Tech stack (both sides)
 
 **Frontend:** Flutter (latest stable), Dart, Clean Architecture + Feature-First, Riverpod 3, go_router, responsive_framework, Material 3, flutter_animate
 
-**Backend:** Node.js + Express.js (JavaScript, no TypeScript), Supabase Auth (**email/password only, no phone OTP**) + `@supabase/supabase-js` client only (no Prisma/Knex), Zod/Joi validation, helmet/cors/rate-limiting, deployed to Railway/Render
+**Backend:** Node.js + Express.js (JavaScript, no TypeScript), Firebase Auth (**email/password only, no phone OTP** — verified server-side via `firebase-admin`), Neon Postgres via raw `pg` driver (no ORM), Zod/Joi validation, helmet/cors/rate-limiting, deployed to Railway/Render
 
 **Real-time/calling stack (new — needed for matchmaking):**
 - **Redis** — matchmaking queue + pairing logic, must handle high concurrent throughput safely
 - **Socket.io** — real-time events (queue status, match found, call state, video-upgrade signal)
 - **Agora** — voice + video call transport; backend issues Agora session tokens, does not handle media itself
 
-## 6. Design language (for consistency in any future UI work)
+## 7. Design language (for consistency in any future UI work)
 
 Purple/lavender brand palette, soft gradient splash background, dark "wallet card" for balance display, badge-ribbon pricing cards (SPECIAL OFFER / X% OFF), rounded/geometric sans typography, 4-tab bottom nav (Home / Favorites / Recharge / Settings).
 
-## 7. What I want from you right now
+## 8. What I want from you right now
 
 Just acknowledge and retain this context. When I come back in a future session and ask you to build a specific feature (e.g., "implement the wallet module" or "wire up the recharge screen to the backend"), use this brief to stay consistent with the architecture, naming, and product decisions already established — without me needing to re-paste all of this.
 

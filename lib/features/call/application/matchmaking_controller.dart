@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:socket_io_client/socket_io_client.dart' as sio;
 import 'package:dating_app/core/services/api_client.dart';
+import 'package:dating_app/core/services/socket_provider.dart';
 
 import 'package:dating_app/core/config/app_config.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
@@ -17,7 +18,6 @@ import 'package:dating_app/features/call/application/call_summary_provider.dart'
 /// It owns the Socket.io connection, Agora RTC engine, and a display-only
 /// countdown timer. The server is authoritative on call duration.
 class MatchmakingController extends Notifier<MatchmakingState> {
-  sio.Socket? _socket;
   RtcEngine? _agoraEngine;
   Timer? _countdownTimer;
   String? _agoraAppId;
@@ -28,27 +28,32 @@ class MatchmakingController extends Notifier<MatchmakingState> {
   /// if the socket wasn't connected when `callUser()` was called.
   String? _pendingDirectCallUserId;
 
+  /// Whether we've already registered matchmaking event listeners on the socket
+  bool _listenersRegistered = false;
+
   /// Expose the Agora RTC engine for rendering video in the UI
   RtcEngine? get agoraEngine => _agoraEngine;
+
+  /// Helper to get the shared socket instance
+  sio.Socket? get _socket => ref.read(socketProvider);
 
   @override
   MatchmakingState build() {
     ref.onDispose(_cleanup);
 
-    // Listen to authentication state changes to initialize or clean up the socket
-    ref.listen<AsyncValue<CustomUser?>>(authStateProvider, (prev, next) {
-      final user = next.value;
-      if (user != null) {
-        _initSocket();
-      } else {
-        _cleanup();
+    // Watch the shared socket — when it changes (connects), set up listeners
+    ref.listen<sio.Socket?>(socketProvider, (prev, next) {
+      if (next != null && !_listenersRegistered) {
+        _setupSocketListeners(next);
+      } else if (next == null) {
+        _listenersRegistered = false;
       }
     });
 
-    // Also run initial socket setup if user is already logged in
-    final user = ref.read(authStateProvider).value;
-    if (user != null) {
-      Future.microtask(() => _initSocket());
+    // Also set up listeners if socket already exists
+    final existingSocket = ref.read(socketProvider);
+    if (existingSocket != null && !_listenersRegistered) {
+      Future.microtask(() => _setupSocketListeners(existingSocket));
     }
 
     return const MatchmakingState();
@@ -82,11 +87,11 @@ class MatchmakingController extends Notifier<MatchmakingState> {
         return;
       }
 
-      // Ensure socket is initialized and connected
-      _initSocket();
+      // Ensure socket is initialized via provider
+      final socket = _socket;
 
-      if (_socket != null && _socket!.connected) {
-        _socket!.emit('join_queue');
+      if (socket != null && socket.connected) {
+        socket.emit('join_queue');
       }
 
       state = state.copyWith(phase: MatchmakingPhase.queued);
@@ -141,8 +146,8 @@ class MatchmakingController extends Notifier<MatchmakingState> {
         return;
       }
 
-      // 2. Ensure socket is initialised and connected
-      _initSocket();
+      // 2. Socket is managed by the shared provider
+      final socket = _socket;
 
       // 3. Set state to outgoingRequest and pre-fill matched user info so the
       //    calling/connecting UI can show who we're calling.
@@ -158,8 +163,8 @@ class MatchmakingController extends Notifier<MatchmakingState> {
       // 4. Ask the server to initiate a direct call.
       //    Store the target so onConnect can re-emit if socket isn't ready yet.
       _pendingDirectCallUserId = targetUserId;
-      if (_socket != null && _socket!.connected) {
-        _socket!.emit('direct_call', {'targetUserId': targetUserId});
+      if (socket != null && socket.connected) {
+        socket.emit('direct_call', {'targetUserId': targetUserId});
         _pendingDirectCallUserId = null;
       }
 
@@ -317,72 +322,41 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     await _enableVideo();
   }
 
-  // ── Socket.io connection ────────────────────────────────────────────────
+  // ── Socket.io listeners ─────────────────────────────────────────────────
 
-  Future<void> _initSocket() async {
-    if (_socket != null) return;
+  /// Register matchmaking-specific event handlers on the shared socket.
+  void _setupSocketListeners(sio.Socket socket) {
+    if (_listenersRegistered) return;
+    _listenersRegistered = true;
 
-    final accessToken =
-        await ref.read(apiClientProvider).getToken();
-    if (accessToken == null) return;
-
-    _socket = sio.io(
-      AppConfig.backendUrl,
-      sio.OptionBuilder()
-          .setTransports(['websocket'])
-          .setAuth({'token': accessToken})
-          .disableAutoConnect()
-          .enableReconnection()
-          .build(),
-    );
-
-    _socket!.onConnect((_) {
-      debugPrint('Socket connected to backend');
+    socket.on('connect', (_) {
+      debugPrint('[Matchmaking] Socket connected');
       // If we got disconnected during an active queue, re-emit the pending event
       if (state.phase == MatchmakingPhase.queued) {
         if (_pendingDirectCallUserId != null) {
-          _socket!.emit('direct_call', {'targetUserId': _pendingDirectCallUserId});
+          socket.emit('direct_call', {'targetUserId': _pendingDirectCallUserId});
           _pendingDirectCallUserId = null;
         } else {
-          _socket!.emit('join_queue');
+          socket.emit('join_queue');
         }
       }
     });
 
-    _socket!.on('match_found', _onMatchFound);
-    _socket!.on('incoming_call_request', _onIncomingCallRequest);
-    _socket!.on('outgoing_call_ringing', _onOutgoingCallRinging);
-    _socket!.on('call_response', _onCallResponse);
-    _socket!.on('call_ended', _onCallEnded);
-    _socket!.on('video_upgrade_request', _onVideoUpgradeRequest);
-    _socket!.on('video_upgrade_accepted', _onVideoUpgradeAccepted);
-    _socket!.on('match_error', _onMatchError);
+    socket.on('match_found', _onMatchFound);
+    socket.on('incoming_call_request', _onIncomingCallRequest);
+    socket.on('outgoing_call_ringing', _onOutgoingCallRinging);
+    socket.on('call_response', _onCallResponse);
+    socket.on('call_ended', _onCallEnded);
+    socket.on('video_upgrade_request', _onVideoUpgradeRequest);
+    socket.on('video_upgrade_accepted', _onVideoUpgradeAccepted);
+    socket.on('match_error', _onMatchError);
 
-    _socket!.onDisconnect((_) async {
-      debugPrint('Socket disconnected');
-      
-      // Update with the latest access token to ensure reconnection doesn't fail
-      // after the old token expires (typically 1 hour)
-      final token = await ref.read(apiClientProvider).getToken();
-      if (token != null && _socket != null && _socket!.io.options != null) {
-        _socket!.io.options!['auth'] = {'token': token};
-      }
-
+    socket.on('disconnect', (_) async {
+      debugPrint('[Matchmaking] Socket disconnected');
       if (state.phase == MatchmakingPhase.inCall) {
         _handleServerDisconnect();
       }
     });
-
-    _socket!.onConnectError((err) {
-      debugPrint('Socket connection error: $err');
-    });
-
-    _socket!.connect();
-  }
-
-  void _disconnectSocket() {
-    _socket?.dispose();
-    _socket = null;
   }
 
   // ── Socket event handlers ─────────────────────────────────────────────
@@ -704,7 +678,8 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     _callingTimeoutTimer = null;
     _stopCountdown();
     _leaveAgoraChannel();
-    _disconnectSocket();
+    _listenersRegistered = false;
+    // Socket lifecycle is managed by socketProvider — do NOT dispose it here
   }
 }
 

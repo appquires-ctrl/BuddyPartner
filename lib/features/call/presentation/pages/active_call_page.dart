@@ -5,6 +5,7 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
+import 'package:dating_app/features/chat/data/chat_repository.dart';
 
 /// ActiveCallPage displays the active voice call interface.
 /// Wired to the MatchmakingController for real Agora audio/video and
@@ -322,13 +323,26 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                         _buildActionButton(
                           icon: Icons.chat_bubble_outline_rounded,
                           label: 'Message',
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Coming soon!'),
-                                duration: Duration(seconds: 1),
-                              ),
-                            );
+                          onTap: () async {
+                            if (matchedUser == null) return;
+                            try {
+                              final repo = ref.read(chatRepositoryProvider);
+                              final conv = await repo.findOrCreateConversation(matchedUser.id);
+                              if (context.mounted) {
+                                context.push(RouteNames.chat, extra: {
+                                  'conversationId': conv.id,
+                                  'userId': matchedUser.id,
+                                  'userName': matchedUser.fullName,
+                                  'userAvatar': matchedUser.avatarUrl,
+                                });
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Failed to open chat: $e')),
+                                );
+                              }
+                            }
                           },
                         ),
                       ],

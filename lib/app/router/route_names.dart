@@ -9,8 +9,8 @@ class RouteNames {
   static const String calling = '/calling';
   static const String activeCall = '/active-call';
   static const String incomingCall = '/incoming-call';
-  static const String callSummary = '/call-summary';
   static const String chat = '/chat';
+  static const String conversations = '/conversations';
   static const String favorites = '/favorites';
   static const String recharge = '/recharge';
   static const String settings = '/settings';
