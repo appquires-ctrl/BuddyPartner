@@ -656,8 +656,8 @@ class _HomePageState extends ConsumerState<HomePage> {
             ),
           ),
         ),
-      ),
     );
+    }
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
