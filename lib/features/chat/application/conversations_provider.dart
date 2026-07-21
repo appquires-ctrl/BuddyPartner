@@ -10,10 +10,11 @@ class ConversationsNotifier extends AutoDisposeAsyncNotifier<List<Conversation>>
   FutureOr<List<Conversation>> build() async {
     final socket = ref.watch(socketProvider);
     
-    if (socket != null && socket.connected) {
-      // Listen for incoming new messages to update the last message and unread count
+    if (socket != null) {
+      socket.off('message:new', _onNewMessage);
+
       socket.on('message:new', _onNewMessage);
-      
+
       ref.onDispose(() {
         socket.off('message:new', _onNewMessage);
       });

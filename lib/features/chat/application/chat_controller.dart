@@ -39,12 +39,17 @@ class ChatState {
 
 class ChatController extends FamilyNotifier<ChatState, String> {
   Timer? _typingTimer;
+  bool _built = false;
 
   @override
   ChatState build(String arg) {
     final socket = ref.watch(socketProvider);
     
-    if (socket != null && socket.connected) {
+    if (socket != null) {
+      socket.off('message:new', _onNewMessage);
+      socket.off('typing', _onTyping);
+      socket.off('message:read', _onMessageRead);
+
       socket.on('message:new', _onNewMessage);
       socket.on('typing', _onTyping);
       socket.on('message:read', _onMessageRead);
@@ -57,10 +62,13 @@ class ChatController extends FamilyNotifier<ChatState, String> {
       });
     }
 
-    // Initial load
-    Future.microtask(() => loadInitial());
-    
-    return const ChatState();
+    if (!_built) {
+      _built = true;
+      Future.microtask(() => loadInitial());
+      return const ChatState();
+    }
+
+    return state;
   }
 
   String get conversationId => arg;
