@@ -8,6 +8,7 @@ import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/core/widgets/cards/app_card.dart';
+import 'package:dating_app/core/widgets/gradient_avatar.dart';
 
 /// ProfilePage renders the Settings screen dashboard matching the screenshot layout exactly.
 /// Displays user info card, general settings categories, support links, and logout.
@@ -74,23 +75,9 @@ class ProfilePage extends ConsumerWidget {
                   padding: const EdgeInsets.all(AppSpacing.space16),
                   child: Row(
                     children: [
-                      // Avatar initials circle
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFE5DFFF), // Light lavender background
-                          shape: BoxShape.circle,
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          initials,
-                          style: const TextStyle(
-                            color: Color(0xFF6B4EFF), // Lavender text
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                      GradientAvatar(
+                        initials: initials,
+                        radius: 32,
                       ),
                       const SizedBox(width: AppSpacing.space16),
                       

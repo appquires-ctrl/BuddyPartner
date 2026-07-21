@@ -5,6 +5,7 @@ import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
+import 'package:dating_app/core/widgets/gradient_avatar.dart';
 
 /// AccountPage renders the profile details page.
 /// Displays user information dynamically loaded from Supabase profile state.
@@ -77,23 +78,9 @@ class AccountPage extends ConsumerWidget {
             children: [
               const SizedBox(height: 12),
 
-              // Dynamic Initials Circle Avatar Header
-              Container(
-                width: 120,
-                height: 120,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE5DFFF), // Light lavender background
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  initials,
-                  style: const TextStyle(
-                    color: Color(0xFF6B4EFF), // Purple text
-                    fontSize: 40,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+              GradientAvatar(
+                initials: initials,
+                radius: 60,
               ),
               const SizedBox(height: AppSpacing.space16),
 
