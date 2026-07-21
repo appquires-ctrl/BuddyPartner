@@ -87,7 +87,7 @@ class ChatController extends FamilyNotifier<ChatState, String> {
         _markAsRead(msgs.first.id);
       }
     } catch (e) {
-      state = state.copyWith(isLoading: false);
+      state = state.copyWith(isLoading: false, hasMore: false);
     }
   }
 
@@ -113,7 +113,7 @@ class ChatController extends FamilyNotifier<ChatState, String> {
         isLoading: false,
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false);
+      state = state.copyWith(isLoading: false, hasMore: false);
     }
   }
 
@@ -191,9 +191,7 @@ class ChatController extends FamilyNotifier<ChatState, String> {
         
         _typingTimer?.cancel();
         _typingTimer = Timer(const Duration(seconds: 3), () {
-          if (mounted) {
-            state = state.copyWith(clearTypingUser: true);
-          }
+          state = state.copyWith(clearTypingUser: true);
         });
       }
     } catch (_) {}
