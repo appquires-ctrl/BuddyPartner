@@ -526,6 +526,18 @@ async function handleCallEnd(callId, callsService, io, reason) {
     io.to(socketBId).emit('call_ended', { callId, reason, totalCost: totalCostB });
   }
 
+  // Emit final updated wallet balances to both sockets
+  try {
+    const [balA, balB] = await Promise.all([
+      WalletService.getBalance(callInfo.userA.userId),
+      WalletService.getBalance(callInfo.userB.userId),
+    ]);
+    if (socketAId) io.to(socketAId).emit('balance_update', { balance: balA });
+    if (socketBId && socketBId !== socketAId) io.to(socketBId).emit('balance_update', { balance: balB });
+  } catch (err) {
+    console.error(`Error emitting final balance updates for call ${callId}:`, err.message);
+  }
+
   console.log(`📴 Call ${callId} ended (reason: ${reason}) for users ${callInfo.userA.userId} and ${callInfo.userB.userId}`);
 }
 

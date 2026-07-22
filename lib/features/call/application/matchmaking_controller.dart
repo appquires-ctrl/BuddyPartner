@@ -283,6 +283,9 @@ class MatchmakingController extends Notifier<MatchmakingState> {
 
     state = state.copyWith(phase: MatchmakingPhase.ended);
 
+    // Refresh wallet balance from server so UI shows updated coins
+    ref.invalidate(walletBalanceProvider);
+
     // Brief delay before resetting to idle so the UI can react to `ended`
     await Future.delayed(const Duration(milliseconds: 300));
     state = state.reset();
@@ -461,6 +464,9 @@ class MatchmakingController extends Notifier<MatchmakingState> {
       errorMessage: errorMessage,
     );
 
+    // Refresh wallet balance from server so UI shows updated coins
+    ref.invalidate(walletBalanceProvider);
+
     await Future.delayed(const Duration(milliseconds: 300));
     state = state.reset();
   }
@@ -590,6 +596,9 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     await _leaveAgoraChannel();
     _stopCountdown();
     state = state.copyWith(phase: MatchmakingPhase.ended);
+
+    // Refresh wallet balance from server so UI shows updated coins
+    ref.invalidate(walletBalanceProvider);
 
     await Future.delayed(const Duration(milliseconds: 300));
     state = state.reset();

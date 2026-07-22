@@ -32,7 +32,10 @@ class WalletBalanceNotifier extends AsyncNotifier<int> {
       final apiClient = ref.watch(apiClientProvider);
       final response = await apiClient.dio.get('/api/auth/me');
       if (response.data != null && response.data['user'] != null) {
-        return response.data['user']['walletBalance'] as int? ?? 100;
+        final rawBalance = response.data['user']['walletBalance'];
+        if (rawBalance is num) {
+          return rawBalance.toInt();
+        }
       }
     } catch (e) {
       // Return fallback on network error
