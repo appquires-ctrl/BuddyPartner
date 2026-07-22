@@ -12,6 +12,7 @@ import 'package:dating_app/features/home/presentation/pages/host_details_page.da
 import 'package:dating_app/features/home/presentation/pages/favorites_page.dart';
 import 'package:dating_app/features/call/presentation/pages/calling_page.dart';
 import 'package:dating_app/features/call/presentation/pages/active_call_page.dart';
+import 'package:dating_app/features/call/presentation/pages/incoming_call_page.dart';
 import 'package:dating_app/features/call/presentation/pages/call_summary_page.dart';
 import 'package:dating_app/features/chat/presentation/pages/conversations_list_page.dart';
 import 'package:dating_app/features/chat/presentation/pages/chat_page.dart';
@@ -177,16 +178,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           
-          // Tab 2: Favorites
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: RouteNames.favorites,
-                builder: (context, state) => const FavoritesPage(),
-              ),
-            ],
-          ),
-          
+
           // Tab 3: Chat/Messages
           StatefulShellBranch(
             routes: [
@@ -197,6 +189,17 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           
+            // Tab 2: Favorites
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RouteNames.favorites,
+                builder: (context, state) => const FavoritesPage(),
+              ),
+            ],
+          ),
+          
+
           // Tab 4: Store Wallet Recharge
           StatefulShellBranch(
             routes: [

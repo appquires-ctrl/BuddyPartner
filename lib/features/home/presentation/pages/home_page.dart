@@ -15,6 +15,7 @@ import 'package:dating_app/features/home/presentation/providers/matched_users_pr
 import 'package:dating_app/features/home/presentation/widgets/matched_user_card.dart';
 import 'package:dating_app/features/home/presentation/widgets/home_skeleton.dart';
 import 'package:dating_app/core/widgets/gradient_avatar.dart';
+import 'package:dating_app/features/call/presentation/widgets/low_balance_dialog.dart';
 
 /// HomePage renders the primary "stranger search" radar screen.
 /// Matches screenshots/home.jpeg exactly.
@@ -74,6 +75,29 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final typography = context.typography;
+
+    ref.listen<MatchmakingState>(matchmakingControllerProvider, (prev, next) {
+      if (next.errorMessage != null &&
+          next.errorMessage!.isNotEmpty &&
+          (prev == null || prev.errorMessage != next.errorMessage)) {
+        final msg = next.errorMessage!.toLowerCase();
+        if (msg.contains('insufficient') ||
+            msg.contains('recharge') ||
+            msg.contains('10 coins')) {
+          showDialog(
+            context: context,
+            builder: (context) => const LowBalanceDialog(),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(next.errorMessage!),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    });
 
     final profileAsync = ref.watch(userProfileProvider);
     final balanceAsync = ref.watch(walletBalanceProvider);

@@ -8,6 +8,8 @@ class CallsService {
   constructor() {
     // Map of callId → setTimeout handle for server-authoritative 5-min timer
     this.callTimers = new Map();
+    // Map of callId → setInterval handle for per-minute billing
+    this.callBillingIntervals = new Map();
   }
 
   /**
@@ -43,8 +45,9 @@ class CallsService {
    * @param {string} callId
    */
   async endCall(callId) {
-    // Clear the server-side timer if still running
+    // Clear the server-side timer & billing interval if running
     this.clearCallTimer(callId);
+    this.clearCallBilling(callId);
 
     try {
       const result = await db.query(
@@ -153,6 +156,92 @@ class CallsService {
       this.callTimers.delete(callId);
     }
   }
+
+  /**
+   * Start 60-second billing interval for a call.
+   *
+   * @param {string} callId
+   * @param {string} userAId
+   * @param {string} userBId
+   * @param {import('socket.io').Server} io
+   * @param {Function} onInsufficientBalance - callback (callId, failedUserId) when balance is insufficient
+   */
+  startCallBilling(callId, userAId, userBId, io, onInsufficientBalance) {
+    this.clearCallBilling(callId);
+    const { WalletService, CALL_RATES } = require('../wallet/wallet.service');
+    console.log(`💰 [Billing] Started billing interval for call ${callId} — userA: ${userAId}, userB: ${userBId}`);
+
+    const interval = setInterval(async () => {
+      console.log(`💰 [Billing] Tick fired for call ${callId}`);
+      try {
+        // Query DB for current call status & type
+        const res = await db.query(
+          'SELECT status, call_type FROM public.calls WHERE id = $1',
+          [callId]
+        );
+
+        if (res.rows.length === 0 || res.rows[0].status !== 'active') {
+          this.clearCallBilling(callId);
+          return;
+        }
+
+        const callType = res.rows[0].call_type || 'voice';
+        const rate = callType === 'video' ? CALL_RATES.video : CALL_RATES.voice;
+
+        // Perform atomic deduction for both participants independently
+        console.log(`💰 [Billing] Deducting ${rate} coins (${callType}) for call ${callId}`);
+        const [resA, resB] = await Promise.all([
+          WalletService.deductForCallMinute(userAId, callId, rate),
+          WalletService.deductForCallMinute(userBId, callId, rate),
+        ]);
+        console.log(`💰 [Billing] Deduction results — userA: ${JSON.stringify(resA)}, userB: ${JSON.stringify(resB)}`);
+
+        // Emit balance updates to connected sockets
+        const { userSockets } = require('../matchmaking/matchmaking.socket');
+
+        if (resA.success && resA.newBalance !== null) {
+          const socketAId = userSockets.get(userAId);
+          if (socketAId) {
+            io.to(socketAId).emit('balance_update', { balance: resA.newBalance });
+          }
+        }
+
+        if (resB.success && resB.newBalance !== null) {
+          const socketBId = userSockets.get(userBId);
+          if (socketBId) {
+            io.to(socketBId).emit('balance_update', { balance: resB.newBalance });
+          }
+        }
+
+        // If either participant fails deduction, trigger end of call at minute boundary
+        if (!resA.success || !resB.success) {
+          const failedUser = !resA.success ? userAId : userBId;
+          console.log(`💳 Call ${callId} ended due to insufficient balance for user ${failedUser}`);
+          this.clearCallBilling(callId);
+          onInsufficientBalance(callId, failedUser);
+        }
+      } catch (err) {
+        console.error(`Error during per-minute billing for call ${callId}:`, err.message);
+      }
+    }, 60 * 1000); // 60 seconds interval
+
+    this.callBillingIntervals.set(callId, interval);
+  }
+
+  /**
+   * Clear the per-minute billing interval for a call.
+   *
+   * @param {string} callId
+   */
+  clearCallBilling(callId) {
+    const existing = this.callBillingIntervals.get(callId);
+    if (existing) {
+      clearInterval(existing);
+      this.callBillingIntervals.delete(callId);
+    }
+  }
 }
 
-module.exports = { CallsService, CALL_DURATION_MS };
+const callsService = new CallsService();
+
+module.exports = { callsService, CallsService, CALL_DURATION_MS };

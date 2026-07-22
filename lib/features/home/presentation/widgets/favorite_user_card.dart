@@ -7,7 +7,6 @@ import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/features/home/presentation/providers/matched_users_provider.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
-import 'package:dating_app/features/call/application/matchmaking_state.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 import 'package:dating_app/features/chat/data/chat_repository.dart';
 import 'package:dating_app/core/widgets/gradient_avatar.dart';

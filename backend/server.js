@@ -39,6 +39,24 @@ app.use('/api/auth', authRoutes);
 app.use('/api/calls', callsRoutes);
 app.use('/api', messagingRoutes);
 
+// ── Auto-ensure wallet_transactions table exists ────────────────────────────
+db.query(`
+  CREATE TABLE IF NOT EXISTS public.wallet_transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+    amount INTEGER NOT NULL,
+    type TEXT CHECK (type IN ('credit', 'debit')) NOT NULL,
+    reason TEXT NOT NULL,
+    reference_id UUID,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_wallet_tx_user ON public.wallet_transactions(user_id);
+`).then(() => {
+  console.log('✅ wallet_transactions table checked/initialized.');
+}).catch((err) => {
+  console.error('❌ Failed to initialize wallet_transactions table:', err.message);
+});
+
 const server = http.createServer(app);
 
 // ── Redis client ────────────────────────────────────────────────────────────

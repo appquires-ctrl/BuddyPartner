@@ -4,13 +4,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:socket_io_client/socket_io_client.dart' as sio;
-import 'package:dating_app/core/services/api_client.dart';
 import 'package:dating_app/core/services/socket_provider.dart';
 
 import 'package:dating_app/core/config/app_config.dart';
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 import 'matchmaking_state.dart';
 import 'package:dating_app/features/call/application/call_summary_provider.dart';
+import 'package:dating_app/features/recharge/presentation/providers/recharge_providers.dart';
 
 /// MatchmakingController manages the full matchmaking lifecycle:
 ///   idle → queued → matched → inCall → ended → idle
@@ -91,7 +90,18 @@ class MatchmakingController extends Notifier<MatchmakingState> {
       final socket = _socket;
 
       if (socket != null && socket.connected) {
-        socket.emit('join_queue');
+        socket.emitWithAck('join_queue', null, ack: (data) {
+          if (data is Map && data['error'] != null) {
+            final error = data['error'].toString();
+            if (error == 'insufficient_balance') {
+              state = state.copyWith(
+                phase: MatchmakingPhase.idle,
+                errorMessage: data['message']?.toString() ??
+                    'You need at least 10 coins to start a call — recharge to continue',
+              );
+            }
+          }
+        });
       }
 
       state = state.copyWith(phase: MatchmakingPhase.queued);
@@ -350,6 +360,7 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     socket.on('video_upgrade_request', _onVideoUpgradeRequest);
     socket.on('video_upgrade_accepted', _onVideoUpgradeAccepted);
     socket.on('match_error', _onMatchError);
+    socket.on('balance_update', _onBalanceUpdate);
 
     socket.on('disconnect', (_) async {
       debugPrint('[Matchmaking] Socket disconnected');
@@ -416,9 +427,24 @@ class MatchmakingController extends Notifier<MatchmakingState> {
   }
 
   Future<void> _onCallEnded(dynamic data) async {
+    String? endReason;
+    int? serverTotalCost;
+    if (data is Map) {
+      if (data['reason'] != null) {
+        endReason = data['reason'].toString();
+      }
+      if (data['totalCost'] != null) {
+        serverTotalCost = (data['totalCost'] as num).toInt();
+      }
+    }
+    final String? errorMessage = (endReason == 'insufficient_balance')
+        ? 'Call ended — insufficient balance'
+        : null;
+
     if (state.matchedUser != null) {
       final elapsed = 300 - state.remainingSeconds;
-      final cost = (elapsed / 60.0 * 10).ceil();
+      // Use server-provided actual cost; fall back to voice-rate estimate
+      final cost = serverTotalCost ?? (elapsed / 60.0 * 10).ceil();
       ref.read(lastCallSummaryProvider.notifier).state = CallSummaryInfo(
         matchedUserId: state.matchedUser!.id,
         matchedUserName: state.matchedUser!.fullName,
@@ -430,7 +456,10 @@ class MatchmakingController extends Notifier<MatchmakingState> {
 
     await _leaveAgoraChannel();
     _stopCountdown();
-    state = state.copyWith(phase: MatchmakingPhase.ended);
+    state = state.copyWith(
+      phase: MatchmakingPhase.ended,
+      errorMessage: errorMessage,
+    );
 
     await Future.delayed(const Duration(milliseconds: 300));
     state = state.reset();
@@ -452,8 +481,12 @@ class MatchmakingController extends Notifier<MatchmakingState> {
 
   void _onMatchError(dynamic data) {
     String errorMsg = 'Matchmaking error. Please try again.';
-    if (data is Map && data['error'] != null) {
-      errorMsg = data['error'].toString();
+    if (data is Map) {
+      if (data['message'] != null) {
+        errorMsg = data['message'].toString();
+      } else if (data['error'] != null) {
+        errorMsg = data['error'].toString();
+      }
     } else if (data is String) {
       errorMsg = data;
     }
@@ -461,6 +494,17 @@ class MatchmakingController extends Notifier<MatchmakingState> {
       phase: MatchmakingPhase.idle,
       errorMessage: errorMsg,
     );
+  }
+
+  void _onBalanceUpdate(dynamic data) {
+    try {
+      if (data is Map && data['balance'] != null) {
+        final newBalance = (data['balance'] as num).toInt();
+        ref.read(walletBalanceProvider.notifier).updateBalance(newBalance);
+      }
+    } catch (e) {
+      debugPrint('Error updating balance from socket: $e');
+    }
   }
 
   Future<void> _onIncomingCallRequest(dynamic data) async {

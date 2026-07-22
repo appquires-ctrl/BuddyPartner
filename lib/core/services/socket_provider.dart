@@ -55,6 +55,7 @@ class SocketNotifier extends Notifier<sio.Socket?> {
 
     socket.onConnect((_) {
       debugPrint('[SocketProvider] Connected to backend');
+      state = socket;
     });
 
     socket.onDisconnect((_) async {

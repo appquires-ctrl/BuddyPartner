@@ -1,5 +1,6 @@
 const { MatchmakingService } = require('./matchmaking.service');
-const { CallsService } = require('../calls/calls.service');
+const { callsService } = require('../calls/calls.service');
+const { WalletService, CALL_RATES } = require('../wallet/wallet.service');
 const db = require('../../db');
 
 // In-memory map of active calls: callId → { userA: { userId, socketId }, userB: { userId, socketId } }
@@ -20,7 +21,6 @@ const pendingCallRequests = new Map();
  */
 function registerMatchmakingHandlers(io, socket, redis) {
   const matchmakingService = new MatchmakingService(redis);
-  const callsService = new CallsService();
   const userId = socket.userId;
 
   // Track this user's socket
@@ -33,6 +33,15 @@ function registerMatchmakingHandlers(io, socket, redis) {
       if (socketToCall.has(socket.id)) {
         const cb = typeof callback === 'function' ? callback : () => {};
         cb({ error: 'Already in an active call' });
+        return;
+      }
+
+      // Check minimum required balance for call (voice rate)
+      const hasBalance = await WalletService.hasMinimumBalance(userId, CALL_RATES.voice);
+      if (!hasBalance) {
+        const cb = typeof callback === 'function' ? callback : () => {};
+        cb({ error: 'insufficient_balance', required: CALL_RATES.voice, message: `You need at least ${CALL_RATES.voice} coins to start a call — recharge to continue` });
+        socket.emit('match_error', { error: 'insufficient_balance', message: `You need at least ${CALL_RATES.voice} coins to start a call — recharge to continue` });
         return;
       }
 
@@ -198,6 +207,10 @@ function registerMatchmakingHandlers(io, socket, redis) {
         handleCallEnd(expiredCallId, callsService, io, 'timer');
       });
 
+      callsService.startCallBilling(callId, request.callerId, request.targetUserId, io, (billingCallId) => {
+        handleCallEnd(billingCallId, callsService, io, 'insufficient_balance');
+      });
+
       console.log(`✅ Direct call ${callId} established: ${request.callerId} ↔ ${request.targetUserId}`);
     } catch (err) {
       console.error('Error in accept_call_request:', err);
@@ -252,6 +265,13 @@ function registerMatchmakingHandlers(io, socket, redis) {
   // ── direct_call ────────────────────────────────────────────────────────
   // Initiates a calling request to a specific user.
   socket.on('direct_call', async ({ targetUserId }) => {
+    // 0. Check minimum required balance for call (voice rate)
+    const hasBalance = await WalletService.hasMinimumBalance(userId, CALL_RATES.voice);
+    if (!hasBalance) {
+      socket.emit('match_error', { error: 'insufficient_balance', message: `You need at least ${CALL_RATES.voice} coins to start a call — recharge to continue` });
+      return;
+    }
+
     // 1. Prevent calling yourself
     if (targetUserId === userId) {
       socket.emit('match_error', { error: 'Cannot call yourself' });
@@ -446,6 +466,10 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
       handleCallEnd(expiredCallId, callsService, io, 'timer');
     });
 
+    callsService.startCallBilling(callId, userA.userId, userB.userId, io, (billingCallId) => {
+      handleCallEnd(billingCallId, callsService, io, 'insufficient_balance');
+    });
+
     console.log(`📞 Call ${callId} started on channel ${channelName}`);
   } catch (err) {
     console.error('Error setting up match:', err);
@@ -471,11 +495,38 @@ async function handleCallEnd(callId, callsService, io, reason) {
   // End call in DB
   await callsService.endCall(callId);
 
-  // Notify both users
-  io.to(callInfo.userA.socketId).emit('call_ended', { callId, reason });
-  io.to(callInfo.userB.socketId).emit('call_ended', { callId, reason });
+  // Query actual total cost from wallet_transactions for each participant
+  let totalCostA = 0;
+  let totalCostB = 0;
+  try {
+    const [resA, resB] = await Promise.all([
+      db.query(
+        `SELECT COALESCE(SUM(amount), 0) AS total FROM public.wallet_transactions
+         WHERE user_id = $1 AND reference_id = $2 AND type = 'debit'`,
+        [callInfo.userA.userId, callId]
+      ),
+      db.query(
+        `SELECT COALESCE(SUM(amount), 0) AS total FROM public.wallet_transactions
+         WHERE user_id = $1 AND reference_id = $2 AND type = 'debit'`,
+        [callInfo.userB.userId, callId]
+      ),
+    ]);
+    totalCostA = parseInt(resA.rows[0]?.total, 10) || 0;
+    totalCostB = parseInt(resB.rows[0]?.total, 10) || 0;
+  } catch (err) {
+    console.error(`Error fetching call costs for ${callId}:`, err.message);
+  }
 
-  console.log(`📴 Call ${callId} ended (reason: ${reason})`);
+  // Notify both users using their latest connected socket ID
+  const socketAId = userSockets.get(callInfo.userA.userId) || callInfo.userA.socketId;
+  const socketBId = userSockets.get(callInfo.userB.userId) || callInfo.userB.socketId;
+
+  io.to(socketAId).emit('call_ended', { callId, reason, totalCost: totalCostA });
+  if (socketBId !== socketAId) {
+    io.to(socketBId).emit('call_ended', { callId, reason, totalCost: totalCostB });
+  }
+
+  console.log(`📴 Call ${callId} ended (reason: ${reason}) for users ${callInfo.userA.userId} and ${callInfo.userB.userId}`);
 }
 
 /**

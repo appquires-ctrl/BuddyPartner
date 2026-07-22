@@ -37,14 +37,14 @@ class AppBottomNav extends StatelessWidget {
             label: 'Home',
           ),
           NavigationDestination(
-            icon: Icon(Icons.favorite_border, color: colors.textSecondary),
-            selectedIcon: Icon(Icons.favorite, color: colors.primary),
-            label: 'Favorite',
-          ),
-          NavigationDestination(
             icon: Icon(Icons.chat_bubble_outline, color: colors.textSecondary),
             selectedIcon: Icon(Icons.chat_bubble, color: colors.primary),
             label: 'Chat',
+          ),
+           NavigationDestination(
+            icon: Icon(Icons.favorite_border, color: colors.textSecondary),
+            selectedIcon: Icon(Icons.favorite, color: colors.primary),
+            label: 'Favorite',
           ),
           NavigationDestination(
             icon: Icon(Icons.account_balance_wallet_outlined, color: colors.textSecondary),
