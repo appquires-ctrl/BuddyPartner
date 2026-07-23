@@ -16,7 +16,7 @@ const pendingCallRequests = new Map();
 /**
  * Look up a user's gender from the database.
  * @param {string} userId
- * @returns {Promise<string>} gender string (e.g. 'Male', 'Female')
+ * @returns {Promise<string>} gender string ('male', 'female', or 'unknown')
  */
 async function getUserGender(userId) {
   try {
@@ -24,11 +24,18 @@ async function getUserGender(userId) {
       'SELECT gender FROM public.users WHERE id = $1',
       [userId]
     );
-    if (result.rows.length === 0) return 'male';
-    return (result.rows[0].gender || 'male').toLowerCase();
+    if (result.rows.length === 0) return 'unknown';
+    const rawGender = (result.rows[0].gender || '').trim().toLowerCase();
+    if (rawGender === 'female' || rawGender === 'girl' || rawGender === 'woman' || rawGender === 'f') {
+      return 'female';
+    }
+    if (rawGender === 'male' || rawGender === 'boy' || rawGender === 'man' || rawGender === 'm') {
+      return 'male';
+    }
+    return 'unknown';
   } catch (err) {
     console.error(`Error fetching gender for user ${userId}:`, err.message);
-    return 'male'; // Default to male if lookup fails
+    return 'unknown';
   }
 }
 
@@ -38,8 +45,8 @@ async function getUserGender(userId) {
  * @returns {boolean}
  */
 function isFemale(gender) {
-  const g = (gender || '').toLowerCase();
-  return g === 'female' || g === 'girl' || g === 'woman';
+  const g = (gender || '').trim().toLowerCase();
+  return g === 'female' || g === 'girl' || g === 'woman' || g === 'f';
 }
 
 /**
@@ -66,8 +73,15 @@ function registerMatchmakingHandlers(io, socket, redis) {
         return;
       }
 
-      // Look up user's gender
+      // Look up user's gender directly from DB
       const gender = await getUserGender(userId);
+      if (gender === 'unknown') {
+        const cb = typeof callback === 'function' ? callback : () => {};
+        cb({ error: 'Please set your gender in your profile before matchmaking.' });
+        socket.emit('match_error', { error: 'Please set your gender in your profile before matchmaking.' });
+        return;
+      }
+
       const userIsFemale = isFemale(gender);
 
       // Balance check: only for boys (girls earn, they don't spend)
@@ -127,7 +141,7 @@ function registerMatchmakingHandlers(io, socket, redis) {
         return;
       }
 
-      await handleCallEnd(callId, callsService, io, 'manual');
+      await handleCallEnd(callId, callsService, io, 'manual', matchmakingService);
     } catch (err) {
       console.error('Error in end_call:', err);
     }
@@ -200,6 +214,10 @@ function registerMatchmakingHandlers(io, socket, redis) {
       clearTimeout(request.timer);
       pendingCallRequests.delete(callRequestId);
 
+      // Purge both from queues
+      await matchmakingService.leaveQueue(request.callerId);
+      await matchmakingService.leaveQueue(request.targetUserId);
+
       const channelName = matchmakingService.generateChannelName();
       const uidA = matchmakingService.uuidToAgoraUid(request.callerId);
       const uidB = matchmakingService.uuidToAgoraUid(request.targetUserId);
@@ -240,7 +258,7 @@ function registerMatchmakingHandlers(io, socket, redis) {
       });
 
       callsService.startCallTimer(callId, (expiredCallId) => {
-        handleCallEnd(expiredCallId, callsService, io, 'timer');
+        handleCallEnd(expiredCallId, callsService, io, 'timer', matchmakingService);
       });
 
       callsService.startCallBilling(
@@ -251,7 +269,7 @@ function registerMatchmakingHandlers(io, socket, redis) {
         request.targetGender,
         io,
         (billingCallId) => {
-          handleCallEnd(billingCallId, callsService, io, 'insufficient_balance');
+          handleCallEnd(billingCallId, callsService, io, 'insufficient_balance', matchmakingService);
         }
       );
 
@@ -307,13 +325,10 @@ function registerMatchmakingHandlers(io, socket, redis) {
   });
 
   // ── direct_call ────────────────────────────────────────────────────────
-  // Initiates a calling request to a specific user.
   socket.on('direct_call', async ({ targetUserId }) => {
-    // Look up caller's gender
     const callerGender = await getUserGender(userId);
     const callerIsFemale = isFemale(callerGender);
 
-    // 0. Check minimum required balance for call (voice rate) — boys only
     if (!callerIsFemale) {
       const hasBalance = await WalletService.hasMinimumBalance(userId, CALL_RATES.voice);
       if (!hasBalance) {
@@ -322,26 +337,22 @@ function registerMatchmakingHandlers(io, socket, redis) {
       }
     }
 
-    // 1. Prevent calling yourself
     if (targetUserId === userId) {
       socket.emit('match_error', { error: 'Cannot call yourself' });
       return;
     }
 
-    // 2. Prevent calling if already in an active call
     if (socketToCall.has(socket.id)) {
       socket.emit('match_error', { error: 'Already in an active call' });
       return;
     }
 
-    // 3. Check if target user is online
     const targetSocketId = userSockets.get(targetUserId);
     if (!targetSocketId) {
       socket.emit('call_response', { status: 'offline' });
       return;
     }
 
-    // 4. Check if target user is already in a call or has a pending call request (busy)
     let isBusy = socketToCall.has(targetSocketId);
     if (!isBusy) {
       for (const reqVal of pendingCallRequests.values()) {
@@ -356,7 +367,6 @@ function registerMatchmakingHandlers(io, socket, redis) {
       return;
     }
 
-    // 5. Prevent concurrent setup race condition with Redis locks
     const lockKeyA = `call_lock:${userId}`;
     const lockKeyB = `call_lock:${targetUserId}`;
     const lockedA = await redis.set(lockKeyA, '1', 'NX', 'EX', 10);
@@ -369,18 +379,13 @@ function registerMatchmakingHandlers(io, socket, redis) {
     }
 
     try {
-      // Remove both users from the matchmaking queue if they were in it
       await matchmakingService.leaveQueue(userId);
       await matchmakingService.leaveQueue(targetUserId);
 
-      // Generate a unique callRequestId
       const callRequestId = matchmakingService.generateChannelName();
-
-      // Fetch profiles and gender
       const callerProfile = await fetchPublicProfile(userId);
       const targetGender = await getUserGender(targetUserId);
 
-      // Start 30-second server timeout timer
       const timer = setTimeout(() => {
         if (pendingCallRequests.has(callRequestId)) {
           console.log(`⏰ Call request ${callRequestId} timed out (no answer)`);
@@ -390,7 +395,6 @@ function registerMatchmakingHandlers(io, socket, redis) {
         }
       }, 30000);
 
-      // Store in-memory with gender info
       pendingCallRequests.set(callRequestId, {
         callerId: userId,
         callerSocketId: socket.id,
@@ -401,13 +405,11 @@ function registerMatchmakingHandlers(io, socket, redis) {
         timer,
       });
 
-      // Emit incoming call request to recipient
       io.to(targetSocketId).emit('incoming_call_request', {
         callRequestId,
         caller: callerProfile,
       });
 
-      // Emit outgoing call ringing to caller
       socket.emit('outgoing_call_ringing', {
         callRequestId,
         targetUser: { id: targetUserId },
@@ -418,7 +420,6 @@ function registerMatchmakingHandlers(io, socket, redis) {
       console.error('Error in direct_call:', err);
       socket.emit('match_error', { error: 'Failed to initiate call request' });
     } finally {
-      // Release locks
       await redis.del(lockKeyA);
       await redis.del(lockKeyB);
     }
@@ -427,10 +428,8 @@ function registerMatchmakingHandlers(io, socket, redis) {
   // ── disconnect ────────────────────────────────────────────────────────
   socket.on('disconnect', async () => {
     try {
-      // Remove from queue if they were waiting
       await matchmakingService.leaveQueue(userId);
 
-      // Clean up pending call requests involving this user
       for (const [callRequestId, reqVal] of pendingCallRequests.entries()) {
         if (reqVal.callerId === userId) {
           io.to(reqVal.targetSocketId).emit('call_response', { callRequestId, status: 'cancelled' });
@@ -443,14 +442,12 @@ function registerMatchmakingHandlers(io, socket, redis) {
         }
       }
 
-      // End active call if in one
       const callId = socketToCall.get(socket.id);
       if (callId) {
         console.log(`⚠️ User ${userId} disconnected during call ${callId}`);
-        await handleCallEnd(callId, callsService, io, 'disconnect');
+        await handleCallEnd(callId, callsService, io, 'disconnect', matchmakingService);
       }
 
-      // Clean up socket tracking
       userSockets.delete(userId);
     } catch (err) {
       console.error('Error in disconnect handler:', err);
@@ -466,10 +463,36 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
   const match = await matchmakingService.tryMatch();
   if (!match) return;
 
-  const { userA, userB } = match; // userA = male, userB = female (from cross-gender Lua)
-  console.log(`🎯 Match found: ${userA.userId} (${userA.gender}) ↔ ${userB.userId} (${userB.gender})`);
+  const { userA, userB } = match; // userA = male from queue, userB = female from queue
+
+  // 1. Immediately purge both users from Redis queues so they cannot be matched again
+  await matchmakingService.leaveQueue(userA.userId);
+  await matchmakingService.leaveQueue(userB.userId);
+
+  // 2. FRESH DATABASE GENDER DOUBLE-CHECK BEFORE CREATING CALL
+  const [genderA, genderB] = await Promise.all([
+    getUserGender(userA.userId),
+    getUserGender(userB.userId),
+  ]);
+
+  const isFemaleA = isFemale(genderA);
+  const isFemaleB = isFemale(genderB);
+
+  // 🛑 HARD ENFORCEMENT: Block any same-gender match
+  if (isFemaleA === isFemaleB) {
+    console.error(`🚨 IMPOSSIBLE SAME-GENDER MATCH DETECTED & BLOCKED: ${userA.userId} (${genderA}) ↔ ${userB.userId} (${genderB}). Aborting call setup!`);
+    const socketAId = userSockets.get(userA.userId) || userA.socketId;
+    const socketBId = userSockets.get(userB.userId) || userB.socketId;
+    if (socketAId) io.to(socketAId).emit('match_error', { error: 'Matchmaking error. Please try searching again.' });
+    if (socketBId && socketBId !== socketAId) io.to(socketBId).emit('match_error', { error: 'Matchmaking error. Please try searching again.' });
+    return;
+  }
 
   try {
+    // Determine active sockets
+    const socketAId = userSockets.get(userA.userId) || userA.socketId;
+    const socketBId = userSockets.get(userB.userId) || userB.socketId;
+
     // Generate Agora channel and tokens
     const channelName = matchmakingService.generateChannelName();
     const uidA = matchmakingService.uuidToAgoraUid(userA.userId);
@@ -477,10 +500,10 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
     const tokenA = callsService.generateAgoraToken(channelName, uidA);
     const tokenB = callsService.generateAgoraToken(channelName, uidB);
 
-    // Create call record in DB
+    // Create fresh call record in DB
     const callId = await callsService.createCall(userA.userId, userB.userId);
 
-    // Fetch public user info for both users
+    // Fetch fresh profile info directly from Postgres for both participants
     const [profileA, profileB] = await Promise.all([
       fetchPublicProfile(userA.userId),
       fetchPublicProfile(userB.userId),
@@ -488,15 +511,15 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
 
     // Track active call with gender info
     activeCalls.set(callId, {
-      userA: { ...userA, agoraUid: uidA },
-      userB: { ...userB, agoraUid: uidB },
+      userA: { userId: userA.userId, socketId: socketAId, agoraUid: uidA, gender: genderA },
+      userB: { userId: userB.userId, socketId: socketBId, agoraUid: uidB, gender: genderB },
       channelName,
     });
-    socketToCall.set(userA.socketId, callId);
-    socketToCall.set(userB.socketId, callId);
+    socketToCall.set(socketAId, callId);
+    socketToCall.set(socketBId, callId);
 
     // Emit match_found to both users
-    io.to(userA.socketId).emit('match_found', {
+    io.to(socketAId).emit('match_found', {
       callId,
       agoraAppId: process.env.AGORA_APP_ID,
       agoraChannelName: channelName,
@@ -505,7 +528,7 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
       matchedUser: profileB,
     });
 
-    io.to(userB.socketId).emit('match_found', {
+    io.to(socketBId).emit('match_found', {
       callId,
       agoraAppId: process.env.AGORA_APP_ID,
       agoraChannelName: channelName,
@@ -516,7 +539,7 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
 
     // Start server-authoritative 5-minute timer
     callsService.startCallTimer(callId, (expiredCallId) => {
-      handleCallEnd(expiredCallId, callsService, io, 'timer');
+      handleCallEnd(expiredCallId, callsService, io, 'timer', matchmakingService);
     });
 
     // Start gender-aware billing
@@ -524,20 +547,21 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
       callId,
       userA.userId,
       userB.userId,
-      userA.gender,
-      userB.gender,
+      genderA,
+      genderB,
       io,
       (billingCallId) => {
-        handleCallEnd(billingCallId, callsService, io, 'insufficient_balance');
+        handleCallEnd(billingCallId, callsService, io, 'insufficient_balance', matchmakingService);
       }
     );
 
-    console.log(`📞 Call ${callId} started on channel ${channelName}`);
+    console.log(`📞 Call ${callId} started: ${userA.userId} (${genderA}) ↔ ${userB.userId} (${genderB})`);
   } catch (err) {
     console.error('Error setting up match:', err);
-    // If match setup fails, notify both users
-    io.to(userA.socketId).emit('match_error', { error: 'Failed to set up call' });
-    io.to(userB.socketId).emit('match_error', { error: 'Failed to set up call' });
+    const socketAId = userSockets.get(userA.userId) || userA.socketId;
+    const socketBId = userSockets.get(userB.userId) || userB.socketId;
+    io.to(socketAId).emit('match_error', { error: 'Failed to set up call' });
+    io.to(socketBId).emit('match_error', { error: 'Failed to set up call' });
   }
 }
 
@@ -546,7 +570,7 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
  * Cleans up state and notifies both parties.
  * Gender-aware: sends balance_update to boy, rose_update to girl.
  */
-async function handleCallEnd(callId, callsService, io, reason) {
+async function handleCallEnd(callId, callsService, io, reason, matchmakingService) {
   const callInfo = activeCalls.get(callId);
   if (!callInfo) return; // Already cleaned up
 
@@ -554,6 +578,18 @@ async function handleCallEnd(callId, callsService, io, reason) {
   activeCalls.delete(callId);
   socketToCall.delete(callInfo.userA.socketId);
   socketToCall.delete(callInfo.userB.socketId);
+  const currentSocketA = userSockets.get(callInfo.userA.userId);
+  const currentSocketB = userSockets.get(callInfo.userB.userId);
+  if (currentSocketA) socketToCall.delete(currentSocketA);
+  if (currentSocketB) socketToCall.delete(currentSocketB);
+
+  // ALWAYS PURGE BOTH USERS FROM ALL MATCHMAKING QUEUES ON CALL END
+  if (matchmakingService) {
+    await Promise.all([
+      matchmakingService.leaveQueue(callInfo.userA.userId),
+      matchmakingService.leaveQueue(callInfo.userB.userId),
+    ]);
+  }
 
   // End call in DB
   await callsService.endCall(callId);
@@ -628,20 +664,21 @@ async function fetchPublicProfile(userId) {
     );
 
     if (result.rows.length === 0) {
-      return { id: userId, fullName: 'User', avatarUrl: null, gender: 'male' };
+      return { id: userId, fullName: 'User', avatarUrl: null, gender: 'unknown' };
     }
 
     const user = result.rows[0];
-    console.log(`✅ Fetched profile for user ${userId}: ${user.full_name} (${user.gender})`);
+    const rawGender = (user.gender || '').trim();
+    console.log(`✅ Fetched profile for user ${userId}: ${user.full_name} (${rawGender})`);
     return {
       id: user.id,
       fullName: user.full_name || 'User',
       avatarUrl: null,
-      gender: (user.gender || 'male').toLowerCase(),
+      gender: rawGender.toLowerCase(),
     };
   } catch (err) {
     console.error(`❌ Error fetching profile for user ${userId}:`, err.message);
-    return { id: userId, fullName: 'User', avatarUrl: null, gender: 'male' };
+    return { id: userId, fullName: 'User', avatarUrl: null, gender: 'unknown' };
   }
 }
 

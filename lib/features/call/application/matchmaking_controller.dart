@@ -105,7 +105,7 @@ class MatchmakingController extends Notifier<MatchmakingState> {
         });
       }
 
-      state = state.copyWith(phase: MatchmakingPhase.queued);
+      state = state.reset().copyWith(phase: MatchmakingPhase.queued);
     } catch (e) {
       state = state.copyWith(
         phase: MatchmakingPhase.idle,
@@ -282,7 +282,10 @@ class MatchmakingController extends Notifier<MatchmakingState> {
       ));
     }
 
-    state = state.copyWith(phase: MatchmakingPhase.ended);
+    state = state.copyWith(
+      phase: MatchmakingPhase.ended,
+      clearMatchedUser: true,
+    );
 
     // Refresh balance providers from server so UI shows updated coins/roses
     ref.invalidate(walletBalanceProvider);
@@ -406,7 +409,7 @@ class MatchmakingController extends Notifier<MatchmakingState> {
       // Matched profile details are already fetched and provided by Neon backend inside the event payload.
       // So no fallback database query is required.
 
-      state = state.copyWith(
+      state = state.reset().copyWith(
         phase: MatchmakingPhase.matched,
         callId: callId,
         agoraChannel: channelName,
@@ -464,6 +467,7 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     _stopCountdown();
     state = state.copyWith(
       phase: MatchmakingPhase.ended,
+      clearMatchedUser: true,
       errorMessage: errorMessage,
     );
 
