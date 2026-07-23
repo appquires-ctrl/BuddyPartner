@@ -159,17 +159,30 @@ class CallsService {
 
   /**
    * Start 60-second billing interval for a call.
+   * Gender-aware: boys are debited coins, girls are credited roses.
    *
    * @param {string} callId
    * @param {string} userAId
    * @param {string} userBId
+   * @param {string} genderA - 'male' or 'female'
+   * @param {string} genderB - 'male' or 'female'
    * @param {import('socket.io').Server} io
-   * @param {Function} onInsufficientBalance - callback (callId, failedUserId) when balance is insufficient
+   * @param {Function} onInsufficientBalance - callback (callId) when boy's balance is insufficient
    */
-  startCallBilling(callId, userAId, userBId, io, onInsufficientBalance) {
+  startCallBilling(callId, userAId, userBId, genderA, genderB, io, onInsufficientBalance) {
     this.clearCallBilling(callId);
     const { WalletService, CALL_RATES } = require('../wallet/wallet.service');
-    console.log(`💰 [Billing] Started billing interval for call ${callId} — userA: ${userAId}, userB: ${userBId}`);
+    const { RoseService, ROSE_RATES } = require('../wallet/rose.service');
+
+    // Determine who is the boy and who is the girl
+    const isFemaleA = this._isFemale(genderA);
+    const isFemaleB = this._isFemale(genderB);
+    const boyId = isFemaleA ? userBId : userAId;
+    const girlId = isFemaleA ? userAId : userBId;
+    const hasBoy = !isFemaleA || !isFemaleB;
+    const hasGirl = isFemaleA || isFemaleB;
+
+    console.log(`💰 [Billing] Started gender-aware billing for call ${callId} — boy: ${boyId}, girl: ${girlId}`);
 
     const interval = setInterval(async () => {
       console.log(`💰 [Billing] Tick fired for call ${callId}`);
@@ -186,39 +199,44 @@ class CallsService {
         }
 
         const callType = res.rows[0].call_type || 'voice';
-        const rate = callType === 'video' ? CALL_RATES.video : CALL_RATES.voice;
+        const coinRate = callType === 'video' ? CALL_RATES.video : CALL_RATES.voice;
 
-        // Perform atomic deduction for both participants independently
-        console.log(`💰 [Billing] Deducting ${rate} coins (${callType}) for call ${callId}`);
-        const [resA, resB] = await Promise.all([
-          WalletService.deductForCallMinute(userAId, callId, rate),
-          WalletService.deductForCallMinute(userBId, callId, rate),
-        ]);
-        console.log(`💰 [Billing] Deduction results — userA: ${JSON.stringify(resA)}, userB: ${JSON.stringify(resB)}`);
-
-        // Emit balance updates to connected sockets
         const { userSockets } = require('../matchmaking/matchmaking.socket');
 
-        if (resA.success && resA.newBalance !== null) {
-          const socketAId = userSockets.get(userAId);
-          if (socketAId) {
-            io.to(socketAId).emit('balance_update', { balance: resA.newBalance });
+        // === BOY: Debit coins ===
+        if (hasBoy) {
+          console.log(`💰 [Billing] Deducting ${coinRate} coins (${callType}) from boy ${boyId}`);
+          const deductRes = await WalletService.deductForCallMinute(boyId, callId, coinRate);
+          console.log(`💰 [Billing] Boy deduction result: ${JSON.stringify(deductRes)}`);
+
+          if (deductRes.success && deductRes.newBalance !== null) {
+            const boySocketId = userSockets.get(boyId);
+            if (boySocketId) {
+              io.to(boySocketId).emit('balance_update', { balance: deductRes.newBalance });
+            }
+          }
+
+          // If boy's balance is insufficient, end the call
+          if (!deductRes.success) {
+            console.log(`💳 Call ${callId} ended — boy ${boyId} has insufficient balance`);
+            this.clearCallBilling(callId);
+            onInsufficientBalance(callId, boyId);
+            return; // Don't credit the girl for this failed minute
           }
         }
 
-        if (resB.success && resB.newBalance !== null) {
-          const socketBId = userSockets.get(userBId);
-          if (socketBId) {
-            io.to(socketBId).emit('balance_update', { balance: resB.newBalance });
-          }
-        }
+        // === GIRL: Credit roses ===
+        if (hasGirl) {
+          console.log(`🌹 [Billing] Crediting roses (${callType}) to girl ${girlId}`);
+          const creditRes = await RoseService.creditRoseForCallMinute(girlId, callId, callType);
+          console.log(`🌹 [Billing] Girl credit result: ${JSON.stringify(creditRes)}`);
 
-        // If either participant fails deduction, trigger end of call at minute boundary
-        if (!resA.success || !resB.success) {
-          const failedUser = !resA.success ? userAId : userBId;
-          console.log(`💳 Call ${callId} ended due to insufficient balance for user ${failedUser}`);
-          this.clearCallBilling(callId);
-          onInsufficientBalance(callId, failedUser);
+          if (creditRes.success && creditRes.newBalance !== null) {
+            const girlSocketId = userSockets.get(girlId);
+            if (girlSocketId) {
+              io.to(girlSocketId).emit('rose_update', { balance: creditRes.newBalance });
+            }
+          }
         }
       } catch (err) {
         console.error(`Error during per-minute billing for call ${callId}:`, err.message);
@@ -239,6 +257,16 @@ class CallsService {
       clearInterval(existing);
       this.callBillingIntervals.delete(callId);
     }
+  }
+
+  /**
+   * Check if a gender string represents female.
+   * @param {string} gender
+   * @returns {boolean}
+   */
+  _isFemale(gender) {
+    const g = (gender || '').toLowerCase();
+    return g === 'female' || g === 'girl' || g === 'woman';
   }
 }
 

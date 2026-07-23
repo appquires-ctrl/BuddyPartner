@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dating_app/core/widgets/feedback/app_loading_indicator.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
@@ -119,7 +120,7 @@ class _ReportBlockDialogState extends ConsumerState<ReportBlockDialog> {
           ),
           onPressed: _isLoading ? null : _submitReport,
           child: _isLoading 
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              ? const AppLoadingIndicator(size: 16, color: Colors.white)
               : const Text('Report & Block'),
         ),
       ],

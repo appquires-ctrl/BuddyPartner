@@ -17,44 +17,25 @@ class LoopCallApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Globally listen to call state changes
     ref.listen<MatchmakingState>(matchmakingControllerProvider, (prev, next) {
+      final navContext = rootNavigatorKey.currentContext;
+      if (navContext == null || !navContext.mounted) return;
+
       if (next.phase == MatchmakingPhase.inCall && prev?.phase != MatchmakingPhase.inCall) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final context = rootNavigatorKey.currentContext;
-          if (context != null && context.mounted) {
-            context.go(RouteNames.activeCall);
-          }
-        });
-      }
-
-      if (next.phase == MatchmakingPhase.incomingRequest && prev?.phase != MatchmakingPhase.incomingRequest) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final context = rootNavigatorKey.currentContext;
-          if (context != null && context.mounted) {
-            context.go(RouteNames.incomingCall);
-          }
-        });
-      }
-
-      if (next.phase == MatchmakingPhase.outgoingRequest && prev?.phase != MatchmakingPhase.outgoingRequest) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final context = rootNavigatorKey.currentContext;
-          if (context != null && context.mounted) {
-            context.go(RouteNames.calling);
-          }
-        });
+        navContext.go(RouteNames.activeCall);
+      } else if (next.phase == MatchmakingPhase.incomingRequest && prev?.phase != MatchmakingPhase.incomingRequest) {
+        navContext.go(RouteNames.incomingCall);
+      } else if (next.phase == MatchmakingPhase.outgoingRequest && prev?.phase != MatchmakingPhase.outgoingRequest) {
+        navContext.go(RouteNames.calling);
       }
 
       if (next.errorMessage != null && next.errorMessage != prev?.errorMessage) {
-        final context = rootNavigatorKey.currentContext;
-        if (context != null && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(next.errorMessage!),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
+        ScaffoldMessenger.of(navContext).showSnackBar(
+          SnackBar(
+            content: Text(next.errorMessage!),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     });
 

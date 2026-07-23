@@ -6,15 +6,25 @@ class CustomUser {
   final String id;
   final String phoneNumber;
   final bool isProfileComplete;
+  final String gender;
 
   CustomUser({
     required this.id,
     required this.phoneNumber,
     required this.isProfileComplete,
+    required this.gender,
   });
+
+  /// Convenience getters for gender-based routing
+  bool get isFemale {
+    final g = gender.toLowerCase();
+    return g == 'female' || g == 'girl' || g == 'woman';
+  }
+
+  bool get isMale => !isFemale;
 }
 
-class AuthNotifier extends AutoDisposeAsyncNotifier<CustomUser?> {
+class AuthNotifier extends AsyncNotifier<CustomUser?> {
   @override
   FutureOr<CustomUser?> build() async {
     final apiClient = ref.watch(apiClientProvider);
@@ -26,10 +36,12 @@ class AuthNotifier extends AutoDisposeAsyncNotifier<CustomUser?> {
       if (response.statusCode == 200 && response.data != null) {
         final userMap = response.data['user'];
         final fullName = userMap['fullName'] as String? ?? '';
+        final gender = userMap['gender'] as String? ?? 'Male';
         return CustomUser(
           id: userMap['id'] as String,
           phoneNumber: userMap['phoneNumber'] as String,
           isProfileComplete: fullName.trim().isNotEmpty,
+          gender: gender,
         );
       }
     } catch (e) {
@@ -52,7 +64,7 @@ class AuthNotifier extends AutoDisposeAsyncNotifier<CustomUser?> {
   }
 }
 
-final authStateProvider = AutoDisposeAsyncNotifierProvider<AuthNotifier, CustomUser?>(AuthNotifier.new);
+final authStateProvider = AsyncNotifierProvider<AuthNotifier, CustomUser?>(AuthNotifier.new);
 
 /// A convenience provider to quickly check if a user is authenticated.
 final isAuthenticatedProvider = Provider<bool>((ref) {

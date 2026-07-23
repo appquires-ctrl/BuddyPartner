@@ -10,6 +10,7 @@ import 'package:dating_app/core/config/app_config.dart';
 import 'matchmaking_state.dart';
 import 'package:dating_app/features/call/application/call_summary_provider.dart';
 import 'package:dating_app/features/recharge/presentation/providers/recharge_providers.dart';
+import 'package:dating_app/features/withdraw/application/rose_providers.dart';
 
 /// MatchmakingController manages the full matchmaking lifecycle:
 ///   idle → queued → matched → inCall → ended → idle
@@ -272,19 +273,20 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     if (state.matchedUser != null) {
       final elapsed = 300 - state.remainingSeconds;
       final cost = (elapsed / 60.0 * 10).ceil();
-      ref.read(lastCallSummaryProvider.notifier).state = CallSummaryInfo(
+      ref.read(lastCallSummaryProvider.notifier).setSummary(CallSummaryInfo(
         matchedUserId: state.matchedUser!.id,
         matchedUserName: state.matchedUser!.fullName,
         matchedUserAvatar: state.matchedUser!.avatarUrl,
         durationSeconds: elapsed,
         totalCost: cost,
-      );
+      ));
     }
 
     state = state.copyWith(phase: MatchmakingPhase.ended);
 
-    // Refresh wallet balance from server so UI shows updated coins
+    // Refresh balance providers from server so UI shows updated coins/roses
     ref.invalidate(walletBalanceProvider);
+    ref.invalidate(roseBalanceProvider);
 
     // Brief delay before resetting to idle so the UI can react to `ended`
     await Future.delayed(const Duration(milliseconds: 300));
@@ -364,6 +366,7 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     socket.on('video_upgrade_accepted', _onVideoUpgradeAccepted);
     socket.on('match_error', _onMatchError);
     socket.on('balance_update', _onBalanceUpdate);
+    socket.on('rose_update', _onRoseUpdate);
 
     socket.on('disconnect', (_) async {
       debugPrint('[Matchmaking] Socket disconnected');
@@ -448,13 +451,13 @@ class MatchmakingController extends Notifier<MatchmakingState> {
       final elapsed = 300 - state.remainingSeconds;
       // Use server-provided actual cost; fall back to voice-rate estimate
       final cost = serverTotalCost ?? (elapsed / 60.0 * 10).ceil();
-      ref.read(lastCallSummaryProvider.notifier).state = CallSummaryInfo(
+      ref.read(lastCallSummaryProvider.notifier).setSummary(CallSummaryInfo(
         matchedUserId: state.matchedUser!.id,
         matchedUserName: state.matchedUser!.fullName,
         matchedUserAvatar: state.matchedUser!.avatarUrl,
         durationSeconds: elapsed,
         totalCost: cost,
-      );
+      ));
     }
 
     await _leaveAgoraChannel();
@@ -510,6 +513,20 @@ class MatchmakingController extends Notifier<MatchmakingState> {
       }
     } catch (e) {
       debugPrint('Error updating balance from socket: $e');
+    }
+  }
+
+  void _onRoseUpdate(dynamic data) {
+    try {
+      if (data is Map && data['balance'] != null) {
+        final newBalance = (data['balance'] as num).toInt();
+        ref.read(roseBalanceProvider.notifier).updateBalance(newBalance);
+        state = state.copyWith(
+          rosesEarnedThisCall: state.rosesEarnedThisCall + 1,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error updating roses from socket: $e');
     }
   }
 
@@ -584,13 +601,13 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     if (state.matchedUser != null) {
       final elapsed = 300 - state.remainingSeconds;
       final cost = (elapsed / 60.0 * 10).ceil();
-      ref.read(lastCallSummaryProvider.notifier).state = CallSummaryInfo(
+      ref.read(lastCallSummaryProvider.notifier).setSummary(CallSummaryInfo(
         matchedUserId: state.matchedUser!.id,
         matchedUserName: state.matchedUser!.fullName,
         matchedUserAvatar: state.matchedUser!.avatarUrl,
         durationSeconds: elapsed,
         totalCost: cost,
-      );
+      ));
     }
 
     await _leaveAgoraChannel();

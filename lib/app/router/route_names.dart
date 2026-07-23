@@ -18,6 +18,8 @@ class RouteNames {
   static const String history = '/history';
   static const String account = '/account';
   static const String help = '/help';
+  static const String withdraw = '/withdraw';
+  static const String femaleHome = '/female-home';
 
   RouteNames._();
 }

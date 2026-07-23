@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dating_app/core/widgets/shimmer/skeletons/call_history_skeleton.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
-import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
@@ -87,11 +87,6 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
       targetUserName: log.otherUserName,
       targetUserAvatar: log.otherUserAvatar,
     );
-
-    // Navigate to the "Connecting..." screen
-    if (mounted) {
-      context.push(RouteNames.calling);
-    }
   }
 
   @override
@@ -134,8 +129,13 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
         onRefresh: _handleRefresh,
         color: const Color(0xFF3B82F6), // Blue refresh indicator
         child: historyAsync.when(
-          loading: () => const Center(
-            child: CircularProgressIndicator(color: Color(0xFF3B82F6)),
+          loading: () => ListView.builder(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.space16,
+              vertical: AppSpacing.space12,
+            ),
+            itemCount: 5,
+            itemBuilder: (context, index) => const CallHistorySkeleton(),
           ),
           error: (err, stack) => SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -209,42 +209,42 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
                           textAlign: TextAlign.center,
                         ),
                       ),
-                      const SizedBox(height: 32),
+                    //   const SizedBox(height: 32),
 
-                      // Light blue pull down action button
-                      GestureDetector(
-                        onTap: _handleRefresh,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEAF5FF), // light blue fill
-                            borderRadius: AppRadius.pill,
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.refresh,
-                                color: Color(0xFF3B82F6), // blue icon
-                                size: 16,
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'Pull down to refresh',
-                                style: TextStyle(
-                                  color: Color(0xFF3B82F6), // blue text
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 80),
+                    //   // Light blue pull down action button
+                    //   GestureDetector(
+                    //     onTap: _handleRefresh,
+                    //     child: Container(
+                    //       padding: const EdgeInsets.symmetric(
+                    //         horizontal: 20,
+                    //         vertical: 10,
+                    //       ),
+                    //       decoration: BoxDecoration(
+                    //         color: const Color(0xFFEAF5FF), // light blue fill
+                    //         borderRadius: AppRadius.pill,
+                    //       ),
+                    //       child: const Row(
+                    //         mainAxisSize: MainAxisSize.min,
+                    //         children: [
+                    //           Icon(
+                    //             Icons.refresh,
+                    //             color: Color(0xFF3B82F6), // blue icon
+                    //             size: 16,
+                    //           ),
+                    //           SizedBox(width: 8),
+                    //           Text(
+                    //             'Pull down to refresh',
+                    //             style: TextStyle(
+                    //               color: Color(0xFF3B82F6), // blue text
+                    //               fontSize: 12,
+                    //               fontWeight: FontWeight.bold,
+                    //             ),
+                    //           ),
+                    //         ],
+                    //       ),
+                    //     ),
+                    //   ),
+                    //   const SizedBox(height: 80),
                     ],
                   ),
                 ),

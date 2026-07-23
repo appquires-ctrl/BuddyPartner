@@ -18,6 +18,7 @@ import 'package:dating_app/features/chat/presentation/pages/conversations_list_p
 import 'package:dating_app/features/chat/presentation/pages/chat_page.dart';
 import 'package:dating_app/features/history/presentation/pages/call_history_page.dart';
 import 'package:dating_app/features/recharge/presentation/pages/recharge_page.dart';
+import 'package:dating_app/features/withdraw/presentation/pages/withdraw_page.dart';
 import 'package:dating_app/features/profile/presentation/pages/profile_page.dart';
 import 'package:dating_app/features/profile/presentation/pages/account_page.dart';
 import 'package:dating_app/features/profile/presentation/pages/help_page.dart';
@@ -154,17 +155,25 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Stateful Nested Shell for Main Dashboard
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
-          return Scaffold(
-            body: navigationShell,
-            bottomNavigationBar: AppBottomNav(
-              currentIndex: navigationShell.currentIndex,
-              onTap: (index) {
-                navigationShell.goBranch(
-                  index,
-                  initialLocation: index == navigationShell.currentIndex,
-                );
-              },
-            ),
+          return Consumer(
+            builder: (context, ref, child) {
+              final currentUser = ref.watch(authStateProvider).value;
+              final isFemale = currentUser?.isFemale ?? false;
+
+              return Scaffold(
+                body: navigationShell,
+                bottomNavigationBar: AppBottomNav(
+                  currentIndex: navigationShell.currentIndex,
+                  isFemale: isFemale,
+                  onTap: (index) {
+                    navigationShell.goBranch(
+                      index,
+                      initialLocation: index == navigationShell.currentIndex,
+                    );
+                  },
+                ),
+              );
+            },
           );
         },
         branches: [
@@ -179,7 +188,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           
 
-          // Tab 3: Chat/Messages
+          // Tab 2: Chat/Messages
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -189,7 +198,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           
-            // Tab 2: Favorites
+          // Tab 3: Favorites
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -200,12 +209,26 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           
 
-          // Tab 4: Store Wallet Recharge
+          // Tab 4: Store Wallet Recharge (Male) / Withdraw Earnings (Female)
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: RouteNames.recharge,
-                builder: (context, state) => const RechargePage(),
+                builder: (context, state) {
+                  return Consumer(
+                    builder: (context, ref, child) {
+                      final currentUser = ref.watch(authStateProvider).value;
+                      if (currentUser?.isFemale ?? false) {
+                        return const WithdrawPage();
+                      }
+                      return const RechargePage();
+                    },
+                  );
+                },
+              ),
+              GoRoute(
+                path: RouteNames.withdraw,
+                builder: (context, state) => const WithdrawPage(),
               ),
             ],
           ),

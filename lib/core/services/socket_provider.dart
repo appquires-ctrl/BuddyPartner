@@ -38,10 +38,17 @@ class SocketNotifier extends Notifier<sio.Socket?> {
 
   /// Ensure the socket is created and connected.
   Future<void> _ensureConnected() async {
-    if (state != null) return;
+    if (state != null && state!.connected) return;
 
     final accessToken = await ref.read(apiClientProvider).getToken();
     if (accessToken == null) return;
+
+    if (state != null) {
+      if (!state!.connected) {
+        state!.connect();
+      }
+      return;
+    }
 
     final socket = sio.io(
       AppConfig.backendUrl,

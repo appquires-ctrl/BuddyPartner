@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dating_app/core/widgets/feedback/app_loading_indicator.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
-import 'package:dating_app/features/chat/data/chat_repository.dart';
+import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 
 /// ActiveCallPage displays the active voice call interface.
 /// Wired to the MatchmakingController for real Agora audio/video and
@@ -36,20 +37,15 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
 
     ref.listen<MatchmakingState>(matchmakingControllerProvider, (prev, next) {
       if (next.phase == MatchmakingPhase.ended) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            context.go(RouteNames.callSummary);
-          }
-        });
+        if (mounted) {
+          context.go(RouteNames.callSummary);
+        }
+      } else if (next.phase == MatchmakingPhase.idle && prev?.phase != MatchmakingPhase.idle) {
+        if (mounted) {
+          context.go(RouteNames.home);
+        }
       }
     });
-
-    // If somehow we're on this page but not in a call, go home
-    if (matchState.phase == MatchmakingPhase.idle) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) context.go(RouteNames.home);
-      });
-    }
 
     final matchedUser = matchState.matchedUser;
     final displayName = matchedUser?.fullName ?? 'User';
@@ -76,7 +72,10 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const CircularProgressIndicator(color: Color(0xFF7A58FF)),
+                            const AppLoadingIndicator(
+                              size: 32,
+                              color: Color(0xFF7A58FF),
+                            ),
                             const SizedBox(height: 16),
                             Text(
                               'Waiting for ${matchState.matchedUser?.fullName ?? "user"} to share video...',
@@ -291,14 +290,45 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
 
                     const SizedBox(height: 6),
 
-                    // Placeholder location/age info (not wired to real data per prompt)
-                    const Text(
-                      'Voice Call',
-                      style: TextStyle(
-                        color: Color(0xFFA19EBB),
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    Consumer(
+                      builder: (context, ref, child) {
+                        final currentUser = ref.watch(authStateProvider).value;
+                        final isFemale = currentUser?.isFemale ?? false;
+
+                        if (isFemale) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.pink.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.pinkAccent.withValues(alpha: 0.4)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text('🌹 ', style: TextStyle(fontSize: 14)),
+                                Text(
+                                  '${matchState.rosesEarnedThisCall} Roses earned',
+                                  style: const TextStyle(
+                                    color: Colors.pinkAccent,
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return const Text(
+                          'Voice Call',
+                          style: TextStyle(
+                            color: Color(0xFFA19EBB),
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        );
+                      },
                     ),
 
                     const SizedBox(height: 24),
@@ -323,26 +353,14 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                         _buildActionButton(
                           icon: Icons.chat_bubble_outline_rounded,
                           label: 'Message',
-                          onTap: () async {
+                          onTap: () {
                             if (matchedUser == null) return;
-                            try {
-                              final repo = ref.read(chatRepositoryProvider);
-                              final conv = await repo.findOrCreateConversation(matchedUser.id);
-                              if (context.mounted) {
-                                context.push(RouteNames.chat, extra: {
-                                  'conversationId': conv.id,
-                                  'userId': matchedUser.id,
-                                  'userName': matchedUser.fullName,
-                                  'userAvatar': matchedUser.avatarUrl,
-                                });
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Failed to open chat: $e')),
-                                );
-                              }
-                            }
+                            context.push(RouteNames.chat, extra: {
+                              'conversationId': 'user:${matchedUser.id}',
+                              'userId': matchedUser.id,
+                              'userName': matchedUser.fullName,
+                              'userAvatar': matchedUser.avatarUrl,
+                            });
                           },
                         ),
                       ],

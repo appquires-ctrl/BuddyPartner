@@ -4,7 +4,7 @@ import 'package:dating_app/core/widgets/cards/app_card.dart';
 import 'package:dating_app/core/widgets/chips/badge_ribbon.dart';
 import 'package:dating_app/core/widgets/buttons/app_pill_button.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
-
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 /// RechargePlanCard is a card rendering a coin recharge plan option.
 /// Wraps AppCard, BadgeRibbon, and AppPillButton in a layout with pricing headers.
 class RechargePlanCard extends StatelessWidget {
@@ -45,13 +45,13 @@ class RechargePlanCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Coin representation count header
+                  // Coin representatiron count header
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
-                        Icons.monetization_on,
-                        color: Color(0xFFF2A93B), // Gold coin color
+                      const FaIcon(
+                        FontAwesomeIcons.coins,
+                        color: Colors.amber,
                         size: 24,
                       ),
                       const SizedBox(height: AppSpacing.space4),

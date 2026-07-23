@@ -7,10 +7,9 @@ import 'package:dating_app/features/home/presentation/providers/matched_users_pr
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart'; // for getInitials
-import 'package:dating_app/features/chat/data/chat_repository.dart';
 import 'package:dating_app/core/widgets/gradient_avatar.dart';
 
-class MatchedUserCard extends ConsumerWidget {
+class MatchedUserCard extends ConsumerStatefulWidget {
   final MatchedUser user;
   final bool isGrid;
 
@@ -21,16 +20,32 @@ class MatchedUserCard extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MatchedUserCard> createState() => _MatchedUserCardState();
+}
+
+class _MatchedUserCardState extends ConsumerState<MatchedUserCard> {
+  void _handleOpenChat() {
+    context.push(
+      RouteNames.chat,
+      extra: {
+        'conversationId': 'user:${widget.user.id}',
+        'userId': widget.user.id,
+        'userName': widget.user.fullName,
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.colors;
     final typography = context.typography;
-    final initials = getInitials(user.fullName);
+    final initials = getInitials(widget.user.fullName);
 
-    final avatarSize = isGrid ? 48.0 : 56.0;
+    final avatarSize = widget.isGrid ? 48.0 : 56.0;
 
     return Container(
-      width: isGrid ? null : 150,
-      margin: isGrid ? EdgeInsets.zero : const EdgeInsets.only(right: 16, bottom: 8),
+      width: widget.isGrid ? null : 150,
+      margin: widget.isGrid ? EdgeInsets.zero : const EdgeInsets.only(right: 16, bottom: 8),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(20),
@@ -53,14 +68,14 @@ class MatchedUserCard extends ConsumerWidget {
               initials: initials,
               radius: avatarSize / 2,
               showStatus: true,
-              isOnline: user.isOnline,
-              statusIndicatorSize: isGrid ? 14 : 16,
+              isOnline: widget.user.isOnline,
+              statusIndicatorSize: widget.isGrid ? 14 : 16,
             ),
             const SizedBox(height: 8),
             
             // Name
             Text(
-              user.fullName,
+              widget.user.fullName,
               style: typography.bodyMedium.copyWith(
                 fontWeight: FontWeight.bold,
                 color: colors.textPrimary,
@@ -79,15 +94,15 @@ class MatchedUserCard extends ConsumerWidget {
                   width: 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: user.isOnline ? colors.success : colors.textSecondary.withValues(alpha: 0.4),
+                    color: widget.user.isOnline ? colors.success : colors.textSecondary.withValues(alpha: 0.4),
                     shape: BoxShape.circle,
                   ),
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  user.isOnline ? 'Online' : 'Offline',
+                  widget.user.isOnline ? 'Online' : 'Offline',
                   style: typography.bodySmall.copyWith(
-                    color: user.isOnline ? colors.success : colors.textSecondary,
+                    color: widget.user.isOnline ? colors.success : colors.textSecondary,
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                   ),
@@ -104,28 +119,7 @@ class MatchedUserCard extends ConsumerWidget {
                 _ActionButton(
                   icon: Icons.chat,
                   color: colors.primary,
-                  onTap: () async {
-                    try {
-                      final repo = ref.read(chatRepositoryProvider);
-                      final conv = await repo.findOrCreateConversation(user.id);
-                      if (context.mounted) {
-                        context.push(
-                          RouteNames.chat,
-                          extra: {
-                            'conversationId': conv.id,
-                            'userId': user.id,
-                            'userName': user.fullName,
-                          },
-                        );
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Failed to open chat: $e')),
-                        );
-                      }
-                    }
-                  },
+                  onTap: _handleOpenChat,
                 ),
                 // Call Button
                 _ActionButton(
@@ -135,19 +129,18 @@ class MatchedUserCard extends ConsumerWidget {
                     final currentState = ref.read(matchmakingControllerProvider);
                     if (currentState.phase != MatchmakingPhase.idle) return;
 
-                    context.push(RouteNames.calling);
                     ref.read(matchmakingControllerProvider.notifier).callUser(
-                      targetUserId: user.id,
-                      targetUserName: user.fullName,
+                      targetUserId: widget.user.id,
+                      targetUserName: widget.user.fullName,
                     );
                   },
                 ),
                 // Favorite Button
                 _ActionButton(
-                  icon: user.isFavorite ? Icons.favorite : Icons.favorite_border_rounded,
+                  icon: widget.user.isFavorite ? Icons.favorite : Icons.favorite_border_rounded,
                   color: const Color(0xFFFF4E64),
                   onTap: () {
-                    ref.read(favoritesNotifierProvider.notifier).toggleFavorite(user.id, user.isFavorite);
+                    ref.read(favoritesNotifierProvider.notifier).toggleFavorite(widget.user.id, widget.user.isFavorite);
                   },
                 ),
               ],
@@ -175,7 +168,8 @@ class _ActionButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(8),
+        width: 33,
+        height: 33,
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.08),
           shape: BoxShape.circle,

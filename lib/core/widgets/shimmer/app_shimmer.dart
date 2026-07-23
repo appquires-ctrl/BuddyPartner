@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:dating_app/app/theme/skeleton_colors.dart';
 
-/// AppShimmer wraps arbitrary layout structures with animated color bands
-/// to denote background loading transitions.
+/// AppShimmer wraps arbitrary layout structures with animated theme color bands.
+/// Uses application theme tint colors by default for consistent brand aesthetics.
 class AppShimmer extends StatelessWidget {
   final Widget child;
   final bool enabled;
+  final Color? baseColor;
+  final Color? highlightColor;
 
   const AppShimmer({
     super.key,
     required this.child,
     this.enabled = true,
+    this.baseColor,
+    this.highlightColor,
   });
 
   @override
@@ -18,12 +23,12 @@ class AppShimmer extends StatelessWidget {
     if (!enabled) return child;
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final baseColor = isDark ? Colors.grey[800]! : Colors.grey[300]!;
-    final highlightColor = isDark ? Colors.grey[700]! : Colors.grey[100]!;
+    final defaultBase = SkeletonColors.baseColor(isDark);
+    final defaultHighlight = SkeletonColors.highlightColor(isDark);
 
     return Shimmer.fromColors(
-      baseColor: baseColor,
-      highlightColor: highlightColor,
+      baseColor: baseColor ?? defaultBase,
+      highlightColor: highlightColor ?? defaultHighlight,
       child: child,
     );
   }

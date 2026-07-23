@@ -16,11 +16,9 @@ class IncomingCallPage extends ConsumerWidget {
 
     ref.listen<MatchmakingState>(matchmakingControllerProvider, (prev, next) {
       if (next.phase == MatchmakingPhase.idle) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted(context)) {
-            context.go(RouteNames.home);
-          }
-        });
+        if (mounted(context)) {
+          context.go(RouteNames.home);
+        }
       }
     });
 

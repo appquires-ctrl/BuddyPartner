@@ -7,7 +7,8 @@ import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/core/widgets/image/app_network_image.dart';
 import 'package:dating_app/core/widgets/cards/app_card.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dating_app/features/chat/data/chat_repository.dart';
+import 'package:dating_app/features/call/application/matchmaking_controller.dart';
+import 'package:dating_app/features/call/application/matchmaking_state.dart';
 
 /// HostDetailsPage displays a host telecaller profile with large avatar
 /// cover photo, overlapping stats card, bios, languages, and action triggers.
@@ -215,24 +216,12 @@ class _HostDetailsPageState extends ConsumerState<HostDetailsPage> {
                       ),
                       icon: Icon(Icons.chat_bubble_outline, color: colors.primary),
                       label: Text('Chat', style: TextStyle(color: colors.primary)),
-                      onPressed: () async {
-                        try {
-                          final repo = ref.read(chatRepositoryProvider);
-                          final conv = await repo.findOrCreateConversation(widget.hostId);
-                          if (context.mounted) {
-                            context.push(RouteNames.chat, extra: {
-                              'conversationId': conv.id,
-                              'userId': widget.hostId,
-                              'userName': name,
-                            });
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Failed to open chat: $e')),
-                            );
-                          }
-                        }
+                      onPressed: () {
+                        context.push(RouteNames.chat, extra: {
+                          'conversationId': 'user:${widget.hostId}',
+                          'userId': widget.hostId,
+                          'userName': name,
+                        });
                       },
                     ),
                   ),
@@ -250,7 +239,13 @@ class _HostDetailsPageState extends ConsumerState<HostDetailsPage> {
                       icon: const Icon(Icons.call),
                       label: const Text('Call Now'),
                       onPressed: () {
-                        context.push(RouteNames.calling);
+                        final matchState = ref.read(matchmakingControllerProvider);
+                        if (matchState.phase != MatchmakingPhase.idle) return;
+
+                        ref.read(matchmakingControllerProvider.notifier).callUser(
+                          targetUserId: widget.hostId,
+                          targetUserName: name,
+                        );
                       },
                     ),
                   ),

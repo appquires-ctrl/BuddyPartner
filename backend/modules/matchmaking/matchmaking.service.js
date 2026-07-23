@@ -2,10 +2,14 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const QUEUE_KEY = 'matchmaking:queue';
+// Gender-specific queue keys
+const MALE_QUEUE_KEY = 'queue:male';
+const FEMALE_QUEUE_KEY = 'queue:female';
 const USER_SOCKET_MAP_KEY = 'matchmaking:user_socket'; // hash: userId → socketId
-const MATCH_LUA_SCRIPT = fs.readFileSync(
-  path.join(__dirname, 'match.lua'),
+const USER_GENDER_MAP_KEY = 'matchmaking:user_gender'; // hash: userId → gender
+
+const CROSS_GENDER_LUA_SCRIPT = fs.readFileSync(
+  path.join(__dirname, 'match_cross_gender.lua'),
   'utf-8',
 );
 
@@ -15,17 +19,19 @@ class MatchmakingService {
   }
 
   /**
-   * Add a user to the matchmaking queue.
-   * Uses a sorted set with timestamp as score for FIFO fairness.
-   * Guards against duplicate entries.
+   * Add a user to the gender-specific matchmaking queue.
+   * Males go to queue:male, females go to queue:female.
    *
    * @param {string} userId
    * @param {string} socketId
+   * @param {string} gender - 'male' or 'female'
    * @returns {boolean} true if added, false if already in queue
    */
-  async joinQueue(userId, socketId) {
+  async joinQueue(userId, socketId, gender) {
+    const queueKey = this._getQueueKey(gender);
+
     // Check if user is already in the queue
-    const existingScore = await this.redis.zscore(QUEUE_KEY, `${userId}:${socketId}`);
+    const existingScore = await this.redis.zscore(queueKey, `${userId}:${socketId}`);
     if (existingScore !== null) {
       return false; // Already queued
     }
@@ -33,69 +39,68 @@ class MatchmakingService {
     // Also check if this userId has any existing entry (different socket)
     const existingSocketId = await this.redis.hget(USER_SOCKET_MAP_KEY, userId);
     if (existingSocketId) {
-      // Remove stale entry
-      const members = await this.redis.zrangebyscore(QUEUE_KEY, '-inf', '+inf');
-      for (const member of members) {
-        if (member.startsWith(`${userId}:`)) {
-          await this.redis.zrem(QUEUE_KEY, member);
-          break;
-        }
-      }
+      // Remove stale entry from both queues
+      await this._removeFromAllQueues(userId);
     }
 
     const score = Date.now();
-    await this.redis.zadd(QUEUE_KEY, score, `${userId}:${socketId}`);
+    await this.redis.zadd(queueKey, score, `${userId}:${socketId}`);
     await this.redis.hset(USER_SOCKET_MAP_KEY, userId, socketId);
+    await this.redis.hset(USER_GENDER_MAP_KEY, userId, gender);
 
     return true;
   }
 
   /**
-   * Remove a user from the matchmaking queue.
+   * Remove a user from all matchmaking queues.
+   * Since we may not know gender at disconnect, we check both queues.
    *
    * @param {string} userId
    */
   async leaveQueue(userId) {
     const socketId = await this.redis.hget(USER_SOCKET_MAP_KEY, userId);
     if (socketId) {
-      await this.redis.zrem(QUEUE_KEY, `${userId}:${socketId}`);
+      await this.redis.zrem(MALE_QUEUE_KEY, `${userId}:${socketId}`);
+      await this.redis.zrem(FEMALE_QUEUE_KEY, `${userId}:${socketId}`);
       await this.redis.hdel(USER_SOCKET_MAP_KEY, userId);
+      await this.redis.hdel(USER_GENDER_MAP_KEY, userId);
     }
 
-    // Fallback: scan and remove any entries for this userId
-    const members = await this.redis.zrangebyscore(QUEUE_KEY, '-inf', '+inf');
-    for (const member of members) {
-      if (member.startsWith(`${userId}:`)) {
-        await this.redis.zrem(QUEUE_KEY, member);
-      }
-    }
+    // Fallback: scan both queues and remove any entries for this userId
+    await this._removeFromAllQueues(userId);
   }
 
   /**
-   * Attempt to match two users atomically using the Lua script.
-   * Returns the matched pair or null if fewer than 2 users are queued.
+   * Attempt to match one male with one female atomically using the cross-gender Lua script.
+   * Returns the matched pair or null if either queue is empty.
    *
    * @returns {{ userA: { userId, socketId }, userB: { userId, socketId } } | null}
    */
   async tryMatch() {
-    const result = await this.redis.eval(MATCH_LUA_SCRIPT, 1, QUEUE_KEY);
+    const result = await this.redis.eval(
+      CROSS_GENDER_LUA_SCRIPT,
+      2,
+      MALE_QUEUE_KEY,
+      FEMALE_QUEUE_KEY
+    );
 
     if (!result || result.length < 2) {
       return null;
     }
 
-    // Each result member is "userId:socketId"
-    const [memberA, memberB] = result;
-    const [userIdA, socketIdA] = this._parseMember(memberA);
-    const [userIdB, socketIdB] = this._parseMember(memberB);
+    const [maleMember, femaleMember] = result;
+    const [maleUserId, maleSocketId] = this._parseMember(maleMember);
+    const [femaleUserId, femaleSocketId] = this._parseMember(femaleMember);
 
-    // Clean up the user→socket mapping
-    await this.redis.hdel(USER_SOCKET_MAP_KEY, userIdA);
-    await this.redis.hdel(USER_SOCKET_MAP_KEY, userIdB);
+    // Clean up the user→socket and user→gender mappings
+    await this.redis.hdel(USER_SOCKET_MAP_KEY, maleUserId);
+    await this.redis.hdel(USER_SOCKET_MAP_KEY, femaleUserId);
+    await this.redis.hdel(USER_GENDER_MAP_KEY, maleUserId);
+    await this.redis.hdel(USER_GENDER_MAP_KEY, femaleUserId);
 
     return {
-      userA: { userId: userIdA, socketId: socketIdA },
-      userB: { userId: userIdB, socketId: socketIdB },
+      userA: { userId: maleUserId, socketId: maleSocketId, gender: 'male' },
+      userB: { userId: femaleUserId, socketId: femaleSocketId, gender: 'female' },
     };
   }
 
@@ -122,19 +127,48 @@ class MatchmakingService {
     return hash.readUInt32BE(0) & 0x7fffffff;
   }
 
+  // ── Private helpers ──────────────────────────────────────────────────────
+
+  /**
+   * Get the queue key for a given gender.
+   * @param {string} gender
+   * @returns {string}
+   */
+  _getQueueKey(gender) {
+    const g = (gender || '').toLowerCase();
+    if (g === 'female' || g === 'girl' || g === 'woman') {
+      return FEMALE_QUEUE_KEY;
+    }
+    return MALE_QUEUE_KEY;
+  }
+
+  /**
+   * Remove all entries for a userId from both gender queues.
+   * @param {string} userId
+   */
+  async _removeFromAllQueues(userId) {
+    for (const queueKey of [MALE_QUEUE_KEY, FEMALE_QUEUE_KEY]) {
+      const members = await this.redis.zrangebyscore(queueKey, '-inf', '+inf');
+      for (const member of members) {
+        if (member.startsWith(`${userId}:`)) {
+          await this.redis.zrem(queueKey, member);
+        }
+      }
+    }
+    await this.redis.hdel(USER_SOCKET_MAP_KEY, userId);
+    await this.redis.hdel(USER_GENDER_MAP_KEY, userId);
+  }
+
   /**
    * Parse a "userId:socketId" member string.
-   * Handles UUIDs that contain colons (they don't, but defensive coding).
    *
    * @param {string} member
    * @returns {[string, string]} [userId, socketId]
    */
   _parseMember(member) {
-    // UUID is 36 chars (8-4-4-4-12), socketId follows after first ':'
-    // But UUID doesn't contain ':', so simple split works
     const colonIdx = member.indexOf(':');
     return [member.substring(0, colonIdx), member.substring(colonIdx + 1)];
   }
 }
 
-module.exports = { MatchmakingService, QUEUE_KEY };
+module.exports = { MatchmakingService, MALE_QUEUE_KEY, FEMALE_QUEUE_KEY };

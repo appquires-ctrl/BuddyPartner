@@ -134,42 +134,41 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                           textAlign: TextAlign.center,
                         ),
                       ),
-                      const SizedBox(height: 32),
-
-                      // Light pink pull down action button
-                      GestureDetector(
-                        onTap: _handleRefresh,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF2F4), // light pink fill
-                            borderRadius: AppRadius.pill,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              Icon(
-                                Icons.refresh,
-                                color: Color(0xFFFF4E64), // pink icon
-                                size: 16,
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'Pull down to refresh',
-                                style: TextStyle(
-                                  color: Color(0xFFFF4E64), // pink text
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 80),
+                      // const SizedBox(height: 32),
+                      // // Light pink pull down action button
+                      // GestureDetector(
+                      //   onTap: _handleRefresh,
+                      //   child: Container(
+                      //     padding: const EdgeInsets.symmetric(
+                      //       horizontal: 20,
+                      //       vertical: 10,
+                      //     ),
+                      //     decoration: BoxDecoration(
+                      //       color: const Color(0xFFFFF2F4), // light pink fill
+                      //       borderRadius: AppRadius.pill,
+                      //     ),
+                      //     child: Row(
+                      //       mainAxisSize: MainAxisSize.min,
+                      //       children: const [
+                      //         Icon(
+                      //           Icons.refresh,
+                      //           color: Color(0xFFFF4E64), // pink icon
+                      //           size: 16,
+                      //         ),
+                      //         SizedBox(width: 8),
+                      //         Text(
+                      //           'Pull down to refresh',
+                      //           style: TextStyle(
+                      //             color: Color(0xFFFF4E64), // pink text
+                      //             fontSize: 12,
+                      //             fontWeight: FontWeight.bold,
+                      //           ),
+                      //         ),
+                      //       ],
+                      //     ),
+                      //   ),
+                      // ),
+                      // const SizedBox(height: 80),
                     ],
                   ),
                 ),

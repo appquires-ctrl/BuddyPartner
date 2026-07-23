@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/app/theme/skeleton_colors.dart';
+import 'package:dating_app/core/widgets/shimmer/app_shimmer.dart';
 
+/// FavoritesSkeleton provides a high-fidelity shimmer loading layout
+/// where internal card elements (avatar, text lines, action icons) shimmer
+/// inside a static card frame.
 class FavoritesSkeleton extends StatelessWidget {
   const FavoritesSkeleton({super.key});
 
@@ -13,15 +16,17 @@ class FavoritesSkeleton extends StatelessWidget {
     final typography = context.typography;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
-    final baseColor = SkeletonColors.baseColor(isDark);
-    final highlightColor = SkeletonColors.highlightColor(isDark);
-    final bgColor = SkeletonColors.background(isDark);
-    final accentColor = SkeletonColors.accentColor(isDark);
+    final blockColor = SkeletonColors.baseColor(isDark);
+    final cardBg = isDark
+        ? colors.surface.withValues(alpha: 0.5)
+        : colors.surface;
+    final borderColor = isDark
+        ? colors.border.withValues(alpha: 0.4)
+        : colors.border;
 
     return Scaffold(
-      backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: bgColor,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         automaticallyImplyLeading: false,
         centerTitle: true,
@@ -46,90 +51,102 @@ class FavoritesSkeleton extends StatelessWidget {
           ],
         ),
       ),
-      body: Shimmer.fromColors(
-        baseColor: baseColor,
-        highlightColor: highlightColor,
-        child: ListView.separated(
-          padding: const EdgeInsets.all(AppSpacing.space24),
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: 5,
-          separatorBuilder: (context, index) => const SizedBox(height: 16),
-          itemBuilder: (context, index) {
-            return Container(
-              height: 88,
-              decoration: BoxDecoration(
-                color: accentColor,
-                borderRadius: BorderRadius.circular(24),
-              ),
+      body: ListView.separated(
+        padding: const EdgeInsets.all(AppSpacing.space24),
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 5,
+        separatorBuilder: (context, index) => const SizedBox(height: 16),
+        itemBuilder: (context, index) {
+          return Container(
+            height: 88,
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: borderColor, width: 1.2),
+            ),
+            child: AppShimmer(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Row(
                   children: [
-                    // Avatar skeleton
+                    // Avatar circle (52px)
                     Container(
                       width: 52,
                       height: 52,
                       decoration: BoxDecoration(
-                        color: accentColor,
+                        color: blockColor,
                         shape: BoxShape.circle,
                       ),
                     ),
                     const SizedBox(width: 14),
 
-                    // Name & status skeleton
+                    // Name & status skeleton details
                     Expanded(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
-                            width: 120,
-                            height: 16,
+                            width: 110,
+                            height: 14,
                             decoration: BoxDecoration(
-                              color: accentColor,
+                              color: blockColor,
                               borderRadius: BorderRadius.circular(4),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Container(
-                            width: 60,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: accentColor,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: blockColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                width: 45,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  color: blockColor,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
 
-                    // Action buttons skeleton
+                    // Action buttons row (3 action circles)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 38,
-                          height: 38,
+                          width: 36,
+                          height: 36,
                           decoration: BoxDecoration(
-                            color: accentColor,
+                            color: blockColor,
                             shape: BoxShape.circle,
                           ),
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          width: 38,
-                          height: 38,
+                          width: 36,
+                          height: 36,
                           decoration: BoxDecoration(
-                            color: accentColor,
+                            color: blockColor,
                             shape: BoxShape.circle,
                           ),
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          width: 38,
-                          height: 38,
+                          width: 36,
+                          height: 36,
                           decoration: BoxDecoration(
-                            color: accentColor,
+                            color: blockColor,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -138,9 +155,9 @@ class FavoritesSkeleton extends StatelessWidget {
                   ],
                 ),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }

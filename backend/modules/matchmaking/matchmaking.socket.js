@@ -1,16 +1,46 @@
 const { MatchmakingService } = require('./matchmaking.service');
 const { callsService } = require('../calls/calls.service');
 const { WalletService, CALL_RATES } = require('../wallet/wallet.service');
+const { RoseService } = require('../wallet/rose.service');
 const db = require('../../db');
 
-// In-memory map of active calls: callId → { userA: { userId, socketId }, userB: { userId, socketId } }
+// In-memory map of active calls: callId → { userA: { userId, socketId, gender }, userB: { userId, socketId, gender } }
 const activeCalls = new Map();
 // Reverse map: socketId → callId (for fast lookup on disconnect)
 const socketToCall = new Map();
 // Map: userId → socketId (for disconnect cleanup)
 const userSockets = new Map();
-// Map: callRequestId -> { callerId, callerSocketId, targetUserId, targetSocketId, timer }
+// Map: callRequestId -> { callerId, callerSocketId, callerGender, targetUserId, targetSocketId, targetGender, timer }
 const pendingCallRequests = new Map();
+
+/**
+ * Look up a user's gender from the database.
+ * @param {string} userId
+ * @returns {Promise<string>} gender string (e.g. 'Male', 'Female')
+ */
+async function getUserGender(userId) {
+  try {
+    const result = await db.query(
+      'SELECT gender FROM public.users WHERE id = $1',
+      [userId]
+    );
+    if (result.rows.length === 0) return 'male';
+    return (result.rows[0].gender || 'male').toLowerCase();
+  } catch (err) {
+    console.error(`Error fetching gender for user ${userId}:`, err.message);
+    return 'male'; // Default to male if lookup fails
+  }
+}
+
+/**
+ * Check if a gender string represents female.
+ * @param {string} gender
+ * @returns {boolean}
+ */
+function isFemale(gender) {
+  const g = (gender || '').toLowerCase();
+  return g === 'female' || g === 'girl' || g === 'woman';
+}
 
 /**
  * Register all matchmaking-related Socket.io event handlers for a connected socket.
@@ -36,23 +66,29 @@ function registerMatchmakingHandlers(io, socket, redis) {
         return;
       }
 
-      // Check minimum required balance for call (voice rate)
-      const hasBalance = await WalletService.hasMinimumBalance(userId, CALL_RATES.voice);
-      if (!hasBalance) {
-        const cb = typeof callback === 'function' ? callback : () => {};
-        cb({ error: 'insufficient_balance', required: CALL_RATES.voice, message: `You need at least ${CALL_RATES.voice} coins to start a call — recharge to continue` });
-        socket.emit('match_error', { error: 'insufficient_balance', message: `You need at least ${CALL_RATES.voice} coins to start a call — recharge to continue` });
-        return;
+      // Look up user's gender
+      const gender = await getUserGender(userId);
+      const userIsFemale = isFemale(gender);
+
+      // Balance check: only for boys (girls earn, they don't spend)
+      if (!userIsFemale) {
+        const hasBalance = await WalletService.hasMinimumBalance(userId, CALL_RATES.voice);
+        if (!hasBalance) {
+          const cb = typeof callback === 'function' ? callback : () => {};
+          cb({ error: 'insufficient_balance', required: CALL_RATES.voice, message: `You need at least ${CALL_RATES.voice} coins to start a call — recharge to continue` });
+          socket.emit('match_error', { error: 'insufficient_balance', message: `You need at least ${CALL_RATES.voice} coins to start a call — recharge to continue` });
+          return;
+        }
       }
 
-      const added = await matchmakingService.joinQueue(userId, socket.id);
+      const added = await matchmakingService.joinQueue(userId, socket.id, gender);
       if (!added) {
         const cb = typeof callback === 'function' ? callback : () => {};
         cb({ error: 'Already in queue' });
         return;
       }
 
-      console.log(`📥 User ${userId} joined queue`);
+      console.log(`📥 User ${userId} (${gender}) joined queue`);
       const cb = typeof callback === 'function' ? callback : () => {};
       cb({ success: true });
 
@@ -178,8 +214,8 @@ function registerMatchmakingHandlers(io, socket, redis) {
       ]);
 
       activeCalls.set(callId, {
-        userA: { userId: request.callerId, socketId: request.callerSocketId, agoraUid: uidA },
-        userB: { userId: request.targetUserId, socketId: socket.id, agoraUid: uidB },
+        userA: { userId: request.callerId, socketId: request.callerSocketId, agoraUid: uidA, gender: request.callerGender },
+        userB: { userId: request.targetUserId, socketId: socket.id, agoraUid: uidB, gender: request.targetGender },
         channelName,
       });
       socketToCall.set(request.callerSocketId, callId);
@@ -207,11 +243,19 @@ function registerMatchmakingHandlers(io, socket, redis) {
         handleCallEnd(expiredCallId, callsService, io, 'timer');
       });
 
-      callsService.startCallBilling(callId, request.callerId, request.targetUserId, io, (billingCallId) => {
-        handleCallEnd(billingCallId, callsService, io, 'insufficient_balance');
-      });
+      callsService.startCallBilling(
+        callId,
+        request.callerId,
+        request.targetUserId,
+        request.callerGender,
+        request.targetGender,
+        io,
+        (billingCallId) => {
+          handleCallEnd(billingCallId, callsService, io, 'insufficient_balance');
+        }
+      );
 
-      console.log(`✅ Direct call ${callId} established: ${request.callerId} ↔ ${request.targetUserId}`);
+      console.log(`✅ Direct call ${callId} established: ${request.callerId} (${request.callerGender}) ↔ ${request.targetUserId} (${request.targetGender})`);
     } catch (err) {
       console.error('Error in accept_call_request:', err);
       socket.emit('match_error', { error: 'Failed to establish call connection.' });
@@ -265,11 +309,17 @@ function registerMatchmakingHandlers(io, socket, redis) {
   // ── direct_call ────────────────────────────────────────────────────────
   // Initiates a calling request to a specific user.
   socket.on('direct_call', async ({ targetUserId }) => {
-    // 0. Check minimum required balance for call (voice rate)
-    const hasBalance = await WalletService.hasMinimumBalance(userId, CALL_RATES.voice);
-    if (!hasBalance) {
-      socket.emit('match_error', { error: 'insufficient_balance', message: `You need at least ${CALL_RATES.voice} coins to start a call — recharge to continue` });
-      return;
+    // Look up caller's gender
+    const callerGender = await getUserGender(userId);
+    const callerIsFemale = isFemale(callerGender);
+
+    // 0. Check minimum required balance for call (voice rate) — boys only
+    if (!callerIsFemale) {
+      const hasBalance = await WalletService.hasMinimumBalance(userId, CALL_RATES.voice);
+      if (!hasBalance) {
+        socket.emit('match_error', { error: 'insufficient_balance', message: `You need at least ${CALL_RATES.voice} coins to start a call — recharge to continue` });
+        return;
+      }
     }
 
     // 1. Prevent calling yourself
@@ -326,8 +376,9 @@ function registerMatchmakingHandlers(io, socket, redis) {
       // Generate a unique callRequestId
       const callRequestId = matchmakingService.generateChannelName();
 
-      // Fetch profile for Caller
+      // Fetch profiles and gender
       const callerProfile = await fetchPublicProfile(userId);
+      const targetGender = await getUserGender(targetUserId);
 
       // Start 30-second server timeout timer
       const timer = setTimeout(() => {
@@ -339,12 +390,14 @@ function registerMatchmakingHandlers(io, socket, redis) {
         }
       }, 30000);
 
-      // Store in-memory
+      // Store in-memory with gender info
       pendingCallRequests.set(callRequestId, {
         callerId: userId,
         callerSocketId: socket.id,
+        callerGender,
         targetUserId,
         targetSocketId,
+        targetGender,
         timer,
       });
 
@@ -360,7 +413,7 @@ function registerMatchmakingHandlers(io, socket, redis) {
         targetUser: { id: targetUserId },
       });
 
-      console.log(`🔔 Call request initiated: ${userId} → ${targetUserId} (req: ${callRequestId})`);
+      console.log(`🔔 Call request initiated: ${userId} (${callerGender}) → ${targetUserId} (${targetGender}) (req: ${callRequestId})`);
     } catch (err) {
       console.error('Error in direct_call:', err);
       socket.emit('match_error', { error: 'Failed to initiate call request' });
@@ -406,15 +459,15 @@ function registerMatchmakingHandlers(io, socket, redis) {
 }
 
 /**
- * Attempt to match two users from the queue.
- * Called after every joinQueue to check if a pair is available.
+ * Attempt to match one male with one female from their respective queues.
+ * Called after every joinQueue to check if a cross-gender pair is available.
  */
 async function attemptMatch(io, redis, matchmakingService, callsService) {
   const match = await matchmakingService.tryMatch();
   if (!match) return;
 
-  const { userA, userB } = match;
-  console.log(`🎯 Match found: ${userA.userId} ↔ ${userB.userId}`);
+  const { userA, userB } = match; // userA = male, userB = female (from cross-gender Lua)
+  console.log(`🎯 Match found: ${userA.userId} (${userA.gender}) ↔ ${userB.userId} (${userB.gender})`);
 
   try {
     // Generate Agora channel and tokens
@@ -433,7 +486,7 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
       fetchPublicProfile(userB.userId),
     ]);
 
-    // Track active call
+    // Track active call with gender info
     activeCalls.set(callId, {
       userA: { ...userA, agoraUid: uidA },
       userB: { ...userB, agoraUid: uidB },
@@ -466,9 +519,18 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
       handleCallEnd(expiredCallId, callsService, io, 'timer');
     });
 
-    callsService.startCallBilling(callId, userA.userId, userB.userId, io, (billingCallId) => {
-      handleCallEnd(billingCallId, callsService, io, 'insufficient_balance');
-    });
+    // Start gender-aware billing
+    callsService.startCallBilling(
+      callId,
+      userA.userId,
+      userB.userId,
+      userA.gender,
+      userB.gender,
+      io,
+      (billingCallId) => {
+        handleCallEnd(billingCallId, callsService, io, 'insufficient_balance');
+      }
+    );
 
     console.log(`📞 Call ${callId} started on channel ${channelName}`);
   } catch (err) {
@@ -482,6 +544,7 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
 /**
  * Handle call end (manual, timer, or disconnect).
  * Cleans up state and notifies both parties.
+ * Gender-aware: sends balance_update to boy, rose_update to girl.
  */
 async function handleCallEnd(callId, callsService, io, reason) {
   const callInfo = activeCalls.get(callId);
@@ -495,76 +558,90 @@ async function handleCallEnd(callId, callsService, io, reason) {
   // End call in DB
   await callsService.endCall(callId);
 
-  // Query actual total cost from wallet_transactions for each participant
-  let totalCostA = 0;
-  let totalCostB = 0;
+  // Determine boy/girl based on gender
+  const isAFemale = isFemale(callInfo.userA.gender);
+  const boyInfo = isAFemale ? callInfo.userB : callInfo.userA;
+  const girlInfo = isAFemale ? callInfo.userA : callInfo.userB;
+
+  // Query actual total cost for the boy from wallet_transactions
+  let totalCostBoy = 0;
   try {
-    const [resA, resB] = await Promise.all([
-      db.query(
-        `SELECT COALESCE(SUM(amount), 0) AS total FROM public.wallet_transactions
-         WHERE user_id = $1 AND reference_id = $2 AND type = 'debit'`,
-        [callInfo.userA.userId, callId]
-      ),
-      db.query(
-        `SELECT COALESCE(SUM(amount), 0) AS total FROM public.wallet_transactions
-         WHERE user_id = $1 AND reference_id = $2 AND type = 'debit'`,
-        [callInfo.userB.userId, callId]
-      ),
-    ]);
-    totalCostA = parseInt(resA.rows[0]?.total, 10) || 0;
-    totalCostB = parseInt(resB.rows[0]?.total, 10) || 0;
+    const resBoy = await db.query(
+      `SELECT COALESCE(SUM(amount), 0) AS total FROM public.wallet_transactions
+       WHERE user_id = $1 AND reference_id = $2 AND type = 'debit'`,
+      [boyInfo.userId, callId]
+    );
+    totalCostBoy = parseInt(resBoy.rows[0]?.total, 10) || 0;
   } catch (err) {
-    console.error(`Error fetching call costs for ${callId}:`, err.message);
+    console.error(`Error fetching boy's call costs for ${callId}:`, err.message);
+  }
+
+  // Query total roses earned by the girl from rose_transactions
+  let totalRosesGirl = 0;
+  try {
+    const resGirl = await db.query(
+      `SELECT COALESCE(SUM(amount), 0) AS total FROM public.rose_transactions
+       WHERE user_id = $1 AND reference_id = $2 AND type = 'credit'`,
+      [girlInfo.userId, callId]
+    );
+    totalRosesGirl = parseInt(resGirl.rows[0]?.total, 10) || 0;
+  } catch (err) {
+    console.error(`Error fetching girl's rose earnings for ${callId}:`, err.message);
   }
 
   // Notify both users using their latest connected socket ID
-  const socketAId = userSockets.get(callInfo.userA.userId) || callInfo.userA.socketId;
-  const socketBId = userSockets.get(callInfo.userB.userId) || callInfo.userB.socketId;
+  const socketBoyId = userSockets.get(boyInfo.userId) || boyInfo.socketId;
+  const socketGirlId = userSockets.get(girlInfo.userId) || girlInfo.socketId;
 
-  io.to(socketAId).emit('call_ended', { callId, reason, totalCost: totalCostA });
-  if (socketBId !== socketAId) {
-    io.to(socketBId).emit('call_ended', { callId, reason, totalCost: totalCostB });
+  // Boy gets totalCost (coins spent)
+  io.to(socketBoyId).emit('call_ended', { callId, reason, totalCost: totalCostBoy });
+  // Girl gets totalRosesEarned
+  if (socketGirlId !== socketBoyId) {
+    io.to(socketGirlId).emit('call_ended', { callId, reason, totalRosesEarned: totalRosesGirl });
   }
 
-  // Emit final updated wallet balances to both sockets
+  // Emit final balance updates
   try {
-    const [balA, balB] = await Promise.all([
-      WalletService.getBalance(callInfo.userA.userId),
-      WalletService.getBalance(callInfo.userB.userId),
+    const [boyBal, girlRoseBal] = await Promise.all([
+      WalletService.getBalance(boyInfo.userId),
+      RoseService.getRoseBalance(girlInfo.userId),
     ]);
-    if (socketAId) io.to(socketAId).emit('balance_update', { balance: balA });
-    if (socketBId && socketBId !== socketAId) io.to(socketBId).emit('balance_update', { balance: balB });
+    if (socketBoyId) io.to(socketBoyId).emit('balance_update', { balance: boyBal });
+    if (socketGirlId && socketGirlId !== socketBoyId) {
+      io.to(socketGirlId).emit('rose_update', { balance: girlRoseBal });
+    }
   } catch (err) {
     console.error(`Error emitting final balance updates for call ${callId}:`, err.message);
   }
 
-  console.log(`📴 Call ${callId} ended (reason: ${reason}) for users ${callInfo.userA.userId} and ${callInfo.userB.userId}`);
+  console.log(`📴 Call ${callId} ended (reason: ${reason}) — boy ${boyInfo.userId} spent ${totalCostBoy} coins, girl ${girlInfo.userId} earned ${totalRosesGirl} roses`);
 }
 
 /**
- * Fetch public profile info for a user (name + avatar only).
+ * Fetch public profile info for a user (name + avatar + gender).
  */
 async function fetchPublicProfile(userId) {
   try {
     const result = await db.query(
-      'SELECT id, full_name FROM public.users WHERE id = $1',
+      'SELECT id, full_name, gender FROM public.users WHERE id = $1',
       [userId]
     );
 
     if (result.rows.length === 0) {
-      return { id: userId, fullName: 'User', avatarUrl: null };
+      return { id: userId, fullName: 'User', avatarUrl: null, gender: 'male' };
     }
 
     const user = result.rows[0];
-    console.log(`✅ Fetched profile for user ${userId}: ${user.full_name}`);
+    console.log(`✅ Fetched profile for user ${userId}: ${user.full_name} (${user.gender})`);
     return {
       id: user.id,
       fullName: user.full_name || 'User',
       avatarUrl: null,
+      gender: (user.gender || 'male').toLowerCase(),
     };
   } catch (err) {
     console.error(`❌ Error fetching profile for user ${userId}:`, err.message);
-    return { id: userId, fullName: 'User', avatarUrl: null };
+    return { id: userId, fullName: 'User', avatarUrl: null, gender: 'male' };
   }
 }
 

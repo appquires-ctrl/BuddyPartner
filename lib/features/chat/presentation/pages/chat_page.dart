@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:dating_app/core/widgets/feedback/app_loading_indicator.dart';
+import 'package:dating_app/core/widgets/shimmer/skeletons/chat_message_skeleton.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/features/call/presentation/widgets/report_block_dialog.dart';
@@ -137,7 +138,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               final matchState = ref.read(matchmakingControllerProvider);
               if (matchState.phase != MatchmakingPhase.idle) return;
 
-              context.push(RouteNames.calling);
               ref.read(matchmakingControllerProvider.notifier).callUser(
                 targetUserId: widget.userId,
                 targetUserName: widget.userName,
@@ -174,7 +174,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     ),
                   )
                 : chatState.messages.isEmpty && chatState.isLoading
-                    ? const Center(child: CircularProgressIndicator())
+                    ? const ChatMessageSkeleton()
                     : ListView.builder(
                     controller: _scrollController,
                     reverse: true, // newest messages at the bottom
@@ -182,9 +182,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     itemCount: chatState.messages.length + (chatState.hasMore ? 1 : 0),
                     itemBuilder: (context, index) {
                       if (index == chatState.messages.length) {
-                        return const Padding(
-                          padding: EdgeInsets.all(8.0),
-                          child: Center(child: CircularProgressIndicator()),
+                        return Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: AppLoadingIndicator(
+                            size: 20,
+                            color: colors.primary,
+                          ),
                         );
                       }
 
@@ -235,49 +238,79 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   ),
           ),
           Container(
-            color: colors.surface,
-            padding: const EdgeInsets.all(12.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: colors.surfaceMuted,
-                      borderRadius: AppRadius.pill,
-                      border: Border.all(color: colors.border),
-                    ),
-                    child: TextField(
-                      controller: _messageController,
-                      style: typography.bodyMedium,
-                      onChanged: _onTyping,
-                      decoration: InputDecoration(
-                        hintText: 'Type a message...',
-                        hintStyle: typography.bodySmall,
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.space16,
-                          vertical: 12,
-                        ),
-                      ),
-                      onSubmitted: (_) => _sendMessage(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: _sendMessage,
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: colors.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.send, color: Colors.white, size: 18),
-                  ),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              border: Border(top: BorderSide(color: colors.border.withValues(alpha: 0.5))),
+              boxShadow: [
+                BoxShadow(
+                  color: colors.textPrimary.withValues(alpha: 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, -3),
                 ),
               ],
+            ),
+            child: SafeArea(
+              top: false,
+              bottom: true,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.space16,
+                  vertical: 10.0,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: colors.surfaceMuted,
+                          borderRadius: AppRadius.pill,
+                          border: Border.all(color: colors.border),
+                        ),
+                        child: TextField(
+                          controller: _messageController,
+                          style: typography.bodyMedium.copyWith(color: colors.textPrimary),
+                          onChanged: _onTyping,
+                          textInputAction: TextInputAction.send,
+                          decoration: InputDecoration(
+                            hintText: 'Type a message...',
+                            hintStyle: typography.bodySmall.copyWith(
+                              color: colors.textSecondary,
+                              fontSize: 14,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.space16,
+                              vertical: 12,
+                            ),
+                          ),
+                          onSubmitted: (_) => _sendMessage(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTap: _sendMessage,
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: colors.primary,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: colors.primary.withValues(alpha: 0.35),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],

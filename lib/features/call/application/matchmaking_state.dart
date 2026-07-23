@@ -62,6 +62,9 @@ class MatchmakingState {
   final bool isSpeakerOn;
   final String? errorMessage;
 
+  /// Roses earned during this call (for female users)
+  final int rosesEarnedThisCall;
+
   const MatchmakingState({
     this.phase = MatchmakingPhase.idle,
     this.callId,
@@ -75,6 +78,7 @@ class MatchmakingState {
     this.isMuted = false,
     this.isSpeakerOn = false,
     this.errorMessage,
+    this.rosesEarnedThisCall = 0,
   });
 
   MatchmakingState copyWith({
@@ -91,6 +95,7 @@ class MatchmakingState {
     bool? isMuted,
     bool? isSpeakerOn,
     String? errorMessage,
+    int? rosesEarnedThisCall,
   }) {
     return MatchmakingState(
       phase: phase ?? this.phase,
@@ -105,6 +110,7 @@ class MatchmakingState {
       isMuted: isMuted ?? this.isMuted,
       isSpeakerOn: isSpeakerOn ?? this.isSpeakerOn,
       errorMessage: errorMessage,
+      rosesEarnedThisCall: rosesEarnedThisCall ?? this.rosesEarnedThisCall,
     );
   }
 

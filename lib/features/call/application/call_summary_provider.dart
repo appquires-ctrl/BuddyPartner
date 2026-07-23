@@ -16,4 +16,15 @@ class CallSummaryInfo {
   });
 }
 
-final lastCallSummaryProvider = StateProvider<CallSummaryInfo?>((ref) => null);
+class LastCallSummaryNotifier extends Notifier<CallSummaryInfo?> {
+  @override
+  CallSummaryInfo? build() => null;
+
+  void setSummary(CallSummaryInfo? summary) {
+    state = summary;
+  }
+}
+
+final lastCallSummaryProvider = NotifierProvider<LastCallSummaryNotifier, CallSummaryInfo?>(
+  LastCallSummaryNotifier.new,
+);

@@ -34,10 +34,14 @@ app.use(express.json());
 const authRoutes = require('./modules/auth/auth.routes');
 const callsRoutes = require('./modules/calls/calls.routes');
 const messagingRoutes = require('./modules/messaging/messaging.routes');
+const roseRoutes = require('./modules/wallet/rose.routes');
+const withdrawalRoutes = require('./modules/withdrawals/withdrawals.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/calls', callsRoutes);
 app.use('/api', messagingRoutes);
+app.use('/api', roseRoutes);
+app.use('/api', withdrawalRoutes);
 
 // ── Auto-ensure wallet_transactions table exists ────────────────────────────
 db.query(`
@@ -55,6 +59,39 @@ db.query(`
   console.log('✅ wallet_transactions table checked/initialized.');
 }).catch((err) => {
   console.error('❌ Failed to initialize wallet_transactions table:', err.message);
+});
+
+// Auto-ensure rose/withdrawal tables exist
+db.query(`
+  CREATE TABLE IF NOT EXISTS public.rose_balances (
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE PRIMARY KEY,
+    balance INTEGER DEFAULT 0 CHECK (balance >= 0),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  CREATE TABLE IF NOT EXISTS public.rose_transactions (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+    type TEXT CHECK (type IN ('credit', 'debit')) NOT NULL,
+    amount INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    reference_id UUID,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  CREATE TABLE IF NOT EXISTS public.withdrawal_requests (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+    rose_amount INTEGER NOT NULL,
+    rupee_amount INTEGER NOT NULL,
+    status TEXT CHECK (status IN ('pending', 'approved', 'rejected', 'paid')) NOT NULL DEFAULT 'pending',
+    requested_at TIMESTAMPTZ DEFAULT NOW(),
+    processed_at TIMESTAMPTZ
+  );
+  CREATE INDEX IF NOT EXISTS idx_rose_tx_user ON public.rose_transactions(user_id);
+  CREATE INDEX IF NOT EXISTS idx_withdrawal_user ON public.withdrawal_requests(user_id);
+`).then(() => {
+  console.log('✅ Rose/withdrawal tables checked/initialized.');
+}).catch((err) => {
+  console.error('❌ Failed to initialize rose/withdrawal tables:', err.message);
 });
 
 const server = http.createServer(app);

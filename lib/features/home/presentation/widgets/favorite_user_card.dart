@@ -8,10 +8,9 @@ import 'package:dating_app/features/home/presentation/providers/matched_users_pr
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
-import 'package:dating_app/features/chat/data/chat_repository.dart';
 import 'package:dating_app/core/widgets/gradient_avatar.dart';
 
-class FavoriteUserCard extends ConsumerWidget {
+class FavoriteUserCard extends ConsumerStatefulWidget {
   final MatchedUser user;
 
   const FavoriteUserCard({
@@ -20,10 +19,26 @@ class FavoriteUserCard extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FavoriteUserCard> createState() => _FavoriteUserCardState();
+}
+
+class _FavoriteUserCardState extends ConsumerState<FavoriteUserCard> {
+  void _handleOpenChat() {
+    context.push(
+      RouteNames.chat,
+      extra: {
+        'conversationId': 'user:${widget.user.id}',
+        'userId': widget.user.id,
+        'userName': widget.user.fullName,
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.colors;
     final typography = context.typography;
-    final initials = getInitials(user.fullName);
+    final initials = getInitials(widget.user.fullName);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Premium Glassmorphism styling configuration
@@ -64,7 +79,7 @@ class FavoriteUserCard extends ConsumerWidget {
                   initials: initials,
                   radius: 26,
                   showStatus: true,
-                  isOnline: user.isOnline,
+                  isOnline: widget.user.isOnline,
                   statusIndicatorSize: 14,
                 ),
                 const SizedBox(width: 14),
@@ -76,7 +91,7 @@ class FavoriteUserCard extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        user.fullName,
+                        widget.user.fullName,
                         style: typography.bodyMedium.copyWith(
                           fontWeight: FontWeight.bold,
                           color: colors.textPrimary,
@@ -92,15 +107,15 @@ class FavoriteUserCard extends ConsumerWidget {
                             width: 7,
                             height: 7,
                             decoration: BoxDecoration(
-                              color: user.isOnline ? colors.success : colors.textSecondary.withValues(alpha: 0.4),
+                              color: widget.user.isOnline ? colors.success : colors.textSecondary.withValues(alpha: 0.4),
                               shape: BoxShape.circle,
                             ),
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            user.isOnline ? 'Online' : 'Offline',
+                            widget.user.isOnline ? 'Online' : 'Offline',
                             style: typography.bodySmall.copyWith(
-                              color: user.isOnline ? colors.success : colors.textSecondary,
+                              color: widget.user.isOnline ? colors.success : colors.textSecondary,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
@@ -117,30 +132,9 @@ class FavoriteUserCard extends ConsumerWidget {
                   children: [
                     // Chat Action
                     _ActionButton(
-                      icon: Icons.chat_bubble_outline_rounded,
+                      icon: Icons.chat,
                       color: colors.primary,
-                      onTap: () async {
-                        try {
-                          final repo = ref.read(chatRepositoryProvider);
-                          final conv = await repo.findOrCreateConversation(user.id);
-                          if (context.mounted) {
-                            context.push(
-                              RouteNames.chat,
-                              extra: {
-                                'conversationId': conv.id,
-                                'userId': user.id,
-                                'userName': user.fullName,
-                              },
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Failed to open chat: $e')),
-                            );
-                          }
-                        }
-                      },
+                      onTap: _handleOpenChat,
                     ),
                     const SizedBox(width: 8),
 
@@ -152,10 +146,9 @@ class FavoriteUserCard extends ConsumerWidget {
                         final currentState = ref.read(matchmakingControllerProvider);
                         if (currentState.phase != MatchmakingPhase.idle) return;
 
-                        context.push(RouteNames.calling);
                         ref.read(matchmakingControllerProvider.notifier).callUser(
-                          targetUserId: user.id,
-                          targetUserName: user.fullName,
+                          targetUserId: widget.user.id,
+                          targetUserName: widget.user.fullName,
                         );
                       },
                     ),
@@ -166,7 +159,7 @@ class FavoriteUserCard extends ConsumerWidget {
                       icon: Icons.favorite,
                       color: const Color(0xFFFF4E64), // Solid pink/red heart
                       onTap: () {
-                        ref.read(favoritesNotifierProvider.notifier).toggleFavorite(user.id, user.isFavorite);
+                        ref.read(favoritesNotifierProvider.notifier).toggleFavorite(widget.user.id, widget.user.isFavorite);
                       },
                     ),
                   ],

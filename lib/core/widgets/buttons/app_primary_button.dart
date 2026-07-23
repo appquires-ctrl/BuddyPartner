@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
+import 'package:dating_app/core/widgets/feedback/app_loading_indicator.dart';
 
 /// AppPrimaryButton is the main call-to-action button in the design system.
 /// Features a primary color background, circular/pill border radius, and loading support.
@@ -26,13 +27,9 @@ class AppPrimaryButton extends StatelessWidget {
     final typography = context.typography;
 
     final buttonContent = isLoading
-        ? SizedBox(
-            height: 20,
-            width: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(colors.surface),
-            ),
+        ? AppLoadingIndicator(
+            size: 20,
+            color: colors.surface,
           )
         : Row(
             mainAxisSize: MainAxisSize.min,

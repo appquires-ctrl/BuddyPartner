@@ -91,6 +91,7 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
             id: userMap['id'] as String,
             phoneNumber: userMap['phoneNumber'] as String,
             isProfileComplete: isProfileComplete,
+            gender: userMap['gender'] as String? ?? 'Male',
           ),
         );
         return true;
@@ -168,6 +169,7 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
             id: userMap['id'] as String,
             phoneNumber: userMap['phoneNumber'] as String,
             isProfileComplete: true,
+            gender: userMap['gender'] as String? ?? 'Male',
           ),
         );
       }

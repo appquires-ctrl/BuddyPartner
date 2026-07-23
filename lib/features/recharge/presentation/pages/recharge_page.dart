@@ -6,6 +6,8 @@ import 'package:dating_app/core/widgets/cards/wallet_card.dart';
 import 'package:dating_app/core/widgets/layout/section_header.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 
+import 'package:dating_app/core/widgets/shimmer/skeletons/wallet_card_skeleton.dart';
+
 /// RechargePage manages the wallet screen, containing
 /// the WalletCard balance hero, and a 2-column grid of RechargePlanCards.
 class RechargePage extends ConsumerWidget {
@@ -44,10 +46,12 @@ class RechargePage extends ConsumerWidget {
             const SizedBox(height: AppSpacing.space16),
 
             // Wallet Card balance display hero
-            WalletCard(
-              balance: balance,
-              onRechargePressed: null, // already on recharge page
-            ),
+            balanceAsync.isLoading && !balanceAsync.hasValue
+                ? const WalletCardSkeleton()
+                : WalletCard(
+                    balance: balance,
+                    onRechargePressed: null, // already on recharge page
+                  ),
             const SizedBox(height: AppSpacing.space24),
             
             // Section Header title
