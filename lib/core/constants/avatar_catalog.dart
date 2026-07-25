@@ -40,24 +40,34 @@ class AvatarCatalog {
 
   static const List<String> femaleSeeds = [
     'female_1_new',
+    'female_2_new',
     'female_3_new',
     'female_4_new',
+    'female_5_new',
+    'female_6_new',
     'female_7_new',
     'female_8_new',
     'female_9_new',
+    'female_10_new',
     'female_1',
     'female_2',
     'female_3',
+    'female_4',
+    'female_5',
+    'female_6',
     'female_7',
     'female_8',
     'female_9',
     'female_10',
+    'female_11',
     'female_12',
+    'female_13',
     'female_14',
     'female_15',
     'female_16',
     'female_17',
     'female_18',
+    'female_19',
     'female_20',
   ];
 
@@ -91,23 +101,8 @@ class AvatarCatalog {
       s = s.replaceAll('.svg', '');
     }
 
-    // Exact mapping for female avatar files stored in the male subfolder
-    const femaleInMaleFolder = {
-      'female_1',
-      'female_10',
-      'female_15',
-      'female_18',
-      'female_4_new',
-      'female_7_new',
-      'female_8',
-      'female_8_new',
-    };
-
     // Direct seed matching male_* or female_*
     if (s.startsWith('female_')) {
-      if (femaleInMaleFolder.contains(s)) {
-        return 'assets/avatars/male/avatar_$s.svg';
-      }
       return 'assets/avatars/female/avatar_$s.svg';
     } else if (s.startsWith('male_')) {
       return 'assets/avatars/male/avatar_$s.svg';
