@@ -45,7 +45,18 @@ class AppAvatar extends StatelessWidget {
           height: size,
           fit: BoxFit.cover,
           placeholderBuilder: (context) => _buildFallback(colors, typography),
-          errorBuilder: (context, error, stackTrace) => _buildFallback(colors, typography),
+          errorBuilder: (context, error, stackTrace) {
+            final altPath = assetPath.contains('/female/')
+                ? assetPath.replaceAll('/female/', '/male/')
+                : assetPath.replaceAll('/male/', '/female/');
+            return SvgPicture.asset(
+              altPath,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error2, stackTrace2) => _buildFallback(colors, typography),
+            );
+          },
         ),
       );
     } else {
