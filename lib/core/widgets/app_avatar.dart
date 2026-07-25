@@ -45,6 +45,7 @@ class AppAvatar extends StatelessWidget {
           height: size,
           fit: BoxFit.cover,
           placeholderBuilder: (context) => _buildFallback(colors, typography),
+          errorBuilder: (context, error, stackTrace) => _buildFallback(colors, typography),
         ),
       );
     } else {
