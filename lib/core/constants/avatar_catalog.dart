@@ -91,11 +91,26 @@ class AvatarCatalog {
       s = s.replaceAll('.svg', '');
     }
 
+    // Exact mapping for female avatar files stored in the male subfolder
+    const femaleInMaleFolder = {
+      'female_1',
+      'female_10',
+      'female_15',
+      'female_18',
+      'female_4_new',
+      'female_7_new',
+      'female_8',
+      'female_8_new',
+    };
+
     // Direct seed matching male_* or female_*
-    if (s.startsWith('male_')) {
-      return 'assets/avatars/male/avatar_$s.svg';
-    } else if (s.startsWith('female_')) {
+    if (s.startsWith('female_')) {
+      if (femaleInMaleFolder.contains(s)) {
+        return 'assets/avatars/male/avatar_$s.svg';
+      }
       return 'assets/avatars/female/avatar_$s.svg';
+    } else if (s.startsWith('male_')) {
+      return 'assets/avatars/male/avatar_$s.svg';
     }
 
     // Numeric seeds e.g. "1_new", "5", etc.
