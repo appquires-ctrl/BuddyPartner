@@ -304,10 +304,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                       IconButton(
                         icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 28),
                         onPressed: () {
-                          // Minimize — just pop the overlay, call continues
-                          if (Navigator.of(context).canPop()) {
-                            context.pop();
-                          }
+                          _showLeaveCallConfirmationDialog(context, controller);
                         },
                       ),
                       // Countdown timer badge pill
@@ -667,9 +664,13 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
             ),
           ),
         ),
-      ],
-    ),
+      );
+    },
   ),
+),
+],
+),
+),
 );
 }
 
