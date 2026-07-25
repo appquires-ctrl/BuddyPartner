@@ -25,6 +25,18 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
     super.initState();
   }
 
+  @override
+  void dispose() {
+    // Safety Net: If the page is disposed while still in an active call,
+    // automatically trigger controller.endCall() to disconnect audio/video and socket.
+    final matchState = ref.read(matchmakingControllerProvider);
+    if (matchState.phase == MatchmakingPhase.inCall ||
+        matchState.phase == MatchmakingPhase.matched) {
+      ref.read(matchmakingControllerProvider.notifier).endCall();
+    }
+    super.dispose();
+  }
+
   String _formatCountdown(int totalSeconds) {
     final minutes = totalSeconds ~/ 60;
     final seconds = totalSeconds % 60;
@@ -66,10 +78,16 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
     final displayName = matchedUser?.fullName ?? 'User';
     final initials = _getInitials(displayName);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F0C22), // Solid dark purple-blue background
-      body: Stack(
-        children: [
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        _showLeaveCallConfirmationDialog(context, controller);
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0F0C22), // Solid dark purple-blue background
+        body: Stack(
+          children: [
           // Background - either remote video view or concentric circles
           if (matchState.isVideoEnabled)
             Positioned.fill(
@@ -649,13 +667,111 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
             ),
           ),
         ),
-      );
-    },
-  ),
-),
-        ],
       ),
     );
+  }
+
+  Future<void> _showLeaveCallConfirmationDialog(
+    BuildContext context,
+    MatchmakingController controller,
+  ) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E1A3A),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: Border.all(
+              color: Colors.white.withValues(alpha: 0.12),
+              width: 1,
+            ),
+          ),
+          icon: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEF5350).withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.warning_amber_rounded,
+              color: Color(0xFFEF5350),
+              size: 32,
+            ),
+          ),
+          title: const Text(
+            'Leave Call?',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: const Text(
+            'Are you sure you want to leave this screen? Leaving will automatically end your call.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFFA19EBB),
+              fontSize: 14.5,
+              height: 1.4,
+            ),
+          ),
+          actionsAlignment: MainAxisAlignment.spaceEvenly,
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          actions: [
+            // Button 1: Stay on Call (Cancel)
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                side: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: const Text(
+                'Stay on Call',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            // Button 2: End Call & Exit (Confirm)
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFEF5350),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
+              child: const Text(
+                'End Call & Exit',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == true) {
+      await controller.endCall();
+    }
   }
 
   String _getInitials(String name) {
