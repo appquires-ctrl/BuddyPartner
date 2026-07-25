@@ -667,9 +667,11 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
             ),
           ),
         ),
-      ),
-    );
-  }
+      ],
+    ),
+  ),
+);
+}
 
   Future<void> _showLeaveCallConfirmationDialog(
     BuildContext context,
