@@ -189,7 +189,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   }
 
   /// Step 1 UI: Profile details
-  Widget _buildStep1ProfileDetails(dynamic colors, dynamic typography, dynamic authState) {
+  Widget _buildStep1ProfileDetails(dynamic colors, dynamic typography, AsyncValue<void> authState) {
     return Form(
       key: _formKey,
       child: Column(
@@ -241,7 +241,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
           const SizedBox(height: AppSpacing.space24),
 
           // Error message banner
-          if (authState.hasError) ...[
+          if (authState is AsyncError) ...[
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(AppSpacing.space12),
@@ -257,7 +257,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      AuthErrorMapper.mapMessage(authState.error!),
+                      AuthErrorMapper.mapMessage((authState as AsyncError).error),
                       style: typography.bodySmall.copyWith(
                         color: const Color(0xFFEF4444),
                         fontWeight: FontWeight.w500,
@@ -520,7 +520,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   }
 
   /// Step 2 UI: Dedicated Avatar Picker Page
-  Widget _buildStep2AvatarPicker(dynamic colors, dynamic typography, dynamic authState) {
+  Widget _buildStep2AvatarPicker(dynamic colors, dynamic typography, AsyncValue<void> authState) {
     final availableSeeds = AvatarCatalog.getSeedsForGender(_selectedGender);
 
     return Column(

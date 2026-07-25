@@ -300,7 +300,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 const SizedBox(height: 32),
 
                 // Error Message Banner
-                if (authState.hasError) ...[
+                if (authState is AsyncError) ...[
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(AppSpacing.space12),
@@ -316,7 +316,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            AuthErrorMapper.mapMessage(authState.error!),
+                            AuthErrorMapper.mapMessage((authState as AsyncError).error),
                             style: typography.bodySmall.copyWith(
                               color: const Color(0xFFEF4444),
                               fontWeight: FontWeight.w500,
