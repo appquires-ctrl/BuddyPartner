@@ -308,7 +308,6 @@ class AccountPage extends ConsumerWidget {
     }
     String selectedLanguage = profile?.language ?? 'English';
     String? selectedAvatarSeed = profile?.avatarSeed ?? AvatarCatalog.getSeedsForGender(selectedGender).first;
-    final List<String> genders = ['Male', 'Female', 'Other'];
     final List<String> languages = ['English', 'Hindi', 'Spanish', 'French', 'Arabic', 'Portuguese'];
     if (!languages.contains(selectedLanguage)) {
       languages.add(selectedLanguage);
