@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
@@ -85,9 +86,7 @@ class HelpPage extends StatelessWidget {
                       title: 'Contact Us',
                       subtitle: 'Get in touch with our support team',
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Contact support clicked')),
-                        );
+                        _showContactUsModal(context);
                       },
                     ),
                     _buildDivider(context),
@@ -99,9 +98,7 @@ class HelpPage extends StatelessWidget {
                       title: 'Report a Bug',
                       subtitle: 'Help us improve the app',
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Report a bug clicked')),
-                        );
+                        _showReportBugModal(context);
                       },
                     ),
                   ],
@@ -113,7 +110,7 @@ class HelpPage extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(left: 4, bottom: 8),
                 child: Text(
-                  'LEGAL',
+                  'LEGAL & POLICIES',
                   style: TextStyle(
                     color: colors.textSecondary,
                     fontSize: 11,
@@ -132,15 +129,37 @@ class HelpPage extends StatelessWidget {
                   children: [
                     _buildHelpTile(
                       context,
+                      icon: Icons.description_outlined,
+                      iconBgColor: const Color(0xFFEAF5FF),
+                      iconColor: const Color(0xFF3B82F6),
+                      title: 'Terms of Service',
+                      subtitle: 'User agreement, eligibility & rules',
+                      onTap: () {
+                        context.push(RouteNames.termsOfService);
+                      },
+                    ),
+                    _buildDivider(context),
+                    _buildHelpTile(
+                      context,
                       icon: Icons.shield_outlined,
                       iconBgColor: const Color(0xFFE8F8F0),
                       iconColor: const Color(0xFF22C55E),
                       title: 'Privacy Policy',
-                      subtitle: 'How we handle your data',
+                      subtitle: 'Data collection & privacy protection',
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Privacy Policy clicked')),
-                        );
+                        context.push(RouteNames.privacyPolicy);
+                      },
+                    ),
+                    _buildDivider(context),
+                    _buildHelpTile(
+                      context,
+                      icon: Icons.groups_outlined,
+                      iconBgColor: const Color(0xFFEFEAFF),
+                      iconColor: const Color(0xFF6B4EFF),
+                      title: 'Community Guidelines',
+                      subtitle: 'Conduct, safety & moderation rules',
+                      onTap: () {
+                        context.push(RouteNames.communityGuidelines);
                       },
                     ),
                     _buildDivider(context),
@@ -149,26 +168,22 @@ class HelpPage extends StatelessWidget {
                       icon: Icons.credit_card_outlined,
                       iconBgColor: const Color(0xFFFFF7EA),
                       iconColor: const Color(0xFFF59E0B),
-                      title: 'Payment Policy',
-                      subtitle: 'Billing, refunds, and coin usage',
+                      title: 'Refund Policy',
+                      subtitle: 'Coin recharge billing & store refunds',
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Payment Policy clicked')),
-                        );
+                        context.push(RouteNames.refundPolicy);
                       },
                     ),
                     _buildDivider(context),
                     _buildHelpTile(
                       context,
-                      icon: Icons.description_outlined,
-                      iconBgColor: const Color(0xFFEAF5FF),
-                      iconColor: const Color(0xFF3B82F6),
-                      title: 'Terms & Conditions',
-                      subtitle: 'Rules and guidelines',
+                      icon: Icons.account_balance_wallet_outlined,
+                      iconBgColor: const Color(0xFFFFEAF2),
+                      iconColor: const Color(0xFFEC4899),
+                      title: 'Withdrawal Terms',
+                      subtitle: 'Rose conversions & host payouts',
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Terms & Conditions clicked')),
-                        );
+                        context.push(RouteNames.withdrawalTerms);
                       },
                     ),
                   ],
@@ -270,4 +285,204 @@ class HelpPage extends StatelessWidget {
       onTap: onTap,
     );
   }
+
+  void _showContactUsModal(BuildContext context) {
+    final colors = context.colors;
+    final typography = context.typography;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEFEAFF),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.mail_outline, color: Color(0xFF6B4EFF), size: 24),
+                  ),
+                  const SizedBox(width: 14),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Contact Support',
+                        style: typography.titleCard.copyWith(fontWeight: FontWeight.bold, fontSize: 18),
+                      ),
+                      Text(
+                        'We are here to help 24/7',
+                        style: typography.bodySmall.copyWith(color: colors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: AppRadius.md,
+                  border: Border.all(color: colors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Official Support Email:', style: typography.bodySmall.copyWith(color: colors.textSecondary)),
+                    const SizedBox(height: 4),
+                    Text('[Contact Email]', style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold, color: colors.primary)),
+                    const SizedBox(height: 12),
+                    Text('Registered Business Entity:', style: typography.bodySmall.copyWith(color: colors.textSecondary)),
+                    const SizedBox(height: 4),
+                    Text('[Company Legal Name]', style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showReportBugModal(BuildContext context) {
+    final colors = context.colors;
+    final typography = context.typography;
+    final controller = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: colors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFFEAEA),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.bug_report_outlined, color: Color(0xFFEF4444), size: 24),
+                  ),
+                  const SizedBox(width: 14),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Report an Issue',
+                        style: typography.titleCard.copyWith(fontWeight: FontWeight.bold, fontSize: 18),
+                      ),
+                      Text(
+                        'Help us resolve glitches quickly',
+                        style: typography.bodySmall.copyWith(color: colors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                maxLines: 4,
+                style: typography.bodyMedium,
+                decoration: InputDecoration(
+                  hintText: 'Describe the bug or issue you encountered...',
+                  hintStyle: typography.bodySmall.copyWith(color: colors.textSecondary.withOpacity(0.6)),
+                  filled: true,
+                  fillColor: colors.surface,
+                  border: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: colors.border)),
+                  enabledBorder: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: colors.border)),
+                  focusedBorder: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: colors.primary, width: 1.5)),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Thank you! Your bug report has been submitted.')),
+                    );
+                  },
+                  child: const Text('Submit Report', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
+

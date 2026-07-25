@@ -141,6 +141,8 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
     required DateTime dob,
     required String gender,
     required String language,
+    String? avatarSeed,
+    String? avatarStyle,
   }) async {
     state = const AsyncLoading();
     final apiClient = ref.read(apiClientProvider);
@@ -153,6 +155,8 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
           'dob': dob.toIso8601String(),
           'gender': gender,
           'language': language,
+          'avatarSeed': avatarSeed,
+          'avatarStyle': avatarStyle ?? 'avataaars',
         },
       );
       
@@ -170,6 +174,8 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
             phoneNumber: userMap['phoneNumber'] as String,
             isProfileComplete: true,
             gender: userMap['gender'] as String? ?? 'Male',
+            avatarSeed: userMap['avatarSeed'] as String?,
+            avatarStyle: userMap['avatarStyle'] as String? ?? 'avataaars',
           ),
         );
       }

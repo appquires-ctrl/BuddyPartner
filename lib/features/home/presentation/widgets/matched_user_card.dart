@@ -66,6 +66,9 @@ class _MatchedUserCardState extends ConsumerState<MatchedUserCard> {
             // Avatar with initials
             GradientAvatar(
               initials: initials,
+              avatarSeed: widget.user.avatarSeed,
+              avatarStyle: widget.user.avatarStyle,
+              gender: widget.user.gender,
               radius: avatarSize / 2,
               showStatus: true,
               isOnline: widget.user.isOnline,

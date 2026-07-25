@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dating_app/features/auth/application/auth_controller.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/core/widgets/gradient_avatar.dart';
+import 'package:dating_app/core/constants/avatar_catalog.dart';
+import 'package:dating_app/core/widgets/app_avatar.dart';
 
 /// AccountPage renders the profile details page.
 /// Displays user information dynamically loaded from Supabase profile state.
@@ -80,6 +83,9 @@ class AccountPage extends ConsumerWidget {
 
               GradientAvatar(
                 initials: initials,
+                avatarSeed: profile?.avatarSeed,
+                avatarStyle: profile?.avatarStyle,
+                gender: profile?.gender,
                 radius: 60,
               ),
               const SizedBox(height: AppSpacing.space16),
@@ -103,12 +109,10 @@ class AccountPage extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.space16),
 
-              // Edit Profile Button (Placeholder)
+              // Edit Profile Button
               GestureDetector(
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Edit Profile tapped')),
-                  );
+                  _showEditProfileModal(context, ref, profile);
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -283,6 +287,260 @@ class AccountPage extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _showEditProfileModal(BuildContext context, WidgetRef ref, dynamic profile) {
+    final colors = context.colors;
+    final typography = context.typography;
+
+    final nameController = TextEditingController(text: profile?.fullName ?? '');
+    DateTime selectedDob = profile?.dob ?? DateTime.now().subtract(const Duration(days: 365 * 20));
+    String selectedGender = profile?.gender ?? 'Male';
+    if (!['Male', 'Female', 'Other'].contains(selectedGender)) {
+      if (selectedGender.toLowerCase() == 'male') {
+        selectedGender = 'Male';
+      } else if (selectedGender.toLowerCase() == 'female') {
+        selectedGender = 'Female';
+      } else {
+        selectedGender = 'Other';
+      }
+    }
+    String selectedLanguage = profile?.language ?? 'English';
+    String? selectedAvatarSeed = profile?.avatarSeed ?? AvatarCatalog.getSeedsForGender(selectedGender).first;
+    final List<String> genders = ['Male', 'Female', 'Other'];
+    final List<String> languages = ['English', 'Hindi', 'Spanish', 'French', 'Arabic', 'Portuguese'];
+    if (!languages.contains(selectedLanguage)) {
+      languages.add(selectedLanguage);
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: colors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: colors.border,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Edit Profile',
+                      style: typography.titleCard.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Update your personal information',
+                      style: typography.bodySmall.copyWith(color: colors.textSecondary),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Full Name
+                    Text('Full Name', style: typography.bodySmall.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: nameController,
+                      style: typography.bodyMedium,
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.person_outline, size: 20),
+                        filled: true,
+                        fillColor: colors.surface,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        border: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: colors.border)),
+                        enabledBorder: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: colors.border)),
+                        focusedBorder: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: colors.primary, width: 1.5)),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Date of Birth
+                    Text('Date of Birth', style: typography.bodySmall.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    InkWell(
+                      onTap: () async {
+                        final now = DateTime.now();
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDob,
+                          firstDate: DateTime(now.year - 100),
+                          lastDate: DateTime(now.year - 18),
+                        );
+                        if (picked != null) {
+                          setModalState(() => selectedDob = picked);
+                        }
+                      },
+                      borderRadius: AppRadius.md,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: AppRadius.md,
+                          border: Border.all(color: colors.border),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.calendar_today_outlined, size: 20, color: colors.textSecondary),
+                            const SizedBox(width: 12),
+                            Text(
+                              '${selectedDob.day}/${selectedDob.month}/${selectedDob.year}',
+                              style: typography.bodyMedium.copyWith(color: colors.textPrimary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Gender
+                    Text('Gender', style: typography.bodySmall.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedGender,
+                      style: typography.bodyMedium.copyWith(color: colors.textPrimary),
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.transgender_outlined, size: 20),
+                        filled: true,
+                        fillColor: colors.surface,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        border: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: colors.border)),
+                        enabledBorder: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: colors.border)),
+                      ),
+                      items: genders.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+                      onChanged: (val) {
+                        if (val != null) setModalState(() => selectedGender = val);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Language
+                    Text('Language', style: typography.bodySmall.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedLanguage,
+                      style: typography.bodyMedium.copyWith(color: colors.textPrimary),
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.language_outlined, size: 20),
+                        filled: true,
+                        fillColor: colors.surface,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        border: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: colors.border)),
+                        enabledBorder: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: colors.border)),
+                      ),
+                      items: languages.map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
+                      onChanged: (val) {
+                        if (val != null) setModalState(() => selectedLanguage = val);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Avatar Selection Grid
+                    Text('Choose Profile Avatar', style: typography.bodySmall.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
+                        childAspectRatio: 1.0,
+                      ),
+                      itemCount: AvatarCatalog.getSeedsForGender(selectedGender).length,
+                      itemBuilder: (context, index) {
+                        final seed = AvatarCatalog.getSeedsForGender(selectedGender)[index];
+                        final isSelected = seed == selectedAvatarSeed;
+                        return AppAvatar(
+                          avatarSeed: seed,
+                          gender: selectedGender,
+                          radius: 26,
+                          isSelected: isSelected,
+                          onTap: () {
+                            setModalState(() {
+                              selectedAvatarSeed = seed;
+                            });
+                          },
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Save Changes button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        onPressed: () async {
+                          final nameText = nameController.text.trim();
+                          if (nameText.isEmpty || nameText.length < 3) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Please enter a valid full name (at least 3 characters)')),
+                            );
+                            return;
+                          }
+
+                          Navigator.pop(context);
+                          final success = await ref.read(authControllerProvider.notifier).completeProfile(
+                                fullName: nameText,
+                                dob: selectedDob,
+                                gender: selectedGender,
+                                language: selectedLanguage,
+                                avatarSeed: selectedAvatarSeed,
+                                avatarStyle: 'avataaars',
+                              );
+
+                          if (context.mounted) {
+                            if (success) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Profile updated successfully!')),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Failed to update profile. Please try again.')),
+                              );
+                            }
+                          }
+                        },
+                        child: const Text('Save Changes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

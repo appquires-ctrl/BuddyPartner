@@ -11,6 +11,8 @@ import 'matchmaking_state.dart';
 import 'package:dating_app/features/call/application/call_summary_provider.dart';
 import 'package:dating_app/features/recharge/presentation/providers/recharge_providers.dart';
 import 'package:dating_app/features/withdraw/application/rose_providers.dart';
+import 'package:dating_app/features/home/presentation/providers/matched_users_provider.dart';
+import 'package:dating_app/features/history/data/call_history_provider.dart';
 
 /// MatchmakingController manages the full matchmaking lifecycle:
 ///   idle → queued → matched → inCall → ended → idle
@@ -23,6 +25,7 @@ class MatchmakingController extends Notifier<MatchmakingState> {
   String? _agoraAppId;
 
   Timer? _callingTimeoutTimer;
+  Timer? _videoUpgradeTimer;
 
   /// Tracks a pending direct-call target so we can re-emit the event
   /// if the socket wasn't connected when `callUser()` was called.
@@ -287,9 +290,11 @@ class MatchmakingController extends Notifier<MatchmakingState> {
       clearMatchedUser: true,
     );
 
-    // Refresh balance providers from server so UI shows updated coins/roses
+    // Refresh balance & matched users providers from server
     ref.invalidate(walletBalanceProvider);
     ref.invalidate(roseBalanceProvider);
+    ref.invalidate(matchedUsersProvider);
+    ref.invalidate(callHistoryProvider);
 
     // Brief delay before resetting to idle so the UI can react to `ended`
     await Future.delayed(const Duration(milliseconds: 300));
@@ -325,7 +330,7 @@ class MatchmakingController extends Notifier<MatchmakingState> {
   /// Request video upgrade for the current call.
   Future<void> upgradeToVideo() async {
     if (state.phase != MatchmakingPhase.inCall) return;
-    if (state.isVideoEnabled) return; // Already in video mode
+    if (state.isVideoEnabled || state.isVideoRequestOutgoing) return;
 
     bool cameraGranted = await Permission.camera.isGranted;
     if (!cameraGranted) {
@@ -336,8 +341,64 @@ class MatchmakingController extends Notifier<MatchmakingState> {
       return;
     }
 
+    _videoUpgradeTimer?.cancel();
+    state = state.copyWith(isVideoRequestOutgoing: true);
+
+    // 20-second timeout for response from target user
+    _videoUpgradeTimer = Timer(const Duration(seconds: 20), () {
+      if (state.isVideoRequestOutgoing) {
+        state = state.copyWith(
+          isVideoRequestOutgoing: false,
+          errorMessage: "Video call request wasn't accepted.",
+        );
+      }
+    });
+
     _socket?.emit('upgrade_to_video', {'callId': state.callId});
+  }
+
+  /// Accept incoming video call upgrade request.
+  Future<void> acceptVideoUpgrade() async {
+    _videoUpgradeTimer?.cancel();
+    _videoUpgradeTimer = null;
+
+    final callId = state.callId;
+    if (callId == null) {
+      state = state.copyWith(isVideoRequestIncoming: false);
+      return;
+    }
+
+    bool cameraGranted = await Permission.camera.isGranted;
+    if (!cameraGranted) {
+      cameraGranted = await Permission.camera.request().isGranted;
+    }
+    if (!cameraGranted) {
+      declineVideoUpgrade();
+      state = state.copyWith(errorMessage: 'Camera permission denied to switch to video.');
+      return;
+    }
+
+    _socket?.emit('video_upgrade_accepted', {'callId': callId});
     await _enableVideo();
+    state = state.copyWith(
+      isVideoRequestIncoming: false,
+      isVideoEnabled: true,
+    );
+  }
+
+  /// Decline incoming video call upgrade request.
+  void declineVideoUpgrade() {
+    _videoUpgradeTimer?.cancel();
+    _videoUpgradeTimer = null;
+
+    final callId = state.callId;
+    if (callId != null) {
+      _socket?.emit('video_upgrade_declined', {'callId': callId});
+    }
+
+    state = state.copyWith(
+      isVideoRequestIncoming: false,
+    );
   }
 
   // ── Socket.io listeners ─────────────────────────────────────────────────
@@ -367,6 +428,7 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     socket.on('call_ended', _onCallEnded);
     socket.on('video_upgrade_request', _onVideoUpgradeRequest);
     socket.on('video_upgrade_accepted', _onVideoUpgradeAccepted);
+    socket.on('video_upgrade_declined', _onVideoUpgradeDeclined);
     socket.on('match_error', _onMatchError);
     socket.on('balance_update', _onBalanceUpdate);
     socket.on('rose_update', _onRoseUpdate);
@@ -471,25 +533,56 @@ class MatchmakingController extends Notifier<MatchmakingState> {
       errorMessage: errorMessage,
     );
 
-    // Refresh wallet balance from server so UI shows updated coins
+    // Refresh wallet balance and matched users from server
     ref.invalidate(walletBalanceProvider);
+    ref.invalidate(matchedUsersProvider);
+    ref.invalidate(callHistoryProvider);
 
     await Future.delayed(const Duration(milliseconds: 300));
     state = state.reset();
   }
 
-  Future<void> _onVideoUpgradeRequest(dynamic data) async {
-    // Phase 1: auto-accept video upgrade requests
-    final callId = state.callId;
-    if (callId == null) return;
+  void _onVideoUpgradeRequest(dynamic data) {
+    if (state.phase != MatchmakingPhase.inCall || state.isVideoEnabled) return;
 
-    _socket?.emit('video_upgrade_accepted', {'callId': callId});
-    await _enableVideo();
+    String senderName = state.matchedUser?.fullName ?? 'User';
+    if (data is Map && data['requesterName'] != null) {
+      senderName = data['requesterName'].toString();
+    }
+
+    _videoUpgradeTimer?.cancel();
+    state = state.copyWith(
+      isVideoRequestIncoming: true,
+      videoRequestSenderName: senderName,
+    );
+
+    // 20-second timeout to respond before auto-declining
+    _videoUpgradeTimer = Timer(const Duration(seconds: 20), () {
+      if (state.isVideoRequestIncoming) {
+        declineVideoUpgrade();
+      }
+    });
   }
 
   Future<void> _onVideoUpgradeAccepted(dynamic data) async {
-    // The other party accepted our video request — enable video on our side too
+    _videoUpgradeTimer?.cancel();
+    _videoUpgradeTimer = null;
+
     await _enableVideo();
+    state = state.copyWith(
+      isVideoRequestOutgoing: false,
+      isVideoEnabled: true,
+    );
+  }
+
+  void _onVideoUpgradeDeclined(dynamic data) {
+    _videoUpgradeTimer?.cancel();
+    _videoUpgradeTimer = null;
+
+    state = state.copyWith(
+      isVideoRequestOutgoing: false,
+      errorMessage: 'Video call request was declined.',
+    );
   }
 
   void _onMatchError(dynamic data) {
@@ -618,8 +711,10 @@ class MatchmakingController extends Notifier<MatchmakingState> {
     _stopCountdown();
     state = state.copyWith(phase: MatchmakingPhase.ended);
 
-    // Refresh wallet balance from server so UI shows updated coins
+    // Refresh wallet balance and matched users from server
     ref.invalidate(walletBalanceProvider);
+    ref.invalidate(matchedUsersProvider);
+    ref.invalidate(callHistoryProvider);
 
     await Future.delayed(const Duration(milliseconds: 300));
     state = state.reset();
@@ -750,6 +845,8 @@ class MatchmakingController extends Notifier<MatchmakingState> {
   void _cleanup() {
     _callingTimeoutTimer?.cancel();
     _callingTimeoutTimer = null;
+    _videoUpgradeTimer?.cancel();
+    _videoUpgradeTimer = null;
     _stopCountdown();
     _leaveAgoraChannel();
     _listenersRegistered = false;

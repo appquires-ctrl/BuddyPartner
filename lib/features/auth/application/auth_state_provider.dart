@@ -7,12 +7,16 @@ class CustomUser {
   final String phoneNumber;
   final bool isProfileComplete;
   final String gender;
+  final String? avatarSeed;
+  final String? avatarStyle;
 
   CustomUser({
     required this.id,
     required this.phoneNumber,
     required this.isProfileComplete,
     required this.gender,
+    this.avatarSeed,
+    this.avatarStyle,
   });
 
   /// Convenience getters for gender-based routing
@@ -42,6 +46,8 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
           phoneNumber: userMap['phoneNumber'] as String,
           isProfileComplete: fullName.trim().isNotEmpty,
           gender: gender,
+          avatarSeed: userMap['avatarSeed'] as String?,
+          avatarStyle: userMap['avatarStyle'] as String? ?? 'avataaars',
         );
       }
     } catch (e) {
@@ -79,6 +85,8 @@ class UserProfile {
   final DateTime dob;
   final String gender;
   final String language;
+  final String? avatarSeed;
+  final String? avatarStyle;
 
   UserProfile({
     required this.id,
@@ -86,6 +94,8 @@ class UserProfile {
     required this.dob,
     required this.gender,
     required this.language,
+    this.avatarSeed,
+    this.avatarStyle,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -95,6 +105,8 @@ class UserProfile {
       dob: DateTime.tryParse(json['dob'] as String? ?? '') ?? DateTime.now(),
       gender: json['gender'] as String? ?? 'Other',
       language: json['language'] as String? ?? 'English',
+      avatarSeed: json['avatarSeed'] as String?,
+      avatarStyle: json['avatarStyle'] as String? ?? 'avataaars',
     );
   }
 }

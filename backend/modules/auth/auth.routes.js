@@ -313,7 +313,7 @@ router.post('/firebase-login', async (req, res) => {
  */
 router.post('/profile', authMiddleware, async (req, res) => {
   const userId = req.user.id;
-  const { fullName, dob, gender, language } = req.body;
+  const { fullName, dob, gender, language, avatarSeed, avatarStyle } = req.body;
 
   if (!fullName) {
     return res.status(400).json({ error: 'Full name is required to complete profile.' });
@@ -321,8 +321,8 @@ router.post('/profile', authMiddleware, async (req, res) => {
 
   try {
     await db.query(
-      'UPDATE public.users SET full_name = $1, dob = $2, gender = $3, language = $4 WHERE id = $5',
-      [fullName, dob || null, gender || null, language || null, userId]
+      'UPDATE public.users SET full_name = $1, dob = $2, gender = $3, language = $4, avatar_seed = $5, avatar_style = $6 WHERE id = $7',
+      [fullName, dob || null, gender || null, language || null, avatarSeed || null, avatarStyle || 'avataaars', userId]
     );
 
     res.json({ success: true, message: 'Profile updated successfully.' });
@@ -341,7 +341,7 @@ router.get('/me', authMiddleware, async (req, res) => {
 
   try {
     const result = await db.query(
-      `SELECT u.id, u.phone_number, u.full_name, u.dob, u.gender, u.language, w.balance 
+      `SELECT u.id, u.phone_number, u.full_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, w.balance 
        FROM public.users u
        LEFT JOIN public.wallets w ON w.user_id = u.id
        WHERE u.id = $1`,
@@ -362,6 +362,8 @@ router.get('/me', authMiddleware, async (req, res) => {
         dob: userRow.dob || null,
         gender: userRow.gender || '',
         language: userRow.language || '',
+        avatarSeed: userRow.avatar_seed || null,
+        avatarStyle: userRow.avatar_style || 'avataaars',
         walletBalance: userRow.balance || 0,
       },
     });

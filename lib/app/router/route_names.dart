@@ -21,5 +21,13 @@ class RouteNames {
   static const String withdraw = '/withdraw';
   static const String femaleHome = '/female-home';
 
+  // Legal routes
+  static const String termsOfService = '/legal/terms';
+  static const String privacyPolicy = '/legal/privacy';
+  static const String communityGuidelines = '/legal/community-guidelines';
+  static const String refundPolicy = '/legal/refund-policy';
+  static const String withdrawalTerms = '/legal/withdrawal-terms';
+
   RouteNames._();
 }
+

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
-import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/features/chat/application/conversations_provider.dart';
 import 'package:dating_app/features/chat/domain/conversation.dart';
@@ -329,6 +328,8 @@ class _ConversationCard extends ConsumerWidget {
                     // Avatar with initials and status dot
                     GradientAvatar(
                       initials: initials,
+                      avatarSeed: conversation.otherUserAvatarSeed,
+                      avatarStyle: conversation.otherUserAvatarStyle,
                       radius: 26,
                       showStatus: true,
                       isOnline: true,

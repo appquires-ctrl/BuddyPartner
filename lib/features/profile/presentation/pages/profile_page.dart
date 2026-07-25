@@ -77,6 +77,9 @@ class ProfilePage extends ConsumerWidget {
                     children: [
                       GradientAvatar(
                         initials: initials,
+                        avatarSeed: profile?.avatarSeed,
+                        avatarStyle: profile?.avatarStyle,
+                        gender: profile?.gender,
                         radius: 32,
                       ),
                       const SizedBox(width: AppSpacing.space16),
@@ -241,11 +244,62 @@ class ProfilePage extends ConsumerWidget {
                   icon: Icons.help_outline,
                   iconBgColor: const Color(0xFFFFF7EA),
                   iconColor: const Color(0xFFF59E0B),
-                  title: 'Help & Support',
-                  subtitle: 'Help center, contact us',
+                  title: 'Help & Legal Center',
+                  subtitle: 'Help center, policies & legal terms',
                   onTap: () {
                     context.push(RouteNames.help);
                   },
+                ),
+              ),
+              const SizedBox(height: AppSpacing.space20),
+
+              // LEGAL section title
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 8),
+                child: Text(
+                  'LEGAL',
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+
+              // Legal Options container
+              Container(
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: AppRadius.lg,
+                  border: Border.all(color: colors.border),
+                ),
+                child: Column(
+                  children: [
+                    _buildSettingsTile(
+                      context,
+                      icon: Icons.gavel_outlined,
+                      iconBgColor: const Color(0xFFEAF5FF),
+                      iconColor: const Color(0xFF3B82F6),
+                      title: 'Terms of Service',
+                      subtitle: 'User agreement & conditions',
+                      onTap: () {
+                        context.push(RouteNames.termsOfService);
+                      },
+                    ),
+                    _buildDivider(context),
+                    _buildSettingsTile(
+                      context,
+                      icon: Icons.shield_outlined,
+                      iconBgColor: const Color(0xFFE8F8F0),
+                      iconColor: const Color(0xFF22C55E),
+                      title: 'Privacy Policy',
+                      subtitle: 'Data usage & privacy rights',
+                      onTap: () {
+                        context.push(RouteNames.privacyPolicy);
+                      },
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: AppSpacing.space20),

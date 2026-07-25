@@ -27,11 +27,17 @@ class MatchedUserInfo {
   final String id;
   final String fullName;
   final String? avatarUrl;
+  final String? avatarSeed;
+  final String? avatarStyle;
+  final String? gender;
 
   const MatchedUserInfo({
     required this.id,
     required this.fullName,
     this.avatarUrl,
+    this.avatarSeed,
+    this.avatarStyle,
+    this.gender,
   });
 
   factory MatchedUserInfo.fromJson(Map<String, dynamic> json) {
@@ -39,6 +45,9 @@ class MatchedUserInfo {
       id: json['id'] as String? ?? '',
       fullName: (json['fullName'] ?? json['full_name']) as String? ?? 'User',
       avatarUrl: (json['avatarUrl'] ?? json['avatar_url']) as String?,
+      avatarSeed: (json['avatarSeed'] ?? json['avatar_seed']) as String?,
+      avatarStyle: (json['avatarStyle'] ?? json['avatar_style']) as String? ?? 'avataaars',
+      gender: json['gender'] as String?,
     );
   }
 }
@@ -62,6 +71,11 @@ class MatchmakingState {
   final bool isSpeakerOn;
   final String? errorMessage;
 
+  /// Video upgrade request state flags
+  final bool isVideoRequestOutgoing;
+  final bool isVideoRequestIncoming;
+  final String? videoRequestSenderName;
+
   /// Roses earned during this call (for female users)
   final int rosesEarnedThisCall;
 
@@ -78,6 +92,9 @@ class MatchmakingState {
     this.isMuted = false,
     this.isSpeakerOn = false,
     this.errorMessage,
+    this.isVideoRequestOutgoing = false,
+    this.isVideoRequestIncoming = false,
+    this.videoRequestSenderName,
     this.rosesEarnedThisCall = 0,
   });
 
@@ -96,6 +113,10 @@ class MatchmakingState {
     bool? isMuted,
     bool? isSpeakerOn,
     String? errorMessage,
+    bool? isVideoRequestOutgoing,
+    bool? isVideoRequestIncoming,
+    String? videoRequestSenderName,
+    bool clearVideoRequestSenderName = false,
     int? rosesEarnedThisCall,
   }) {
     return MatchmakingState(
@@ -111,6 +132,11 @@ class MatchmakingState {
       isMuted: isMuted ?? this.isMuted,
       isSpeakerOn: isSpeakerOn ?? this.isSpeakerOn,
       errorMessage: errorMessage,
+      isVideoRequestOutgoing: isVideoRequestOutgoing ?? this.isVideoRequestOutgoing,
+      isVideoRequestIncoming: isVideoRequestIncoming ?? this.isVideoRequestIncoming,
+      videoRequestSenderName: clearVideoRequestSenderName
+          ? null
+          : (videoRequestSenderName ?? this.videoRequestSenderName),
       rosesEarnedThisCall: rosesEarnedThisCall ?? this.rosesEarnedThisCall,
     );
   }

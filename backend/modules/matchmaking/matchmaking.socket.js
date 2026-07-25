@@ -159,22 +159,26 @@ function registerMatchmakingHandlers(io, socket, redis) {
         return;
       }
 
-      await callsService.upgradeToVideo(callId);
+      const requesterProfile = await fetchPublicProfile(userId);
 
-      // Determine the other user's socket and relay the upgrade
+      // Determine the other user's socket and relay the upgrade request
       const otherSocketId = callInfo.userA.userId === userId
         ? callInfo.userB.socketId
         : callInfo.userA.socketId;
 
-      io.to(otherSocketId).emit('video_upgrade_request', { callId });
-      console.log(`📹 User ${userId} requested video upgrade for call ${callId}`);
+      io.to(otherSocketId).emit('video_upgrade_request', {
+        callId,
+        requesterId: userId,
+        requesterName: requesterProfile.fullName || 'User',
+      });
+      console.log(`📹 User ${userId} (${requesterProfile.fullName}) requested video upgrade for call ${callId}`);
     } catch (err) {
       console.error('Error in upgrade_to_video:', err);
     }
   });
 
   // ── video_upgrade_accepted ────────────────────────────────────────────
-  socket.on('video_upgrade_accepted', ({ callId }) => {
+  socket.on('video_upgrade_accepted', async ({ callId }) => {
     try {
       const callInfo = activeCalls.get(callId);
       if (!callInfo) return;
@@ -185,6 +189,8 @@ function registerMatchmakingHandlers(io, socket, redis) {
         return;
       }
 
+      await callsService.upgradeToVideo(callId);
+
       // Relay acceptance to the other party
       const otherSocketId = callInfo.userA.userId === userId
         ? callInfo.userB.socketId
@@ -194,6 +200,30 @@ function registerMatchmakingHandlers(io, socket, redis) {
       console.log(`✅ User ${userId} accepted video upgrade for call ${callId}`);
     } catch (err) {
       console.error('Error in video_upgrade_accepted:', err);
+    }
+  });
+
+  // ── video_upgrade_declined ────────────────────────────────────────────
+  socket.on('video_upgrade_declined', ({ callId }) => {
+    try {
+      const callInfo = activeCalls.get(callId);
+      if (!callInfo) return;
+
+      // Security Check: Authorize sender participant
+      if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) {
+        console.warn(`⚠️ Unauthorized attempt to decline video upgrade by ${userId}`);
+        return;
+      }
+
+      // Relay declination to the other party
+      const otherSocketId = callInfo.userA.userId === userId
+        ? callInfo.userB.socketId
+        : callInfo.userA.socketId;
+
+      io.to(otherSocketId).emit('video_upgrade_declined', { callId });
+      console.log(`❌ User ${userId} declined video upgrade for call ${callId}`);
+    } catch (err) {
+      console.error('Error in video_upgrade_declined:', err);
     }
   });
 
@@ -659,12 +689,12 @@ async function handleCallEnd(callId, callsService, io, reason, matchmakingServic
 async function fetchPublicProfile(userId) {
   try {
     const result = await db.query(
-      'SELECT id, full_name, gender FROM public.users WHERE id = $1',
+      'SELECT id, full_name, gender, avatar_seed, avatar_style FROM public.users WHERE id = $1',
       [userId]
     );
 
     if (result.rows.length === 0) {
-      return { id: userId, fullName: 'User', avatarUrl: null, gender: 'unknown' };
+      return { id: userId, fullName: 'User', avatarUrl: null, avatarSeed: null, avatarStyle: 'avataaars', gender: 'unknown' };
     }
 
     const user = result.rows[0];
@@ -674,11 +704,13 @@ async function fetchPublicProfile(userId) {
       id: user.id,
       fullName: user.full_name || 'User',
       avatarUrl: null,
+      avatarSeed: user.avatar_seed || null,
+      avatarStyle: user.avatar_style || 'avataaars',
       gender: rawGender.toLowerCase(),
     };
   } catch (err) {
     console.error(`❌ Error fetching profile for user ${userId}:`, err.message);
-    return { id: userId, fullName: 'User', avatarUrl: null, gender: 'unknown' };
+    return { id: userId, fullName: 'User', avatarUrl: null, avatarSeed: null, avatarStyle: 'avataaars', gender: 'unknown' };
   }
 }
 

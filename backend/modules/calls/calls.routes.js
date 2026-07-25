@@ -68,7 +68,7 @@ router.get('/matches', authMiddleware, async (req, res) => {
               ) AS is_favorite
        FROM public.users u
        JOIN public.calls c ON (c.caller_id = u.id OR c.matched_user_id = u.id)
-       WHERE u.id != $1 AND (c.caller_id = $1 OR c.matched_user_id = $1)
+       WHERE u.id != $1 AND (c.caller_id = $1 OR c.matched_user_id = $1) AND c.status = 'ended'
        ORDER BY u.full_name ASC`,
       [userId]
     );

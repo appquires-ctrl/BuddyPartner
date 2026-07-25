@@ -7,6 +7,7 @@ import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
+import 'package:dating_app/core/widgets/app_avatar.dart';
 
 /// ActiveCallPage displays the active voice call interface.
 /// Wired to the MatchmakingController for real Agora audio/video and
@@ -43,6 +44,20 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
       } else if (next.phase == MatchmakingPhase.idle && prev?.phase != MatchmakingPhase.idle) {
         if (mounted) {
           context.go(RouteNames.home);
+        }
+      }
+      if (next.errorMessage != null &&
+          next.errorMessage!.isNotEmpty &&
+          prev?.errorMessage != next.errorMessage) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(next.errorMessage!),
+              backgroundColor: const Color(0xFFEF4444),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
         }
       }
     });
@@ -126,7 +141,129 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
               ),
             ),
 
-
+          // Incoming Video Call Request top banner overlay
+          if (matchState.isVideoRequestIncoming)
+            Positioned(
+              top: 60,
+              left: 20,
+              right: 20,
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E1B3A),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: const Color(0xFF7A58FF),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF7A58FF),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.videocam_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Video Call Request',
+                                  style: TextStyle(
+                                    color: Color(0xFFA19EBB),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${matchState.videoRequestSenderName ?? "User"} wants to switch to video call',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.white24),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                              ),
+                              onPressed: () {
+                                controller.declineVideoUpgrade();
+                              },
+                              child: const Text(
+                                'Decline',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF7A58FF),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                elevation: 0,
+                              ),
+                              onPressed: () {
+                                controller.acceptVideoUpgrade();
+                              },
+                              child: const Text(
+                                'Accept',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
 
           SafeArea(
             child: LayoutBuilder(
@@ -246,22 +383,12 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                           ),
                         ],
                       ),
-                      child: CircleAvatar(
-                        backgroundColor: const Color(0xFFE5DFFF), // Light lavender background
-                        backgroundImage: matchedUser?.avatarUrl != null
-                            ? NetworkImage(matchedUser!.avatarUrl!)
-                            : null,
-                        child: matchedUser?.avatarUrl == null
-                            ? Text(
-                                initials,
-                                style: const TextStyle(
-                                  color: Color(0xFF6B4EFF), // Purple initials text
-                                  fontSize: 52,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.0,
-                                ),
-                              )
-                            : null,
+                      child: AppAvatar(
+                        avatarSeed: matchedUser?.avatarSeed,
+                        avatarStyle: matchedUser?.avatarStyle,
+                        gender: matchedUser?.gender,
+                        initials: initials,
+                        radius: 86,
                       ),
                     ),
 
@@ -374,16 +501,22 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                   // Switch to Video Call banner card
                   if (!matchState.isVideoEnabled)
                     GestureDetector(
-                      onTap: () {
-                        controller.upgradeToVideo();
-                      },
+                      onTap: matchState.isVideoRequestOutgoing
+                          ? null
+                          : () {
+                              controller.upgradeToVideo();
+                            },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.05),
+                          color: matchState.isVideoRequestOutgoing
+                              ? const Color(0xFF7A58FF).withValues(alpha: 0.15)
+                              : Colors.white.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.08),
+                            color: matchState.isVideoRequestOutgoing
+                                ? const Color(0xFF7A58FF)
+                                : Colors.white.withValues(alpha: 0.08),
                             width: 1.0,
                           ),
                         ),
@@ -392,32 +525,49 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                             Container(
                               width: 44,
                               height: 44,
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: Color(0xFF7A58FF),
+                                color: matchState.isVideoRequestOutgoing
+                                    ? const Color(0xFF7A58FF).withValues(alpha: 0.6)
+                                    : const Color(0xFF7A58FF),
                               ),
-                              child: const Icon(
-                                Icons.videocam_outlined,
-                                color: Colors.white,
-                                size: 22,
-                              ),
+                              child: matchState.isVideoRequestOutgoing
+                                  ? const Center(
+                                      child: SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.videocam_outlined,
+                                      color: Colors.white,
+                                      size: 22,
+                                    ),
                             ),
                             const SizedBox(width: 16),
-                            const Expanded(
+                            Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Switch to',
-                                    style: TextStyle(
+                                    matchState.isVideoRequestOutgoing
+                                        ? 'Waiting for response...'
+                                        : 'Switch to',
+                                    style: const TextStyle(
                                       color: Color(0xFFA19EBB),
                                       fontSize: 12,
                                     ),
                                   ),
-                                  SizedBox(height: 2),
+                                  const SizedBox(height: 2),
                                   Text(
-                                    'Video Call',
-                                    style: TextStyle(
+                                    matchState.isVideoRequestOutgoing
+                                        ? 'Requesting Video Call'
+                                        : 'Video Call',
+                                    style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
@@ -426,11 +576,12 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                                 ],
                               ),
                             ),
-                            const Icon(
-                              Icons.chevron_right_rounded,
-                              color: Colors.white60,
-                              size: 24,
-                            ),
+                            if (!matchState.isVideoRequestOutgoing)
+                              const Icon(
+                                Icons.chevron_right_rounded,
+                                color: Colors.white60,
+                                size: 24,
+                              ),
                           ],
                         ),
                       ),

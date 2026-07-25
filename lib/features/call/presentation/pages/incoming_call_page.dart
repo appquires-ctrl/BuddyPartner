@@ -5,6 +5,7 @@ import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
+import 'package:dating_app/core/widgets/app_avatar.dart';
 
 class IncomingCallPage extends ConsumerWidget {
   const IncomingCallPage({super.key});
@@ -60,16 +61,12 @@ class IncomingCallPage extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    child: CircleAvatar(
-                      backgroundColor: const Color(0xFFE5DFFF), // Light lavender
-                      child: Text(
-                        initials,
-                        style: const TextStyle(
-                          color: Color(0xFF6B4EFF),
-                          fontSize: 36,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    child: AppAvatar(
+                      avatarSeed: matchState.matchedUser?.avatarSeed,
+                      avatarStyle: matchState.matchedUser?.avatarStyle,
+                      gender: matchState.matchedUser?.gender,
+                      initials: initials,
+                      radius: 70,
                     ),
                   ),
                   const SizedBox(height: 24),

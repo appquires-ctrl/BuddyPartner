@@ -22,6 +22,8 @@ import 'package:dating_app/features/withdraw/presentation/pages/withdraw_page.da
 import 'package:dating_app/features/profile/presentation/pages/profile_page.dart';
 import 'package:dating_app/features/profile/presentation/pages/account_page.dart';
 import 'package:dating_app/features/profile/presentation/pages/help_page.dart';
+import 'package:dating_app/features/legal/presentation/pages/legal_document_page.dart';
+import 'package:dating_app/features/legal/data/legal_document_content.dart';
 import 'package:dating_app/core/widgets/layout/app_bottom_nav.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 
@@ -55,10 +57,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isLoggedIn = currentUser != null;
       final isProfileComplete = currentUser?.isProfileComplete ?? false;
 
+      final isLegalRoute = state.matchedLocation.startsWith('/legal');
       final isAuthRoute = state.matchedLocation == RouteNames.login ||
           state.matchedLocation == RouteNames.signup ||
           state.matchedLocation == RouteNames.forgotPassword ||
           state.matchedLocation == RouteNames.splash;
+
+      if (isLegalRoute) {
+        // Legal pages can be viewed anytime (unauthenticated or onboarding)
+        return null;
+      }
 
       if (!isLoggedIn) {
         // Unauthenticated: only allow splash, login, signup, forgot-password
@@ -99,6 +107,29 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ForgotPasswordPage(),
       ),
       
+      // Legal document screens
+      GoRoute(
+        path: RouteNames.termsOfService,
+        builder: (context, state) => LegalDocumentPage(document: LegalDocumentContent.termsOfService),
+      ),
+      GoRoute(
+        path: RouteNames.privacyPolicy,
+        builder: (context, state) => LegalDocumentPage(document: LegalDocumentContent.privacyPolicy),
+      ),
+      GoRoute(
+        path: RouteNames.communityGuidelines,
+        builder: (context, state) => LegalDocumentPage(document: LegalDocumentContent.communityGuidelines),
+      ),
+      GoRoute(
+        path: RouteNames.refundPolicy,
+        builder: (context, state) => LegalDocumentPage(document: LegalDocumentContent.refundPolicy),
+      ),
+      GoRoute(
+        path: RouteNames.withdrawalTerms,
+        builder: (context, state) => LegalDocumentPage(document: LegalDocumentContent.withdrawalTerms),
+      ),
+
+      
       // Calling screens flow
       GoRoute(
         path: RouteNames.calling,
@@ -124,11 +155,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           final userId = extra['userId'] as String? ?? 'priya_1';
           final userName = extra['userName'] as String? ?? 'Priya';
           final userAvatar = extra['userAvatar'] as String?;
+          final avatarSeed = extra['avatarSeed'] as String?;
+          final avatarStyle = extra['avatarStyle'] as String?;
           return ChatPage(
             conversationId: conversationId,
             userId: userId,
             userName: userName,
             userAvatar: userAvatar,
+            avatarSeed: avatarSeed,
+            avatarStyle: avatarStyle,
           );
         },
       ),

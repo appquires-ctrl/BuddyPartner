@@ -2,6 +2,8 @@ class Conversation {
   final String id;
   final String otherUserId;
   final String otherUserName;
+  final String? otherUserAvatarSeed;
+  final String? otherUserAvatarStyle;
   final String? lastMessage;
   final String? lastMessageType;
   final String? lastMessageSenderId;
@@ -13,6 +15,8 @@ class Conversation {
     required this.id,
     required this.otherUserId,
     required this.otherUserName,
+    this.otherUserAvatarSeed,
+    this.otherUserAvatarStyle,
     this.lastMessage,
     this.lastMessageType,
     this.lastMessageSenderId,
@@ -26,6 +30,8 @@ class Conversation {
       id: json['id'] as String,
       otherUserId: json['otherUserId'] as String,
       otherUserName: json['otherUserName'] as String? ?? 'User',
+      otherUserAvatarSeed: json['otherUserAvatarSeed'] as String?,
+      otherUserAvatarStyle: json['otherUserAvatarStyle'] as String? ?? 'avataaars',
       lastMessage: json['lastMessage'] as String?,
       lastMessageType: json['lastMessageType'] as String?,
       lastMessageSenderId: json['lastMessageSenderId'] as String?,

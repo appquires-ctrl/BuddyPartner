@@ -1,17 +1,24 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dating_app/core/services/api_client.dart';
+import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 
 class MatchedUser {
   final String id;
   final String fullName;
   final bool isOnline;
   final bool isFavorite;
+  final String? avatarSeed;
+  final String? avatarStyle;
+  final String? gender;
 
   MatchedUser({
     required this.id,
     required this.fullName,
     required this.isOnline,
     required this.isFavorite,
+    this.avatarSeed,
+    this.avatarStyle,
+    this.gender,
   });
 
   factory MatchedUser.fromJson(Map<String, dynamic> json) {
@@ -20,6 +27,9 @@ class MatchedUser {
       fullName: json['fullName'] as String? ?? 'User',
       isOnline: json['isOnline'] as bool? ?? false,
       isFavorite: json['isFavorite'] as bool? ?? false,
+      avatarSeed: (json['avatarSeed'] ?? json['avatar_seed']) as String?,
+      avatarStyle: (json['avatarStyle'] ?? json['avatar_style']) as String? ?? 'avataaars',
+      gender: json['gender'] as String?,
     );
   }
 
@@ -28,17 +38,27 @@ class MatchedUser {
     String? fullName,
     bool? isOnline,
     bool? isFavorite,
+    String? avatarSeed,
+    String? avatarStyle,
+    String? gender,
   }) {
     return MatchedUser(
       id: id ?? this.id,
       fullName: fullName ?? this.fullName,
       isOnline: isOnline ?? this.isOnline,
       isFavorite: isFavorite ?? this.isFavorite,
+      avatarSeed: avatarSeed ?? this.avatarSeed,
+      avatarStyle: avatarStyle ?? this.avatarStyle,
+      gender: gender ?? this.gender,
     );
   }
 }
 
-final matchedUsersProvider = FutureProvider<List<MatchedUser>>((ref) async {
+final matchedUsersProvider = FutureProvider.autoDispose<List<MatchedUser>>((ref) async {
+  final authState = ref.watch(authStateProvider);
+  final user = authState.value;
+  if (user == null) return const [];
+
   final apiClient = ref.watch(apiClientProvider);
   final response = await apiClient.dio.get('/api/calls/matches');
   if (response.data == null) return const [];
@@ -46,7 +66,11 @@ final matchedUsersProvider = FutureProvider<List<MatchedUser>>((ref) async {
   return list.map((json) => MatchedUser.fromJson(json)).toList();
 });
 
-final favoriteUsersProvider = FutureProvider<List<MatchedUser>>((ref) async {
+final favoriteUsersProvider = FutureProvider.autoDispose<List<MatchedUser>>((ref) async {
+  final authState = ref.watch(authStateProvider);
+  final user = authState.value;
+  if (user == null) return const [];
+
   final apiClient = ref.watch(apiClientProvider);
   final response = await apiClient.dio.get('/api/calls/favorites');
   if (response.data == null) return const [];

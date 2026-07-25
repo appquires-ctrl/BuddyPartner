@@ -18,6 +18,8 @@ class ChatPage extends ConsumerStatefulWidget {
   final String userId;
   final String userName;
   final String? userAvatar;
+  final String? avatarSeed;
+  final String? avatarStyle;
 
   const ChatPage({
     super.key,
@@ -25,6 +27,8 @@ class ChatPage extends ConsumerStatefulWidget {
     required this.userId,
     required this.userName,
     this.userAvatar,
+    this.avatarSeed,
+    this.avatarStyle,
   });
 
   @override
@@ -98,6 +102,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           children: [
             GradientAvatar(
               initials: initials,
+              avatarSeed: widget.avatarSeed,
+              avatarStyle: widget.avatarStyle,
               radius: 18,
               showStatus: false,
             ),
