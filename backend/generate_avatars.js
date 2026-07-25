@@ -5,9 +5,29 @@ const https = require('https');
 const maleDir = path.join(__dirname, '../assets/avatars/male');
 const femaleDir = path.join(__dirname, '../assets/avatars/female');
 
+// Clean existing contents to ensure no cross-contamination
+if (fs.existsSync(maleDir)) fs.rmSync(maleDir, { recursive: true, force: true });
+if (fs.existsSync(femaleDir)) fs.rmSync(femaleDir, { recursive: true, force: true });
+
 fs.mkdirSync(maleDir, { recursive: true });
 fs.mkdirSync(femaleDir, { recursive: true });
 
+// Seeds for standard 20 avatars
+const maleSeeds = [
+  'Alexander', 'Benjamin', 'Christopher', 'Daniel', 'Ethan',
+  'Felix', 'Gabriel', 'Henry', 'Julian', 'Leo',
+  'Marcus', 'Nicholas', 'Oliver', 'Philip', 'Ryan',
+  'Sebastian', 'Thomas', 'Victor', 'William', 'Xavier'
+];
+
+const femaleSeeds = [
+  'Amelia', 'Bella', 'Charlotte', 'Diana', 'Emma',
+  'Fiona', 'Grace', 'Hannah', 'Isabella', 'Julia',
+  'Katherine', 'Lily', 'Maya', 'Nora', 'Olivia',
+  'Penelope', 'Rose', 'Sophia', 'Victoria', 'Zoe'
+];
+
+// Seeds for 10 _new.svg avatars
 const newMaleSeeds = [
   'AriaNewMale', 'BraveNewMale', 'CosmoNewMale', 'DuneNewMale', 'EchoNewMale',
   'FalconNewMale', 'GriffinNewMale', 'HawkNewMale', 'IndieNewMale', 'JasperNewMale'
@@ -32,10 +52,10 @@ function fetchSvg(url) {
   });
 }
 
-async function generateNew() {
-  console.log('Downloading 10 new Male and 10 new Female DiceBear Avataaars & Toon Head avatars ending with _new.svg...');
+async function generateAll() {
+  console.log('Downloading all 30 Male and 30 Female DiceBear Avataaars & Toon Head SVG avatars...');
 
-  // 10 New Male Avatars ending with _new.svg
+  // 1. Download 10 New Male Avatars (avatar_male_1_new.svg .. avatar_male_10_new.svg)
   for (let i = 0; i < newMaleSeeds.length; i++) {
     const seed = newMaleSeeds[i];
     const index = i + 1;
@@ -46,13 +66,30 @@ async function generateNew() {
       const svg = await fetchSvg(url);
       const fileName = `avatar_male_${index}_new.svg`;
       fs.writeFileSync(path.join(maleDir, fileName), svg);
-      console.log(` Saved ${fileName} (${style} - ${seed})`);
+      console.log(` Saved ${fileName} in male/ (${style})`);
+    } catch (e) {
+      console.error(`❌ Failed male new ${index}:`, e.message);
+    }
+  }
+
+  // 2. Download 20 Standard Male Avatars (avatar_male_1.svg .. avatar_male_20.svg)
+  for (let i = 0; i < maleSeeds.length; i++) {
+    const seed = maleSeeds[i];
+    const index = i + 1;
+    const style = (i % 2 === 0) ? 'avataaars' : 'toon-head';
+    const url = `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+
+    try {
+      const svg = await fetchSvg(url);
+      const fileName = `avatar_male_${index}.svg`;
+      fs.writeFileSync(path.join(maleDir, fileName), svg);
+      console.log(` Saved ${fileName} in male/ (${style})`);
     } catch (e) {
       console.error(`❌ Failed male ${index}:`, e.message);
     }
   }
 
-  // 10 New Female Avatars ending with _new.svg
+  // 3. Download 10 New Female Avatars (avatar_female_1_new.svg .. avatar_female_10_new.svg)
   for (let i = 0; i < newFemaleSeeds.length; i++) {
     const seed = newFemaleSeeds[i];
     const index = i + 1;
@@ -63,13 +100,30 @@ async function generateNew() {
       const svg = await fetchSvg(url);
       const fileName = `avatar_female_${index}_new.svg`;
       fs.writeFileSync(path.join(femaleDir, fileName), svg);
-      console.log(` Saved ${fileName} (${style} - ${seed})`);
+      console.log(` Saved ${fileName} in female/ (${style})`);
+    } catch (e) {
+      console.error(`❌ Failed female new ${index}:`, e.message);
+    }
+  }
+
+  // 4. Download 20 Standard Female Avatars (avatar_female_1.svg .. avatar_female_20.svg)
+  for (let i = 0; i < femaleSeeds.length; i++) {
+    const seed = femaleSeeds[i];
+    const index = i + 1;
+    const style = (i % 2 === 0) ? 'avataaars' : 'toon-head';
+    const url = `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+
+    try {
+      const svg = await fetchSvg(url);
+      const fileName = `avatar_female_${index}.svg`;
+      fs.writeFileSync(path.join(femaleDir, fileName), svg);
+      console.log(` Saved ${fileName} in female/ (${style})`);
     } catch (e) {
       console.error(`❌ Failed female ${index}:`, e.message);
     }
   }
 
-  console.log('✅ Generated 10 new male and 10 new female SVG avatars ending with _new.svg successfully!');
+  console.log('✅ Generated ALL 30 male and 30 female SVG avatars into correct directories!');
 }
 
-generateNew();
+generateAll();
