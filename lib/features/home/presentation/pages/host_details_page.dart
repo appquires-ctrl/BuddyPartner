@@ -10,6 +10,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
 
+import 'package:dating_app/core/widgets/app_avatar.dart';
+
 /// HostDetailsPage displays a host telecaller profile with large avatar
 /// cover photo, overlapping stats card, bios, languages, and action triggers.
 class HostDetailsPage extends ConsumerStatefulWidget {
@@ -51,10 +53,21 @@ class _HostDetailsPageState extends ConsumerState<HostDetailsPage> {
             left: 0,
             right: 0,
             height: MediaQuery.of(context).size.height * 0.45,
-            child: AppNetworkImage(
-              imageUrl: imgUrl,
-              fit: BoxFit.cover,
-            ),
+            child: (widget.hostData?['avatarSeed'] != null || widget.hostData?['avatar_seed'] != null || !imgUrl.startsWith('http'))
+                ? Container(
+                    color: colors.primary.withValues(alpha: 0.12),
+                    child: Center(
+                      child: AppAvatar(
+                        avatarSeed: (widget.hostData?['avatarSeed'] ?? widget.hostData?['avatar_seed']) as String?,
+                        gender: widget.hostData?['gender'] as String?,
+                        radius: 72,
+                      ),
+                    ),
+                  )
+                : AppNetworkImage(
+                    imageUrl: imgUrl,
+                    fit: BoxFit.cover,
+                  ),
           ),
           
           // Back button and favorite overlays

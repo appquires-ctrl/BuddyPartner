@@ -14,6 +14,9 @@ class CallLog {
   final DateTime startedAt;
   final String otherUserName;
   final String? otherUserAvatar;
+  final String? otherUserAvatarSeed;
+  final String? otherUserAvatarStyle;
+  final String? otherUserGender;
 
   CallLog({
     required this.id,
@@ -25,6 +28,9 @@ class CallLog {
     required this.startedAt,
     required this.otherUserName,
     this.otherUserAvatar,
+    this.otherUserAvatarSeed,
+    this.otherUserAvatarStyle,
+    this.otherUserGender,
   });
 
   factory CallLog.fromJson(Map<String, dynamic> json, String currentUserId) {
@@ -49,10 +55,16 @@ class CallLog {
 
     String otherName = 'User';
     String? otherAvatar;
+    String? avatarSeed;
+    String? avatarStyle;
+    String? gender;
 
     if (otherUserJson != null && otherUserJson is Map) {
       otherName = (otherUserJson['full_name'] ?? otherUserJson['fullName']) as String? ?? 'User';
       otherAvatar = (otherUserJson['avatar_url'] ?? otherUserJson['avatarUrl']) as String?;
+      avatarSeed = (otherUserJson['avatar_seed'] ?? otherUserJson['avatarSeed']) as String?;
+      avatarStyle = (otherUserJson['avatar_style'] ?? otherUserJson['avatarStyle']) as String? ?? 'avataaars';
+      gender = otherUserJson['gender'] as String?;
     }
 
     return CallLog(
@@ -65,6 +77,9 @@ class CallLog {
       startedAt: DateTime.tryParse(json['started_at'] as String? ?? '') ?? DateTime.now(),
       otherUserName: otherName,
       otherUserAvatar: otherAvatar,
+      otherUserAvatarSeed: avatarSeed,
+      otherUserAvatarStyle: avatarStyle,
+      otherUserGender: gender,
     );
   }
 }

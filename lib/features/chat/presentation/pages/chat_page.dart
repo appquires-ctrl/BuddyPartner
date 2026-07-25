@@ -20,6 +20,7 @@ class ChatPage extends ConsumerStatefulWidget {
   final String? userAvatar;
   final String? avatarSeed;
   final String? avatarStyle;
+  final String? gender;
 
   const ChatPage({
     super.key,
@@ -29,6 +30,7 @@ class ChatPage extends ConsumerStatefulWidget {
     this.userAvatar,
     this.avatarSeed,
     this.avatarStyle,
+    this.gender,
   });
 
   @override
@@ -104,6 +106,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               initials: initials,
               avatarSeed: widget.avatarSeed,
               avatarStyle: widget.avatarStyle,
+              gender: widget.gender,
               radius: 18,
               showStatus: false,
             ),

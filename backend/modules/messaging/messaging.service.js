@@ -163,6 +163,7 @@ class MessagingService {
         lm.created_at AS last_message_created_at,
         -- Other user's profile
         u.full_name AS other_user_name,
+        u.gender AS other_user_gender,
         u.avatar_seed AS other_user_avatar_seed,
         u.avatar_style AS other_user_avatar_style,
         -- Unread count: messages after the user's last read message
@@ -202,6 +203,7 @@ class MessagingService {
       id: row.id,
       otherUserId: row.user_a_id === userId ? row.user_b_id : row.user_a_id,
       otherUserName: row.other_user_name || 'User',
+      otherUserGender: row.other_user_gender,
       otherUserAvatarSeed: row.other_user_avatar_seed || null,
       otherUserAvatarStyle: row.other_user_avatar_style || 'avataaars',
       lastMessage: row.last_message_content,

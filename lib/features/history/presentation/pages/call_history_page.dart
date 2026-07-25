@@ -10,6 +10,8 @@ import 'package:dating_app/features/home/presentation/widgets/matching_illustrat
 import 'package:dating_app/features/history/data/call_history_provider.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
+import 'package:dating_app/core/widgets/gradient_avatar.dart';
+import 'package:dating_app/core/widgets/app_avatar.dart';
 
 /// CallHistoryPage renders the list of call logs fetched dynamically from Supabase.
 class CallHistoryPage extends ConsumerStatefulWidget {
@@ -280,22 +282,12 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
                   child: Row(
                     children: [
                       // Other user's avatar or initials
-                      CircleAvatar(
+                      GradientAvatar(
+                        initials: _getInitials(log.otherUserName),
+                        avatarSeed: log.otherUserAvatarSeed,
+                        avatarStyle: log.otherUserAvatarStyle,
+                        gender: log.otherUserGender,
                         radius: 24,
-                        backgroundColor: const Color(0xFFE5DFFF),
-                        backgroundImage: log.otherUserAvatar != null
-                            ? NetworkImage(log.otherUserAvatar!)
-                            : null,
-                        child: log.otherUserAvatar == null
-                            ? Text(
-                                _getInitials(log.otherUserName),
-                                style: const TextStyle(
-                                  color: Color(0xFF6B4EFF),
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              )
-                            : null,
                       ),
                       const SizedBox(width: 14),
 

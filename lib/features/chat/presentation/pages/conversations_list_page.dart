@@ -330,6 +330,7 @@ class _ConversationCard extends ConsumerWidget {
                       initials: initials,
                       avatarSeed: conversation.otherUserAvatarSeed,
                       avatarStyle: conversation.otherUserAvatarStyle,
+                      gender: conversation.otherUserGender,
                       radius: 26,
                       showStatus: true,
                       isOnline: true,
