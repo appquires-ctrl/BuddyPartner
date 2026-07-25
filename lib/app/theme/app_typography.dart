@@ -25,32 +25,32 @@ class AppTypography extends ThemeExtension<AppTypography> {
   factory AppTypography.create({required Color textColor, required Color textMutedColor}) {
     return AppTypography(
       displayWordmark: GoogleFonts.poppins(
-        fontSize: 32,
+        fontSize: 32.0,
         fontWeight: FontWeight.bold,
         color: textColor,
       ),
       headlineGreeting: GoogleFonts.poppins(
-        fontSize: 28,
+        fontSize: 28.0,
         fontWeight: FontWeight.bold,
         color: textColor,
       ),
       titleCard: GoogleFonts.poppins(
-        fontSize: 20,
+        fontSize: 20.0,
         fontWeight: FontWeight.w600,
         color: textColor,
       ),
       bodyMedium: GoogleFonts.poppins(
-        fontSize: 16,
+        fontSize: 16.0,
         fontWeight: FontWeight.normal,
         color: textColor,
       ),
       bodySmall: GoogleFonts.poppins(
-        fontSize: 14,
+        fontSize: 14.0,
         fontWeight: FontWeight.normal,
         color: textMutedColor,
       ),
       labelPill: GoogleFonts.poppins(
-        fontSize: 14,
+        fontSize: 14.0,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.5,
         color: textColor,

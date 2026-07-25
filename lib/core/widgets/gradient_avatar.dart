@@ -57,7 +57,7 @@ class GradientAvatar extends StatelessWidget {
           initials,
           style: TextStyle(
             color: Colors.white,
-            fontSize: radius * 0.7,
+            fontSize: (radius * 0.7).toDouble(),
             fontWeight: FontWeight.bold,
           ),
         ),

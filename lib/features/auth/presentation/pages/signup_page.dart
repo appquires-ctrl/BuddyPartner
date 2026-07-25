@@ -200,7 +200,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
               'LoopCall',
               style: typography.displayWordmark.copyWith(
                 color: colors.primary,
-                fontSize: 32,
+                fontSize: 32.0,
               ),
             ),
           ),
@@ -212,7 +212,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
               Text(
                 'Complete Your Profile',
                 style: typography.headlineGreeting.copyWith(
-                  fontSize: 22,
+                  fontSize: 22.0,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -227,7 +227,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                   style: typography.bodySmall.copyWith(
                     color: colors.primary,
                     fontWeight: FontWeight.bold,
-                    fontSize: 11,
+                    fontSize: 11.0,
                   ),
                 ),
               ),
@@ -529,7 +529,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
         Text(
           'Choose Your Avatar',
           style: typography.headlineGreeting.copyWith(
-            fontSize: 24,
+            fontSize: 24.0,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -575,7 +575,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                           : 'Your Name',
                       style: typography.bodyMedium.copyWith(
                         fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                        fontSize: 18.0,
                         color: colors.textPrimary,
                       ),
                     ),
@@ -593,7 +593,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                             style: typography.bodySmall.copyWith(
                               color: colors.primary,
                               fontWeight: FontWeight.bold,
-                              fontSize: 11,
+                              fontSize: 11.0,
                             ),
                           ),
                         ),
@@ -602,7 +602,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                           _selectedLanguage ?? '',
                           style: typography.bodySmall.copyWith(
                             color: colors.textSecondary,
-                            fontSize: 12,
+                            fontSize: 12.0,
                           ),
                         ),
                       ],

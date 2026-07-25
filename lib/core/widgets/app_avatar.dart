@@ -92,7 +92,7 @@ class AppAvatar extends StatelessWidget {
         cleanInitials,
         style: typography.labelPill.copyWith(
           color: Colors.white,
-          fontSize: radius * 0.8,
+          fontSize: (radius * 0.8).toDouble(),
           fontWeight: FontWeight.bold,
         ),
       ),
