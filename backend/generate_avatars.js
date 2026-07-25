@@ -5,7 +5,7 @@ const https = require('https');
 const maleDir = path.join(__dirname, '../assets/avatars/male');
 const femaleDir = path.join(__dirname, '../assets/avatars/female');
 
-// Clean existing contents to ensure no cross-contamination
+// Clean existing contents to ensure clean gender separation
 if (fs.existsSync(maleDir)) fs.rmSync(maleDir, { recursive: true, force: true });
 if (fs.existsSync(femaleDir)) fs.rmSync(femaleDir, { recursive: true, force: true });
 
@@ -38,6 +38,9 @@ const newFemaleSeeds = [
   'FloraNewFem', 'HazelNewFem', 'IrisNewFem', 'JadeNewFem', 'LunaNewFem'
 ];
 
+const femaleTops = ['bigHair', 'bob', 'bun', 'curly', 'curvy', 'dreads', 'frida', 'fro', 'froBand', 'longButNotTooLong', 'miaWallace', 'straight1', 'straightAndStrand'];
+const maleTops = ['shortHair', 'sides', 'theCaesar', 'theCaesarAndSideburns', 'shortFlat', 'shortRound', 'shortWaved', 'beret', 'turban'];
+
 function fetchSvg(url) {
   return new Promise((resolve, reject) => {
     https.get(url, (res) => {
@@ -60,7 +63,10 @@ async function generateAll() {
     const seed = newMaleSeeds[i];
     const index = i + 1;
     const style = (i % 2 === 0) ? 'avataaars' : 'toon-head';
-    const url = `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+    const top = maleTops[i % maleTops.length];
+    const url = (style === 'avataaars')
+      ? `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(seed)}&top=${top}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`
+      : `https://api.dicebear.com/9.x/toon-head/svg?seed=${encodeURIComponent(seed)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
 
     try {
       const svg = await fetchSvg(url);
@@ -77,7 +83,10 @@ async function generateAll() {
     const seed = maleSeeds[i];
     const index = i + 1;
     const style = (i % 2 === 0) ? 'avataaars' : 'toon-head';
-    const url = `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+    const top = maleTops[i % maleTops.length];
+    const url = (style === 'avataaars')
+      ? `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(seed)}&top=${top}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`
+      : `https://api.dicebear.com/9.x/toon-head/svg?seed=${encodeURIComponent(seed)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
 
     try {
       const svg = await fetchSvg(url);
@@ -94,7 +103,10 @@ async function generateAll() {
     const seed = newFemaleSeeds[i];
     const index = i + 1;
     const style = (i % 2 === 0) ? 'avataaars' : 'toon-head';
-    const url = `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+    const top = femaleTops[i % femaleTops.length];
+    const url = (style === 'avataaars')
+      ? `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(seed)}&top=${top}&facialHairProbability=0&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`
+      : `https://api.dicebear.com/9.x/toon-head/svg?seed=${encodeURIComponent(seed)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
 
     try {
       const svg = await fetchSvg(url);
@@ -111,7 +123,10 @@ async function generateAll() {
     const seed = femaleSeeds[i];
     const index = i + 1;
     const style = (i % 2 === 0) ? 'avataaars' : 'toon-head';
-    const url = `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+    const top = femaleTops[i % femaleTops.length];
+    const url = (style === 'avataaars')
+      ? `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(seed)}&top=${top}&facialHairProbability=0&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`
+      : `https://api.dicebear.com/9.x/toon-head/svg?seed=${encodeURIComponent(seed)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
 
     try {
       const svg = await fetchSvg(url);
