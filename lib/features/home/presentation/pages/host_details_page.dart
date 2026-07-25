@@ -40,34 +40,28 @@ class _HostDetailsPageState extends ConsumerState<HostDetailsPage> {
     final rate = widget.hostId == 'host_2' ? 12 : 10;
     final rating = widget.hostId == 'host_2' ? 4.5 : 4.8;
     final reviews = widget.hostId == 'host_2' ? 16 : 24;
-    final imgUrl = widget.hostId == 'host_2' 
-        ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400'
-        : 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400';
+    final avatarSeed = widget.hostId == 'host_2' ? 'male_1_new' : 'female_1_new';
+    final gender = widget.hostId == 'host_2' ? 'Male' : 'Female';
 
     return Scaffold(
       body: Stack(
         children: [
-          // Cover picture
+          // Cover picture / SVG Avatar hero
           Positioned(
             top: 0,
             left: 0,
             right: 0,
             height: MediaQuery.of(context).size.height * 0.45,
-            child: (widget.hostData?['avatarSeed'] != null || widget.hostData?['avatar_seed'] != null || !imgUrl.startsWith('http'))
-                ? Container(
-                    color: colors.primary.withValues(alpha: 0.12),
-                    child: Center(
-                      child: AppAvatar(
-                        avatarSeed: (widget.hostData?['avatarSeed'] ?? widget.hostData?['avatar_seed']) as String?,
-                        gender: widget.hostData?['gender'] as String?,
-                        radius: 72,
-                      ),
-                    ),
-                  )
-                : AppNetworkImage(
-                    imageUrl: imgUrl,
-                    fit: BoxFit.cover,
-                  ),
+            child: Container(
+              color: colors.primary.withValues(alpha: 0.12),
+              child: Center(
+                child: AppAvatar(
+                  avatarSeed: avatarSeed,
+                  gender: gender,
+                  radius: 72,
+                ),
+              ),
+            ),
           ),
           
           // Back button and favorite overlays
