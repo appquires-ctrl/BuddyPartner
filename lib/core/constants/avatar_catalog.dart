@@ -6,32 +6,32 @@ class AvatarCatalog {
   static const String defaultStyle = 'avataaars';
 
   static const List<String> maleSeeds = [
-    'male_2',
-    'male_3',
-    'male_4',
-    'male_7',
-    'male_14',
-    'female_10',
-    'female_15',
-    'female_18',
-    'female_4_new',
-    'female_7_new',
-    'female_8',
-    'female_8_new',
+    'female_10q',
+    'female_15w',
+    'female_18q',
+    'female_4_newq',
+    'female_7_newa',
+    'female_8_newq',
+    'female_8q',
+    'male_14q',
+    'male_2f',
+    'male_3j',
+    'male_4q',
+    'male_7q',
   ];
 
   static const List<String> femaleSeeds = [
     'female_1',
-    'female_3',
-    'female_7',
-    'female_9',
     'female_11',
     'female_12',
     'female_15',
-    'female_20',
     'female_1_new',
+    'female_20',
+    'female_3',
     'female_3_new',
+    'female_7',
     'female_7_new',
+    'female_9',
     'female_9_new',
     'male_12',
     'male_20',
@@ -53,10 +53,9 @@ class AvatarCatalog {
       return null;
     }
 
-    final cleanSeed = seed.trim().toLowerCase();
+    final cleanSeed = seed.trim();
     final folder = (gender ?? '').toLowerCase().contains('female') ? 'female' : 'male';
 
-    // Strip leading 'avatar_' or 'assets/avatars/...' if present
     String s = cleanSeed;
     if (s.contains('/')) {
       s = s.split('/').last;
@@ -68,23 +67,6 @@ class AvatarCatalog {
       s = s.replaceAll('.svg', '');
     }
 
-    // Direct seed matching male_* or female_*
-    if (s.startsWith('female_')) {
-      return 'assets/avatars/female/avatar_$s.svg';
-    } else if (s.startsWith('male_')) {
-      return 'assets/avatars/male/avatar_$s.svg';
-    }
-
-    // Numeric seeds e.g. "1_new", "5", etc.
-    if (s.endsWith('_new')) {
-      final numStr = s.replaceAll('_new', '');
-      final numVal = int.tryParse(numStr) ?? 1;
-      final safeNum = ((numVal - 1) % 10) + 1;
-      return 'assets/avatars/$folder/avatar_${folder}_${safeNum}_new.svg';
-    } else {
-      final numVal = int.tryParse(s) ?? ((cleanSeed.hashCode.abs() % 20) + 1);
-      final safeNum = ((numVal - 1) % 20) + 1;
-      return 'assets/avatars/$folder/avatar_${folder}_$safeNum.svg';
-    }
+    return 'assets/avatars/$folder/avatar_$s.svg';
   }
 }
