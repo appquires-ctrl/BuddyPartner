@@ -25,11 +25,13 @@ class SectionHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: typography.titleCard.copyWith(
-              color: colors.textPrimary,
-              fontWeight: FontWeight.bold,
+          Expanded(
+            child: Text(
+              title,
+              style: typography.titleCard.copyWith(
+                color: colors.textPrimary,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           if (actionText != null && onActionPressed != null)
@@ -44,7 +46,7 @@ class SectionHeader extends StatelessWidget {
                 actionText!,
                 style: typography.labelPill.copyWith(
                   color: colors.primary,
-                  fontSize: 14,
+                  fontSize: 14.0,
                 ),
               ),
             ),
