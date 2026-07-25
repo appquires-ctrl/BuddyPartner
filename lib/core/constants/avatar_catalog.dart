@@ -86,19 +86,38 @@ class AvatarCatalog {
       return null;
     }
 
-    final cleanSeed = seed.trim();
+    final cleanSeed = seed.trim().toLowerCase();
+    final folder = (gender ?? '').toLowerCase().contains('female') ? 'female' : 'male';
 
-    // Direct seed matching male_* or female_*
-    if (cleanSeed.startsWith('male_')) {
-      return 'assets/avatars/male/avatar_$cleanSeed.svg';
-    } else if (cleanSeed.startsWith('female_')) {
-      return 'assets/avatars/female/avatar_$cleanSeed.svg';
+    // Strip leading 'avatar_' or 'assets/avatars/...' if present
+    String s = cleanSeed;
+    if (s.contains('/')) {
+      s = s.split('/').last;
+    }
+    if (s.startsWith('avatar_')) {
+      s = s.replaceFirst('avatar_', '');
+    }
+    if (s.endsWith('.svg')) {
+      s = s.replaceAll('.svg', '');
     }
 
-    // Fallback: lookup by gender and modulo index if custom seed string passed
-    final fallbackIdx = (cleanSeed.hashCode.abs() % 20) + 1;
-    final folder = (gender ?? '').toLowerCase().contains('female') ? 'female' : 'male';
-    final prefix = folder == 'female' ? 'female' : 'male';
-    return 'assets/avatars/$folder/avatar_${prefix}_$fallbackIdx.svg';
+    // Direct seed matching male_* or female_*
+    if (s.startsWith('male_')) {
+      return 'assets/avatars/male/avatar_$s.svg';
+    } else if (s.startsWith('female_')) {
+      return 'assets/avatars/female/avatar_$s.svg';
+    }
+
+    // Numeric seeds e.g. "1_new", "5", etc.
+    if (s.endsWith('_new')) {
+      final numStr = s.replaceAll('_new', '');
+      final numVal = int.tryParse(numStr) ?? 1;
+      final safeNum = ((numVal - 1) % 10) + 1;
+      return 'assets/avatars/$folder/avatar_${folder}_${safeNum}_new.svg';
+    } else {
+      final numVal = int.tryParse(s) ?? ((cleanSeed.hashCode.abs() % 20) + 1);
+      final safeNum = ((numVal - 1) % 20) + 1;
+      return 'assets/avatars/$folder/avatar_${folder}_$safeNum.svg';
+    }
   }
 }
