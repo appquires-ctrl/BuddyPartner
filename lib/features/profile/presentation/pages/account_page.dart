@@ -415,27 +415,7 @@ class AccountPage extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
 
-                    // Gender
-                    Text('Gender', style: typography.bodySmall.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedGender,
-                      style: typography.bodyMedium.copyWith(color: colors.textPrimary),
-                      decoration: InputDecoration(
-                        prefixIcon: const Icon(Icons.transgender_outlined, size: 20),
-                        filled: true,
-                        fillColor: colors.surface,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        border: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: colors.border)),
-                        enabledBorder: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: colors.border)),
-                      ),
-                      items: genders.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
-                      onChanged: (val) {
-                        if (val != null) setModalState(() => selectedGender = val);
-                      },
-                    ),
                     const SizedBox(height: 16),
 
                     // Language
