@@ -316,7 +316,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            AuthErrorMapper.mapMessage((authState as AsyncError).error),
+                            AuthErrorMapper.mapMessage(authState.error),
                             style: typography.bodySmall.copyWith(
                               color: const Color(0xFFEF4444),
                               fontWeight: FontWeight.w500,
