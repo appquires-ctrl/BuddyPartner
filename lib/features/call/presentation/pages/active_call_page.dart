@@ -683,7 +683,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
           backgroundColor: const Color(0xFF1E1A3A),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
-            side: Border.all(
+            side: BorderSide(
               color: Colors.white.withValues(alpha: 0.12),
               width: 1,
             ),
@@ -724,7 +724,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
             // Button 1: Stay on Call (Cancel)
             OutlinedButton(
               style: OutlinedButton.styleFrom(
-                side: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
