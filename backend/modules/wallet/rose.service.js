@@ -129,6 +129,68 @@ class RoseService {
       client.release();
     }
   }
+
+  /**
+   * Get paginated rose transactions for a user.
+   * Scoped strictly to the specified userId.
+   *
+   * @param {string} userId
+   * @param {string|null} cursor - ISO timestamp string
+   * @param {number} limit
+   * @returns {Promise<{ transactions: Array, nextCursor: string|null }>}
+   */
+  async getTransactions(userId, cursor = null, limit = 20) {
+    const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 50);
+
+    let query;
+    let params;
+
+    if (cursor) {
+      query = `
+        SELECT id, amount, type, reason, reference_id, created_at
+        FROM public.rose_transactions
+        WHERE user_id = $1 AND created_at < $2
+        ORDER BY created_at DESC
+        LIMIT $3
+      `;
+      params = [userId, cursor, parsedLimit];
+    } else {
+      query = `
+        SELECT id, amount, type, reason, reference_id, created_at
+        FROM public.rose_transactions
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT $2
+      `;
+      params = [userId, parsedLimit];
+    }
+
+    const result = await db.query(query, params);
+    const rows = result.rows;
+
+    const reasonLabels = {
+      call_minute_voice: 'Voice Call Earnings',
+      call_minute_video: 'Video Call Earnings',
+      withdrawal_request: 'Withdrawal Request',
+      signup_bonus: 'Signup Rose Bonus',
+    };
+
+    const transactions = rows.map((row) => ({
+      id: row.id,
+      amount: row.amount,
+      type: row.type,
+      reason: row.reason,
+      reasonLabel: reasonLabels[row.reason] || row.reason.replace(/_/g, ' '),
+      referenceId: row.reference_id,
+      createdAt: row.created_at,
+    }));
+
+    const nextCursor = rows.length === parsedLimit
+      ? rows[rows.length - 1].created_at.toISOString()
+      : null;
+
+    return { transactions, nextCursor };
+  }
 }
 
 module.exports = {

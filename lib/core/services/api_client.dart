@@ -1,6 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:go_router/go_router.dart';
+import 'package:dating_app/app/router/app_router.dart';
+import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/core/config/app_config.dart';
 
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
@@ -23,7 +26,7 @@ class ApiClient {
       ),
     );
 
-    // Interceptor to automatically attach custom JWT session token if it exists
+    // Interceptor to automatically attach custom JWT session token and handle 403 suspension/ban
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
@@ -32,6 +35,26 @@ class ApiClient {
             options.headers['Authorization'] = 'Bearer $token';
           }
           return handler.next(options);
+        },
+        onError: (DioException err, handler) {
+          if (err.response?.statusCode == 403) {
+            final data = err.response?.data;
+            if (data is Map<String, dynamic>) {
+              final errorCode = data['error'];
+              final context = rootNavigatorKey.currentContext;
+              if (context != null) {
+                if (errorCode == 'ACCOUNT_BANNED') {
+                  context.go(RouteNames.banned);
+                } else if (errorCode == 'ACCOUNT_SUSPENDED') {
+                  context.go(
+                    RouteNames.suspended,
+                    extra: {'suspended_until': data['suspended_until']},
+                  );
+                }
+              }
+            }
+          }
+          return handler.next(err);
         },
       ),
     );

@@ -6,6 +6,7 @@ import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/features/chat/application/conversations_provider.dart';
+import 'package:dating_app/features/chat/application/presence_provider.dart';
 import 'package:dating_app/features/chat/domain/conversation.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 import 'package:dating_app/core/widgets/gradient_avatar.dart';
@@ -53,6 +54,13 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
 
     final conversations = conversationsAsync.value ?? const [];
     final bool showSkeleton = conversationsAsync.isLoading && !conversationsAsync.hasValue;
+
+    if (conversations.isNotEmpty) {
+      final userIds = conversations.map((c) => c.otherUserId).toList();
+      Future.microtask(() {
+        ref.read(presenceProvider.notifier).fetchPresence(userIds);
+      });
+    }
 
     Widget content;
     if (showSkeleton) {
@@ -289,6 +297,8 @@ class _ConversationCard extends ConsumerWidget {
         ? (isSentByMe ? 'You: ${conversation.lastMessage}' : conversation.lastMessage!)
         : 'Say hi!';
 
+    final isOnline = ref.watch(presenceProvider)[conversation.otherUserId] ?? false;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
@@ -333,7 +343,7 @@ class _ConversationCard extends ConsumerWidget {
                       gender: conversation.otherUserGender,
                       radius: 26,
                       showStatus: true,
-                      isOnline: true,
+                      isOnline: isOnline,
                       statusIndicatorSize: 14,
                     ),
                     const SizedBox(width: 14),

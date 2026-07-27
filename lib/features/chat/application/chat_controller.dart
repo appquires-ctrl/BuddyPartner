@@ -7,6 +7,8 @@ import 'package:dating_app/features/chat/domain/message.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 import 'package:dating_app/features/chat/application/conversations_provider.dart';
 
+import 'package:dating_app/features/auth/application/auth_error_mapper.dart';
+
 class ChatState {
   final List<Message> messages;
   final bool isLoading;
@@ -32,6 +34,7 @@ class ChatState {
     String? typingUserId,
     String? errorMessage,
     bool clearTypingUser = false,
+    bool clearError = false,
   }) {
     return ChatState(
       messages: messages ?? this.messages,
@@ -39,7 +42,7 @@ class ChatState {
       hasMore: hasMore ?? this.hasMore,
       nextCursor: nextCursor ?? this.nextCursor,
       typingUserId: clearTypingUser ? null : (typingUserId ?? this.typingUserId),
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
 }
@@ -59,15 +62,18 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
       socket.off('message:new', _onNewMessage);
       socket.off('typing', _onTyping);
       socket.off('message:read', _onMessageRead);
+      socket.off('message:status_update', _onStatusUpdate);
 
       socket.on('message:new', _onNewMessage);
       socket.on('typing', _onTyping);
       socket.on('message:read', _onMessageRead);
+      socket.on('message:status_update', _onStatusUpdate);
 
       ref.onDispose(() {
         socket.off('message:new', _onNewMessage);
         socket.off('typing', _onTyping);
         socket.off('message:read', _onMessageRead);
+        socket.off('message:status_update', _onStatusUpdate);
         _typingTimer?.cancel();
         ref.invalidate(conversationsProvider);
       });
@@ -88,7 +94,7 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
     final repo = ref.read(chatRepositoryProvider);
     
     try {
-      state = state.copyWith(isLoading: true);
+      state = state.copyWith(isLoading: true, clearError: true);
       String convId = arg;
 
       // Handle instant navigation where arg is passed as 'user:$userId'
@@ -109,6 +115,7 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
         nextCursor: next,
         hasMore: next != null,
         isLoading: false,
+        clearError: true,
       );
       
       // Mark latest as read if not empty
@@ -117,7 +124,8 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
       }
     } catch (e, st) {
       debugPrint('Error in loadInitial: $e\n$st');
-      state = state.copyWith(isLoading: false, hasMore: false, errorMessage: e.toString());
+      final cleanMessage = AuthErrorMapper.mapMessage(e);
+      state = state.copyWith(isLoading: false, hasMore: false, errorMessage: cleanMessage);
     }
   }
 
@@ -146,7 +154,8 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
       );
     } catch (e, st) {
       debugPrint('Error in loadMore: $e\n$st');
-      state = state.copyWith(isLoading: false, hasMore: false, errorMessage: e.toString());
+      final cleanMessage = AuthErrorMapper.mapMessage(e);
+      state = state.copyWith(isLoading: false, hasMore: false, errorMessage: cleanMessage);
     }
   }
 
@@ -294,11 +303,35 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
     try {
       if (data['conversationId'] == effectiveConversationId) {
         final updatedMsgs = state.messages.map((m) {
-          // Simple assumption: if it's sent before or is this message, it's read
-          // To be precise we'd compare dates, but this works for the latest read receipt
           return m.status != 'read' ? m.copyWith(status: 'read') : m;
         }).toList();
         
+        state = state.copyWith(messages: updatedMsgs);
+      }
+    } catch (_) {}
+  }
+
+  void _onStatusUpdate(dynamic data) {
+    if (data == null) return;
+    try {
+      if (data['conversationId'] == effectiveConversationId) {
+        final targetMsgId = data['messageId'] as String?;
+        final newStatus = data['status'] as String?;
+
+        if (newStatus == null) return;
+
+        final updatedMsgs = state.messages.map((m) {
+          if (targetMsgId != null) {
+            if (m.id == targetMsgId) {
+              return m.copyWith(status: newStatus);
+            }
+            return m;
+          } else if (newStatus == 'read') {
+            return m.copyWith(status: 'read');
+          }
+          return m;
+        }).toList();
+
         state = state.copyWith(messages: updatedMsgs);
       }
     } catch (_) {}

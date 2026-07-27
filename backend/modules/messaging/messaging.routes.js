@@ -34,10 +34,16 @@ router.post('/conversations', authMiddleware, async (req, res) => {
     res.json({ conversation });
   } catch (err) {
     console.error('Error creating conversation:', err.message);
-    if (err.message.includes('block')) {
+    if (err.message.includes('block') || err.message.includes('Cannot start a conversation')) {
       return res.status(403).json({ error: err.message });
     }
-    res.status(500).json({ error: 'Failed to create conversation' });
+    if (err.message.includes('User not found')) {
+      return res.status(404).json({ error: err.message });
+    }
+    if (err.message.includes('yourself') || err.message.includes('Invalid') || err.message.includes('required')) {
+      return res.status(400).json({ error: err.message });
+    }
+    res.status(500).json({ error: err.message || 'Failed to create conversation' });
   }
 });
 
@@ -61,7 +67,13 @@ router.get('/conversations/:id/messages', authMiddleware, async (req, res) => {
     if (err.message.includes('Not a participant')) {
       return res.status(403).json({ error: err.message });
     }
-    res.status(500).json({ error: 'Failed to fetch messages' });
+    if (err.message.includes('not found') || err.message.includes('Conversation not found')) {
+      return res.status(404).json({ error: err.message });
+    }
+    if (err.message.includes('Invalid')) {
+      return res.status(400).json({ error: err.message });
+    }
+    res.status(500).json({ error: err.message || 'Failed to fetch messages' });
   }
 });
 
@@ -124,16 +136,17 @@ router.delete('/block/:userId', authMiddleware, async (req, res) => {
 });
 
 // ── POST /api/report ──────────────────────────────────────────────────────
-// Report a user/message
+// Report a user/message & trigger strike escalation
 router.post('/report', authMiddleware, async (req, res) => {
   try {
+    const { ModerationService } = require('../moderation/moderation.service');
     const { reportedUserId, reason, description, messageId, conversationId } = req.body;
 
     if (!reportedUserId || !reason) {
       return res.status(400).json({ error: 'reportedUserId and reason are required' });
     }
 
-    const report = await messagingService.reportUser(
+    const result = await ModerationService.fileReport(
       req.user.id,
       reportedUserId,
       reason,
@@ -142,10 +155,31 @@ router.post('/report', authMiddleware, async (req, res) => {
       conversationId || null
     );
 
-    res.json({ report });
+    res.json({ success: true, ...result });
   } catch (err) {
     console.error('Error reporting user:', err.message);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/presence ─────────────────────────────────────────────────────
+// Query online status for one or more user IDs
+router.get('/presence', authMiddleware, async (req, res) => {
+  try {
+    const { userIds } = req.query;
+    if (!userIds) {
+      return res.json({ presence: {} });
+    }
+
+    const ids = Array.isArray(userIds) ? userIds : userIds.split(',').map((id) => id.trim()).filter(Boolean);
+    const { PresenceService } = require('../presence/presence.service');
+    const { redis } = require('../../server');
+
+    const presenceMap = await PresenceService.getPresenceBatch(redis, ids);
+    res.json({ presence: presenceMap });
+  } catch (err) {
+    console.error('Error fetching presence:', err.message);
+    res.status(500).json({ error: 'Failed to fetch presence' });
   }
 });
 

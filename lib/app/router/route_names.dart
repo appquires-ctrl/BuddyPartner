@@ -20,6 +20,9 @@ class RouteNames {
   static const String help = '/help';
   static const String withdraw = '/withdraw';
   static const String femaleHome = '/female-home';
+  static const String transactionHistory = '/transaction-history';
+  static const String suspended = '/suspended';
+  static const String banned = '/banned';
 
   // Legal routes
   static const String termsOfService = '/legal/terms';

@@ -11,6 +11,7 @@ import 'package:dating_app/features/call/application/matchmaking_controller.dart
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 import 'package:dating_app/features/chat/application/chat_controller.dart';
+import 'package:dating_app/features/chat/application/presence_provider.dart';
 import 'package:dating_app/core/widgets/gradient_avatar.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
@@ -45,6 +46,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    Future.microtask(() {
+      ref.read(presenceProvider.notifier).fetchPresence([widget.userId]);
+    });
   }
 
   @override
@@ -90,6 +94,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     
     final chatState = ref.watch(chatControllerProvider(widget.conversationId));
     final currentUser = ref.watch(authStateProvider).value;
+    final isOnline = ref.watch(presenceProvider)[widget.userId] ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -108,7 +113,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               avatarStyle: widget.avatarStyle,
               gender: widget.gender,
               radius: 18,
-              showStatus: false,
+              showStatus: true,
+              isOnline: isOnline,
             ),
             const SizedBox(width: 8),
             Column(
@@ -129,9 +135,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   )
                 else
                   Text(
-                    'Online', // Ideally driven by real presence state, mocked for now
+                    isOnline ? 'Online' : 'Offline',
                     style: typography.bodySmall.copyWith(
-                      color: colors.success,
+                      color: isOnline ? colors.success : colors.textSecondary,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -174,11 +180,49 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             child: chatState.errorMessage != null
                 ? Center(
                     child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Text(
-                        'Error: ${chatState.errorMessage}',
-                        style: const TextStyle(color: Colors.red),
-                        textAlign: TextAlign.center,
+                      padding: const EdgeInsets.all(AppSpacing.space24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: colors.danger.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.error_outline_rounded,
+                              color: colors.danger,
+                              size: 40,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            chatState.errorMessage!,
+                            style: typography.bodyMedium.copyWith(
+                              color: colors.textPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 20),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              ref.read(chatControllerProvider(widget.conversationId).notifier).loadInitial();
+                            },
+                            icon: const Icon(Icons.refresh_rounded, size: 18),
+                            label: const Text('Try Again'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: colors.primary,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: AppRadius.pill,
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   )
@@ -235,9 +279,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                               Padding(
                                 padding: const EdgeInsets.only(top: 2, right: 4),
                                 child: Icon(
-                                  msg.status == 'read' ? Icons.done_all : Icons.check,
+                                  msg.status == 'sent'
+                                      ? Icons.check
+                                      : Icons.done_all,
                                   size: 14,
-                                  color: msg.status == 'read' ? Colors.blue : colors.textSecondary,
+                                  color: msg.status == 'read'
+                                      ? colors.primary
+                                      : colors.textSecondary,
                                 ),
                               ),
                           ],

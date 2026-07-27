@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/core/widgets/buttons/app_primary_button.dart';
 import 'package:dating_app/core/widgets/cards/app_card.dart';
@@ -153,7 +155,20 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
+
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => context.push(RouteNames.transactionHistory),
+                icon: const Icon(Icons.history_rounded, size: 18),
+                label: const Text(
+                  'View History',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
 
             // Request Withdrawal Form
             AppCard(

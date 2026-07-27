@@ -15,9 +15,35 @@ class MessagingService {
    * @param {string} otherUserId - The other user's Firebase UID
    * @returns {object} The conversation row
    */
+  /**
+   * Helper method to validate standard UUID string format.
+   */
+  _isValidUUID(uuid) {
+    return typeof uuid === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(uuid);
+  }
+
+  /**
+   * Find or create a conversation between two users.
+   * @param {string} currentUserId - The requesting user's Firebase UID
+   * @param {string} otherUserId - The other user's Firebase UID
+   * @returns {object} The conversation row
+   */
   async findOrCreateConversation(currentUserId, otherUserId) {
+    if (!this._isValidUUID(otherUserId) || !this._isValidUUID(currentUserId)) {
+      throw new Error('Invalid user ID format');
+    }
+
     if (currentUserId === otherUserId) {
       throw new Error('Cannot create a conversation with yourself');
+    }
+
+    // Verify other user exists in DB before attempting to insert
+    const userCheck = await db.query(
+      `SELECT id FROM public.users WHERE id = $1`,
+      [otherUserId]
+    );
+    if (userCheck.rows.length === 0) {
+      throw new Error('User not found');
     }
 
     // Check block list before creating conversation
@@ -98,6 +124,10 @@ class MessagingService {
    * @returns {object} { messages, nextCursor }
    */
   async getMessages(conversationId, requestingUserId, cursor = null, limit = 30) {
+    if (!this._isValidUUID(conversationId) || !this._isValidUUID(requestingUserId)) {
+      throw new Error('Conversation not found');
+    }
+
     // Verify participant
     const convResult = await db.query(
       `SELECT * FROM public.conversations WHERE id = $1`,
@@ -243,6 +273,14 @@ class MessagingService {
        ON CONFLICT (conversation_id, user_id)
        DO UPDATE SET last_read_message_id = $3`,
       [conversationId, userId, messageId]
+    );
+
+    // Update status of all unread messages from the other user in this conversation to 'read'
+    await db.query(
+      `UPDATE public.messages
+       SET status = 'read'
+       WHERE conversation_id = $1 AND sender_id != $2 AND status != 'read'`,
+      [conversationId, userId]
     );
   }
 

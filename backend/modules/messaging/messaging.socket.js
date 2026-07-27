@@ -70,14 +70,26 @@ function registerMessagingHandlers(io, socket, redis) {
         const conv = convResult.rows[0];
         const otherUserId = conv.user_a_id === userId ? conv.user_b_id : conv.user_a_id;
 
-        // Emit to sender
-        socket.emit('message:new', { message });
-
-        // Emit to recipient if online
+        // Check if recipient socket is active
         const recipientSocketId = userSockets.get(otherUserId);
         if (recipientSocketId) {
+          // Delivered! Update status in DB and emit to both parties
+          message.status = 'delivered';
+          await require('../../db').query(
+            "UPDATE public.messages SET status = 'delivered' WHERE id = $1",
+            [message.id]
+          );
+
           io.to(recipientSocketId).emit('message:new', { message });
+          socket.emit('message:status_update', {
+            conversationId,
+            messageId: message.id,
+            status: 'delivered',
+          });
         }
+
+        // Emit to sender
+        socket.emit('message:new', { message });
       }
 
       cb({ success: true, message });
@@ -141,13 +153,18 @@ function registerMessagingHandlers(io, socket, redis) {
       if (convResult.rows.length > 0) {
         const conv = convResult.rows[0];
         const otherUserId = conv.user_a_id === userId ? conv.user_b_id : conv.user_a_id;
-        const recipientSocketId = userSockets.get(otherUserId);
+        const senderSocketId = userSockets.get(otherUserId);
 
-        if (recipientSocketId) {
-          io.to(recipientSocketId).emit('message:read', {
+        if (senderSocketId) {
+          io.to(senderSocketId).emit('message:read', {
             conversationId,
             userId,
             messageId,
+          });
+          io.to(senderSocketId).emit('message:status_update', {
+            conversationId,
+            messageId,
+            status: 'read',
           });
         }
       }

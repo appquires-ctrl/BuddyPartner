@@ -61,6 +61,17 @@ db.query(`
   console.error('❌ Failed to initialize wallet_transactions table:', err.message);
 });
 
+// Auto-ensure user moderation columns exist
+db.query(`
+  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS strike_count INTEGER DEFAULT 0;
+  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS suspended_until TIMESTAMPTZ;
+  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE;
+`).then(() => {
+  console.log('✅ User moderation columns checked/initialized.');
+}).catch((err) => {
+  console.error('❌ Failed to initialize user moderation columns:', err.message);
+});
+
 // Auto-ensure rose/withdrawal tables exist
 db.query(`
   CREATE TABLE IF NOT EXISTS public.rose_balances (
@@ -118,7 +129,10 @@ const io = new Server(server, {
   pingInterval: 10000,
 });
 
-// Socket.io authentication middleware — validates custom JWT session
+const { ModerationService } = require('./modules/moderation/moderation.service');
+const { PresenceService } = require('./modules/presence/presence.service');
+
+// Socket.io authentication middleware — validates custom JWT session and moderation status
 io.use(async (socket, next) => {
   const token = socket.handshake.auth?.token;
   if (!token) {
@@ -128,6 +142,11 @@ io.use(async (socket, next) => {
   try {
     const secret = process.env.JWT_SECRET || 'loopcall_fallback_jwt_secret_key_change_me_in_prod';
     const decoded = jwt.verify(token, secret);
+
+    const modStatus = await ModerationService.isUserBlocked(decoded.id);
+    if (modStatus.isBlocked) {
+      return next(new Error(modStatus.isBanned ? 'ACCOUNT_BANNED' : 'ACCOUNT_SUSPENDED'));
+    }
 
     socket.userId = decoded.id;
     socket.userPhone = decoded.phone;
@@ -144,11 +163,17 @@ const { registerMessagingHandlers } = require('./modules/messaging/messaging.soc
 
 io.on('connection', (socket) => {
   console.log(`🔌 User connected: ${socket.userId} (socket: ${socket.id})`);
+  
+  // Set user online in Redis and broadcast presence
+  PresenceService.setPresence(redis, io, socket.userId, true);
+
   registerMatchmakingHandlers(io, socket, redis);
   registerMessagingHandlers(io, socket, redis);
 
   socket.on('disconnect', (reason) => {
     console.log(`🔌 User disconnected: ${socket.userId} — ${reason}`);
+    // Set user offline in Redis and broadcast presence
+    PresenceService.setPresence(redis, io, socket.userId, false);
   });
 });
 

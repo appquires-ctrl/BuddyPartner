@@ -198,7 +198,7 @@ class ProfilePage extends ConsumerWidget {
                       title: 'Transaction History',
                       subtitle: 'View your payments',
                       onTap: () {
-                        context.push(RouteNames.recharge); // store history
+                        context.push(RouteNames.transactionHistory);
                       },
                     ),
                     _buildDivider(context),

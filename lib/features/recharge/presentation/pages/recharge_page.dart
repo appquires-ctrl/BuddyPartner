@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/features/recharge/presentation/providers/recharge_providers.dart';
 import 'package:dating_app/features/recharge/presentation/widgets/recharge_plan_card.dart';
 import 'package:dating_app/core/widgets/cards/wallet_card.dart';
@@ -52,7 +54,21 @@ class RechargePage extends ConsumerWidget {
                     balance: balance,
                     onRechargePressed: null, // already on recharge page
                   ),
-            const SizedBox(height: AppSpacing.space24),
+            const SizedBox(height: AppSpacing.space12),
+
+            // View Transaction History Link
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => context.push(RouteNames.transactionHistory),
+                icon: const Icon(Icons.history_rounded, size: 18),
+                label: const Text(
+                  'View History',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.space16),
             
             // Section Header title
             const SectionHeader(
