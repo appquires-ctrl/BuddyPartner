@@ -50,6 +50,16 @@ function isFemale(gender) {
 }
 
 /**
+ * Check if a gender string represents male.
+ * @param {string} gender
+ * @returns {boolean}
+ */
+function isMale(gender) {
+  const g = (gender || '').trim().toLowerCase();
+  return g === 'male' || g === 'boy' || g === 'man' || g === 'm';
+}
+
+/**
  * Register all matchmaking-related Socket.io event handlers for a connected socket.
  *
  * @param {import('socket.io').Server} io
@@ -505,12 +515,21 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
     getUserGender(userB.userId),
   ]);
 
-  const isFemaleA = isFemale(genderA);
-  const isFemaleB = isFemale(genderB);
+  // 🛑 HARD ENFORCEMENT 1: Block self-matches
+  if (userA.userId === userB.userId) {
+    console.error(`🚨 SELF-MATCH ATTEMPT BLOCKED for user ${userA.userId}. Aborting call setup!`);
+    return;
+  }
 
-  // 🛑 HARD ENFORCEMENT: Block any same-gender match
-  if (isFemaleA === isFemaleB) {
-    console.error(`🚨 IMPOSSIBLE SAME-GENDER MATCH DETECTED & BLOCKED: ${userA.userId} (${genderA}) ↔ ${userB.userId} (${genderB}). Aborting call setup!`);
+  // 🛑 HARD ENFORCEMENT 2: Must be exactly 1 Male and 1 Female from DB
+  const isFemaleA = isFemale(genderA);
+  const isMaleA = isMale(genderA);
+  const isFemaleB = isFemale(genderB);
+  const isMaleB = isMale(genderB);
+
+  const isValidCrossGender = (isMaleA && isFemaleB) || (isFemaleA && isMaleB);
+  if (!isValidCrossGender) {
+    console.error(`🚨 INVALID CROSS-GENDER MATCH DETECTED & BLOCKED: ${userA.userId} (${genderA}) ↔ ${userB.userId} (${genderB}). Aborting call setup!`);
     const socketAId = userSockets.get(userA.userId) || userA.socketId;
     const socketBId = userSockets.get(userB.userId) || userB.socketId;
     if (socketAId) io.to(socketAId).emit('match_error', { error: 'Matchmaking error. Please try searching again.' });

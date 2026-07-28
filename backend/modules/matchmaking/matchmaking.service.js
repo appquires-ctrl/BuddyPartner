@@ -135,11 +135,14 @@ class MatchmakingService {
    * @returns {string}
    */
   _getQueueKey(gender) {
-    const g = (gender || '').toLowerCase();
-    if (g === 'female' || g === 'girl' || g === 'woman') {
+    const g = (gender || '').trim().toLowerCase();
+    if (g === 'female' || g === 'girl' || g === 'woman' || g === 'f') {
       return FEMALE_QUEUE_KEY;
     }
-    return MALE_QUEUE_KEY;
+    if (g === 'male' || g === 'boy' || g === 'man' || g === 'm') {
+      return MALE_QUEUE_KEY;
+    }
+    throw new Error(`Invalid gender '${gender}' for matchmaking queue`);
   }
 
   /**
