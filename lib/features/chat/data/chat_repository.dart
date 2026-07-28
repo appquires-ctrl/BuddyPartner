@@ -83,9 +83,9 @@ class ChatRepository {
     await _apiClient.dio.post('/api/report', data: {
       'reportedUserId': reportedUserId,
       'reason': reason,
-      if (description != null) 'description': description,
-      if (messageId != null) 'messageId': messageId,
-      if (conversationId != null) 'conversationId': conversationId,
+      if (description != null && description.trim().isNotEmpty) 'description': description.trim(),
+      if (messageId != null && messageId.trim().isNotEmpty) 'messageId': messageId.trim(),
+      if (conversationId != null && conversationId.trim().isNotEmpty) 'conversationId': conversationId.trim(),
     });
   }
 }

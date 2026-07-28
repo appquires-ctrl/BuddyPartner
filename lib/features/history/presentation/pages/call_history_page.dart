@@ -307,20 +307,20 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
                             const SizedBox(height: 4),
                             Row(
                               children: [
-                                Icon(
-                                  isOutgoing ? Icons.call_made_rounded : Icons.call_received_rounded,
-                                  color: isOutgoing ? const Color(0xFF3B82F6) : const Color(0xFF10B981),
-                                  size: 14,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  isOutgoing ? 'Outgoing' : 'Incoming',
-                                  style: TextStyle(
-                                    color: colors.textSecondary,
-                                    fontSize: 12.5,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
+                                // Icon(
+                                //   isOutgoing ? Icons.call_made_rounded : Icons.call_received_rounded,
+                                //   color: isOutgoing ? const Color(0xFF3B82F6) : const Color(0xFF10B981),
+                                //   size: 14,
+                                // ),
+                                // const SizedBox(width: 4),
+                                // Text(
+                                //   isOutgoing ? 'Outgoing' : 'Incoming',
+                                //   style: TextStyle(
+                                //     color: colors.textSecondary,
+                                //     fontSize: 12.5,
+                                //   ),
+                                // ),
+                                // const SizedBox(width: 8),
                                 Container(
                                   width: 3.5,
                                   height: 3.5,

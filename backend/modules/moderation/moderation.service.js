@@ -48,6 +48,10 @@ class ModerationService {
       throw new Error('Cannot report yourself');
     }
 
+    const cleanMessageId = (messageId && typeof messageId === 'string' && messageId.trim().length > 0) ? messageId.trim() : null;
+    const cleanConversationId = (conversationId && typeof conversationId === 'string' && conversationId.trim().length > 0) ? conversationId.trim() : null;
+    const cleanDescription = (description && typeof description === 'string' && description.trim().length > 0) ? description.trim() : null;
+
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
@@ -57,7 +61,7 @@ class ModerationService {
         `INSERT INTO public.reports (reporter_id, reported_user_id, reason, description, message_id, conversation_id)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING *`,
-        [reporterId, reportedUserId, reason, description, messageId, conversationId]
+        [reporterId, reportedUserId, reason, cleanDescription, cleanMessageId, cleanConversationId]
       );
 
       // 2. Count DISTINCT reporters for this reported user
