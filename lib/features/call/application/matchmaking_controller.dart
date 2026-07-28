@@ -44,11 +44,20 @@ class MatchmakingController extends Notifier<MatchmakingState> {
   MatchmakingState build() {
     ref.onDispose(_cleanup);
 
+    // Watch authStateProvider — reset state and listeners when user logs out or switches accounts
+    ref.listen<AsyncValue<CustomUser?>>(authStateProvider, (prev, next) {
+      if (next.value == null || (prev?.value != null && prev?.value?.id != next.value?.id)) {
+        _cleanup();
+        state = const MatchmakingState();
+      }
+    });
+
     // Watch the shared socket — when it changes (connects), set up listeners
     ref.listen<sio.Socket?>(socketProvider, (prev, next) {
-      if (next != null && !_listenersRegistered) {
+      if (next != null) {
+        _listenersRegistered = false;
         _setupSocketListeners(next);
-      } else if (next == null) {
+      } else {
         _listenersRegistered = false;
       }
     });
@@ -856,6 +865,6 @@ class MatchmakingController extends Notifier<MatchmakingState> {
 
 /// Provider definition for MatchmakingController.
 final matchmakingControllerProvider =
-    NotifierProvider<MatchmakingController, MatchmakingState>(
+    AutoDisposeNotifierProvider<MatchmakingController, MatchmakingState>(
   MatchmakingController.new,
 );

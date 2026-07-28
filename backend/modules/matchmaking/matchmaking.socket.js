@@ -70,8 +70,9 @@ function registerMatchmakingHandlers(io, socket, redis) {
   const matchmakingService = new MatchmakingService(redis);
   const userId = socket.userId;
 
-  // Track this user's socket
+  // Track this user's socket and purge any stale queue entries from previous sessions
   userSockets.set(userId, socket.id);
+  matchmakingService.leaveQueue(userId).catch(() => {});
 
   // ── join_queue ────────────────────────────────────────────────────────
   socket.on('join_queue', async (callback) => {

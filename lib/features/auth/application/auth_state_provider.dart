@@ -98,9 +98,10 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
     // Explicitly disconnect and dispose real-time Socket.io connection on backend
     ref.read(socketProvider.notifier).disconnectAndDispose();
     
-    // Invalidate presence and conversation caches
+    // Invalidate presence, matchmaking, and user-session caches
     ref.invalidate(presenceProvider);
     ref.invalidate(conversationsProvider);
+    ref.invalidate(userProfileProvider);
 
     await ref.read(apiClientProvider).deleteToken();
     state = const AsyncData(null);
