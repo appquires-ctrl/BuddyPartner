@@ -3,10 +3,14 @@ import 'package:socket_io_client/socket_io_client.dart' as sio;
 import 'package:dating_app/core/services/api_client.dart';
 import 'package:dating_app/core/services/socket_provider.dart';
 
+import 'package:dating_app/features/auth/application/auth_state_provider.dart';
+
 final presenceProvider =
-    StateNotifierProvider<PresenceNotifier, Map<String, bool>>((ref) {
+    StateNotifierProvider.autoDispose<PresenceNotifier, Map<String, bool>>((ref) {
   final apiClient = ref.watch(apiClientProvider);
   final socket = ref.watch(socketProvider);
+  // Re-build and reset cached map whenever user logs in, logs out, or switches accounts
+  ref.watch(authStateProvider);
   return PresenceNotifier(apiClient, socket);
 });
 

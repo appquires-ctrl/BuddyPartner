@@ -218,6 +218,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                     final currentUser = ref.watch(authStateProvider).value;
                     final isFemale = currentUser?.isFemale ?? false;
 
+                    if (isFemale && !(currentUser?.isTelecallerActive ?? false)) {
+                      return const SizedBox.shrink();
+                    }
+
                     final coinBalance = ref.watch(walletBalanceProvider).value ?? 100;
                     final roseBalance = ref.watch(roseBalanceProvider).value ?? 0;
 

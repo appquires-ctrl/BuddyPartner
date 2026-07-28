@@ -143,6 +143,7 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
     required String language,
     String? avatarSeed,
     String? avatarStyle,
+    bool? isTelecaller,
   }) async {
     state = const AsyncLoading();
     final apiClient = ref.read(apiClientProvider);
@@ -157,6 +158,7 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
           'language': language,
           'avatarSeed': avatarSeed,
           'avatarStyle': avatarStyle ?? 'avataaars',
+          if (isTelecaller != null) 'isTelecaller': isTelecaller,
         },
       );
       
@@ -176,6 +178,7 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
             gender: userMap['gender'] as String? ?? 'Male',
             avatarSeed: userMap['avatarSeed'] as String?,
             avatarStyle: userMap['avatarStyle'] as String? ?? 'avataaars',
+            isTelecaller: userMap['isTelecaller'] as bool?,
           ),
         );
       }
@@ -189,6 +192,40 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
       return false;
     }
     
+    state = const AsyncData(null);
+    return true;
+  }
+
+  /// Update telecaller opt-in status (female users only).
+  Future<bool> updateTelecallerStatus(bool isTelecaller) async {
+    state = const AsyncLoading();
+    final apiClient = ref.read(apiClientProvider);
+
+    final result = await AsyncValue.guard(() async {
+      final response = await apiClient.dio.patch(
+        '/api/users/me/telecaller-status',
+        data: {'isTelecaller': isTelecaller},
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception(response.data['error'] ?? 'Failed to update telecaller status.');
+      }
+
+      final currentUser = ref.read(authStateProvider).value;
+      if (currentUser != null) {
+        ref.read(authStateProvider.notifier).setSession(
+          currentUser.copyWith(isTelecaller: isTelecaller),
+        );
+      }
+
+      ref.invalidate(userProfileProvider);
+    });
+
+    if (result.hasError) {
+      state = AsyncError(result.error!, result.stackTrace!);
+      return false;
+    }
+
     state = const AsyncData(null);
     return true;
   }

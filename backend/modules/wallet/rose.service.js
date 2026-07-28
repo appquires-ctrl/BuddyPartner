@@ -38,6 +38,13 @@ class RoseService {
    * @returns {Promise<{ success: boolean, newBalance: number|null }>}
    */
   async creditRoseForCallMinute(userId, callId, callType) {
+    // Check if female user is an active Telecaller
+    const userCheck = await db.query('SELECT is_telecaller FROM public.users WHERE id = $1', [userId]);
+    if (userCheck.rows.length === 0 || userCheck.rows[0].is_telecaller !== true) {
+      console.log(`🌹 [Rose] User ${userId} is not an active Telecaller (is_telecaller: ${userCheck.rows[0]?.is_telecaller}) — skipping rose credit.`);
+      return { success: false, skipped: true, newBalance: null };
+    }
+
     const amount = callType === 'video' ? ROSE_RATES.video : ROSE_RATES.voice;
     const reason = callType === 'video' ? 'call_minute_video' : 'call_minute_voice';
 

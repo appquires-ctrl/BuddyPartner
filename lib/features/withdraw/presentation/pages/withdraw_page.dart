@@ -8,6 +8,7 @@ import 'package:dating_app/core/widgets/cards/app_card.dart';
 import 'package:dating_app/core/widgets/feedback/app_loading_indicator.dart';
 import 'package:dating_app/features/withdraw/application/rose_providers.dart';
 import 'package:dating_app/features/withdraw/application/withdraw_controller.dart';
+import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 
 class WithdrawPage extends ConsumerStatefulWidget {
   const WithdrawPage({super.key});
@@ -90,6 +91,56 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
     final withdrawState = ref.watch(withdrawControllerProvider);
 
     final currentRoses = roseBalanceAsync.value ?? 0;
+
+    final currentUser = ref.watch(authStateProvider).value;
+    if (currentUser != null && !currentUser.isTelecallerActive) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Withdraw Earnings'),
+          centerTitle: true,
+          backgroundColor: colors.surface,
+          elevation: 0,
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.do_not_disturb_on_outlined,
+                  size: 64,
+                  color: Color(0xFF8B5CF6),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Telecaller Mode Disabled',
+                  style: typography.titleCard.copyWith(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Withdrawals and rose earnings are only available when Telecaller Mode is enabled.',
+                  textAlign: TextAlign.center,
+                  style: typography.bodyMedium.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                AppPrimaryButton(
+                  text: 'Go to Settings',
+                  onPressed: () {
+                    context.go(RouteNames.settings);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(

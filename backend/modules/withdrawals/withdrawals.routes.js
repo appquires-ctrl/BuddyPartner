@@ -13,9 +13,9 @@ router.post('/withdrawals', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Check gender — withdrawals are girl-only
+    // Check gender & telecaller status — withdrawals are female-telecaller only
     const userResult = await db.query(
-      'SELECT gender FROM public.users WHERE id = $1',
+      'SELECT gender, is_telecaller FROM public.users WHERE id = $1',
       [userId]
     );
 
@@ -23,9 +23,14 @@ router.post('/withdrawals', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'User not found.' });
     }
 
-    const gender = (userResult.rows[0].gender || '').toLowerCase();
+    const userRow = userResult.rows[0];
+    const gender = (userRow.gender || '').toLowerCase();
     if (gender !== 'female' && gender !== 'girl' && gender !== 'woman') {
       return res.status(403).json({ error: 'Withdrawals are only available for female users.' });
+    }
+
+    if (userRow.is_telecaller !== true) {
+      return res.status(403).json({ error: 'Telecaller mode must be active to submit withdrawal requests.' });
     }
 
     const { roseAmount } = req.body;

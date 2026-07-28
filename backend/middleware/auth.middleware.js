@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const { ModerationService } = require('../modules/moderation/moderation.service');
 
 /**
- * Middleware to authenticate requests using JWT tokens and enforce moderation suspensions/bans.
+ * Middleware to authenticate requests using JWT tokens and enforce ban status.
  * Expects header: "Authorization: Bearer <token>"
  */
 async function authMiddleware(req, res, next) {
@@ -21,20 +21,12 @@ async function authMiddleware(req, res, next) {
     const decoded = jwt.verify(token, secret);
     req.user = decoded; // Decoded payload contains { id, phone }
 
-    // Moderation status check
+    // Moderation status check — check ONLY isBanned
     const status = await ModerationService.isUserBlocked(decoded.id);
     if (status.isBanned) {
       return res.status(403).json({
         error: 'ACCOUNT_BANNED',
-        message: 'Your account has been permanently banned due to multiple terms of service violations.',
-      });
-    }
-
-    if (status.isSuspended) {
-      return res.status(403).json({
-        error: 'ACCOUNT_SUSPENDED',
-        message: 'Your account is temporarily suspended.',
-        suspended_until: status.suspendedUntil ? status.suspendedUntil.toISOString() : null,
+        message: 'Your account has been blocked due to multiple reports from other users.',
       });
     }
 
@@ -46,4 +38,3 @@ async function authMiddleware(req, res, next) {
 }
 
 module.exports = { authMiddleware };
-

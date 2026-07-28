@@ -109,6 +109,17 @@ class _ReportBlockDialogState extends ConsumerState<ReportBlockDialog> {
             style: TextStyle(color: colors.textSecondary),
           ),
         ),
+        OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: colors.danger,
+            side: BorderSide(color: colors.danger),
+            shape: const RoundedRectangleBorder(
+              borderRadius: AppRadius.pill,
+            ),
+          ),
+          onPressed: _isLoading ? null : () => _handleAction(report: false),
+          child: const Text('Block Only'),
+        ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: colors.danger,
@@ -118,7 +129,7 @@ class _ReportBlockDialogState extends ConsumerState<ReportBlockDialog> {
             ),
             elevation: 0,
           ),
-          onPressed: _isLoading ? null : _submitReport,
+          onPressed: _isLoading ? null : () => _handleAction(report: true),
           child: _isLoading 
               ? const AppLoadingIndicator(size: 16, color: Colors.white)
               : const Text('Report & Block'),
@@ -127,7 +138,7 @@ class _ReportBlockDialogState extends ConsumerState<ReportBlockDialog> {
     );
   }
 
-  Future<void> _submitReport() async {
+  Future<void> _handleAction({required bool report}) async {
     if (widget.reportedUserId == null) {
       context.pop();
       return;
@@ -140,25 +151,30 @@ class _ReportBlockDialogState extends ConsumerState<ReportBlockDialog> {
     try {
       final repo = ref.read(chatRepositoryProvider);
       
-      // Block user
+      // Always block user
       await repo.blockUser(widget.reportedUserId!);
       
-      // Report user
-      await repo.reportUser(
-        reportedUserId: widget.reportedUserId!,
-        reason: _selectedReason,
-        description: _descriptionController.text.trim(),
-        conversationId: widget.conversationId,
-      );
+      // Report user if report is true
+      if (report) {
+        await repo.reportUser(
+          reportedUserId: widget.reportedUserId!,
+          reason: _selectedReason,
+          description: _descriptionController.text.trim(),
+          conversationId: widget.conversationId,
+        );
+      }
 
       if (mounted) {
         context.pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Report submitted. User has been blocked.')),
+          SnackBar(
+            content: Text(report
+                ? 'Report submitted. User has been blocked.'
+                : 'User has been blocked.'),
+          ),
         );
-        // We should navigate away from the chat/call if we blocked them, 
-        // but for simplicity we'll just pop to the previous screen.
-        context.pop(); // Pop the chat/call screen too
+        // Pop the chat/call screen as well to navigate back
+        context.pop();
       }
     } catch (e) {
       if (mounted) {

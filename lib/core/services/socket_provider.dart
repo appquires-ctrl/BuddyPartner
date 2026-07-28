@@ -44,6 +44,9 @@ class SocketNotifier extends Notifier<sio.Socket?> {
     if (accessToken == null) return;
 
     if (state != null) {
+      if (state!.io.options != null) {
+        state!.io.options!['auth'] = {'token': accessToken};
+      }
       if (!state!.connected) {
         state!.connect();
       }
@@ -82,9 +85,23 @@ class SocketNotifier extends Notifier<sio.Socket?> {
     state = socket;
   }
 
+  /// Explicitly disconnect and dispose socket connection (e.g. on logout)
+  void disconnectAndDispose() {
+    _dispose();
+  }
+
   void _dispose() {
-    state?.dispose();
-    state = null;
+    if (state != null) {
+      try {
+        if (state!.connected) {
+          state!.disconnect();
+        }
+        state!.dispose();
+      } catch (err) {
+        debugPrint('[SocketProvider] Error disposing socket: $err');
+      }
+      state = null;
+    }
   }
 }
 

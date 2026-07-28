@@ -25,7 +25,6 @@ import 'package:dating_app/features/profile/presentation/pages/help_page.dart';
 import 'package:dating_app/features/legal/presentation/pages/legal_document_page.dart';
 import 'package:dating_app/features/legal/data/legal_document_content.dart';
 import 'package:dating_app/features/wallet/presentation/pages/transaction_history_page.dart';
-import 'package:dating_app/features/auth/presentation/pages/suspended_screen.dart';
 import 'package:dating_app/features/auth/presentation/pages/banned_screen.dart';
 import 'package:dating_app/core/widgets/layout/app_bottom_nav.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
@@ -195,12 +194,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RouteNames.suspended,
-        builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>? ?? {};
-          return SuspendedScreen(
-            suspendedUntilIso: extra['suspended_until'] as String?,
-          );
-        },
+        builder: (context, state) => const BannedScreen(),
       ),
       GoRoute(
         path: RouteNames.banned,
@@ -220,6 +214,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 bottomNavigationBar: AppBottomNav(
                   currentIndex: navigationShell.currentIndex,
                   isFemale: isFemale,
+                  isTelecallerActive: currentUser?.isTelecallerActive ?? false,
                   onTap: (index) {
                     navigationShell.goBranch(
                       index,

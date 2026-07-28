@@ -312,8 +312,9 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                       builder: (context, ref, child) {
                         final currentUser = ref.watch(authStateProvider).value;
                         final isFemale = currentUser?.isFemale ?? false;
+                        final isTelecallerActive = currentUser?.isTelecallerActive ?? false;
 
-                        if (isFemale) {
+                        if (isFemale && isTelecallerActive) {
                           return Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                             decoration: BoxDecoration(

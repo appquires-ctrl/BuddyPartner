@@ -2,14 +2,14 @@ const db = require('../../db');
 
 class ModerationService {
   /**
-   * Check if a user is currently suspended or permanently banned.
+   * Check if a user is currently banned.
    * @param {string} userId
-   * @returns {Promise<{ isBlocked: boolean, isBanned: boolean, isSuspended: boolean, suspendedUntil: Date|null }>}
+   * @returns {Promise<{ isBlocked: boolean, isBanned: boolean, isSuspended: boolean, suspendedUntil: null }>}
    */
   async isUserBlocked(userId) {
     try {
       const result = await db.query(
-        'SELECT strike_count, suspended_until, is_banned FROM public.users WHERE id = $1',
+        'SELECT is_banned FROM public.users WHERE id = $1',
         [userId]
       );
 
@@ -17,17 +17,13 @@ class ModerationService {
         return { isBlocked: false, isBanned: false, isSuspended: false, suspendedUntil: null };
       }
 
-      const user = result.rows[0];
-      const now = new Date();
-      const isBanned = Boolean(user.is_banned);
-      const suspendedUntil = user.suspended_until ? new Date(user.suspended_until) : null;
-      const isSuspended = Boolean(suspendedUntil && suspendedUntil > now);
+      const isBanned = Boolean(result.rows[0].is_banned);
 
       return {
-        isBlocked: isBanned || isSuspended,
+        isBlocked: isBanned,
         isBanned,
-        isSuspended,
-        suspendedUntil,
+        isSuspended: false,
+        suspendedUntil: null,
       };
     } catch (err) {
       console.error(`Error checking block status for user ${userId}:`, err.message);
@@ -36,115 +32,71 @@ class ModerationService {
   }
 
   /**
-   * Apply a strike to a user if eligible (i.e. not currently suspended or banned).
-   * Exact Rule:
-   * - 1st strike: account suspended for 24 hours
-   * - 2nd strike: suspended for 48 hours
-   * - 3rd strike: permanent ban
-   * Reports filed while already suspended do NOT add a strike or extend timer.
-   * 
-   * @param {string} userId
-   * @returns {Promise<{ strikeApplied: boolean, newStrikeCount: number, suspendedUntil: Date|null, isBanned: boolean }>}
-   */
-  async applyStrikeIfEligible(userId) {
-    const client = await db.pool.connect();
-    try {
-      await client.query('BEGIN');
-
-      const userRes = await client.query(
-        'SELECT strike_count, suspended_until, is_banned FROM public.users WHERE id = $1 FOR UPDATE',
-        [userId]
-      );
-
-      if (userRes.rows.length === 0) {
-        await client.query('ROLLBACK');
-        return { strikeApplied: false, newStrikeCount: 0, suspendedUntil: null, isBanned: false };
-      }
-
-      const user = userRes.rows[0];
-      const now = new Date();
-      const isBanned = Boolean(user.is_banned);
-      const suspendedUntil = user.suspended_until ? new Date(user.suspended_until) : null;
-      const isCurrentlySuspended = Boolean(suspendedUntil && suspendedUntil > now);
-
-      // Rule check: A report filed while a user is already suspended/banned should not add a strike
-      if (isBanned || isCurrentlySuspended) {
-        await client.query('COMMIT');
-        console.log(`🛡️ [Moderation] User ${userId} is already ${isBanned ? 'banned' : 'suspended'} — strike skipped.`);
-        return {
-          strikeApplied: false,
-          newStrikeCount: user.strike_count || 0,
-          suspendedUntil,
-          isBanned,
-        };
-      }
-
-      const currentStrikeCount = parseInt(user.strike_count || 0, 10);
-      const newStrikeCount = currentStrikeCount + 1;
-      let newSuspendedUntil = null;
-      let newIsBanned = false;
-
-      if (newStrikeCount === 1) {
-        // 1st strike: 24 hours suspension
-        newSuspendedUntil = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      } else if (newStrikeCount === 2) {
-        // 2nd strike: 48 hours suspension
-        newSuspendedUntil = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-      } else if (newStrikeCount >= 3) {
-        // 3rd strike: permanent ban
-        newIsBanned = true;
-      }
-
-      await client.query(
-        `UPDATE public.users
-         SET strike_count = $1,
-             suspended_until = $2,
-             is_banned = $3
-         WHERE id = $4`,
-        [newStrikeCount, newSuspendedUntil, newIsBanned, userId]
-      );
-
-      await client.query('COMMIT');
-      console.log(`⚠️ [Moderation] Applied strike ${newStrikeCount} to user ${userId}. Suspended until: ${newSuspendedUntil}, Banned: ${newIsBanned}`);
-
-      return {
-        strikeApplied: true,
-        newStrikeCount,
-        suspendedUntil: newSuspendedUntil,
-        isBanned: newIsBanned,
-      };
-    } catch (err) {
-      await client.query('ROLLBACK');
-      console.error(`❌ [Moderation] Error applying strike to user ${userId}:`, err.message);
-      throw err;
-    } finally {
-      client.release();
-    }
-  }
-
-  /**
-   * File a report against a user and trigger strike escalation.
+   * File a report against a user.
+   * A permanent ban is triggered when 3 DISTINCT reporters have reported the user.
+   * Multiple reports from the same reporter ID only count ONCE towards the threshold.
+   *
+   * @param {string} reporterId
+   * @param {string} reportedUserId
+   * @param {string} reason
+   * @param {string|null} description
+   * @param {string|null} messageId
+   * @param {string|null} conversationId
    */
   async fileReport(reporterId, reportedUserId, reason, description = null, messageId = null, conversationId = null) {
     if (reporterId === reportedUserId) {
       throw new Error('Cannot report yourself');
     }
 
-    // Insert into reports table
-    const result = await db.query(
-      `INSERT INTO public.reports (reporter_id, reported_user_id, reason, description, message_id, conversation_id)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING *`,
-      [reporterId, reportedUserId, reason, description, messageId, conversationId]
-    );
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    // Apply strike escalation per rules
-    const strikeResult = await this.applyStrikeIfEligible(reportedUserId);
+      // 1. Insert report record
+      const insertRes = await client.query(
+        `INSERT INTO public.reports (reporter_id, reported_user_id, reason, description, message_id, conversation_id)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING *`,
+        [reporterId, reportedUserId, reason, description, messageId, conversationId]
+      );
 
-    return {
-      report: result.rows[0],
-      moderationResult: strikeResult,
-    };
+      // 2. Count DISTINCT reporters for this reported user
+      const countRes = await client.query(
+        `SELECT COUNT(DISTINCT reporter_id)::int AS distinct_count
+         FROM public.reports
+         WHERE reported_user_id = $1`,
+        [reportedUserId]
+      );
+
+      const distinctReporterCount = parseInt(countRes.rows[0].distinct_count || 0, 10);
+      let isBanned = false;
+
+      // 3. If distinct count >= 3, trigger immediate permanent ban
+      if (distinctReporterCount >= 3) {
+        await client.query(
+          `UPDATE public.users SET is_banned = TRUE WHERE id = $1`,
+          [reportedUserId]
+        );
+        isBanned = true;
+        console.log(`⛔ [Moderation] BAN TRIGGERED: User ${reportedUserId} has been reported by ${distinctReporterCount} distinct reporters.`);
+      }
+
+      await client.query('COMMIT');
+
+      return {
+        report: insertRes.rows[0],
+        moderationResult: {
+          distinctReporterCount,
+          isBanned,
+        },
+      };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error(`❌ [Moderation] Error filing report for reported user ${reportedUserId}:`, err.message);
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 }
 

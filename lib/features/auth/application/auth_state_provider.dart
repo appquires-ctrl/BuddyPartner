@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dating_app/core/services/api_client.dart';
+import 'package:dating_app/core/services/socket_provider.dart';
+import 'package:dating_app/features/chat/application/presence_provider.dart';
+import 'package:dating_app/features/chat/application/conversations_provider.dart';
 
 class CustomUser {
   final String id;
@@ -9,6 +12,7 @@ class CustomUser {
   final String gender;
   final String? avatarSeed;
   final String? avatarStyle;
+  final bool? isTelecaller;
 
   CustomUser({
     required this.id,
@@ -17,6 +21,7 @@ class CustomUser {
     required this.gender,
     this.avatarSeed,
     this.avatarStyle,
+    this.isTelecaller,
   });
 
   /// Convenience getters for gender-based routing
@@ -26,6 +31,29 @@ class CustomUser {
   }
 
   bool get isMale => !isFemale;
+
+  /// Returns whether this female user is an active Telecaller
+  bool get isTelecallerActive => isFemale && (isTelecaller == true);
+
+  CustomUser copyWith({
+    String? id,
+    String? phoneNumber,
+    bool? isProfileComplete,
+    String? gender,
+    String? avatarSeed,
+    String? avatarStyle,
+    bool? isTelecaller,
+  }) {
+    return CustomUser(
+      id: id ?? this.id,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      isProfileComplete: isProfileComplete ?? this.isProfileComplete,
+      gender: gender ?? this.gender,
+      avatarSeed: avatarSeed ?? this.avatarSeed,
+      avatarStyle: avatarStyle ?? this.avatarStyle,
+      isTelecaller: isTelecaller ?? this.isTelecaller,
+    );
+  }
 }
 
 class AuthNotifier extends AsyncNotifier<CustomUser?> {
@@ -48,6 +76,7 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
           gender: gender,
           avatarSeed: userMap['avatarSeed'] as String?,
           avatarStyle: userMap['avatarStyle'] as String? ?? 'avataaars',
+          isTelecaller: userMap['isTelecaller'] as bool?,
         );
       }
     } catch (e) {
@@ -62,9 +91,17 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
     state = AsyncData(user);
   }
 
-  /// Clears the session
+  /// Clears the session and disconnects real-time socket & presence states
   Future<void> clearSession() async {
     state = const AsyncLoading();
+    
+    // Explicitly disconnect and dispose real-time Socket.io connection on backend
+    ref.read(socketProvider.notifier).disconnectAndDispose();
+    
+    // Invalidate presence and conversation caches
+    ref.invalidate(presenceProvider);
+    ref.invalidate(conversationsProvider);
+
     await ref.read(apiClientProvider).deleteToken();
     state = const AsyncData(null);
   }
@@ -87,6 +124,7 @@ class UserProfile {
   final String language;
   final String? avatarSeed;
   final String? avatarStyle;
+  final bool? isTelecaller;
 
   UserProfile({
     required this.id,
@@ -96,6 +134,7 @@ class UserProfile {
     required this.language,
     this.avatarSeed,
     this.avatarStyle,
+    this.isTelecaller,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -107,6 +146,7 @@ class UserProfile {
       language: json['language'] as String? ?? 'English',
       avatarSeed: json['avatarSeed'] as String?,
       avatarStyle: json['avatarStyle'] as String? ?? 'avataaars',
+      isTelecaller: json['isTelecaller'] as bool?,
     );
   }
 }

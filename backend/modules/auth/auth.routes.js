@@ -313,16 +313,22 @@ router.post('/firebase-login', async (req, res) => {
  */
 router.post('/profile', authMiddleware, async (req, res) => {
   const userId = req.user.id;
-  const { fullName, dob, gender, language, avatarSeed, avatarStyle } = req.body;
+  const { fullName, dob, gender, language, avatarSeed, avatarStyle, isTelecaller } = req.body;
 
   if (!fullName) {
     return res.status(400).json({ error: 'Full name is required to complete profile.' });
   }
 
+  const cleanGender = (gender || '').toLowerCase();
+  const isFemale = cleanGender === 'female' || cleanGender === 'girl' || cleanGender === 'woman';
+  const telecallerVal = isFemale ? (typeof isTelecaller === 'boolean' ? isTelecaller : null) : null;
+
   try {
     await db.query(
-      'UPDATE public.users SET full_name = $1, dob = $2, gender = $3, language = $4, avatar_seed = $5, avatar_style = $6 WHERE id = $7',
-      [fullName, dob || null, gender || null, language || null, avatarSeed || null, avatarStyle || 'avataaars', userId]
+      `UPDATE public.users 
+       SET full_name = $1, dob = $2, gender = $3, language = $4, avatar_seed = $5, avatar_style = $6, is_telecaller = $7 
+       WHERE id = $8`,
+      [fullName, dob || null, gender || null, language || null, avatarSeed || null, avatarStyle || 'avataaars', telecallerVal, userId]
     );
 
     res.json({ success: true, message: 'Profile updated successfully.' });
@@ -341,7 +347,7 @@ router.get('/me', authMiddleware, async (req, res) => {
 
   try {
     const result = await db.query(
-      `SELECT u.id, u.phone_number, u.full_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, w.balance 
+      `SELECT u.id, u.phone_number, u.full_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, w.balance 
        FROM public.users u
        LEFT JOIN public.wallets w ON w.user_id = u.id
        WHERE u.id = $1`,
@@ -364,6 +370,7 @@ router.get('/me', authMiddleware, async (req, res) => {
         language: userRow.language || '',
         avatarSeed: userRow.avatar_seed || null,
         avatarStyle: userRow.avatar_style || 'avataaars',
+        isTelecaller: userRow.is_telecaller ?? null,
         walletBalance: userRow.balance || 0,
       },
     });
@@ -372,5 +379,46 @@ router.get('/me', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Internal server error fetching user profile.' });
   }
 });
+
+/**
+ * Endpoint: PATCH /api/users/me/telecaller-status (also /api/auth/telecaller-status)
+ * Allows female users to toggle their telecaller opt-in mode.
+ */
+async function handleTelecallerStatusUpdate(req, res) {
+  const userId = req.user.id;
+  const { isTelecaller } = req.body;
+
+  if (typeof isTelecaller !== 'boolean') {
+    return res.status(400).json({ error: 'isTelecaller must be a boolean.' });
+  }
+
+  try {
+    const userRes = await db.query('SELECT gender FROM public.users WHERE id = $1', [userId]);
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User profile not found.' });
+    }
+
+    const gender = (userRes.rows[0].gender || '').toLowerCase();
+    const isFemale = (gender === 'female' || gender === 'girl' || gender === 'woman');
+
+    if (!isFemale) {
+      return res.status(403).json({ error: 'Telecaller mode is only available for female users.' });
+    }
+
+    await db.query(
+      'UPDATE public.users SET is_telecaller = $1 WHERE id = $2',
+      [isTelecaller, userId]
+    );
+
+    res.json({ success: true, isTelecaller });
+  } catch (err) {
+    console.error('Error updating telecaller status:', err.message);
+    res.status(500).json({ error: 'Failed to update telecaller status.' });
+  }
+}
+
+router.patch('/telecaller-status', authMiddleware, handleTelecallerStatusUpdate);
+router.patch('/me/telecaller-status', authMiddleware, handleTelecallerStatusUpdate);
+
 
 module.exports = router;

@@ -38,6 +38,7 @@ const roseRoutes = require('./modules/wallet/rose.routes');
 const withdrawalRoutes = require('./modules/withdrawals/withdrawals.routes');
 
 app.use('/api/auth', authRoutes);
+app.use('/api/users', authRoutes);
 app.use('/api/calls', callsRoutes);
 app.use('/api', messagingRoutes);
 app.use('/api', roseRoutes);
@@ -66,11 +67,13 @@ db.query(`
   ALTER TABLE public.users ADD COLUMN IF NOT EXISTS strike_count INTEGER DEFAULT 0;
   ALTER TABLE public.users ADD COLUMN IF NOT EXISTS suspended_until TIMESTAMPTZ;
   ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE;
+  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_telecaller BOOLEAN;
 `).then(() => {
-  console.log('✅ User moderation columns checked/initialized.');
+  console.log('✅ User moderation and telecaller columns checked/initialized.');
 }).catch((err) => {
-  console.error('❌ Failed to initialize user moderation columns:', err.message);
+  console.error('❌ Failed to initialize user columns:', err.message);
 });
+
 
 // Auto-ensure rose/withdrawal tables exist
 db.query(`
@@ -144,8 +147,8 @@ io.use(async (socket, next) => {
     const decoded = jwt.verify(token, secret);
 
     const modStatus = await ModerationService.isUserBlocked(decoded.id);
-    if (modStatus.isBlocked) {
-      return next(new Error(modStatus.isBanned ? 'ACCOUNT_BANNED' : 'ACCOUNT_SUSPENDED'));
+    if (modStatus.isBanned) {
+      return next(new Error('ACCOUNT_BANNED'));
     }
 
     socket.userId = decoded.id;

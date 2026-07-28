@@ -43,13 +43,8 @@ class ApiClient {
               final errorCode = data['error'];
               final context = rootNavigatorKey.currentContext;
               if (context != null) {
-                if (errorCode == 'ACCOUNT_BANNED') {
+                if (errorCode == 'ACCOUNT_BANNED' || errorCode == 'ACCOUNT_SUSPENDED') {
                   context.go(RouteNames.banned);
-                } else if (errorCode == 'ACCOUNT_SUSPENDED') {
-                  context.go(
-                    RouteNames.suspended,
-                    extra: {'suspended_until': data['suspended_until']},
-                  );
                 }
               }
             }
