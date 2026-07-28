@@ -114,7 +114,8 @@ router.post('/block', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'userId is required' });
     }
 
-    await messagingService.blockUser(req.user.id, userId);
+    const io = req.app.get('io');
+    await messagingService.blockUser(req.user.id, userId, io);
     res.json({ success: true });
   } catch (err) {
     console.error('Error blocking user:', err.message);

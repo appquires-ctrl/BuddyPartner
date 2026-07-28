@@ -302,9 +302,12 @@ class MessagingService {
   }
 
   /**
-   * Block a user.
+   * Block a user and notify real-time sockets.
+   * @param {string} blockerId
+   * @param {string} blockedId
+   * @param {import('socket.io').Server|null} io
    */
-  async blockUser(blockerId, blockedId) {
+  async blockUser(blockerId, blockedId, io = null) {
     if (blockerId === blockedId) {
       throw new Error('Cannot block yourself');
     }
@@ -315,6 +318,15 @@ class MessagingService {
        ON CONFLICT (blocker_id, blocked_id) DO NOTHING`,
       [blockerId, blockedId]
     );
+
+    if (io) {
+      io.emit('user:blocked', {
+        blockerId,
+        blockedId,
+        timestamp: new Date().toISOString(),
+      });
+      console.log(`🚫 [Block] User ${blockerId} blocked user ${blockedId}. Socket notification emitted.`);
+    }
   }
 
   /**

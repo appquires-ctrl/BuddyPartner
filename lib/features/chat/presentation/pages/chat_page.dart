@@ -294,82 +294,110 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     },
                   ),
           ),
-          Container(
-            decoration: BoxDecoration(
-              color: colors.surface,
-              border: Border(top: BorderSide(color: colors.border.withValues(alpha: 0.5))),
-              boxShadow: [
-                BoxShadow(
-                  color: colors.textPrimary.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, -3),
+          if (chatState.isBlocked || (chatState.errorMessage?.toLowerCase().contains('block') ?? false))
+            Container(
+              decoration: BoxDecoration(
+                color: colors.surfaceMuted,
+                border: Border(top: BorderSide(color: colors.border.withValues(alpha: 0.5))),
+              ),
+              child: SafeArea(
+                top: false,
+                bottom: true,
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.space16),
+                  child: Center(
+                    child: Text(
+                      'You cannot message this user.',
+                      style: typography.bodyMedium.copyWith(
+                        color: colors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ),
-              ],
-            ),
-            child: SafeArea(
-              top: false,
-              bottom: true,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.space16,
-                  vertical: 10.0,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: colors.surfaceMuted,
-                          borderRadius: AppRadius.pill,
-                          border: Border.all(color: colors.border),
-                        ),
-                        child: TextField(
-                          controller: _messageController,
-                          style: typography.bodyMedium.copyWith(color: colors.textPrimary),
-                          onChanged: _onTyping,
-                          textInputAction: TextInputAction.send,
-                          decoration: InputDecoration(
-                            hintText: 'Type a message...',
-                            hintStyle: typography.bodySmall.copyWith(
-                              color: colors.textSecondary,
-                              fontSize: 14,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.space16,
-                              vertical: 12,
-                            ),
+              ),
+            )
+          else
+            Container(
+              decoration: BoxDecoration(
+                color: colors.surface,
+                border: Border(top: BorderSide(color: colors.border.withValues(alpha: 0.5))),
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.textPrimary.withValues(alpha: 0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, -3),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                top: false,
+                bottom: true,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.space16,
+                    vertical: 10.0,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: colors.surfaceMuted,
+                            borderRadius: AppRadius.pill,
+                            border: Border.all(color: colors.border),
                           ),
-                          onSubmitted: (_) => _sendMessage(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    GestureDetector(
-                      onTap: _sendMessage,
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: colors.primary,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: colors.primary.withValues(alpha: 0.35),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
+                          child: TextField(
+                            controller: _messageController,
+                            style: typography.bodyMedium.copyWith(color: colors.textPrimary),
+                            onChanged: _onTyping,
+                            textInputAction: TextInputAction.send,
+                            decoration: InputDecoration(
+                              hintText: 'Type a message...',
+                              hintStyle: typography.bodySmall.copyWith(
+                                color: colors.textSecondary,
+                                fontSize: 14,
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.space16,
+                                vertical: 12,
+                              ),
                             ),
-                          ],
+                            onSubmitted: (_) => _sendMessage(),
+                          ),
                         ),
-                        child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      GestureDetector(
+                        onTap: _sendMessage,
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: colors.primary,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: colors.primary.withValues(alpha: 0.35),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.send_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );

@@ -6,7 +6,6 @@ import 'package:dating_app/features/chat/data/chat_repository.dart';
 import 'package:dating_app/features/chat/domain/message.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 import 'package:dating_app/features/chat/application/conversations_provider.dart';
-
 import 'package:dating_app/features/auth/application/auth_error_mapper.dart';
 
 class ChatState {
@@ -16,6 +15,7 @@ class ChatState {
   final String? nextCursor;
   final String? typingUserId;
   final String? errorMessage;
+  final bool isBlocked;
 
   const ChatState({
     this.messages = const [],
@@ -24,6 +24,7 @@ class ChatState {
     this.nextCursor,
     this.typingUserId,
     this.errorMessage,
+    this.isBlocked = false,
   });
 
   ChatState copyWith({
@@ -33,6 +34,7 @@ class ChatState {
     String? nextCursor,
     String? typingUserId,
     String? errorMessage,
+    bool? isBlocked,
     bool clearTypingUser = false,
     bool clearError = false,
   }) {
@@ -43,6 +45,7 @@ class ChatState {
       nextCursor: nextCursor ?? this.nextCursor,
       typingUserId: clearTypingUser ? null : (typingUserId ?? this.typingUserId),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      isBlocked: isBlocked ?? this.isBlocked,
     );
   }
 }
@@ -63,17 +66,20 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
       socket.off('typing', _onTyping);
       socket.off('message:read', _onMessageRead);
       socket.off('message:status_update', _onStatusUpdate);
+      socket.off('user:blocked', _onUserBlocked);
 
       socket.on('message:new', _onNewMessage);
       socket.on('typing', _onTyping);
       socket.on('message:read', _onMessageRead);
       socket.on('message:status_update', _onStatusUpdate);
+      socket.on('user:blocked', _onUserBlocked);
 
       ref.onDispose(() {
         socket.off('message:new', _onNewMessage);
         socket.off('typing', _onTyping);
         socket.off('message:read', _onMessageRead);
         socket.off('message:status_update', _onStatusUpdate);
+        socket.off('user:blocked', _onUserBlocked);
         _typingTimer?.cancel();
         ref.invalidate(conversationsProvider);
       });
@@ -125,7 +131,13 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
     } catch (e, st) {
       debugPrint('Error in loadInitial: $e\n$st');
       final cleanMessage = AuthErrorMapper.mapMessage(e);
-      state = state.copyWith(isLoading: false, hasMore: false, errorMessage: cleanMessage);
+      final isBlockErr = e.toString().toLowerCase().contains('block');
+      state = state.copyWith(
+        isLoading: false,
+        hasMore: false,
+        isBlocked: isBlockErr,
+        errorMessage: isBlockErr ? 'You cannot message this user.' : cleanMessage,
+      );
     }
   }
 
@@ -160,7 +172,7 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
   }
 
   void sendMessage(String content) {
-    if (content.trim().isEmpty) return;
+    if (content.trim().isEmpty || state.isBlocked) return;
     final socket = ref.read(socketProvider);
     final convId = effectiveConversationId;
     if (convId.startsWith('user:')) return;
@@ -194,11 +206,24 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
         'content': content.trim(),
         'type': 'text',
       }, ack: (data) {
-        if (data != null && data['message'] != null) {
-          try {
-            final realMsg = Message.fromJson(data['message'] as Map<String, dynamic>);
-            _replaceTempMessage(tempId, realMsg);
-          } catch (_) {}
+        if (data != null) {
+          if (data['error'] != null) {
+            final errStr = data['error'].toString().toLowerCase();
+            if (errStr.contains('block')) {
+              _removeTempMessage(tempId);
+              state = state.copyWith(
+                isBlocked: true,
+                errorMessage: 'You cannot message this user.',
+              );
+              return;
+            }
+          }
+          if (data['message'] != null) {
+            try {
+              final realMsg = Message.fromJson(data['message'] as Map<String, dynamic>);
+              _replaceTempMessage(tempId, realMsg);
+            } catch (_) {}
+          }
         }
       });
     } else {
@@ -206,10 +231,24 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
       final repo = ref.read(chatRepositoryProvider);
       repo.sendMessage(convId, content.trim()).then((realMsg) {
         _replaceTempMessage(tempId, realMsg);
-      }).catchError((_) {
-        _markMessageFailed(tempId);
+      }).catchError((err) {
+        if (err.toString().toLowerCase().contains('block')) {
+          _removeTempMessage(tempId);
+          state = state.copyWith(
+            isBlocked: true,
+            errorMessage: 'You cannot message this user.',
+          );
+        } else {
+          _markMessageFailed(tempId);
+        }
       });
     }
+  }
+
+  void _removeTempMessage(String tempId) {
+    state = state.copyWith(
+      messages: state.messages.where((m) => m.id != tempId).toList(),
+    );
   }
 
   void _replaceTempMessage(String tempId, Message realMsg) {
@@ -243,6 +282,7 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
   }
 
   void sendTyping() {
+    if (state.isBlocked) return;
     final socket = ref.read(socketProvider);
     final convId = effectiveConversationId;
     if (convId.startsWith('user:')) return;
@@ -333,6 +373,22 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
         }).toList();
 
         state = state.copyWith(messages: updatedMsgs);
+      }
+    } catch (_) {}
+  }
+
+  void _onUserBlocked(dynamic data) {
+    if (data == null) return;
+    try {
+      final myId = ref.read(authStateProvider).value?.id;
+      final blockerId = data['blockerId'] as String?;
+      final blockedId = data['blockedId'] as String?;
+
+      if (myId != null && (blockerId == myId || blockedId == myId)) {
+        state = state.copyWith(
+          isBlocked: true,
+          errorMessage: 'You cannot message this user.',
+        );
       }
     } catch (_) {}
   }
