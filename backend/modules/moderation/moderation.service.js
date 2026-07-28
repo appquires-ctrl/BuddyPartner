@@ -48,20 +48,38 @@ class ModerationService {
       throw new Error('Cannot report yourself');
     }
 
-    const cleanMessageId = (messageId && typeof messageId === 'string' && messageId.trim().length > 0) ? messageId.trim() : null;
-    const cleanConversationId = (conversationId && typeof conversationId === 'string' && conversationId.trim().length > 0) ? conversationId.trim() : null;
+    const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
+    let validMessageId = (messageId && typeof messageId === 'string' && uuidRegex.test(messageId.trim())) ? messageId.trim() : null;
+    let validConversationId = (conversationId && typeof conversationId === 'string' && uuidRegex.test(conversationId.trim())) ? conversationId.trim() : null;
     const cleanDescription = (description && typeof description === 'string' && description.trim().length > 0) ? description.trim() : null;
 
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
 
+      // Verify conversation exists in DB before linking
+      if (validConversationId) {
+        const convCheck = await client.query('SELECT id FROM public.conversations WHERE id = $1', [validConversationId]);
+        if (convCheck.rows.length === 0) {
+          validConversationId = null;
+        }
+      }
+
+      // Verify message exists in DB before linking
+      if (validMessageId) {
+        const msgCheck = await client.query('SELECT id FROM public.messages WHERE id = $1', [validMessageId]);
+        if (msgCheck.rows.length === 0) {
+          validMessageId = null;
+        }
+      }
+
       // 1. Insert report record
       const insertRes = await client.query(
         `INSERT INTO public.reports (reporter_id, reported_user_id, reason, description, message_id, conversation_id)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING *`,
-        [reporterId, reportedUserId, reason, cleanDescription, cleanMessageId, cleanConversationId]
+        [reporterId, reportedUserId, reason, cleanDescription, validMessageId, validConversationId]
       );
 
       // 2. Count DISTINCT reporters for this reported user
