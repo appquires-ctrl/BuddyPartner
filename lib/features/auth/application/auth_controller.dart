@@ -83,18 +83,26 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
       await apiClient.saveToken(token);
       
       // Fetch profile
-      final userProfileResponse = await apiClient.dio.get('/api/auth/me');
-      if (userProfileResponse.statusCode == 200 && userProfileResponse.data != null) {
-        final userMap = userProfileResponse.data['user'];
-        ref.read(authStateProvider.notifier).setSession(
-          CustomUser(
-            id: userMap['id'] as String,
-            phoneNumber: userMap['phoneNumber'] as String,
-            isProfileComplete: isProfileComplete,
-            gender: userMap['gender'] as String? ?? 'Male',
-          ),
-        );
-        return true;
+      try {
+        final userProfileResponse = await apiClient.dio.get('/api/auth/me');
+        if (userProfileResponse.statusCode == 200 && userProfileResponse.data != null) {
+          final userMap = userProfileResponse.data['user'];
+          ref.read(authStateProvider.notifier).setSession(
+            CustomUser(
+              id: userMap['id'] as String,
+              phoneNumber: userMap['phoneNumber'] as String,
+              isProfileComplete: isProfileComplete,
+              gender: userMap['gender'] as String? ?? 'Male',
+            ),
+          );
+          return true;
+        }
+      } catch (e) {
+        if (e is DioException && e.response?.statusCode == 403) {
+          // Account is Banned or Suspended: Interceptor automatically routes to RouteNames.banned screen
+          return false;
+        }
+        rethrow;
       }
     }
     return false;

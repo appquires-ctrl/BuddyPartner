@@ -60,13 +60,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isProfileComplete = currentUser?.isProfileComplete ?? false;
 
       final isLegalRoute = state.matchedLocation.startsWith('/legal');
+      final isBannedRoute = state.matchedLocation == RouteNames.banned ||
+          state.matchedLocation == RouteNames.suspended;
       final isAuthRoute = state.matchedLocation == RouteNames.login ||
           state.matchedLocation == RouteNames.signup ||
           state.matchedLocation == RouteNames.forgotPassword ||
           state.matchedLocation == RouteNames.splash;
 
-      if (isLegalRoute) {
-        // Legal pages can be viewed anytime (unauthenticated or onboarding)
+      if (isLegalRoute || isBannedRoute) {
+        // Legal pages and Banned/Suspended screens can be viewed anytime!
         return null;
       }
 
