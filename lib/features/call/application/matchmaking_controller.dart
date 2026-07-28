@@ -14,12 +14,14 @@ import 'package:dating_app/features/withdraw/application/rose_providers.dart';
 import 'package:dating_app/features/home/presentation/providers/matched_users_provider.dart';
 import 'package:dating_app/features/history/data/call_history_provider.dart';
 
+import 'package:dating_app/features/auth/application/auth_state_provider.dart';
+
 /// MatchmakingController manages the full matchmaking lifecycle:
 ///   idle → queued → matched → inCall → ended → idle
 ///
 /// It owns the Socket.io connection, Agora RTC engine, and a display-only
 /// countdown timer. The server is authoritative on call duration.
-class MatchmakingController extends Notifier<MatchmakingState> {
+class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
   RtcEngine? _agoraEngine;
   Timer? _countdownTimer;
   String? _agoraAppId;
