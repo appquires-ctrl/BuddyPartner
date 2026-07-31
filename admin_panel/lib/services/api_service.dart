@@ -3,7 +3,10 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static String baseUrl = 'http://localhost:3000/api/admin';
+  static String baseUrl = const String.fromEnvironment(
+    'ADMIN_BACKEND_URL',
+    defaultValue: 'https://dating-app-chir.onrender.com/api/admin',
+  );
 
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
