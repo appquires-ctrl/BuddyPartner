@@ -1,0 +1,8 @@
+[build]
+  base = "admin_panel"
+  publish = "admin_panel/build/web"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
