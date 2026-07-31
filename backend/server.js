@@ -36,6 +36,8 @@ const callsRoutes = require('./modules/calls/calls.routes');
 const messagingRoutes = require('./modules/messaging/messaging.routes');
 const roseRoutes = require('./modules/wallet/rose.routes');
 const withdrawalRoutes = require('./modules/withdrawals/withdrawals.routes');
+const adminRoutes = require('./modules/admin/admin.routes');
+const adminService = require('./modules/admin/admin.service');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', authRoutes);
@@ -43,6 +45,10 @@ app.use('/api/calls', callsRoutes);
 app.use('/api', messagingRoutes);
 app.use('/api', roseRoutes);
 app.use('/api', withdrawalRoutes);
+app.use('/api/admin', adminRoutes);
+
+// Initialize Admin Config
+adminService.initAdminConfig();
 
 // ── Auto-ensure wallet_transactions table exists ────────────────────────────
 db.query(`
