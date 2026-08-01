@@ -19,7 +19,7 @@
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
     <application
-        android:label="dating_app"
+        android:label="BuddyPartner"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
