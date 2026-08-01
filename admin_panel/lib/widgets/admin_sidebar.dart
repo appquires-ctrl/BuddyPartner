@@ -28,29 +28,17 @@ class AdminSidebar extends StatelessWidget {
             padding: const EdgeInsets.all(24.0),
             child: Row(
               children: [
-                Container(
+                Image.asset(
+                  'assets/images/app_logo.png',
                   width: 36,
                   height: 36,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AdminColors.primaryGradientStart, AdminColors.primaryGradientEnd],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.call_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
                 ),
                 const SizedBox(width: 12),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
                     Text(
-                      'LoopCall',
+                      'BuddyPartner',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,

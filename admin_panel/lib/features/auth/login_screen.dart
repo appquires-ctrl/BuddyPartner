@@ -55,27 +55,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             children: [
               // Header Icon
               Center(
-                child: Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AdminColors.primaryGradientStart, AdminColors.primaryGradientEnd],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(
-                    Icons.lock_person_rounded,
-                    color: Colors.white,
-                    size: 28,
-                  ),
+                child: Image.asset(
+                  'assets/images/app_logo.png',
+                  width: 72,
+                  height: 72,
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               const Text(
-                'LoopCall Control Room',
+                'BuddyPartner Control Room',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 22,
@@ -85,14 +73,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 6),
               const Text(
-                'Enter developer password to access admin panel',
+                '. MEET. CONNECT. BE FRIENDS. ',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
                   color: AdminColors.textSecondary,
+                  letterSpacing: 0.8,
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 28),
 
               // Error Banner (Immediate client-side or server failure)
               if (authState.error != null) ...[

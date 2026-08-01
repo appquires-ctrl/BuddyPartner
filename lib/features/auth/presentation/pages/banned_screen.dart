@@ -9,7 +9,7 @@ import 'package:dating_app/app/theme/app_radius.dart';
 class BannedScreen extends StatelessWidget {
   const BannedScreen({super.key});
 
-  static const String _supportEmail = 'support@loopcall.com';
+  static const String _supportEmail = 'support@buddypartner.com';
 
   @override
   Widget build(BuildContext context) {
@@ -91,7 +91,7 @@ class BannedScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'If you believe this was a mistake, please send an apology/appeal email to support@loopcall.com along with your registered mobile number, explaining your situation.',
+                      'If you believe this was a mistake, please send an apology/appeal email to $_supportEmail along with your registered mobile number, explaining your situation.',
                       style: typography.bodySmall.copyWith(
                         color: colors.textPrimary,
                         fontSize: 13,

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/features/subscription/domain/subscription_plan.dart';
 import 'package:dating_app/features/subscription/application/subscription_providers.dart';
@@ -21,7 +20,6 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final typography = context.typography;
-    final subState = ref.watch(subscriptionStatusProvider).value;
 
     return Scaffold(
       backgroundColor: colors.surfaceMuted,

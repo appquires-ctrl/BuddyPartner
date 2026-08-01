@@ -101,31 +101,43 @@ class _SplashPageState extends ConsumerState<SplashPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
+                    // App Logo
+                    Image.asset(
+                      'assets/images/app_logo.png',
+                      width: 120,
+                      height: 120,
+                    )
+                        .animate()
+                        .fadeIn(duration: 600.ms)
+                        .scaleXY(begin: 0.85, end: 1.0, curve: Curves.easeOutBack),
+
+                    const SizedBox(height: AppSpacing.space16),
+
                     // Wordmark
                     Text(
-                      'LoopCall',
+                      'BuddyPartner',
                       style: typography.displayWordmark.copyWith(
                         color: colors.primary,
-                        fontSize: 52,
+                        fontSize: 42,
                         fontWeight: FontWeight.bold,
-                        letterSpacing: -1.2,
+                        letterSpacing: -0.8,
                       ),
                     )
                         .animate()
                         .fadeIn(duration: 600.ms)
                         .scaleXY(begin: 0.95, end: 1.0, curve: Curves.easeOutBack),
                     
-                    const SizedBox(height: AppSpacing.space16),
+                    const SizedBox(height: AppSpacing.space12),
                     
                     // Tagline
                     Text(
-                      'Talk Freely. Connect Instantly.',
+                      '. MEET. CONNECT. BE FRIENDS. ',
                       textAlign: TextAlign.center,
                       style: typography.bodyMedium.copyWith(
                         color: colors.textSecondary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.normal,
-                        letterSpacing: 0.2,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
                       ),
                     )
                         .animate()

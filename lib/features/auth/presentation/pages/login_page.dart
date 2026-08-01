@@ -235,8 +235,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 const SizedBox(height: 12),
 
                 // Branding Section (Logo & Tagline)
+                Image.asset(
+                  'assets/images/app_logo.png',
+                  width: 72,
+                  height: 72,
+                ),
+                const SizedBox(height: 12),
                 Text(
-                  'LoopCall',
+                  'BuddyPartner',
                   style: typography.displayWordmark.copyWith(
                     color: colors.primary,
                     fontSize: 32,
@@ -246,18 +252,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Talk Freely. Connect Instantly.',
+                  '. MEET. CONNECT. BE FRIENDS. ',
                   style: typography.bodySmall.copyWith(
                     color: colors.textSecondary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
                   ),
                 ),
-                const SizedBox(height: 36),
+                const SizedBox(height: 32),
 
                 // Greeting & Subtitle Section
                 Text(
-                  _otpSent ? 'Verify Phone' : 'Welcome to LoopCall',
+                  _otpSent ? 'Verify Phone' : 'Welcome to BuddyPartner',
                   style: typography.headlineGreeting.copyWith(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,

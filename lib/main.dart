@@ -12,5 +12,5 @@ Future<void> main() async {
     debugPrint("Firebase initialization failed (using placeholder configs): $e");
   }
 
-  runApp(const ProviderScope(child: LoopCallApp()));
+  runApp(const ProviderScope(child: BuddyPartnerApp()));
 }

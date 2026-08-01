@@ -8,10 +8,10 @@ import 'package:dating_app/app/router/route_names.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 
-/// LoopCallApp is the root widget of the application, configuring
+/// BuddyPartnerApp is the root widget of the application, configuring
 /// standard theme modes, Router navigation configurations, and Responsive Breakpoints.
-class LoopCallApp extends ConsumerWidget {
-  const LoopCallApp({super.key});
+class BuddyPartnerApp extends ConsumerWidget {
+  const BuddyPartnerApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -42,7 +42,7 @@ class LoopCallApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'LoopCall',
+      title: 'BuddyPartner',
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: ThemeMode.system,

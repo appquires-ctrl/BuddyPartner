@@ -145,7 +145,7 @@ class LegalDocumentPage extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'LoopCall Governance',
+                    'BuddyPartner Governance',
                     style: typography.bodySmall.copyWith(
                       fontSize: 11,
                       color: colors.textSecondary.withOpacity(0.7),

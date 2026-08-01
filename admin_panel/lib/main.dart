@@ -7,20 +7,20 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
     const ProviderScope(
-      child: LoopCallAdminApp(),
+      child: BuddyPartnerAdminApp(),
     ),
   );
 }
 
-class LoopCallAdminApp extends ConsumerWidget {
-  const LoopCallAdminApp({super.key});
+class BuddyPartnerAdminApp extends ConsumerWidget {
+  const BuddyPartnerAdminApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'LoopCall Control Room',
+      title: 'BuddyPartner Control Room',
       debugShowCheckedModeBanner: false,
       theme: AdminTheme.lightTheme,
       routerConfig: router,

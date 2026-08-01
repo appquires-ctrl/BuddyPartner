@@ -34,7 +34,7 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'Real-time stats and metrics across LoopCall platform',
+                    'Real-time stats and metrics across BuddyPartner platform',
                     style: TextStyle(
                       fontSize: 13,
                       color: AdminColors.textSecondary,

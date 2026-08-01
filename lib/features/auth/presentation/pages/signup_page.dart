@@ -212,12 +212,23 @@ class _SignupPageState extends ConsumerState<SignupPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Center(
-            child: Text(
-              'LoopCall',
-              style: typography.displayWordmark.copyWith(
-                color: colors.primary,
-                fontSize: 32.0,
-              ),
+            child: Column(
+              children: [
+                Image.asset(
+                  'assets/images/app_logo.png',
+                  width: 64,
+                  height: 64,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'BuddyPartner',
+                  style: typography.displayWordmark.copyWith(
+                    color: colors.primary,
+                    fontSize: 28.0,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: AppSpacing.space24),
