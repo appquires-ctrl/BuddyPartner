@@ -62,9 +62,8 @@ class MatchmakingState {
   final int? remoteUid;
   final MatchedUserInfo? matchedUser;
 
-  /// Countdown timer value (300 → 0) for display purposes only.
-  /// The server is authoritative on actual call duration.
-  final int remainingSeconds;
+  /// Elapsed call duration timer value in seconds (0, 1, 2, ...).
+  final int callDurationSeconds;
 
   final bool isVideoEnabled;
   final bool isMuted;
@@ -87,7 +86,7 @@ class MatchmakingState {
     this.agoraUid,
     this.remoteUid,
     this.matchedUser,
-    this.remainingSeconds = 300,
+    this.callDurationSeconds = 0,
     this.isVideoEnabled = false,
     this.isMuted = false,
     this.isSpeakerOn = false,
@@ -97,6 +96,8 @@ class MatchmakingState {
     this.videoRequestSenderName,
     this.rosesEarnedThisCall = 0,
   });
+
+  int get remainingSeconds => callDurationSeconds;
 
   MatchmakingState copyWith({
     MatchmakingPhase? phase,
@@ -108,6 +109,7 @@ class MatchmakingState {
     bool clearRemoteUid = false,
     bool clearMatchedUser = false,
     MatchedUserInfo? matchedUser,
+    int? callDurationSeconds,
     int? remainingSeconds,
     bool? isVideoEnabled,
     bool? isMuted,
@@ -127,7 +129,7 @@ class MatchmakingState {
       agoraUid: agoraUid ?? this.agoraUid,
       remoteUid: clearRemoteUid ? null : (remoteUid ?? this.remoteUid),
       matchedUser: clearMatchedUser ? null : (matchedUser ?? this.matchedUser),
-      remainingSeconds: remainingSeconds ?? this.remainingSeconds,
+      callDurationSeconds: callDurationSeconds ?? remainingSeconds ?? this.callDurationSeconds,
       isVideoEnabled: isVideoEnabled ?? this.isVideoEnabled,
       isMuted: isMuted ?? this.isMuted,
       isSpeakerOn: isSpeakerOn ?? this.isSpeakerOn,

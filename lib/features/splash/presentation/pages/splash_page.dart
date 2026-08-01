@@ -104,45 +104,45 @@ class _SplashPageState extends ConsumerState<SplashPage> {
                     // App Logo
                     Image.asset(
                       'assets/images/app_logo.png',
-                      width: 180,
-                      height: 180,
+                      width: 240,
+                      height: 240,
                     )
                         .animate()
                         .fadeIn(duration: 600.ms)
                         .scaleXY(begin: 0.85, end: 1.0, curve: Curves.easeOutBack),
 
-                    const SizedBox(height: AppSpacing.space16),
+                    // const SizedBox(height: AppSpacing.space16),
 
                     // Wordmark
-                    Text(
-                      'BuddyPartner',
-                      style: typography.displayWordmark.copyWith(
-                        color: colors.primary,
-                        fontSize: 42,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: -0.8,
-                      ),
-                    )
-                        .animate()
-                        .fadeIn(duration: 600.ms)
-                        .scaleXY(begin: 0.95, end: 1.0, curve: Curves.easeOutBack),
+                    // Text(
+                    //   'BuddyPartner',
+                    //   style: typography.displayWordmark.copyWith(
+                    //     color: colors.primary,
+                    //     fontSize: 42,
+                    //     fontWeight: FontWeight.bold,
+                    //     letterSpacing: -0.8,
+                    //   ),
+                    // )
+                    //     .animate()
+                    //     .fadeIn(duration: 600.ms)
+                    //     .scaleXY(begin: 0.95, end: 1.0, curve: Curves.easeOutBack),
                     
-                    const SizedBox(height: AppSpacing.space12),
+                    // const SizedBox(height: AppSpacing.space12),
                     
                     // Tagline
-                    Text(
-                      '. MEET. CONNECT. BE FRIENDS. ',
-                      textAlign: TextAlign.center,
-                      style: typography.bodyMedium.copyWith(
-                        color: colors.textSecondary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                    )
-                        .animate()
-                        .fadeIn(delay: 300.ms, duration: 600.ms)
-                        .slideY(begin: 0.1, end: 0.0),
+                    // Text(
+                    //   '. MEET. CONNECT. BE FRIENDS. ',
+                    //   textAlign: TextAlign.center,
+                    //   style: typography.bodyMedium.copyWith(
+                    //     color: colors.textSecondary,
+                    //     fontSize: 13,
+                    //     fontWeight: FontWeight.bold,
+                    //     letterSpacing: 1.2,
+                    //   ),
+                    // )
+                    //     .animate()
+                    //     .fadeIn(delay: 300.ms, duration: 600.ms)
+                    //     .slideY(begin: 0.1, end: 0.0),
                   ],
                 ),
               ),

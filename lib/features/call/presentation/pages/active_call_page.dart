@@ -200,7 +200,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              _formatCountdown(matchState.remainingSeconds),
+                              _formatCountdown(matchState.callDurationSeconds),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 13,

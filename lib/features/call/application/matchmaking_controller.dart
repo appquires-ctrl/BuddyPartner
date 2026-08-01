@@ -808,22 +808,14 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
     }
   }
 
-  // ── Countdown timer (display-only) ────────────────────────────────────
+  // ── Call duration timer (count-up display) ────────────────────────────
 
   void _startCountdown() {
     _stopCountdown();
-    state = state.copyWith(remainingSeconds: 300);
+    state = state.copyWith(callDurationSeconds: 0);
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      final remaining = state.remainingSeconds - 1;
-      if (remaining <= 0) {
-        timer.cancel();
-        // Don't end the call here — wait for the server's call_ended event.
-        // The timer hitting 0 is just a visual cue.
-        state = state.copyWith(remainingSeconds: 0);
-      } else {
-        state = state.copyWith(remainingSeconds: remaining);
-      }
+      state = state.copyWith(callDurationSeconds: state.callDurationSeconds + 1);
     });
   }
 
