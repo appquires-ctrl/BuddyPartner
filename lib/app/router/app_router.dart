@@ -22,6 +22,9 @@ import 'package:dating_app/features/withdraw/presentation/pages/withdraw_page.da
 import 'package:dating_app/features/profile/presentation/pages/profile_page.dart';
 import 'package:dating_app/features/profile/presentation/pages/account_page.dart';
 import 'package:dating_app/features/profile/presentation/pages/help_page.dart';
+import 'package:dating_app/features/subscription/presentation/pages/subscribe_page.dart';
+import 'package:dating_app/features/subscription/presentation/pages/dev_subscription_page.dart';
+import 'package:dating_app/features/subscription/domain/subscription_plan.dart';
 import 'package:dating_app/features/legal/presentation/pages/legal_document_page.dart';
 import 'package:dating_app/features/legal/data/legal_document_content.dart';
 import 'package:dating_app/features/wallet/presentation/pages/transaction_history_page.dart';
@@ -202,30 +205,32 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RouteNames.banned,
         builder: (context, state) => const BannedScreen(),
       ),
+      GoRoute(
+        path: RouteNames.subscribe,
+        builder: (context, state) => const SubscribePage(),
+      ),
+      GoRoute(
+        path: RouteNames.devSubscription,
+        builder: (context, state) {
+          final plan = state.extra as SubscriptionPlan? ?? SubscriptionPlan.defaultPlans.first;
+          return DevSubscriptionPage(plan: plan);
+        },
+      ),
 
-      // Stateful Nested Shell for Main Dashboard
+      // Stateful Nested Shell for Main Dashboard (4 core tabs)
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
-          return Consumer(
-            builder: (context, ref, child) {
-              final currentUser = ref.watch(authStateProvider).value;
-              final isFemale = currentUser?.isFemale ?? false;
-
-              return Scaffold(
-                body: navigationShell,
-                bottomNavigationBar: AppBottomNav(
-                  currentIndex: navigationShell.currentIndex,
-                  isFemale: isFemale,
-                  isTelecallerActive: currentUser?.isTelecallerActive ?? false,
-                  onTap: (index) {
-                    navigationShell.goBranch(
-                      index,
-                      initialLocation: index == navigationShell.currentIndex,
-                    );
-                  },
-                ),
-              );
-            },
+          return Scaffold(
+            body: navigationShell,
+            bottomNavigationBar: AppBottomNav(
+              currentIndex: navigationShell.currentIndex,
+              onTap: (index) {
+                navigationShell.goBranch(
+                  index,
+                  initialLocation: index == navigationShell.currentIndex,
+                );
+              },
+            ),
           );
         },
         branches: [
@@ -238,7 +243,6 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          
 
           // Tab 2: Chat/Messages
           StatefulShellBranch(
@@ -249,7 +253,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          
+
           // Tab 3: Favorites
           StatefulShellBranch(
             routes: [
@@ -259,33 +263,8 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          
 
-          // Tab 4: Store Wallet Recharge (Male) / Withdraw Earnings (Female)
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: RouteNames.recharge,
-                builder: (context, state) {
-                  return Consumer(
-                    builder: (context, ref, child) {
-                      final currentUser = ref.watch(authStateProvider).value;
-                      if (currentUser?.isFemale ?? false) {
-                        return const WithdrawPage();
-                      }
-                      return const RechargePage();
-                    },
-                  );
-                },
-              ),
-              GoRoute(
-                path: RouteNames.withdraw,
-                builder: (context, state) => const WithdrawPage(),
-              ),
-            ],
-          ),
-          
-          // Tab 5: User Settings
+          // Tab 4: User Profile Settings
           StatefulShellBranch(
             routes: [
               GoRoute(

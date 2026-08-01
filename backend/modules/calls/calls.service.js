@@ -124,30 +124,14 @@ class CallsService {
   }
 
   /**
-   * Start the server-authoritative 5-minute timer for a call.
-   * When it fires, the callback is invoked to force-end the call.
-   *
-   * @param {string} callId
-   * @param {Function} onExpiry - callback invoked when 5 minutes elapses
+   * No-op stub for starting call timer (5-minute cap removed in subscription model).
    */
   startCallTimer(callId, onExpiry) {
-    // Clear any existing timer for this call
-    this.clearCallTimer(callId);
-
-    const timer = setTimeout(async () => {
-      console.log(`⏰ Call ${callId} reached 5-minute limit — force-ending`);
-      this.callTimers.delete(callId);
-      await this.endCall(callId);
-      onExpiry(callId);
-    }, CALL_DURATION_MS);
-
-    this.callTimers.set(callId, timer);
+    // 5-minute limit removed under subscription model
   }
 
   /**
-   * Clear the server-side timer for a call (e.g. on manual end).
-   *
-   * @param {string} callId
+   * No-op stub for clearing call timer.
    */
   clearCallTimer(callId) {
     const existing = this.callTimers.get(callId);
@@ -158,98 +142,14 @@ class CallsService {
   }
 
   /**
-   * Start 60-second billing interval for a call.
-   * Gender-aware: boys are debited coins, girls are credited roses.
-   *
-   * @param {string} callId
-   * @param {string} userAId
-   * @param {string} userBId
-   * @param {string} genderA - 'male' or 'female'
-   * @param {string} genderB - 'male' or 'female'
-   * @param {import('socket.io').Server} io
-   * @param {Function} onInsufficientBalance - callback (callId) when boy's balance is insufficient
+   * No-op stub for starting call billing (per-minute billing removed in subscription model).
    */
   startCallBilling(callId, userAId, userBId, genderA, genderB, io, onInsufficientBalance) {
-    this.clearCallBilling(callId);
-    const { WalletService, CALL_RATES } = require('../wallet/wallet.service');
-    const { RoseService, ROSE_RATES } = require('../wallet/rose.service');
-
-    // Determine who is the boy and who is the girl
-    const isFemaleA = this._isFemale(genderA);
-    const isFemaleB = this._isFemale(genderB);
-    const boyId = isFemaleA ? userBId : userAId;
-    const girlId = isFemaleA ? userAId : userBId;
-    const hasBoy = !isFemaleA || !isFemaleB;
-    const hasGirl = isFemaleA || isFemaleB;
-
-    console.log(`💰 [Billing] Started gender-aware billing for call ${callId} — boy: ${boyId}, girl: ${girlId}`);
-
-    const interval = setInterval(async () => {
-      console.log(`💰 [Billing] Tick fired for call ${callId}`);
-      try {
-        // Query DB for current call status & type
-        const res = await db.query(
-          'SELECT status, call_type FROM public.calls WHERE id = $1',
-          [callId]
-        );
-
-        if (res.rows.length === 0 || res.rows[0].status !== 'active') {
-          this.clearCallBilling(callId);
-          return;
-        }
-
-        const callType = res.rows[0].call_type || 'voice';
-        const coinRate = callType === 'video' ? CALL_RATES.video : CALL_RATES.voice;
-
-        const { userSockets } = require('../matchmaking/matchmaking.socket');
-
-        // === BOY: Debit coins ===
-        if (hasBoy) {
-          console.log(`💰 [Billing] Deducting ${coinRate} coins (${callType}) from boy ${boyId}`);
-          const deductRes = await WalletService.deductForCallMinute(boyId, callId, coinRate);
-          console.log(`💰 [Billing] Boy deduction result: ${JSON.stringify(deductRes)}`);
-
-          if (deductRes.success && deductRes.newBalance !== null) {
-            const boySocketId = userSockets.get(boyId);
-            if (boySocketId) {
-              io.to(boySocketId).emit('balance_update', { balance: deductRes.newBalance });
-            }
-          }
-
-          // If boy's balance is insufficient, end the call
-          if (!deductRes.success) {
-            console.log(`💳 Call ${callId} ended — boy ${boyId} has insufficient balance`);
-            this.clearCallBilling(callId);
-            onInsufficientBalance(callId, boyId);
-            return; // Don't credit the girl for this failed minute
-          }
-        }
-
-        // === GIRL: Credit roses ===
-        if (hasGirl) {
-          console.log(`🌹 [Billing] Crediting roses (${callType}) to girl ${girlId}`);
-          const creditRes = await RoseService.creditRoseForCallMinute(girlId, callId, callType);
-          console.log(`🌹 [Billing] Girl credit result: ${JSON.stringify(creditRes)}`);
-
-          if (creditRes.success && creditRes.newBalance !== null) {
-            const girlSocketId = userSockets.get(girlId);
-            if (girlSocketId) {
-              io.to(girlSocketId).emit('rose_update', { balance: creditRes.newBalance });
-            }
-          }
-        }
-      } catch (err) {
-        console.error(`Error during per-minute billing for call ${callId}:`, err.message);
-      }
-    }, 60 * 1000); // 60 seconds interval
-
-    this.callBillingIntervals.set(callId, interval);
+    // Per-minute billing removed under subscription model
   }
 
   /**
-   * Clear the per-minute billing interval for a call.
-   *
-   * @param {string} callId
+   * No-op stub for clearing call billing.
    */
   clearCallBilling(callId) {
     const existing = this.callBillingIntervals.get(callId);
@@ -272,4 +172,4 @@ class CallsService {
 
 const callsService = new CallsService();
 
-module.exports = { callsService, CallsService, CALL_DURATION_MS };
+module.exports = { callsService, CallsService };

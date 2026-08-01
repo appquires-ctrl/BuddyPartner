@@ -2,6 +2,7 @@ const { MatchmakingService } = require('./matchmaking.service');
 const { callsService } = require('../calls/calls.service');
 const { WalletService, CALL_RATES } = require('../wallet/wallet.service');
 const { RoseService } = require('../wallet/rose.service');
+const { subscriptionsService } = require('../subscriptions/subscriptions.service');
 const db = require('../../db');
 
 // In-memory map of active calls: callId → { userA: { userId, socketId, gender }, userB: { userId, socketId, gender } }
@@ -95,15 +96,13 @@ function registerMatchmakingHandlers(io, socket, redis) {
 
       const userIsFemale = isFemale(gender);
 
-      // Balance check: only for boys (girls earn, they don't spend)
-      if (!userIsFemale) {
-        const hasBalance = await WalletService.hasMinimumBalance(userId, CALL_RATES.voice);
-        if (!hasBalance) {
-          const cb = typeof callback === 'function' ? callback : () => {};
-          cb({ error: 'insufficient_balance', required: CALL_RATES.voice, message: `You need at least ${CALL_RATES.voice} coins to start a call — recharge to continue` });
-          socket.emit('match_error', { error: 'insufficient_balance', message: `You need at least ${CALL_RATES.voice} coins to start a call — recharge to continue` });
-          return;
-        }
+      // Subscription check: unisex requirement for all users
+      const isSub = await subscriptionsService.isSubscribed(userId);
+      if (!isSub) {
+        const cb = typeof callback === 'function' ? callback : () => {};
+        cb({ error: 'SUBSCRIPTION_REQUIRED', message: 'An active subscription is required to join the matchmaking queue.' });
+        socket.emit('match_error', { error: 'SUBSCRIPTION_REQUIRED', message: 'An active subscription is required to join the matchmaking queue.' });
+        return;
       }
 
       const added = await matchmakingService.joinQueue(userId, socket.id, gender);
@@ -367,15 +366,11 @@ function registerMatchmakingHandlers(io, socket, redis) {
 
   // ── direct_call ────────────────────────────────────────────────────────
   socket.on('direct_call', async ({ targetUserId }) => {
-    const callerGender = await getUserGender(userId);
-    const callerIsFemale = isFemale(callerGender);
-
-    if (!callerIsFemale) {
-      const hasBalance = await WalletService.hasMinimumBalance(userId, CALL_RATES.voice);
-      if (!hasBalance) {
-        socket.emit('match_error', { error: 'insufficient_balance', message: `You need at least ${CALL_RATES.voice} coins to start a call — recharge to continue` });
-        return;
-      }
+    // Subscription check: unisex requirement for all users
+    const isSub = await subscriptionsService.isSubscribed(userId);
+    if (!isSub) {
+      socket.emit('match_error', { error: 'SUBSCRIPTION_REQUIRED', message: 'An active subscription is required to start a call.' });
+      return;
     }
 
     if (targetUserId === userId) {

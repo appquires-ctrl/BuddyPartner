@@ -9,8 +9,7 @@ import 'package:dating_app/core/services/socket_provider.dart';
 import 'package:dating_app/core/config/app_config.dart';
 import 'matchmaking_state.dart';
 import 'package:dating_app/features/call/application/call_summary_provider.dart';
-import 'package:dating_app/features/recharge/presentation/providers/recharge_providers.dart';
-import 'package:dating_app/features/withdraw/application/rose_providers.dart';
+import 'package:dating_app/features/subscription/application/subscription_providers.dart';
 import 'package:dating_app/features/home/presentation/providers/matched_users_provider.dart';
 import 'package:dating_app/features/history/data/call_history_provider.dart';
 
@@ -301,9 +300,8 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
       clearMatchedUser: true,
     );
 
-    // Refresh balance & matched users providers from server
-    ref.invalidate(walletBalanceProvider);
-    ref.invalidate(roseBalanceProvider);
+    // Refresh subscription status & matched users providers from server
+    ref.invalidate(subscriptionStatusProvider);
     ref.invalidate(matchedUsersProvider);
     ref.invalidate(callHistoryProvider);
 
@@ -544,8 +542,8 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
       errorMessage: errorMessage,
     );
 
-    // Refresh wallet balance and matched users from server
-    ref.invalidate(walletBalanceProvider);
+    // Refresh subscription status and matched users from server
+    ref.invalidate(subscriptionStatusProvider);
     ref.invalidate(matchedUsersProvider);
     ref.invalidate(callHistoryProvider);
 
@@ -614,28 +612,11 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
   }
 
   void _onBalanceUpdate(dynamic data) {
-    try {
-      if (data is Map && data['balance'] != null) {
-        final newBalance = (data['balance'] as num).toInt();
-        ref.read(walletBalanceProvider.notifier).updateBalance(newBalance);
-      }
-    } catch (e) {
-      debugPrint('Error updating balance from socket: $e');
-    }
+    // Coins removed in subscription model
   }
 
   void _onRoseUpdate(dynamic data) {
-    try {
-      if (data is Map && data['balance'] != null) {
-        final newBalance = (data['balance'] as num).toInt();
-        ref.read(roseBalanceProvider.notifier).updateBalance(newBalance);
-        state = state.copyWith(
-          rosesEarnedThisCall: state.rosesEarnedThisCall + 1,
-        );
-      }
-    } catch (e) {
-      debugPrint('Error updating roses from socket: $e');
-    }
+    // Roses removed in subscription model
   }
 
   Future<void> _onIncomingCallRequest(dynamic data) async {
@@ -722,8 +703,8 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
     _stopCountdown();
     state = state.copyWith(phase: MatchmakingPhase.ended);
 
-    // Refresh wallet balance and matched users from server
-    ref.invalidate(walletBalanceProvider);
+    // Refresh subscription status and matched users from server
+    ref.invalidate(subscriptionStatusProvider);
     ref.invalidate(matchedUsersProvider);
     ref.invalidate(callHistoryProvider);
 

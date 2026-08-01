@@ -38,6 +38,7 @@ const roseRoutes = require('./modules/wallet/rose.routes');
 const withdrawalRoutes = require('./modules/withdrawals/withdrawals.routes');
 const adminRoutes = require('./modules/admin/admin.routes');
 const adminService = require('./modules/admin/admin.service');
+const subscriptionsRoutes = require('./modules/subscriptions/subscriptions.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', authRoutes);
@@ -46,9 +47,29 @@ app.use('/api', messagingRoutes);
 app.use('/api', roseRoutes);
 app.use('/api', withdrawalRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/subscriptions', subscriptionsRoutes);
 
 // Initialize Admin Config
 adminService.initAdminConfig();
+
+// ── Auto-ensure subscriptions table exists ─────────────────────────────────
+db.query(`
+  CREATE TABLE IF NOT EXISTS public.subscriptions (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+    plan_duration_days INTEGER NOT NULL,
+    amount_paid INTEGER NOT NULL,
+    started_at TIMESTAMPTZ DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL,
+    payment_reference TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_subscriptions_user_expires ON public.subscriptions(user_id, expires_at);
+`).then(() => {
+  console.log('✅ Subscriptions table checked/initialized.');
+}).catch((err) => {
+  console.error('❌ Failed to initialize subscriptions table:', err.message);
+});
 
 // ── Auto-ensure wallet_transactions table exists ────────────────────────────
 db.query(`

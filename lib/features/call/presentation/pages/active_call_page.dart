@@ -308,46 +308,13 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
 
                     const SizedBox(height: 6),
 
-                    Consumer(
-                      builder: (context, ref, child) {
-                        final currentUser = ref.watch(authStateProvider).value;
-                        final isFemale = currentUser?.isFemale ?? false;
-                        final isTelecallerActive = currentUser?.isTelecallerActive ?? false;
-
-                        if (isFemale && isTelecallerActive) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.pink.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.pinkAccent.withValues(alpha: 0.4)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text('🌹 ', style: TextStyle(fontSize: 14)),
-                                Text(
-                                  '${matchState.rosesEarnedThisCall} Roses earned',
-                                  style: const TextStyle(
-                                    color: Colors.pinkAccent,
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-
-                        return const Text(
-                          'Voice Call',
-                          style: TextStyle(
-                            color: Color(0xFFA19EBB),
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        );
-                      },
+                    const Text(
+                      'Voice Call',
+                      style: TextStyle(
+                        color: Color(0xFFA19EBB),
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
 
                     const SizedBox(height: 24),

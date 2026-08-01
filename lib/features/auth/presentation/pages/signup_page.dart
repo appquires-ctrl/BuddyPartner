@@ -10,7 +10,6 @@ import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/core/widgets/buttons/app_primary_button.dart';
 import 'package:dating_app/core/constants/avatar_catalog.dart';
 import 'package:dating_app/core/widgets/app_avatar.dart';
-import 'package:dating_app/features/auth/presentation/pages/telecaller_opt_in_page.dart';
 
 /// SignupPage is the multi-step Profile Onboarding Page.
 /// Step 1: Profile details (Full Name, Date of Birth, Gender, Language, Terms).
@@ -40,13 +39,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   final List<String> _genders = ['Male', 'Female', 'Other'];
   final List<String> _languages = ['English', 'Hindi', 'Spanish', 'French', 'Arabic', 'Portuguese'];
 
-  bool get _isFemaleSelection {
-    if (_selectedGender == null) return false;
-    final g = _selectedGender!.toLowerCase();
-    return g == 'female' || g == 'girl' || g == 'woman';
-  }
-
-  int get _totalSteps => _isFemaleSelection ? 3 : 2;
+  int get _totalSteps => 2;
 
   @override
   void dispose() {
@@ -142,23 +135,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
       return;
     }
 
-    if (_isFemaleSelection) {
-      setState(() {
-        _currentStep = 3;
-      });
-    } else {
-      _handleFinalSubmission();
-    }
-  }
-
-  void _handleNextFromStep3() {
-    if (_selectedIsTelecaller == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an option to continue')),
-      );
-      return;
-    }
-
     _handleFinalSubmission();
   }
 
@@ -177,7 +153,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
           language: _selectedLanguage!,
           avatarSeed: _selectedAvatarSeed,
           avatarStyle: 'avataaars',
-          isTelecaller: _isFemaleSelection ? _selectedIsTelecaller : null,
+          isTelecaller: null,
         );
 
     if (success && mounted) {
@@ -190,26 +166,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     final colors = context.colors;
     final typography = context.typography;
     final authState = ref.watch(authControllerProvider);
-
-    if (_currentStep == 3) {
-      return Scaffold(
-        body: TelecallerOptInPage(
-          selectedIsTelecaller: _selectedIsTelecaller,
-          onSelectionChanged: (val) {
-            setState(() {
-              _selectedIsTelecaller = val;
-            });
-          },
-          onNext: _handleNextFromStep3,
-          onBack: () {
-            setState(() {
-              _currentStep = 2;
-            });
-          },
-          isLoading: authState.isLoading,
-        ),
-      );
-    }
 
     return Scaffold(
       appBar: _currentStep == 2
@@ -717,9 +673,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
         const SizedBox(height: AppSpacing.space32),
 
         AppPrimaryButton(
-          text: _isFemaleSelection
-              ? 'Next'
-              : (authState.isLoading ? 'Saving Profile...' : 'Complete Setup'),
+          text: authState.isLoading ? 'Saving Profile...' : 'Complete Setup',
           onPressed: authState.isLoading ? null : _handleNextFromAvatarStep,
         ),
       ],

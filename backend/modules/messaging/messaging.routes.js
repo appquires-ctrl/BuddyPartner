@@ -1,6 +1,7 @@
 const express = require('express');
 const { authMiddleware } = require('../../middleware/auth.middleware');
 const { MessagingService } = require('./messaging.service');
+const { subscriptionsService } = require('../subscriptions/subscriptions.service');
 
 const router = express.Router();
 const messagingService = new MessagingService();
@@ -86,6 +87,11 @@ router.post('/conversations/:id/messages', authMiddleware, async (req, res) => {
 
     if (!content || !content.trim()) {
       return res.status(400).json({ error: 'content is required' });
+    }
+
+    const isSub = await subscriptionsService.isSubscribed(req.user.id);
+    if (!isSub) {
+      return res.status(403).json({ error: 'SUBSCRIPTION_REQUIRED', message: 'An active subscription is required to send messages.' });
     }
 
     const message = await messagingService.sendMessage(

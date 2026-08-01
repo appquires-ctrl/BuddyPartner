@@ -1,5 +1,6 @@
 const { MessagingService } = require('./messaging.service');
 const { userSockets } = require('../matchmaking/matchmaking.socket');
+const { subscriptionsService } = require('../subscriptions/subscriptions.service');
 
 const messagingService = new MessagingService();
 
@@ -42,6 +43,13 @@ function registerMessagingHandlers(io, socket, redis) {
 
       if (!conversationId || !content || !content.trim()) {
         cb({ error: 'conversationId and content are required' });
+        return;
+      }
+
+      // Subscription check
+      const isSub = await subscriptionsService.isSubscribed(userId);
+      if (!isSub) {
+        cb({ error: 'SUBSCRIPTION_REQUIRED', message: 'An active subscription is required to send messages.' });
         return;
       }
 

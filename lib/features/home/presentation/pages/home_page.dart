@@ -8,15 +8,13 @@ import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:dating_app/features/home/presentation/widgets/matching_illustration.dart';
-import 'package:dating_app/features/recharge/presentation/providers/recharge_providers.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
 import 'package:dating_app/features/home/presentation/providers/matched_users_provider.dart';
 import 'package:dating_app/features/home/presentation/widgets/matched_user_card.dart';
 import 'package:dating_app/features/home/presentation/widgets/home_skeleton.dart';
-import 'package:dating_app/features/withdraw/application/rose_providers.dart';
+import 'package:dating_app/features/subscription/application/subscription_providers.dart';
 import 'package:dating_app/core/widgets/gradient_avatar.dart';
-import 'package:dating_app/features/call/presentation/widgets/low_balance_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 /// HomePage renders the primary "stranger search" radar screen.
 /// Matches screenshots/home.jpeg exactly.
@@ -51,6 +49,14 @@ class _HomePageState extends ConsumerState<HomePage> {
       return;
     }
 
+    final isSub = ref.read(subscriptionStatusProvider).value?.isSubscribed ?? false;
+    if (!isSub) {
+      if (mounted) {
+        context.push(RouteNames.subscribe);
+      }
+      return;
+    }
+
     ref.read(matchmakingControllerProvider.notifier).joinQueue();
   }
 
@@ -81,18 +87,9 @@ class _HomePageState extends ConsumerState<HomePage> {
       if (next.errorMessage != null &&
           next.errorMessage!.isNotEmpty &&
           (prev == null || prev.errorMessage != next.errorMessage)) {
-        final msg = next.errorMessage!.toLowerCase();
-        final currentUser = ref.read(authStateProvider).value;
-        final isFemale = currentUser?.isFemale ?? false;
-
-        if (!isFemale &&
-            (msg.contains('insufficient') ||
-                msg.contains('recharge') ||
-                msg.contains('10 coins'))) {
-          showDialog(
-            context: context,
-            builder: (context) => const LowBalanceDialog(),
-          );
+        if (next.errorMessage!.contains('SUBSCRIPTION_REQUIRED') ||
+            next.errorMessage!.toLowerCase().contains('subscribe')) {
+          context.push(RouteNames.subscribe);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -215,28 +212,19 @@ class _HomePageState extends ConsumerState<HomePage> {
                 // Balance Chip Button (Coins for Male, Roses for Female)
                 Consumer(
                   builder: (context, ref, child) {
-                    final currentUser = ref.watch(authStateProvider).value;
-                    final isFemale = currentUser?.isFemale ?? false;
+                    final subAsync = ref.watch(subscriptionStatusProvider);
+                    final subState = subAsync.value;
+                    final isSubscribed = subState?.isSubscribed ?? false;
+                    final label = isSubscribed ? subState!.formattedLabel : 'Subscribe';
 
-                    if (isFemale && !(currentUser?.isTelecallerActive ?? false)) {
-                      return const SizedBox.shrink();
-                    }
-
-                    final coinBalance = ref.watch(walletBalanceProvider).value ?? 100;
-                    final roseBalance = ref.watch(roseBalanceProvider).value ?? 0;
-
-                    final displayAmount = isFemale ? roseBalance : coinBalance;
+                    final statusColor = isSubscribed ? colors.success : colors.danger;
 
                     return Padding(
                       padding: const EdgeInsets.only(right: 16.0),
                       child: Center(
                         child: GestureDetector(
                           onTap: () {
-                            if (isFemale) {
-                              context.go(RouteNames.withdraw);
-                            } else {
-                              context.go(RouteNames.recharge);
-                            }
+                            context.push(RouteNames.subscribe);
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(
@@ -245,46 +233,38 @@ class _HomePageState extends ConsumerState<HomePage> {
                             ),
                             decoration: BoxDecoration(
                               color: colors.surface,
-                              borderRadius: BorderRadius.circular(12.0),
+                              borderRadius: BorderRadius.circular(16.0),
                               border: Border.all(
-                                color: colors.border,
-                                width: 1.0,
+                                color: statusColor.withValues(alpha: 0.5),
+                                width: 1.5,
                               ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                if (isFemale)
-                                  const Text('🌹', style: TextStyle(fontSize: 18))
-                                else
-                                  const FaIcon(
-                                    FontAwesomeIcons.coins,
-                                    color: Colors.amber,
-                                    size: 20,
+                                Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    color: statusColor,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: statusColor.withValues(alpha: 0.5),
+                                        blurRadius: 4,
+                                        spreadRadius: 1,
+                                      ),
+                                    ],
                                   ),
-                                const SizedBox(width: 6),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      isFemale ? 'Roses' : 'Balance',
-                                      style: TextStyle(
-                                        color: colors.textSecondary,
-                                        fontSize: 9,
-                                        height: 1.0,
-                                      ),
-                                    ),
-                                    Text(
-                                      '$displayAmount',
-                                      style: typography.bodySmall.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                        color: colors.textPrimary,
-                                        height: 1.2,
-                                      ),
-                                    ),
-                                  ],
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  label,
+                                  style: typography.bodySmall.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: colors.textPrimary,
+                                  ),
                                 ),
                               ],
                             ),

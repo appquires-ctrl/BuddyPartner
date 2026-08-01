@@ -165,35 +165,18 @@ class ProfilePage extends ConsumerWidget {
                 ),
                 child: Column(
                   children: [
-                    if (currentUser?.isFemale ?? false) ...[
-                      _buildSwitchSettingsTile(
-                        context,
-                        icon: Icons.monetization_on_outlined,
-                        iconBgColor: const Color(0xFFF5E6FF),
-                        iconColor: const Color(0xFF8B5CF6),
-                        title: 'Telecaller Mode',
-                        subtitle: 'Earn roses by connecting with users',
-                        value: currentUser?.isTelecallerActive ?? false,
-                        onChanged: (newVal) async {
-                          final success = await ref
-                              .read(authControllerProvider.notifier)
-                              .updateTelecallerStatus(newVal);
-                          if (success && context.mounted) {
-                            final message = newVal
-                                ? 'Telecaller mode activated! You can now earn roses on calls.'
-                                : "You'll stop earning roses from calls, but can switch back anytime.";
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(message),
-                                duration: const Duration(seconds: 3),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                      _buildDivider(context),
-                    ],
+                    _buildSettingsTile(
+                      context,
+                      icon: Icons.card_membership_outlined,
+                      iconBgColor: const Color(0xFFF5E6FF),
+                      iconColor: const Color(0xFF8B5CF6),
+                      title: 'My Subscription',
+                      subtitle: 'Manage subscription plans & duration',
+                      onTap: () {
+                        context.push(RouteNames.subscribe);
+                      },
+                    ),
+                    _buildDivider(context),
                     _buildSettingsTile(
                       context,
                       icon: Icons.person_outline,
@@ -526,56 +509,10 @@ class ProfilePage extends ConsumerWidget {
       ),
       trailing: Icon(
         Icons.chevron_right,
-        color: colors.textSecondary.withOpacity(0.5),
+        color: colors.textSecondary.withValues(alpha: 0.5),
         size: 18,
       ),
       onTap: onTap,
-    );
-  }
-
-  Widget _buildSwitchSettingsTile(
-    BuildContext context, {
-    required IconData icon,
-    required Color iconBgColor,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    final colors = context.colors;
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: iconBgColor,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        alignment: Alignment.center,
-        child: Icon(icon, color: iconColor, size: 20),
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 15,
-          color: colors.textPrimary,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(
-          color: colors.textSecondary,
-          fontSize: 12,
-        ),
-      ),
-      trailing: Switch(
-        value: value,
-        activeColor: const Color(0xFF8B5CF6),
-        onChanged: onChanged,
-      ),
     );
   }
 }

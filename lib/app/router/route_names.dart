@@ -23,6 +23,8 @@ class RouteNames {
   static const String transactionHistory = '/transaction-history';
   static const String suspended = '/suspended';
   static const String banned = '/banned';
+  static const String subscribe = '/subscribe';
+  static const String devSubscription = '/dev-subscription';
 
   // Legal routes
   static const String termsOfService = '/legal/terms';

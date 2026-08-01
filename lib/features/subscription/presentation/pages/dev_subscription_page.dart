@@ -1,0 +1,233 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:dating_app/app/router/route_names.dart';
+import 'package:dating_app/app/theme/app_spacing.dart';
+import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:dating_app/core/widgets/buttons/app_primary_button.dart';
+import 'package:dating_app/features/subscription/domain/subscription_plan.dart';
+import 'package:dating_app/features/subscription/application/subscription_providers.dart';
+
+class DevSubscriptionPage extends ConsumerStatefulWidget {
+  final SubscriptionPlan plan;
+
+  const DevSubscriptionPage({
+    super.key,
+    required this.plan,
+  });
+
+  @override
+  ConsumerState<DevSubscriptionPage> createState() => _DevSubscriptionPageState();
+}
+
+class _DevSubscriptionPageState extends ConsumerState<DevSubscriptionPage> {
+  bool _isProcessing = false;
+
+  Future<void> _handleStartSubscription() async {
+    setState(() => _isProcessing = true);
+    final success = await ref
+        .read(subscriptionStatusProvider.notifier)
+        .devStartSubscription(widget.plan);
+    setState(() => _isProcessing = false);
+
+    if (mounted) {
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('DEV MODE: ${widget.plan.title} activated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        context.go(RouteNames.home);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to activate dev subscription.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleExpireSubscription() async {
+    setState(() => _isProcessing = true);
+    final success = await ref
+        .read(subscriptionStatusProvider.notifier)
+        .devExpireSubscription();
+    setState(() => _isProcessing = false);
+
+    if (mounted) {
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('DEV MODE: Subscription expired immediately!'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        context.go(RouteNames.home);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to expire dev subscription.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final typography = context.typography;
+
+    return Scaffold(
+      backgroundColor: colors.surfaceMuted,
+      appBar: AppBar(
+        title: Text(
+          'Dev Checkout',
+          style: typography.titleCard.copyWith(color: colors.textPrimary),
+        ),
+        backgroundColor: colors.surface,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: colors.textPrimary),
+          onPressed: () => context.pop(),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppSpacing.space16),
+        child: Column(
+          children: [
+            // Prominent DEV MODE Banner
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.space16),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade900.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.amber.shade700, width: 2),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: Colors.amber.shade400, size: 28),
+                      const SizedBox(width: AppSpacing.space8),
+                      Text(
+                        'DEV TESTING MODE',
+                        style: typography.bodyMedium.copyWith(
+                          color: Colors.amber.shade400,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.space8),
+                  Text(
+                    'Real payment gateway is not wired up yet. Use the actions below to simulate subscription purchase or instant expiration.',
+                    textAlign: TextAlign.center,
+                    style: typography.bodySmall.copyWith(color: colors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.space20),
+
+            // Plan Summary Card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.space20),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: colors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Selected Plan',
+                    style: typography.bodySmall.copyWith(color: colors.textSecondary),
+                  ),
+                  const SizedBox(height: AppSpacing.space4),
+                  Text(
+                    widget.plan.title,
+                    style: typography.titleCard.copyWith(
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.space4),
+                  Text(
+                    widget.plan.description,
+                    style: typography.bodySmall.copyWith(color: colors.textSecondary),
+                  ),
+                  const Divider(height: 32),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Duration',
+                        style: typography.bodyMedium.copyWith(color: colors.textSecondary),
+                      ),
+                      Text(
+                        '${widget.plan.durationDays} ${widget.plan.durationDays == 1 ? 'day' : 'days'}',
+                        style: typography.bodyMedium.copyWith(
+                          color: colors.textPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.space8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Amount',
+                        style: typography.bodyMedium.copyWith(color: colors.textSecondary),
+                      ),
+                      Text(
+                        '₹${widget.plan.priceRupees}',
+                        style: typography.titleCard.copyWith(
+                          color: colors.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.space32),
+
+            // Action Buttons
+            AppPrimaryButton(
+              text: 'Start Subscription (Dev)',
+              isLoading: _isProcessing,
+              onPressed: _handleStartSubscription,
+            ),
+            const SizedBox(height: AppSpacing.space16),
+            OutlinedButton(
+              onPressed: _isProcessing ? null : _handleExpireSubscription,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+                side: BorderSide(color: colors.danger),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: Text(
+                'Expire Subscription Now (Dev)',
+                style: typography.bodyMedium.copyWith(color: colors.danger, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
