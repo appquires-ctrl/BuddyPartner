@@ -49,11 +49,8 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
     final controller = ref.read(matchmakingControllerProvider.notifier);
 
     ref.listen<MatchmakingState>(matchmakingControllerProvider, (prev, next) {
-      if (next.phase == MatchmakingPhase.ended) {
-        if (mounted) {
-          context.go(RouteNames.callSummary);
-        }
-      } else if (next.phase == MatchmakingPhase.idle && prev?.phase != MatchmakingPhase.idle) {
+      if (next.phase == MatchmakingPhase.idle && prev?.phase != MatchmakingPhase.idle ||
+          next.phase == MatchmakingPhase.ended) {
         if (mounted) {
           context.go(RouteNames.home);
         }

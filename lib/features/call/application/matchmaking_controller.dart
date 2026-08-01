@@ -295,18 +295,12 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
       ));
     }
 
-    state = state.copyWith(
-      phase: MatchmakingPhase.ended,
-      clearMatchedUser: true,
-    );
-
     // Refresh subscription status & matched users providers from server
     ref.invalidate(subscriptionStatusProvider);
     ref.invalidate(matchedUsersProvider);
     ref.invalidate(callHistoryProvider);
 
-    // Brief delay before resetting to idle so the UI can react to `ended`
-    await Future.delayed(const Duration(milliseconds: 300));
+    // Immediately reset state to idle without 300ms intermediate delay
     state = state.reset();
   }
 
@@ -536,19 +530,14 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
 
     await _leaveAgoraChannel();
     _stopCountdown();
-    state = state.copyWith(
-      phase: MatchmakingPhase.ended,
-      clearMatchedUser: true,
-      errorMessage: errorMessage,
-    );
 
     // Refresh subscription status and matched users from server
     ref.invalidate(subscriptionStatusProvider);
     ref.invalidate(matchedUsersProvider);
     ref.invalidate(callHistoryProvider);
 
-    await Future.delayed(const Duration(milliseconds: 300));
-    state = state.reset();
+    // Immediately reset state to idle without 300ms intermediate delay
+    state = state.reset().copyWith(errorMessage: errorMessage);
   }
 
   void _onVideoUpgradeRequest(dynamic data) {
