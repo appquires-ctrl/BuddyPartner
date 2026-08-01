@@ -1,8 +1,8 @@
 const { RtcTokenBuilder, RtcRole } = require('agora-access-token');
 const db = require('../../db');
 
-const CALL_DURATION_MS = 5 * 60 * 1000; // 5 minutes
-const TOKEN_EXPIRY_SECONDS = 6 * 60;     // 6 minutes (5 min call + 1 min buffer)
+const CALL_DURATION_MS = 24 * 60 * 60 * 1000; // Unlimited calls (24h token safety cap)
+const TOKEN_EXPIRY_SECONDS = 24 * 60 * 60;     // 24 hours token lifetime
 
 class CallsService {
   constructor() {
