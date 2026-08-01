@@ -104,8 +104,8 @@ class _SplashPageState extends ConsumerState<SplashPage> {
                     // App Logo
                     Image.asset(
                       'assets/images/app_logo.png',
-                      width: 120,
-                      height: 120,
+                      width: 180,
+                      height: 180,
                     )
                         .animate()
                         .fadeIn(duration: 600.ms)

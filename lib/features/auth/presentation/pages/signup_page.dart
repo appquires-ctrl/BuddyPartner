@@ -216,8 +216,8 @@ class _SignupPageState extends ConsumerState<SignupPage> {
               children: [
                 Image.asset(
                   'assets/images/app_logo.png',
-                  width: 64,
-                  height: 64,
+                  width: 100,
+                  height: 100,
                 ),
                 const SizedBox(height: 8),
                 Text(
