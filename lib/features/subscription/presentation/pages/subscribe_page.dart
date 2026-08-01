@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/features/subscription/domain/subscription_plan.dart';
-import 'package:dating_app/features/subscription/application/subscription_providers.dart';
 
 class SubscribePage extends ConsumerStatefulWidget {
   const SubscribePage({super.key});
