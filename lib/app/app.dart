@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
 import 'package:dating_app/app/router/route_names.dart';
+// ignore: unused_import
 import 'package:dating_app/core/services/screen_protection_service.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';

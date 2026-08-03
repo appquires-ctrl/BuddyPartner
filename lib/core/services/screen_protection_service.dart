@@ -57,6 +57,7 @@ class ScreenProtectionService {
     }
   }
 
+  // ignore: unused_element
   void _handleScreenshotDetected(String type) {
     debugPrint('[ScreenProtectionService] Event detected: $type');
 
