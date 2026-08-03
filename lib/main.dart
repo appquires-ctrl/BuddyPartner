@@ -7,8 +7,8 @@ import 'app/app.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Enable global screen protection early before runApp (FLAG_SECURE on Android)
-  await ScreenProtectionService.enableGlobalProtection();
+  // Temporarily commented out screen protection so clients/testers can take screenshots of bugs
+  // await ScreenProtectionService.enableGlobalProtection();
 
   try {
     await Firebase.initializeApp();

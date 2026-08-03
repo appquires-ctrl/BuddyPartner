@@ -16,27 +16,27 @@ class ScreenProtectionService {
 
   /// Called early in main.dart before runApp for global OS-level protection
   static Future<void> enableGlobalProtection() async {
+    // Disabled for now so clients and QA can take screenshots for bug reports
+    /*
     try {
-      // Prevents screenshot & screen recording at OS level on Android (FLAG_SECURE)
       await ScreenProtector.preventScreenshotOn();
-
-      // Protect data with color/blur preview in app switcher when backgrounded (iOS/Android)
       await ScreenProtector.protectDataLeakageWithColor(Colors.black);
-      await ScreenProtector.protectDataLeakageOn();
+      await ScreenProtector.protectDataLeakageOff();
     } catch (e) {
       debugPrint('[ScreenProtectionService] Error enabling global protection: $e');
     }
+    */
   }
 
   /// Initialize event listeners for screenshot detection
   void initScreenshotListener() {
+    // Disabled for now so clients and QA can take screenshots for bug reports
+    /*
     try {
       ScreenProtector.addListener(
-        // Screenshot taken callback
         () {
           _handleScreenshotDetected('screenshot');
         },
-        // Screen recording status callback
         (isRecording) {
           if (isRecording) {
             _handleScreenshotDetected('screen_recording');
@@ -46,6 +46,7 @@ class ScreenProtectionService {
     } catch (e) {
       debugPrint('[ScreenProtectionService] Listener init error: $e');
     }
+    */
   }
 
   void dispose() {

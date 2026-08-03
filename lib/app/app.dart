@@ -16,8 +16,8 @@ class BuddyPartnerApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Ensure screen protection listener is active throughout app lifecycle
-    ref.watch(screenProtectionServiceProvider);
+    // Temporarily commented out screen protection listener for bug reporting
+    // ref.watch(screenProtectionServiceProvider);
 
     // Globally listen to call state changes
     ref.listen<MatchmakingState>(matchmakingControllerProvider, (prev, next) {
