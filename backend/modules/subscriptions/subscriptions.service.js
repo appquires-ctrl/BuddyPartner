@@ -138,11 +138,11 @@ class SubscriptionsService {
     }
 
     const remainingSeconds = Math.floor(diffMs / 1000);
-    const remainingHours = Math.floor(remainingSeconds / 3600);
-    const remainingDays = Math.floor(remainingHours / 24);
+    const remainingHours = Math.ceil(remainingSeconds / 3600);
+    const remainingDays = Math.ceil(remainingHours / 24);
 
     let formattedLabel = '';
-    if (remainingHours < 24) {
+    if (remainingHours <= 24) {
       const hrs = Math.max(1, remainingHours);
       formattedLabel = `${hrs} hour${hrs === 1 ? '' : 's'} left`;
     } else {

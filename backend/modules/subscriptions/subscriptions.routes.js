@@ -31,12 +31,9 @@ router.get('/history', authMiddleware, async (req, res) => {
   }
 });
 
-// ── POST /api/subscriptions/dev-start ──────────────────────────────────────
-// Dev-only endpoint to start a subscription without payment gateway
-router.post('/dev-start', authMiddleware, async (req, res) => {
-  if (process.env.NODE_ENV === 'production') {
-    return res.status(403).json({ error: 'Dev endpoints are disabled in production mode' });
-  }
+// ── POST /api/subscriptions/dev-start & POST /api/subscriptions/subscribe ─────────
+// Start/activate a subscription for a user
+const handleStartSubscription = async (req, res) => {
   try {
     const { planDurationDays, amountPaid, planId } = req.body;
 
@@ -70,17 +67,17 @@ router.post('/dev-start', authMiddleware, async (req, res) => {
       status,
     });
   } catch (err) {
-    console.error('Error in POST /subscriptions/dev-start:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to start dev subscription' });
+    console.error('Error in starting subscription:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to start subscription' });
   }
-});
+};
+
+router.post('/dev-start', authMiddleware, handleStartSubscription);
+router.post('/subscribe', authMiddleware, handleStartSubscription);
 
 // ── POST /api/subscriptions/dev-expire ─────────────────────────────────────
-// Dev-only endpoint to instantly expire active subscription for testing
+// Expire active subscription for testing
 router.post('/dev-expire', authMiddleware, async (req, res) => {
-  if (process.env.NODE_ENV === 'production') {
-    return res.status(403).json({ error: 'Dev endpoints are disabled in production mode' });
-  }
   try {
     await subscriptionsService.expireSubscription(req.user.id);
     const status = await subscriptionsService.getTimeRemaining(req.user.id);

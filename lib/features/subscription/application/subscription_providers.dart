@@ -62,11 +62,11 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
     }
 
     final remainingSecs = diff.inSeconds;
-    final remainingHrs = diff.inHours;
-    final remainingDays = diff.inDays;
+    final remainingHrs = (remainingSecs / 3600).ceil();
+    final remainingDays = (remainingHrs / 24).ceil();
 
     String label;
-    if (remainingHrs < 24) {
+    if (remainingHrs <= 24) {
       final hrs = remainingHrs <= 0 ? 1 : remainingHrs;
       label = '$hrs hour${hrs == 1 ? '' : 's'} left';
     } else {
@@ -107,7 +107,7 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
     });
   }
 
-  /// Dev method to activate subscription without real payment gateway
+  /// Activate subscription via backend API
   Future<bool> devStartSubscription(SubscriptionPlan plan) async {
     state = const AsyncValue.loading();
     try {
@@ -124,25 +124,15 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
         return true;
       }
     } catch (_) {
-      // Graceful local activation fallback for dev testing
+      // If API fails, sync with server state to avoid client-server state mismatch
     }
 
-    final expiresAt = DateTime.now().add(Duration(days: plan.durationDays));
-    final devState = SubscriptionState(
-      isSubscribed: true,
-      expiresAt: expiresAt,
-      planDurationDays: plan.durationDays,
-      remainingSeconds: plan.durationDays * 86400,
-      remainingHours: plan.durationDays * 24,
-      remainingDays: plan.durationDays,
-      formattedLabel: '${plan.durationDays} day${plan.durationDays == 1 ? '' : 's'} left',
-    );
-    state = AsyncData(devState);
-    _startTimer();
-    return true;
+    final currentStatus = await fetchStatus();
+    state = AsyncData(currentStatus);
+    return false;
   }
 
-  /// Dev method to instantly expire subscription for testing
+  /// Instantly expire subscription for testing
   Future<bool> devExpireSubscription() async {
     state = const AsyncValue.loading();
     try {
@@ -155,12 +145,12 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
         return true;
       }
     } catch (_) {
-      // Graceful local expiration fallback
+      // If API fails, sync with server state
     }
 
-    _countdownTimer?.cancel();
-    state = const AsyncData(SubscriptionState(isSubscribed: false, formattedLabel: 'Not Subscribed'));
-    return true;
+    final currentStatus = await fetchStatus();
+    state = AsyncData(currentStatus);
+    return false;
   }
 }
 
