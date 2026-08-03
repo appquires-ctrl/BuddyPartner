@@ -86,11 +86,10 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
     final colors = context.colors;
     final typography = context.typography;
 
-    final roseBalanceAsync = ref.watch(roseBalanceProvider);
     final historyAsync = ref.watch(withdrawalHistoryProvider);
     final withdrawState = ref.watch(withdrawControllerProvider);
 
-    final currentRoses = roseBalanceAsync.value ?? 0;
+    const currentRoses = 0;
 
     final currentUser = ref.watch(authStateProvider).value;
     if (currentUser != null && !currentUser.isTelecallerActive) {

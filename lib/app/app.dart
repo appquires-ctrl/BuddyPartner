@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
 import 'package:dating_app/app/router/route_names.dart';
+import 'package:dating_app/core/services/screen_protection_service.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 
@@ -15,6 +16,9 @@ class BuddyPartnerApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Ensure screen protection listener is active throughout app lifecycle
+    ref.watch(screenProtectionServiceProvider);
+
     // Globally listen to call state changes
     ref.listen<MatchmakingState>(matchmakingControllerProvider, (prev, next) {
       final navContext = rootNavigatorKey.currentContext;

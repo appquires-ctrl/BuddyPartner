@@ -2,34 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dating_app/core/services/api_client.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 
-/// Rose balance provider — mirrors walletBalanceProvider for the female economy.
-class RoseBalanceNotifier extends AsyncNotifier<int> {
-  @override
-  Future<int> build() async {
-    final authState = ref.watch(authStateProvider);
-    final user = authState.value;
-    if (user == null) return 0;
 
-    try {
-      final apiClient = ref.watch(apiClientProvider);
-      final response = await apiClient.dio.get('/api/roses/balance');
-      if (response.data != null && response.data['balance'] != null) {
-        return (response.data['balance'] as num).toInt();
-      }
-    } catch (e) {
-      // Return fallback on network error
-    }
-    return 0;
-  }
-
-  void updateBalance(int newBalance) {
-    state = AsyncData(newBalance);
-  }
-}
-
-final roseBalanceProvider = AsyncNotifierProvider<RoseBalanceNotifier, int>(
-  RoseBalanceNotifier.new,
-);
 
 /// Withdrawal request model
 class WithdrawalRequest {

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'core/services/screen_protection_service.dart';
 import 'app/app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Enable global screen protection early before runApp (FLAG_SECURE on Android)
+  await ScreenProtectionService.enableGlobalProtection();
 
   try {
     await Firebase.initializeApp();

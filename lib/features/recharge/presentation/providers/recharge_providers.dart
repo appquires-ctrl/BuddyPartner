@@ -1,6 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dating_app/core/services/api_client.dart';
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 
 /// RechargePlanUiModel represents the coin purchase pricing model.
 class RechargePlanUiModel {
@@ -19,38 +17,7 @@ class RechargePlanUiModel {
   });
 }
 
-/// walletBalanceProvider supplies the user's active wallet balance from standard API endpoint
-/// and allows real-time socket updates.
-class WalletBalanceNotifier extends AsyncNotifier<int> {
-  @override
-  Future<int> build() async {
-    final authState = ref.watch(authStateProvider);
-    final user = authState.value;
-    if (user == null) return 0;
 
-    try {
-      final apiClient = ref.watch(apiClientProvider);
-      final response = await apiClient.dio.get('/api/auth/me');
-      if (response.data != null && response.data['user'] != null) {
-        final rawBalance = response.data['user']['walletBalance'];
-        if (rawBalance is num) {
-          return rawBalance.toInt();
-        }
-      }
-    } catch (e) {
-      // Return fallback on network error
-    }
-    return 100; // Default welcome bonus fallback
-  }
-
-  void updateBalance(int newBalance) {
-    state = AsyncData(newBalance);
-  }
-}
-
-final walletBalanceProvider = AsyncNotifierProvider<WalletBalanceNotifier, int>(
-  WalletBalanceNotifier.new,
-);
 
 /// rechargePlansProvider supplies list of plans with rupee costs matching screenshots.
 final rechargePlansProvider = Provider<List<RechargePlanUiModel>>((ref) {

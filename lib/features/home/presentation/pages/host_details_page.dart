@@ -4,7 +4,7 @@ import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
-import 'package:dating_app/core/widgets/image/app_network_image.dart';
+
 import 'package:dating_app/core/widgets/cards/app_card.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';

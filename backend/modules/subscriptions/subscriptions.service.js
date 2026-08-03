@@ -32,6 +32,27 @@ class SubscriptionsService {
   }
 
   /**
+   * Fetch subscription history for user ordered by created_at DESC
+   * @param {string} userId
+   * @returns {Promise<Array>}
+   */
+  async getSubscriptionHistory(userId) {
+    try {
+      const result = await db.query(
+        `SELECT id, user_id, plan_duration_days, amount_paid, started_at, expires_at, payment_reference, created_at
+         FROM public.subscriptions
+         WHERE user_id = $1
+         ORDER BY created_at DESC`,
+        [userId]
+      );
+      return result.rows;
+    } catch (err) {
+      console.error('Error in getSubscriptionHistory:', err.message);
+      return [];
+    }
+  }
+
+  /**
    * Check if user is currently subscribed
    * @param {string} userId
    * @returns {Promise<boolean>}

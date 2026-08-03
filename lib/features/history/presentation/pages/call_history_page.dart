@@ -4,14 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:dating_app/core/widgets/shimmer/skeletons/call_history_skeleton.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
-import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/features/home/presentation/widgets/matching_illustration.dart';
 import 'package:dating_app/features/history/data/call_history_provider.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
 import 'package:dating_app/core/widgets/gradient_avatar.dart';
-import 'package:dating_app/core/widgets/app_avatar.dart';
 
 /// CallHistoryPage renders the list of call logs fetched dynamically from Supabase.
 class CallHistoryPage extends ConsumerStatefulWidget {
@@ -262,7 +260,6 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
               itemCount: logs.length,
               itemBuilder: (context, index) {
                 final log = logs[index];
-                final isOutgoing = log.callerId == ref.read(authStateProvider).value?.id;
                 final isVideo = log.callType == 'video';
 
                 return Container(

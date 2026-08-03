@@ -41,12 +41,6 @@ class WithdrawController extends Notifier<WithdrawState> {
       );
 
       if (response.statusCode == 200 && response.data != null && response.data['success'] == true) {
-        final newBalance = response.data['newBalance'] as int?;
-        if (newBalance != null) {
-          ref.read(roseBalanceProvider.notifier).updateBalance(newBalance);
-        } else {
-          ref.invalidate(roseBalanceProvider);
-        }
         ref.invalidate(withdrawalHistoryProvider);
 
         state = state.copyWith(

@@ -4,7 +4,7 @@ import 'package:admin_panel/main.dart';
 
 void main() {
   testWidgets('Admin app smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(const ProviderScope(child: LoopCallAdminApp()));
-    expect(find.byType(LoopCallAdminApp), findsOneWidget);
+    await tester.pumpWidget(const ProviderScope(child: BuddyPartnerAdminApp()));
+    expect(find.byType(BuddyPartnerAdminApp), findsOneWidget);
   });
 }

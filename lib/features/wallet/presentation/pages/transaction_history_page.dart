@@ -7,113 +7,97 @@ import 'package:dating_app/core/widgets/feedback/app_empty_state.dart';
 import 'package:dating_app/core/widgets/feedback/app_loading_indicator.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
-import 'package:dating_app/features/wallet/domain/wallet_transaction.dart';
+import 'package:dating_app/app/router/route_names.dart';
 
-final transactionHistoryProvider = StateNotifierProvider.autoDispose<
-    TransactionHistoryNotifier, AsyncValue<List<WalletTransaction>>>((ref) {
+class SubscriptionItem {
+  final String id;
+  final int planDurationDays;
+  final int amountPaid;
+  final DateTime startedAt;
+  final DateTime expiresAt;
+  final String? paymentReference;
+  final DateTime createdAt;
+
+  SubscriptionItem({
+    required this.id,
+    required this.planDurationDays,
+    required this.amountPaid,
+    required this.startedAt,
+    required this.expiresAt,
+    this.paymentReference,
+    required this.createdAt,
+  });
+
+  factory SubscriptionItem.fromJson(Map<String, dynamic> json) {
+    return SubscriptionItem(
+      id: json['id'] as String? ?? '',
+      planDurationDays: (json['plan_duration_days'] as num?)?.toInt() ??
+          (json['planDurationDays'] as num?)?.toInt() ??
+          1,
+      amountPaid: (json['amount_paid'] as num?)?.toInt() ??
+          (json['amountPaid'] as num?)?.toInt() ??
+          0,
+      startedAt: json['started_at'] != null
+          ? DateTime.tryParse(json['started_at'] as String) ?? DateTime.now()
+          : DateTime.now(),
+      expiresAt: json['expires_at'] != null
+          ? DateTime.tryParse(json['expires_at'] as String) ?? DateTime.now()
+          : DateTime.now(),
+      paymentReference: json['payment_reference'] as String? ??
+          json['paymentReference'] as String?,
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'] as String) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+
+  String get planLabel {
+    if (planDurationDays == 1) return '1 Day Plan';
+    if (planDurationDays == 4) return '4 Days Plan';
+    if (planDurationDays == 7) return '7 Days Plan';
+    if (planDurationDays == 30) return '1 Month (30 Days) Plan';
+    if (planDurationDays == 365) return '1 Year (365 Days) Plan';
+    return '$planDurationDays Days Subscription';
+  }
+
+  bool get isActive => expiresAt.isAfter(DateTime.now());
+}
+
+final subscriptionHistoryProvider = StateNotifierProvider.autoDispose<
+    SubscriptionHistoryNotifier, AsyncValue<List<SubscriptionItem>>>((ref) {
   final apiClient = ref.watch(apiClientProvider);
-  final user = ref.watch(authStateProvider).value;
-  final isFemale = user?.gender.toLowerCase() == 'female';
-  return TransactionHistoryNotifier(apiClient, isFemale);
+  return SubscriptionHistoryNotifier(apiClient);
 });
 
-class TransactionHistoryNotifier
-    extends StateNotifier<AsyncValue<List<WalletTransaction>>> {
+class SubscriptionHistoryNotifier
+    extends StateNotifier<AsyncValue<List<SubscriptionItem>>> {
   final ApiClient _apiClient;
-  final bool _isFemale;
-  String? _nextCursor;
-  bool _hasMore = true;
-  bool _isLoadingMore = false;
 
-  TransactionHistoryNotifier(this._apiClient, this._isFemale)
+  SubscriptionHistoryNotifier(this._apiClient)
       : super(const AsyncValue.loading()) {
     loadInitial();
   }
 
-  bool get hasMore => _hasMore;
-  bool get isLoadingMore => _isLoadingMore;
-
   Future<void> loadInitial() async {
     state = const AsyncValue.loading();
     try {
-      final endpoint =
-          _isFemale ? '/api/roses/transactions' : '/api/wallet/transactions';
-      final response = await _apiClient.dio.get(endpoint, queryParameters: {
-        'limit': 20,
-      });
-
-      final list = (response.data['transactions'] as List)
-          .map((e) => WalletTransaction.fromJson(e as Map<String, dynamic>))
-          .toList();
-
-      _nextCursor = response.data['nextCursor'] as String?;
-      _hasMore = _nextCursor != null;
-      state = AsyncValue.data(list);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
-  }
-
-  Future<void> loadMore() async {
-    if (!_hasMore || _isLoadingMore || state.value == null) return;
-    _isLoadingMore = true;
-
-    try {
-      final endpoint =
-          _isFemale ? '/api/roses/transactions' : '/api/wallet/transactions';
-      final response = await _apiClient.dio.get(endpoint, queryParameters: {
-        'limit': 20,
-        if (_nextCursor != null) 'cursor': _nextCursor,
-      });
-
-      final newList = (response.data['transactions'] as List)
-          .map((e) => WalletTransaction.fromJson(e as Map<String, dynamic>))
-          .toList();
-
-      _nextCursor = response.data['nextCursor'] as String?;
-      _hasMore = _nextCursor != null;
-
-      final current = state.value!;
-      state = AsyncValue.data([...current, ...newList]);
+      final response = await _apiClient.dio.get('/api/subscriptions/history');
+      if (response.data != null && response.data['subscriptions'] != null) {
+        final list = (response.data['subscriptions'] as List)
+            .map((e) => SubscriptionItem.fromJson(e as Map<String, dynamic>))
+            .toList();
+        state = AsyncValue.data(list);
+        return;
+      }
     } catch (_) {
-      // Keep existing list on loadMore failure
-    } finally {
-      _isLoadingMore = false;
+      // Graceful fallback for local dev / unauthenticated state
     }
+    state = const AsyncValue.data([]);
   }
 }
 
-class TransactionHistoryPage extends ConsumerStatefulWidget {
+class TransactionHistoryPage extends ConsumerWidget {
   const TransactionHistoryPage({super.key});
-
-  @override
-  ConsumerState<TransactionHistoryPage> createState() =>
-      _TransactionHistoryPageState();
-}
-
-class _TransactionHistoryPageState
-    extends ConsumerState<TransactionHistoryPage> {
-  final _scrollController = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(_onScroll);
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      ref.read(transactionHistoryProvider.notifier).loadMore();
-    }
-  }
 
   String _formatRelativeTime(DateTime dt) {
     final diff = DateTime.now().difference(dt);
@@ -125,19 +109,15 @@ class _TransactionHistoryPageState
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final typography = context.typography;
-    final user = ref.watch(authStateProvider).value;
-    final isFemale = user?.gender.toLowerCase() == 'female';
-    final currencyName = isFemale ? 'Roses' : 'Coins';
-
-    final historyState = ref.watch(transactionHistoryProvider);
+    final historyState = ref.watch(subscriptionHistoryProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Transaction History',
+          'Subscription History',
           style: typography.titleCard.copyWith(fontWeight: FontWeight.bold),
         ),
         backgroundColor: colors.surface,
@@ -160,14 +140,14 @@ class _TransactionHistoryPageState
                 Icon(Icons.error_outline, size: 48, color: colors.danger),
                 const SizedBox(height: 16),
                 Text(
-                  'Failed to load transaction history',
+                  'Failed to load subscription history',
                   style: typography.bodyMedium,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () => ref
-                      .read(transactionHistoryProvider.notifier)
+                      .read(subscriptionHistoryProvider.notifier)
                       .loadInitial(),
                   child: const Text('Retry'),
                 ),
@@ -175,21 +155,37 @@ class _TransactionHistoryPageState
             ),
           ),
         ),
-        data: (transactions) {
-          if (transactions.isEmpty) {
+        data: (subscriptions) {
+          if (subscriptions.isEmpty) {
             return RefreshIndicator(
               onRefresh: () => ref
-                  .read(transactionHistoryProvider.notifier)
+                  .read(subscriptionHistoryProvider.notifier)
                   .loadInitial(),
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  const SizedBox(height: 100),
+                  const SizedBox(height: 80),
                   AppEmptyState(
-                    title: 'No Transactions Yet',
+                    title: 'No Active Subscriptions',
                     description:
-                        'Your past $currencyName recharge, earnings, and spends will appear here.',
-                    icon: Icons.receipt_long_rounded,
+                        'Subscribe now to enjoy unlimited voice & video calls, matchmaking, and chat.',
+                    icon: Icons.card_membership_rounded,
+                  ),
+                  const SizedBox(height: 24),
+                  Center(
+                    child: ElevatedButton.icon(
+                      onPressed: () => context.push(RouteNames.subscribe),
+                      icon: const Icon(Icons.star_rounded, color: Colors.white),
+                      label: const Text('View Subscription Plans'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6B4EFF),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -198,37 +194,19 @@ class _TransactionHistoryPageState
 
           return RefreshIndicator(
             onRefresh: () =>
-                ref.read(transactionHistoryProvider.notifier).loadInitial(),
+                ref.read(subscriptionHistoryProvider.notifier).loadInitial(),
             child: ListView.separated(
-              controller: _scrollController,
               padding: const EdgeInsets.all(AppSpacing.space16),
-              itemCount: transactions.length + 1,
+              itemCount: subscriptions.length,
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
-                if (index == transactions.length) {
-                  final notifier =
-                      ref.read(transactionHistoryProvider.notifier);
-                  if (notifier.hasMore) {
-                    return Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Center(
-                        child: AppLoadingIndicator(
-                            size: 24, color: colors.primary),
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                }
-
-                final tx = transactions[index];
-                final isCredit = tx.type == 'credit';
-                final iconData = isCredit
-                    ? Icons.arrow_upward_rounded
-                    : Icons.arrow_downward_rounded;
-                final iconBg = isCredit
+                final sub = subscriptions[index];
+                final isActive = sub.isActive;
+                final statusBg = isActive
                     ? colors.success.withValues(alpha: 0.12)
-                    : colors.danger.withValues(alpha: 0.12);
-                final iconColor = isCredit ? colors.success : colors.danger;
+                    : colors.textSecondary.withValues(alpha: 0.12);
+                final statusColor =
+                    isActive ? colors.success : colors.textSecondary;
 
                 return Container(
                   padding: const EdgeInsets.all(AppSpacing.space16),
@@ -236,7 +214,10 @@ class _TransactionHistoryPageState
                     color: colors.surface,
                     borderRadius: AppRadius.lg,
                     border: Border.all(
-                        color: colors.border.withValues(alpha: 0.5)),
+                      color: isActive
+                          ? colors.success.withValues(alpha: 0.4)
+                          : colors.border.withValues(alpha: 0.5),
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: colors.textPrimary.withValues(alpha: 0.03),
@@ -248,29 +229,54 @@ class _TransactionHistoryPageState
                   child: Row(
                     children: [
                       Container(
-                        width: 42,
-                        height: 42,
+                        width: 44,
+                        height: 44,
                         decoration: BoxDecoration(
-                          color: iconBg,
+                          color: const Color(0xFF6B4EFF).withValues(alpha: 0.12),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(iconData, color: iconColor, size: 20),
+                        child: const Icon(
+                          Icons.verified_rounded,
+                          color: Color(0xFF6B4EFF),
+                          size: 22,
+                        ),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              tx.reasonLabel,
-                              style: typography.bodyMedium.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: colors.textPrimary,
-                              ),
+                            Row(
+                              children: [
+                                Text(
+                                  sub.planLabel,
+                                  style: typography.bodyMedium.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: colors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: statusBg,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    isActive ? 'ACTIVE' : 'EXPIRED',
+                                    style: TextStyle(
+                                      color: statusColor,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              _formatRelativeTime(tx.createdAt),
+                              'Purchased ${_formatRelativeTime(sub.createdAt)}',
                               style: typography.bodySmall.copyWith(
                                 color: colors.textSecondary,
                                 fontSize: 12,
@@ -280,11 +286,11 @@ class _TransactionHistoryPageState
                         ),
                       ),
                       Text(
-                        '${isCredit ? '+' : '-'}${tx.amount} $currencyName',
+                        '₹${sub.amountPaid}',
                         style: typography.bodyMedium.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: iconColor,
-                          fontSize: 15,
+                          color: colors.textPrimary,
+                          fontSize: 16,
                         ),
                       ),
                     ],

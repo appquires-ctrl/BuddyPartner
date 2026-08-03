@@ -15,7 +15,7 @@ import 'package:dating_app/features/home/presentation/widgets/matched_user_card.
 import 'package:dating_app/features/home/presentation/widgets/home_skeleton.dart';
 import 'package:dating_app/features/subscription/application/subscription_providers.dart';
 import 'package:dating_app/core/widgets/gradient_avatar.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+
 /// HomePage renders the primary "stranger search" radar screen.
 /// Matches screenshots/home.jpeg exactly.
 class HomePage extends ConsumerStatefulWidget {

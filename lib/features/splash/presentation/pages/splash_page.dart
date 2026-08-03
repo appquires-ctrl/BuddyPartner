@@ -50,7 +50,6 @@ class _SplashPageState extends ConsumerState<SplashPage> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final typography = context.typography;
 
     return Scaffold(
       backgroundColor: colors.surface,
