@@ -17,6 +17,8 @@ router.get('/status', authMiddleware, async (req, res) => {
     console.error('Error in GET /subscriptions/status:', err.message);
     res.status(500).json({ error: 'Failed to fetch subscription status' });
   }
+});
+
 // ── GET /api/subscriptions/history ─────────────────────────────────────────
 // Fetch subscription purchase history for current user
 router.get('/history', authMiddleware, async (req, res) => {
