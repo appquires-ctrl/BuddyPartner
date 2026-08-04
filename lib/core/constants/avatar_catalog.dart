@@ -67,7 +67,11 @@ class AvatarCatalog {
     }
 
     String folder;
-    if (s.startsWith('female_')) {
+    if (maleSeeds.contains(s)) {
+      folder = 'male';
+    } else if (femaleSeeds.contains(s)) {
+      folder = 'female';
+    } else if (s.startsWith('female_')) {
       folder = 'female';
     } else if (s.startsWith('male_')) {
       folder = 'male';
