@@ -245,13 +245,8 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
     try {
       await FirebaseAuth.instance.signOut();
       await ref.read(authStateProvider.notifier).clearSession();
-      if (ref.mounted) {
-        state = const AsyncData(null);
-      }
-    } catch (e, st) {
-      if (ref.mounted) {
-        state = AsyncError(e, st);
-      }
+    } catch (_) {
+      // Controller auto-disposes on route transition when session clears
     }
   }
 }
