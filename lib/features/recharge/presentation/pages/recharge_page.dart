@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dating_app/app/router/route_names.dart';
+import 'package:dating_app/core/utils/app_snack_bar.dart';
 import 'package:dating_app/features/recharge/presentation/providers/recharge_providers.dart';
 import 'package:dating_app/features/recharge/presentation/widgets/recharge_plan_card.dart';
 import 'package:dating_app/core/widgets/cards/wallet_card.dart';
@@ -91,9 +92,7 @@ class RechargePage extends ConsumerWidget {
                   originalPrice: plan.originalPrice,
                   badgeText: plan.badgeText,
                   onPurchasePressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Processing purchase for ${plan.coins} coins...')),
-                    );
+                    AppSnackBar.showInfo(context, 'Processing purchase for ${plan.coins} coins...');
                   },
                 );
               },

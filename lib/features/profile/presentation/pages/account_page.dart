@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dating_app/features/auth/application/auth_controller.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:dating_app/core/utils/app_snack_bar.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/core/widgets/gradient_avatar.dart';
@@ -481,9 +482,7 @@ class AccountPage extends ConsumerWidget {
                         onPressed: () async {
                           final nameText = nameController.text.trim();
                           if (nameText.isEmpty || nameText.length < 3) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Please enter a valid full name (at least 3 characters)')),
-                            );
+                            AppSnackBar.showError(context, 'Please enter a valid full name (at least 3 characters)');
                             return;
                           }
 
@@ -499,13 +498,9 @@ class AccountPage extends ConsumerWidget {
 
                           if (context.mounted) {
                             if (success) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Profile updated successfully!')),
-                              );
+                              AppSnackBar.showSuccess(context, 'Profile updated successfully!');
                             } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Failed to update profile. Please try again.')),
-                              );
+                              AppSnackBar.showError(context, 'Failed to update profile. Please try again.');
                             }
                           }
                         },

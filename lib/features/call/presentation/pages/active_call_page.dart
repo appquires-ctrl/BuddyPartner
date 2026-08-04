@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:dating_app/core/widgets/feedback/app_loading_indicator.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:dating_app/app/router/route_names.dart';
+import 'package:dating_app/core/utils/app_snack_bar.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
 
@@ -59,14 +60,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
           next.errorMessage!.isNotEmpty &&
           prev?.errorMessage != next.errorMessage) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(next.errorMessage!),
-              backgroundColor: const Color(0xFFEF4444),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          );
+          AppSnackBar.showError(context, next.errorMessage!);
         }
       }
     });
@@ -324,12 +318,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                           icon: Icons.person_add_alt_1_outlined,
                           label: 'Follow',
                           onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Coming soon!'),
-                                duration: Duration(seconds: 1),
-                              ),
-                            );
+                            AppSnackBar.showInfo(context, 'Coming soon!');
                           },
                         ),
                         const SizedBox(width: 16),

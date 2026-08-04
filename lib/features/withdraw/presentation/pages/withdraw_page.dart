@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:dating_app/core/utils/app_snack_bar.dart';
 import 'package:dating_app/core/widgets/buttons/app_primary_button.dart';
 import 'package:dating_app/core/widgets/cards/app_card.dart';
 import 'package:dating_app/core/widgets/feedback/app_loading_indicator.dart';
@@ -44,28 +45,19 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
   void _submitWithdrawal(int maxRoses) {
     final amount = int.tryParse(_amountController.text.trim()) ?? 0;
     if (amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid amount of roses to withdraw.')),
-      );
+      AppSnackBar.showError(context, 'Please enter a valid amount of roses to withdraw.');
       return;
     }
 
     if (amount > maxRoses) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('You cannot withdraw more than your balance of $maxRoses roses.')),
-      );
+      AppSnackBar.showError(context, 'You cannot withdraw more than your balance of $maxRoses roses.');
       return;
     }
 
     ref.read(withdrawControllerProvider.notifier).requestWithdrawal(amount).then((success) {
       if (success && mounted) {
         _amountController.clear();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Withdrawal request submitted successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        AppSnackBar.showSuccess(context, 'Withdrawal request submitted successfully!');
       }
     });
   }

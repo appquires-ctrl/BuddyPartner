@@ -313,23 +313,30 @@ router.post('/firebase-login', async (req, res) => {
  */
 router.post('/profile', authMiddleware, async (req, res) => {
   const userId = req.user.id;
-  const { fullName, dob, gender, language, avatarSeed, avatarStyle, isTelecaller } = req.body;
-
-  if (!fullName) {
-    return res.status(400).json({ error: 'Full name is required to complete profile.' });
-  }
-
-  const cleanGender = (gender || '').toLowerCase();
-  const isFemale = cleanGender === 'female' || cleanGender === 'girl' || cleanGender === 'woman';
-  const telecallerVal = isFemale ? (typeof isTelecaller === 'boolean' ? isTelecaller : null) : null;
+  const { fullName, dob, gender, language, avatarSeed, avatarStyle, isTelecaller, country, state, city, latitude, longitude } = req.body;
 
   try {
-    await db.query(
-      `UPDATE public.users 
-       SET full_name = $1, dob = $2, gender = $3, language = $4, avatar_seed = $5, avatar_style = $6, is_telecaller = $7 
-       WHERE id = $8`,
-      [fullName, dob || null, gender || null, language || null, avatarSeed || null, avatarStyle || 'avataaars', telecallerVal, userId]
-    );
+    if (fullName) {
+      const cleanGender = (gender || '').toLowerCase();
+      const isFemale = cleanGender === 'female' || cleanGender === 'girl' || cleanGender === 'woman';
+      const telecallerVal = isFemale ? (typeof isTelecaller === 'boolean' ? isTelecaller : null) : null;
+
+      await db.query(
+        `UPDATE public.users 
+         SET full_name = $1, dob = $2, gender = $3, language = $4, avatar_seed = $5, avatar_style = $6, is_telecaller = $7 
+         WHERE id = $8`,
+        [fullName, dob || null, gender || null, language || null, avatarSeed || null, avatarStyle || 'avataaars', telecallerVal, userId]
+      );
+    }
+
+    if (country !== undefined || state !== undefined || city !== undefined || latitude !== undefined || longitude !== undefined) {
+      await db.query(
+        `UPDATE public.users 
+         SET country = $1, state = $2, city = $3, latitude = $4, longitude = $5
+         WHERE id = $6`,
+        [country || null, state || null, city || null, latitude ?? null, longitude ?? null, userId]
+      );
+    }
 
     res.json({ success: true, message: 'Profile updated successfully.' });
   } catch (err) {
@@ -347,7 +354,7 @@ router.get('/me', authMiddleware, async (req, res) => {
 
   try {
     const result = await db.query(
-      `SELECT u.id, u.phone_number, u.full_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, w.balance 
+      `SELECT u.id, u.phone_number, u.full_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.country, u.state, u.city, u.latitude, u.longitude, w.balance 
        FROM public.users u
        LEFT JOIN public.wallets w ON w.user_id = u.id
        WHERE u.id = $1`,
@@ -371,6 +378,11 @@ router.get('/me', authMiddleware, async (req, res) => {
         avatarSeed: userRow.avatar_seed || null,
         avatarStyle: userRow.avatar_style || 'avataaars',
         isTelecaller: userRow.is_telecaller ?? null,
+        country: userRow.country || null,
+        state: userRow.state || null,
+        city: userRow.city || null,
+        latitude: userRow.latitude !== null ? parseFloat(userRow.latitude) : null,
+        longitude: userRow.longitude !== null ? parseFloat(userRow.longitude) : null,
         walletBalance: userRow.balance || 0,
       },
     });
@@ -379,6 +391,36 @@ router.get('/me', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Internal server error fetching user profile.' });
   }
 });
+
+/**
+ * Endpoint: POST & PATCH /api/auth/location
+ * Updates authenticated user's location (country, state, city, latitude, longitude).
+ */
+async function handleLocationUpdate(req, res) {
+  const userId = req.user.id;
+  const { country, state, city, latitude, longitude } = req.body;
+
+  try {
+    await db.query(
+      `UPDATE public.users
+       SET country = $1, state = $2, city = $3, latitude = $4, longitude = $5
+       WHERE id = $6`,
+      [country || null, state || null, city || null, latitude ?? null, longitude ?? null, userId]
+    );
+
+    res.json({
+      success: true,
+      message: 'Location saved successfully.',
+      location: { country, state, city, latitude, longitude },
+    });
+  } catch (err) {
+    console.error('Error updating location:', err.message);
+    res.status(500).json({ error: 'Failed to update user location.' });
+  }
+}
+
+router.post('/location', authMiddleware, handleLocationUpdate);
+router.patch('/location', authMiddleware, handleLocationUpdate);
 
 /**
  * Endpoint: PATCH /api/users/me/telecaller-status (also /api/auth/telecaller-status)

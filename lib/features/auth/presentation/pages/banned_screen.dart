@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:dating_app/core/utils/app_snack_bar.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
 
@@ -20,87 +21,85 @@ class BannedScreen extends StatelessWidget {
       backgroundColor: colors.surface,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.space24),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.space24),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Icon Badge
+              const Spacer(flex: 2),
+
+              // Warning Icon Hero Badge
               Container(
-                width: 90,
-                height: 90,
+                width: 96,
+                height: 96,
                 decoration: BoxDecoration(
-                  color: colors.danger.withValues(alpha: 0.15),
+                  color: const Color(0xFFFEF2F2),
                   shape: BoxShape.circle,
+                  border: Border.all(
+                    color: const Color(0xFFFCA5A5),
+                    width: 2,
+                  ),
                 ),
-                child: Icon(
-                  Icons.block_rounded,
-                  size: 48,
-                  color: colors.danger,
+                child: const Center(
+                  child: Icon(
+                    Icons.block_rounded,
+                    color: Color(0xFFDC2626),
+                    size: 48,
+                  ),
                 ),
               ),
-              const SizedBox(height: 24),
+
+              const SizedBox(height: AppSpacing.space24),
 
               // Title
               Text(
-                'Account Blocked',
+                'Account Banned',
                 style: typography.titleCard.copyWith(
-                  fontWeight: FontWeight.bold,
                   fontSize: 24,
-                  color: colors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFFDC2626),
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 12),
 
-              // Primary Message
-              Text(
-                'Your account has been blocked due to multiple reports from other users.',
-                style: typography.bodyMedium.copyWith(
-                  color: colors.textSecondary,
-                  fontSize: 15,
-                  height: 1.4,
+              const SizedBox(height: AppSpacing.space12),
+
+              // Description
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Text(
+                  'Your account has been permanently suspended for violating community guidelines and safety rules.',
+                  style: typography.bodyMedium.copyWith(
+                    color: colors.textSecondary,
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 32),
 
-              // Appeal & Instructions Container
+              const Spacer(flex: 2),
+
+              // Help & Support Card
               Container(
-                padding: const EdgeInsets.all(AppSpacing.space20),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: colors.surfaceMuted,
                   borderRadius: AppRadius.lg,
-                  border: Border.all(color: colors.border),
+                  border: Border.all(
+                    color: colors.border,
+                    width: 1,
+                  ),
                 ),
                 child: Column(
                   children: [
-                    Row(
-                      children: [
-                        Icon(Icons.mark_email_unread_outlined, color: colors.primary, size: 24),
-                        const SizedBox(width: 12),
-                        Text(
-                          'How to Appeal',
-                          style: typography.titleCard.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: colors.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
                     Text(
-                      'If you believe this was a mistake, please send an apology/appeal email to $_supportEmail along with your registered mobile number, explaining your situation.',
-                      style: typography.bodySmall.copyWith(
+                      'Think this was a mistake?',
+                      style: typography.bodyMedium.copyWith(
+                        fontWeight: FontWeight.bold,
                         color: colors.textPrimary,
-                        fontSize: 13,
-                        height: 1.45,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Text(
-                      'Accounts are typically reviewed and reactivated within 24 hours.',
+                      'Contact our support team to request an appeal',
                       style: typography.bodySmall.copyWith(
                         color: colors.textSecondary,
                         fontSize: 12,
@@ -113,13 +112,7 @@ class BannedScreen extends StatelessWidget {
                     InkWell(
                       onTap: () {
                         Clipboard.setData(const ClipboardData(text: _supportEmail));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Support email copied to clipboard!'),
-                            behavior: SnackBarBehavior.floating,
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
+                        AppSnackBar.showInfo(context, 'Support email copied to clipboard!');
                       },
                       borderRadius: AppRadius.pill,
                       child: Container(

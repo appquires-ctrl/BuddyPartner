@@ -50,6 +50,8 @@ dependencies:
   firebase_auth: ^5.1.0
   font_awesome_flutter: ^10.10.0
   screen_protector: ^1.5.3
+  geolocator: ^13.0.1
+  geocoding: ^3.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

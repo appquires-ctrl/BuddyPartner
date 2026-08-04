@@ -155,6 +155,11 @@ class UserProfile {
   final String? avatarSeed;
   final String? avatarStyle;
   final bool? isTelecaller;
+  final String? country;
+  final String? state;
+  final String? city;
+  final double? latitude;
+  final double? longitude;
 
   UserProfile({
     required this.id,
@@ -165,6 +170,11 @@ class UserProfile {
     this.avatarSeed,
     this.avatarStyle,
     this.isTelecaller,
+    this.country,
+    this.state,
+    this.city,
+    this.latitude,
+    this.longitude,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -177,6 +187,11 @@ class UserProfile {
       avatarSeed: json['avatarSeed'] as String?,
       avatarStyle: json['avatarStyle'] as String? ?? 'avataaars',
       isTelecaller: json['isTelecaller'] as bool?,
+      country: json['country'] as String?,
+      state: json['state'] as String?,
+      city: json['city'] as String?,
+      latitude: (json['latitude'] != null) ? (json['latitude'] as num).toDouble() : null,
+      longitude: (json['longitude'] != null) ? (json['longitude'] as num).toDouble() : null,
     );
   }
 }

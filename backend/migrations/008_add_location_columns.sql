@@ -1,0 +1,7 @@
+-- Migration: Add Location Columns to public.users Table
+
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS country VARCHAR(100);
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS state VARCHAR(100);
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS city VARCHAR(100);
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;

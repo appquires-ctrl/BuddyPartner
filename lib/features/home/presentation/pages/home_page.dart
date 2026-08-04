@@ -1,3 +1,4 @@
+import 'package:dating_app/core/utils/app_snack_bar.dart';
 import 'package:dating_app/core/widgets/feedback/app_loading_indicator.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:dating_app/core/services/location_service.dart';
 import 'package:dating_app/features/home/presentation/widgets/matching_illustration.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
@@ -27,28 +29,14 @@ class HomePage extends ConsumerStatefulWidget {
 
 class _HomePageState extends ConsumerState<HomePage> {
   bool _isRefreshing = false;
+  bool _isProcessingPermissions = false;
 
   Future<void> _startMatchmaking() async {
-    final statuses = await [
-      Permission.microphone,
-      Permission.camera,
-    ].request();
+    if (_isProcessingPermissions) return;
 
-    final micGranted = statuses[Permission.microphone]?.isGranted ?? false;
-    final cameraGranted = statuses[Permission.camera]?.isGranted ?? false;
-
-    if (!micGranted || !cameraGranted) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Microphone and Camera permissions are required to start matchmaking.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return;
-    }
-
+    // Step 1 — Subscription Check
+    // If the user does not have an active subscription, immediately navigate them to Subscription Screen.
+    // Do not request any permissions before subscription requirement has been satisfied.
     final isSub = ref.read(subscriptionStatusProvider).value?.isSubscribed ?? false;
     if (!isSub) {
       if (mounted) {
@@ -57,7 +45,59 @@ class _HomePageState extends ConsumerState<HomePage> {
       return;
     }
 
-    ref.read(matchmakingControllerProvider.notifier).joinQueue();
+    _isProcessingPermissions = true;
+    try {
+      // Step 2 & Step 3 — Permission Check and Sequential Request Order:
+      // 1. Microphone Permission
+      // 2. Location Permission (only if not already granted)
+      // 3. Camera Permission
+
+      // 1. Microphone Permission
+      PermissionStatus micStatus;
+      try {
+        micStatus = await Permission.microphone.request();
+      } catch (_) {
+        micStatus = await Permission.microphone.status;
+      }
+
+      if (!micStatus.isGranted) {
+        if (mounted) {
+          AppSnackBar.showError(context, 'Microphone permission is required to start matchmaking.');
+        }
+        return;
+      }
+
+      // 2. Location Permission Check (Device permission status only)
+      final isLocationAlreadyGranted = await LocationService.isLocationPermissionGranted();
+      if (!isLocationAlreadyGranted) {
+        final locGrantedNow = await LocationService.requestLocationPermission();
+        if (locGrantedNow) {
+          // Step 4 — Save Location ONCE upon first location permission grant
+          await LocationService.fetchAndSaveUserLocation(ref);
+        }
+        // If user denies location permission: do not block matchmaking. Continue requesting remaining required permissions.
+      }
+
+      // 3. Camera Permission
+      PermissionStatus cameraStatus;
+      try {
+        cameraStatus = await Permission.camera.request();
+      } catch (_) {
+        cameraStatus = await Permission.camera.status;
+      }
+
+      if (!cameraStatus.isGranted) {
+        if (mounted) {
+          AppSnackBar.showError(context, 'Camera permission is required to start matchmaking.');
+        }
+        return;
+      }
+
+      // All requirements satisfied, join matchmaking queue
+      ref.read(matchmakingControllerProvider.notifier).joinQueue();
+    } finally {
+      _isProcessingPermissions = false;
+    }
   }
 
   void _cancelMatchmaking() {
@@ -91,12 +131,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             next.errorMessage!.toLowerCase().contains('subscribe')) {
           context.push(RouteNames.subscribe);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(next.errorMessage!),
-              backgroundColor: Colors.red,
-            ),
-          );
+          AppSnackBar.showError(context, next.errorMessage!);
         }
       }
     });
@@ -411,6 +446,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const SizedBox(height: 16),
+
+                      // Location Header Section
+                      const _HomeLocationIndicator(),
 
                       // Matchmaking Banner Card
                       GestureDetector(
@@ -742,6 +780,160 @@ class _DynamicDotsState extends State<_DynamicDots> with SingleTickerProviderSta
           }),
         );
       },
+    );
+  }
+}
+
+class _HomeLocationIndicator extends ConsumerStatefulWidget {
+  const _HomeLocationIndicator();
+
+  @override
+  ConsumerState<_HomeLocationIndicator> createState() => _HomeLocationIndicatorState();
+}
+
+class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> {
+  bool _isPermissionGranted = false;
+  bool _isChecking = true;
+  bool _isFetchingLocation = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPermission();
+  }
+
+  Future<void> _checkPermission() async {
+    final isGranted = await LocationService.isLocationPermissionGranted();
+    if (mounted) {
+      setState(() {
+        _isPermissionGranted = isGranted;
+        _isChecking = false;
+      });
+    }
+
+    if (isGranted) {
+      // If granted but profile city is empty, trigger location save once
+      final profile = ref.read(userProfileProvider).value;
+      if (profile == null || profile.city == null || profile.city!.trim().isEmpty) {
+        _fetchAndSave();
+      }
+    }
+  }
+
+  Future<void> _fetchAndSave() async {
+    if (_isFetchingLocation) return;
+    setState(() => _isFetchingLocation = true);
+    await LocationService.fetchAndSaveUserLocation(ref);
+    if (mounted) {
+      final isGranted = await LocationService.isLocationPermissionGranted();
+      setState(() {
+        _isPermissionGranted = isGranted;
+        _isFetchingLocation = false;
+      });
+    }
+  }
+
+  Future<void> _handleEnableLocationTap() async {
+    final granted = await LocationService.requestLocationPermission();
+    if (granted) {
+      setState(() => _isPermissionGranted = true);
+      await _fetchAndSave();
+    } else {
+      setState(() => _isPermissionGranted = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final typography = context.typography;
+    final profile = ref.watch(userProfileProvider).value;
+
+    if (_isChecking) {
+      return const SizedBox.shrink();
+    }
+
+    if (!_isPermissionGranted) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12.0),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: GestureDetector(
+            onTap: _handleEnableLocationTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3EFFF),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFF7A58FF).withValues(alpha: 0.4), width: 1.2),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Text('📍', style: TextStyle(fontSize: 13)),
+                  SizedBox(width: 6),
+                  Text(
+                    'Enable Location',
+                    style: TextStyle(
+                      color: Color(0xFF6B4EFF),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Granted state: display city name (e.g. 📍 Lucknow)
+    final String? city = profile?.city;
+    final String? state = profile?.state;
+    final String? country = profile?.country;
+
+    String displayCity;
+    if (city != null && city.trim().isNotEmpty) {
+      displayCity = city;
+    } else if (state != null && state.trim().isNotEmpty) {
+      displayCity = state;
+    } else if (country != null && country.trim().isNotEmpty) {
+      displayCity = country;
+    } else if (_isFetchingLocation) {
+      displayCity = 'Fetching city...';
+    } else {
+      displayCity = 'Detecting city...';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: colors.border.withValues(alpha: 0.5), width: 1),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('📍', style: TextStyle(fontSize: 13)),
+              const SizedBox(width: 4),
+              Text(
+                displayCity,
+                style: typography.bodySmall.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: colors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

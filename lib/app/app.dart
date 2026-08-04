@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
 import 'package:dating_app/app/router/route_names.dart';
+import 'package:dating_app/core/utils/app_snack_bar.dart';
 // ignore: unused_import
 import 'package:dating_app/core/services/screen_protection_service.dart';
 import 'router/app_router.dart';
@@ -34,13 +35,7 @@ class BuddyPartnerApp extends ConsumerWidget {
       }
 
       if (next.errorMessage != null && next.errorMessage != prev?.errorMessage) {
-        ScaffoldMessenger.of(navContext).showSnackBar(
-          SnackBar(
-            content: Text(next.errorMessage!),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackBar.showError(navContext, next.errorMessage!);
       }
     });
 

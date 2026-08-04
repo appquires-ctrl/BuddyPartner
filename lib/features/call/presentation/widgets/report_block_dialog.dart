@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dating_app/core/widgets/feedback/app_loading_indicator.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:dating_app/core/utils/app_snack_bar.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/features/chat/data/chat_repository.dart';
@@ -19,15 +20,15 @@ class ReportBlockDialog extends ConsumerStatefulWidget {
 }
 
 class _ReportBlockDialogState extends ConsumerState<ReportBlockDialog> {
-  String _selectedReason = 'Inappropriate behavior';
+  String _selectedReason = 'Harassment or inappropriate behavior';
   final _descriptionController = TextEditingController();
   bool _isLoading = false;
 
   final List<String> _reasons = const [
-    'Inappropriate behavior',
-    'Abusive language',
-    'Fake profile',
-    'Asking for personal details / money',
+    'Harassment or inappropriate behavior',
+    'Fake profile or impersonation',
+    'Spam or commercial advertising',
+    'Inappropriate language or abusive behavior',
     'Other'
   ];
 
@@ -166,12 +167,11 @@ class _ReportBlockDialogState extends ConsumerState<ReportBlockDialog> {
 
       if (mounted) {
         context.pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(report
-                ? 'Report submitted. User has been blocked.'
-                : 'User has been blocked.'),
-          ),
+        AppSnackBar.showSuccess(
+          context,
+          report
+              ? 'Report submitted. User has been blocked.'
+              : 'User has been blocked.',
         );
         // Pop the chat/call screen as well to navigate back
         context.pop();
@@ -181,9 +181,7 @@ class _ReportBlockDialogState extends ConsumerState<ReportBlockDialog> {
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        AppSnackBar.showError(context, 'Error: $e');
       }
     }
   }

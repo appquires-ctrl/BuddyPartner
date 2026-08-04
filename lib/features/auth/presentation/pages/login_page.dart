@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dating_app/core/utils/app_snack_bar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/features/auth/application/auth_controller.dart';
@@ -112,13 +113,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Future<void> _handleVerifyOtp() async {
     final otp = _enteredOtp;
     if (otp.length != 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter all 6 digits of the verification code.'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppSnackBar.showError(context, 'Please enter all 6 digits of the verification code.');
       return;
     }
 

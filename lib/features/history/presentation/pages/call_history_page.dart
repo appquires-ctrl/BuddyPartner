@@ -5,6 +5,7 @@ import 'package:dating_app/core/widgets/shimmer/skeletons/call_history_skeleton.
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:dating_app/core/utils/app_snack_bar.dart';
 import 'package:dating_app/features/home/presentation/widgets/matching_illustration.dart';
 import 'package:dating_app/features/history/data/call_history_provider.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
@@ -67,12 +68,7 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
 
     // Only start if not already in a call/queue
     if (currentState.phase != MatchmakingPhase.idle) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('A call is already in progress.'),
-          duration: Duration(seconds: 2),
-        ),
-      );
+      AppSnackBar.showInfo(context, 'A call is already in progress.');
       return;
     }
 

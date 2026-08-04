@@ -89,14 +89,19 @@ db.query(`
   console.error('❌ Failed to initialize wallet_transactions table:', err.message);
 });
 
-// Auto-ensure user moderation columns exist
+// Auto-ensure user moderation and location columns exist
 db.query(`
   ALTER TABLE public.users ADD COLUMN IF NOT EXISTS strike_count INTEGER DEFAULT 0;
   ALTER TABLE public.users ADD COLUMN IF NOT EXISTS suspended_until TIMESTAMPTZ;
   ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE;
   ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_telecaller BOOLEAN;
+  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS country VARCHAR(100);
+  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS state VARCHAR(100);
+  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS city VARCHAR(100);
+  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
 `).then(() => {
-  console.log('✅ User moderation and telecaller columns checked/initialized.');
+  console.log('✅ User moderation, telecaller, and location columns checked/initialized.');
 }).catch((err) => {
   console.error('❌ Failed to initialize user columns:', err.message);
 });

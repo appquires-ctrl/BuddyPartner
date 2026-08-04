@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:dating_app/core/utils/app_snack_bar.dart';
 import 'package:dating_app/core/widgets/buttons/app_primary_button.dart';
 import 'package:dating_app/features/subscription/domain/subscription_plan.dart';
 import 'package:dating_app/features/subscription/application/subscription_providers.dart';
@@ -32,20 +33,10 @@ class _DevSubscriptionPageState extends ConsumerState<DevSubscriptionPage> {
 
     if (mounted) {
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('DEV MODE: ${widget.plan.title} activated successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        AppSnackBar.showSuccess(context, 'DEV MODE: ${widget.plan.title} activated successfully!');
         context.go(RouteNames.home);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to activate dev subscription.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        AppSnackBar.showError(context, 'Failed to activate dev subscription.');
       }
     }
   }
@@ -59,20 +50,10 @@ class _DevSubscriptionPageState extends ConsumerState<DevSubscriptionPage> {
 
     if (mounted) {
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('DEV MODE: Subscription expired immediately!'),
-            backgroundColor: Colors.orange,
-          ),
-        );
+        AppSnackBar.showInfo(context, 'DEV MODE: Subscription expired immediately!');
         context.go(RouteNames.home);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to expire dev subscription.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        AppSnackBar.showError(context, 'Failed to expire dev subscription.');
       }
     }
   }
