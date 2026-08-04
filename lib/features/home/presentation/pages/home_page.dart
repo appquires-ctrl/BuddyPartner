@@ -171,9 +171,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                     },
                     child: GradientAvatar(
                       initials: initials,
-                      avatarSeed: profile?.avatarSeed,
-                      avatarStyle: profile?.avatarStyle,
-                      gender: profile?.gender,
+                      avatarSeed: profile.avatarSeed,
+                      avatarStyle: profile.avatarStyle,
+                      gender: profile.gender,
                       radius: 20,
                       showStatus: true,
                       isOnline: true,
