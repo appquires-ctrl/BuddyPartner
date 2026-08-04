@@ -197,15 +197,15 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
     });
 
     if (result.hasError) {
-      if (ref.mounted) {
+      try {
         state = AsyncError(result.error!, result.stackTrace!);
-      }
+      } catch (_) {}
       return false;
     }
     
-    if (ref.mounted) {
+    try {
       state = const AsyncData(null);
-    }
+    } catch (_) {}
     return true;
   }
 
@@ -235,15 +235,15 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
     });
 
     if (result.hasError) {
-      if (ref.mounted) {
+      try {
         state = AsyncError(result.error!, result.stackTrace!);
-      }
+      } catch (_) {}
       return false;
     }
 
-    if (ref.mounted) {
+    try {
       state = const AsyncData(null);
-    }
+    } catch (_) {}
     return true;
   }
 
