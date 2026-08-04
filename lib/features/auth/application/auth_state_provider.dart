@@ -93,18 +93,23 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
 
   /// Clears the session and disconnects real-time socket & presence states
   Future<void> clearSession() async {
-    state = const AsyncLoading();
-    
-    // Explicitly disconnect and dispose real-time Socket.io connection on backend
-    ref.read(socketProvider.notifier).disconnectAndDispose();
-    
-    // Invalidate presence, matchmaking, and user-session caches
-    ref.invalidate(presenceProvider);
-    ref.invalidate(conversationsProvider);
-    ref.invalidate(userProfileProvider);
+    try {
+      // Explicitly disconnect and dispose real-time Socket.io connection on backend
+      ref.read(socketProvider.notifier).disconnectAndDispose();
 
-    await ref.read(apiClientProvider).deleteToken();
-    state = const AsyncData(null);
+      // Clear local auth token
+      await ref.read(apiClientProvider).deleteToken();
+
+      // Clear session state to notify GoRouter and state listeners
+      state = const AsyncData(null);
+
+      // Invalidate presence, matchmaking, and user-session caches
+      ref.invalidate(presenceProvider);
+      ref.invalidate(conversationsProvider);
+      ref.invalidate(userProfileProvider);
+    } catch (e) {
+      state = const AsyncData(null);
+    }
   }
 }
 

@@ -242,15 +242,16 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
   /// Log out of the current session.
   Future<void> signOut() async {
     state = const AsyncLoading();
-    final result = await AsyncValue.guard(() async {
+    try {
       await FirebaseAuth.instance.signOut();
       await ref.read(authStateProvider.notifier).clearSession();
-    });
-    
-    if (result.hasError) {
-      state = AsyncError(result.error!, result.stackTrace!);
-    } else {
-      state = const AsyncData(null);
+      if (ref.mounted) {
+        state = const AsyncData(null);
+      }
+    } catch (e, st) {
+      if (ref.mounted) {
+        state = AsyncError(e, st);
+      }
     }
   }
 }
