@@ -99,40 +99,49 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Onboarding stacked pages
       GoRoute(
         path: RouteNames.splash,
+        name: 'SplashPage',
         builder: (context, state) => const SplashPage(),
       ),
       GoRoute(
         path: RouteNames.login,
+        name: 'LoginPage',
         builder: (context, state) => const LoginPage(),
       ),
       GoRoute(
         path: RouteNames.signup,
+        name: 'SignUpPage',
         builder: (context, state) => const SignupPage(),
       ),
       GoRoute(
         path: RouteNames.forgotPassword,
+        name: 'ForgotPasswordPage',
         builder: (context, state) => const ForgotPasswordPage(),
       ),
       
       // Legal document screens
       GoRoute(
         path: RouteNames.termsOfService,
+        name: 'TermsOfService',
         builder: (context, state) => LegalDocumentPage(document: LegalDocumentContent.termsOfService),
       ),
       GoRoute(
         path: RouteNames.privacyPolicy,
+        name: 'PrivacyPolicy',
         builder: (context, state) => LegalDocumentPage(document: LegalDocumentContent.privacyPolicy),
       ),
       GoRoute(
         path: RouteNames.communityGuidelines,
+        name: 'CommunityGuidelines',
         builder: (context, state) => LegalDocumentPage(document: LegalDocumentContent.communityGuidelines),
       ),
       GoRoute(
         path: RouteNames.refundPolicy,
+        name: 'RefundPolicy',
         builder: (context, state) => LegalDocumentPage(document: LegalDocumentContent.refundPolicy),
       ),
       GoRoute(
         path: RouteNames.withdrawalTerms,
+        name: 'WithdrawalTerms',
         builder: (context, state) => LegalDocumentPage(document: LegalDocumentContent.withdrawalTerms),
       ),
 
@@ -140,22 +149,27 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Calling screens flow
       GoRoute(
         path: RouteNames.calling,
+        name: 'CallingPage',
         builder: (context, state) => const CallingPage(),
       ),
       GoRoute(
         path: RouteNames.activeCall,
+        name: 'ActiveCallPage',
         builder: (context, state) => const ActiveCallPage(),
       ),
       GoRoute(
         path: RouteNames.incomingCall,
+        name: 'IncomingCallPage',
         builder: (context, state) => const IncomingCallPage(),
       ),
       GoRoute(
         path: RouteNames.callSummary,
+        name: 'CallSummaryPage',
         builder: (context, state) => const CallSummaryPage(),
       ),
       GoRoute(
         path: RouteNames.chat,
+        name: 'ChatPage',
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>? ?? {};
           final conversationId = extra['conversationId'] as String? ?? '';
@@ -176,6 +190,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '${RouteNames.hostDetails}/:id',
+        name: 'HostDetailsPage',
         builder: (context, state) {
           final hostId = state.pathParameters['id'] ?? 'host_1';
           return HostDetailsPage(hostId: hostId);
@@ -183,34 +198,42 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RouteNames.history,
+        name: 'CallHistoryPage',
         builder: (context, state) => const CallHistoryPage(),
       ),
       GoRoute(
         path: RouteNames.account,
+        name: 'AccountPage',
         builder: (context, state) => const AccountPage(),
       ),
       GoRoute(
         path: RouteNames.help,
+        name: 'HelpPage',
         builder: (context, state) => const HelpPage(),
       ),
       GoRoute(
         path: RouteNames.transactionHistory,
+        name: 'TransactionHistoryPage',
         builder: (context, state) => const TransactionHistoryPage(),
       ),
       GoRoute(
         path: RouteNames.suspended,
+        name: 'BannedScreen',
         builder: (context, state) => const BannedScreen(),
       ),
       GoRoute(
         path: RouteNames.banned,
+        name: 'BannedScreen',
         builder: (context, state) => const BannedScreen(),
       ),
       GoRoute(
         path: RouteNames.subscribe,
+        name: 'SubscribePage',
         builder: (context, state) => const SubscribePage(),
       ),
       GoRoute(
         path: RouteNames.devSubscription,
+        name: 'DevSubscriptionPage',
         builder: (context, state) {
           final plan = state.extra as SubscriptionPlan? ?? SubscriptionPlan.defaultPlans.first;
           return DevSubscriptionPage(plan: plan);
@@ -239,6 +262,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: RouteNames.home,
+                name: 'HomePage',
                 builder: (context, state) => const HomePage(),
               ),
             ],
@@ -249,6 +273,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: RouteNames.conversations,
+                name: 'ConversationsListPage',
                 builder: (context, state) => const ConversationsListPage(),
               ),
             ],
@@ -259,6 +284,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: RouteNames.favorites,
+                name: 'FavoritesPage',
                 builder: (context, state) => const FavoritesPage(),
               ),
             ],
@@ -269,6 +295,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: RouteNames.settings,
+                name: 'ProfilePage',
                 builder: (context, state) => const ProfilePage(),
               ),
             ],

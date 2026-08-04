@@ -16,14 +16,68 @@ class AppNavigationObserver extends NavigatorObserver {
   }
 
   String _cleanScreenName(String raw) {
+    if (raw.startsWith('_PageBasedMaterialPageRoute') || raw.startsWith('MaterialPage')) {
+      return AppLogger.currentScreen;
+    }
+
     String clean = raw;
+    if (clean.contains('(')) {
+      clean = clean.split('(').first;
+    }
     if (clean.startsWith('/')) {
       clean = clean.replaceFirst('/', '');
     }
     if (clean.isEmpty) {
       clean = 'HomeScreen';
     }
-    // Capitalize first letter if lowercase
+
+    // Map route paths to clean readable Screen names
+    switch (clean) {
+      case 'login':
+        return 'LoginScreen';
+      case 'signup':
+        return 'SignUpPage';
+      case 'home':
+        return 'HomeScreen';
+      case 'profile':
+      case 'settings':
+        return 'ProfilePage';
+      case 'account':
+        return 'AccountPage';
+      case 'help':
+        return 'HelpPage';
+      case 'chat':
+        return 'ChatPage';
+      case 'conversations':
+        return 'ConversationsListPage';
+      case 'favorites':
+        return 'FavoritesPage';
+      case 'call-history':
+      case 'history':
+        return 'CallHistoryPage';
+      case 'subscribe':
+        return 'SubscribePage';
+      case 'dev-subscription':
+        return 'DevSubscriptionPage';
+      case 'recharge':
+        return 'RechargePage';
+      case 'withdraw':
+        return 'WithdrawPage';
+      case 'calling':
+        return 'CallingPage';
+      case 'active-call':
+        return 'ActiveCallPage';
+      case 'incoming-call':
+        return 'IncomingCallPage';
+      case 'call-summary':
+        return 'CallSummaryPage';
+      case 'banned':
+      case 'suspended':
+        return 'BannedScreen';
+      case 'transaction-history':
+        return 'TransactionHistoryPage';
+    }
+
     if (clean.isNotEmpty) {
       clean = clean[0].toUpperCase() + clean.substring(1);
     }
