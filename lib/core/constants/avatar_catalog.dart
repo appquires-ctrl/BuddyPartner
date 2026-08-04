@@ -54,7 +54,6 @@ class AvatarCatalog {
     }
 
     final cleanSeed = seed.trim();
-    final folder = (gender ?? '').toLowerCase().contains('female') ? 'female' : 'male';
 
     String s = cleanSeed;
     if (s.contains('/')) {
@@ -65,6 +64,15 @@ class AvatarCatalog {
     }
     if (s.endsWith('.svg')) {
       s = s.replaceAll('.svg', '');
+    }
+
+    String folder;
+    if (s.startsWith('female_')) {
+      folder = 'female';
+    } else if (s.startsWith('male_')) {
+      folder = 'male';
+    } else {
+      folder = (gender ?? '').toLowerCase().contains('female') ? 'female' : 'male';
     }
 
     return 'assets/avatars/$folder/avatar_$s.svg';
