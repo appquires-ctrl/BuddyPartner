@@ -1,16 +1,14 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:video_player/video_player.dart';
 import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 
-/// SplashPage displays the application launch screen
-/// with animated logo wordmark and subtitle tagline.
+/// SplashPage plays the full-screen video splash screen
+/// using assets/video/logoremover_1785844818487.mp4.
 class SplashPage extends ConsumerStatefulWidget {
   const SplashPage({super.key});
 
@@ -19,22 +17,63 @@ class SplashPage extends ConsumerStatefulWidget {
 }
 
 class _SplashPageState extends ConsumerState<SplashPage> {
+  late VideoPlayerController _controller;
+  bool _isInitialized = false;
+  bool _hasNavigated = false;
+
   @override
   void initState() {
     super.initState();
-    _navigateToNext();
+    _initializeVideo();
+  }
+
+  Future<void> _initializeVideo() async {
+    _controller = VideoPlayerController.asset(
+      'assets/video/logoremover_1785844818487.mp4',
+    );
+
+    try {
+      await _controller.initialize();
+      if (!mounted) return;
+
+      setState(() {
+        _isInitialized = true;
+      });
+
+      _controller.setLooping(false);
+      _controller.play();
+
+      _controller.addListener(() {
+        if (_controller.value.position >= _controller.value.duration && !_hasNavigated) {
+          _navigateToNext();
+        }
+      });
+
+      // Backup safety timer in case video completion listener does not trigger
+      final durationMs = _controller.value.duration.inMilliseconds;
+      Future.delayed(Duration(milliseconds: durationMs + 200), () {
+        if (!_hasNavigated) {
+          _navigateToNext();
+        }
+      });
+    } catch (_) {
+      // Fallback if video fails to initialize
+      if (mounted) {
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          _navigateToNext();
+        });
+      }
+    }
   }
 
   Future<void> _navigateToNext() async {
-    // Keep splash visible for 1.5 seconds
-    await Future.delayed(const Duration(milliseconds: 1500));
-    
-    if (!mounted) return;
+    if (_hasNavigated) return;
+    _hasNavigated = true;
 
     try {
       final user = await ref.read(authStateProvider.future);
       if (!mounted) return;
-      
+
       if (user != null && user.isProfileComplete) {
         context.go(RouteNames.home);
       } else {
@@ -48,105 +87,40 @@ class _SplashPageState extends ConsumerState<SplashPage> {
   }
 
   @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = context.colors;
 
     return Scaffold(
-      backgroundColor: colors.surface,
+      backgroundColor: Colors.black,
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          // Top-Left blurry purple blob
-          Positioned(
-            top: -150,
-            left: -100,
-            child: ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 90, sigmaY: 90),
-              child: Container(
-                width: 400,
-                height: 400,
-                decoration: BoxDecoration(
-                  color: colors.primaryGradientStart.withOpacity(1),
-                  shape: BoxShape.circle,
+          if (_isInitialized && _controller.value.isInitialized)
+            FittedBox(
+              fit: BoxFit.cover,
+              child: SizedBox(
+                width: _controller.value.size.width,
+                height: _controller.value.size.height,
+                child: VideoPlayer(_controller),
+              ),
+            )
+          else
+            Container(
+              color: colors.surface,
+              child: Center(
+                child: Image.asset(
+                  'assets/images/app_logo.png',
+                  width: 180,
+                  height: 180,
                 ),
               ),
             ),
-          ),
-          
-          // Top-Right blurry pink blob
-          Positioned(
-            top: -150,
-            right: -100,
-            child: ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 90, sigmaY: 90),
-              child: Container(
-                width: 350,
-                height: 350,
-                decoration: BoxDecoration(
-                  color: colors.primaryGradientEnd.withOpacity(0.55),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-          ),
-
-          // Center Content
-          SafeArea(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.space24,
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // App Logo
-                    Image.asset(
-                      'assets/images/app_logo.png',
-                      width: 240,
-                      height: 240,
-                    )
-                        .animate()
-                        .fadeIn(duration: 600.ms)
-                        .scaleXY(begin: 0.85, end: 1.0, curve: Curves.easeOutBack),
-
-                    // const SizedBox(height: AppSpacing.space16),
-
-                    // Wordmark
-                    // Text(
-                    //   'BuddyPartner',
-                    //   style: typography.displayWordmark.copyWith(
-                    //     color: colors.primary,
-                    //     fontSize: 42,
-                    //     fontWeight: FontWeight.bold,
-                    //     letterSpacing: -0.8,
-                    //   ),
-                    // )
-                    //     .animate()
-                    //     .fadeIn(duration: 600.ms)
-                    //     .scaleXY(begin: 0.95, end: 1.0, curve: Curves.easeOutBack),
-                    
-                    // const SizedBox(height: AppSpacing.space12),
-                    
-                    // Tagline
-                    // Text(
-                    //   '. MEET. CONNECT. BE FRIENDS. ',
-                    //   textAlign: TextAlign.center,
-                    //   style: typography.bodyMedium.copyWith(
-                    //     color: colors.textSecondary,
-                    //     fontSize: 13,
-                    //     fontWeight: FontWeight.bold,
-                    //     letterSpacing: 1.2,
-                    //   ),
-                    // )
-                    //     .animate()
-                    //     .fadeIn(delay: 300.ms, duration: 600.ms)
-                    //     .slideY(begin: 0.1, end: 0.0),
-                  ],
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
