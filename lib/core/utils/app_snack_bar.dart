@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:dating_app/core/utils/app_logger.dart';
 
 /// Centralized utility for showing SnackBars across the application.
-/// Automatically prints every error, success, or info SnackBar message
-/// to the terminal console for debugging and monitoring.
+/// Automatically logs every error, success, or info SnackBar message to the terminal.
 class AppSnackBar {
-  /// Displays a custom [SnackBar] and prints its message to the terminal console.
+  /// Displays a custom [SnackBar] and routes logs to AppLogger.
   static void show(
     BuildContext context,
     SnackBar snackBar, {
@@ -23,19 +23,16 @@ class AppSnackBar {
         logText.toLowerCase().contains('required') ||
         logText.toLowerCase().contains('invalid');
 
-    if (isError) {
-      debugPrint('🚨 [SNACKBAR ERROR]: $logText');
-    } else {
-      debugPrint('✅ [SNACKBAR SUCCESS/INFO]: $logText');
-    }
+    final typeStr = isError ? 'Error' : 'Success';
+    AppLogger.snackbar(logText, type: typeStr);
 
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
-  /// Displays an Error SnackBar with red background and logs to terminal.
+  /// Displays an Error SnackBar with red background and logs to AppLogger.
   static void showError(BuildContext context, String message) {
-    debugPrint('🚨 [SNACKBAR ERROR]: $message');
+    AppLogger.snackbar(message, type: 'Error');
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -45,9 +42,9 @@ class AppSnackBar {
     );
   }
 
-  /// Displays a Success SnackBar with green background and logs to terminal.
+  /// Displays a Success SnackBar with green background and logs to AppLogger.
   static void showSuccess(BuildContext context, String message) {
-    debugPrint('✅ [SNACKBAR SUCCESS]: $message');
+    AppLogger.snackbar(message, type: 'Success');
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -57,9 +54,9 @@ class AppSnackBar {
     );
   }
 
-  /// Displays an Info SnackBar and logs to terminal.
+  /// Displays an Info SnackBar and logs to AppLogger.
   static void showInfo(BuildContext context, String message) {
-    debugPrint('ℹ️ [SNACKBAR INFO]: $message');
+    AppLogger.snackbar(message, type: 'Info');
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

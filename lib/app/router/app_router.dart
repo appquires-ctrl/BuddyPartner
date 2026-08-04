@@ -29,6 +29,7 @@ import 'package:dating_app/features/wallet/presentation/pages/transaction_histor
 import 'package:dating_app/features/auth/presentation/pages/banned_screen.dart';
 import 'package:dating_app/core/widgets/layout/app_bottom_nav.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
+import 'package:dating_app/core/utils/app_navigation_observer.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
@@ -52,6 +53,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: RouteNames.splash,
+    observers: [AppNavigationObserver()],
     refreshListenable: _isTest ? null : refreshListenable,
     redirect: (context, state) {
       if (_isTest) return null;

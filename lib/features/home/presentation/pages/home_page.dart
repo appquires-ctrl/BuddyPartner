@@ -17,6 +17,7 @@ import 'package:dating_app/features/home/presentation/widgets/matched_user_card.
 import 'package:dating_app/features/home/presentation/widgets/home_skeleton.dart';
 import 'package:dating_app/features/subscription/application/subscription_providers.dart';
 import 'package:dating_app/core/widgets/gradient_avatar.dart';
+import 'package:dating_app/core/utils/app_logger.dart';
 
 /// HomePage renders the primary "stranger search" radar screen.
 /// Matches screenshots/home.jpeg exactly.
@@ -32,6 +33,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   bool _isProcessingPermissions = false;
 
   Future<void> _startMatchmaking() async {
+    AppLogger.click('Start Matchmaking', screen: 'HomeScreen');
     if (_isProcessingPermissions) return;
 
     // Step 1 — Subscription Check

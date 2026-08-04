@@ -6,6 +6,8 @@ import 'package:dating_app/app/router/app_router.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/core/config/app_config.dart';
 
+import 'package:dating_app/core/utils/app_logger.dart';
+
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
 
 class ApiClient {
@@ -26,17 +28,32 @@ class ApiClient {
       ),
     );
 
-    // Interceptor to automatically attach custom JWT session token and handle 403 suspension/ban
+    // Interceptor to automatically attach custom JWT session token, handle 403 suspension/ban, and log API timeline
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          AppLogger.apiStart(options.method, options.path);
           final token = await getToken();
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
           return handler.next(options);
         },
+        onResponse: (response, handler) {
+          AppLogger.apiSuccess(
+            response.requestOptions.method,
+            response.requestOptions.path,
+            response.statusCode ?? 200,
+          );
+          return handler.next(response);
+        },
         onError: (DioException err, handler) {
+          AppLogger.apiError(
+            err.requestOptions.method,
+            err.requestOptions.path,
+            err.response?.statusCode,
+            err.error ?? err.message ?? 'Network Error',
+          );
           if (err.response?.statusCode == 403) {
             final data = err.response?.data;
             if (data is Map<String, dynamic>) {

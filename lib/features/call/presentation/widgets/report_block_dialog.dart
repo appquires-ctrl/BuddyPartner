@@ -8,6 +8,8 @@ import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/features/chat/data/chat_repository.dart';
 
+import 'package:dating_app/core/utils/app_logger.dart';
+
 /// ReportBlockDialog displays options to report a host and block them from the app.
 class ReportBlockDialog extends ConsumerStatefulWidget {
   final String? reportedUserId;
@@ -23,6 +25,12 @@ class _ReportBlockDialogState extends ConsumerState<ReportBlockDialog> {
   String _selectedReason = 'Harassment or inappropriate behavior';
   final _descriptionController = TextEditingController();
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    AppLogger.dialogOpen('Report & Block Host');
+  }
 
   final List<String> _reasons = const [
     'Harassment or inappropriate behavior',
@@ -166,6 +174,7 @@ class _ReportBlockDialogState extends ConsumerState<ReportBlockDialog> {
       }
 
       if (mounted) {
+        AppLogger.dialogClose(report ? 'Report & Block' : 'Block Only');
         context.pop();
         AppSnackBar.showSuccess(
           context,
