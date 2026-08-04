@@ -111,16 +111,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
               ),
             )
           else
-            Container(
-              color: Colors.white,
-              child: Center(
-                child: Image.asset(
-                  'assets/images/app_logo.png',
-                  width: 220,
-                  height: 220,
-                ),
-              ),
-            ),
+            const SizedBox.expand(),
         ],
       ),
     );
