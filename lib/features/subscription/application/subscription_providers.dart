@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dating_app/core/services/api_client.dart';
+import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 import 'package:dating_app/features/subscription/application/subscription_state.dart';
 import 'package:dating_app/features/subscription/domain/subscription_plan.dart';
 
@@ -10,10 +11,15 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
 
   @override
   Future<SubscriptionState> build() async {
-    // Session-long scope: setup timer disposal
     ref.onDispose(() {
       _countdownTimer?.cancel();
     });
+
+    final authUser = ref.watch(authStateProvider).value;
+    if (authUser == null) {
+      _countdownTimer?.cancel();
+      return const SubscriptionState(isSubscribed: false, formattedLabel: 'Not Subscribed');
+    }
 
     return fetchStatus();
   }

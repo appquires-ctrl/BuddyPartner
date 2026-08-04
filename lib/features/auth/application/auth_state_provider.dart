@@ -192,7 +192,9 @@ final userProfileProvider = FutureProvider<UserProfile?>((ref) async {
     final response = await apiClient.dio.get('/api/auth/me');
 
     if (response.data == null || response.data['user'] == null) return null;
-    return UserProfile.fromJson(response.data['user'] as Map<String, dynamic>);
+    final profile = UserProfile.fromJson(response.data['user'] as Map<String, dynamic>);
+    if (profile.id != user.id) return null;
+    return profile;
   } catch (e) {
     return null;
   }

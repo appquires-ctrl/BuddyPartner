@@ -101,19 +101,21 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     });
 
+    final authUser = ref.watch(authStateProvider).value;
     final profileAsync = ref.watch(userProfileProvider);
     final matchmakingState = ref.watch(matchmakingControllerProvider);
     final matchedUsersAsync = ref.watch(matchedUsersProvider);
     
-    final profile = profileAsync.value;
-    final matchedUsers = matchedUsersAsync.value ?? const [];
+    // Ensure profile matches currently authenticated user ID to prevent stale name flash
+    final profile = (profileAsync.value?.id == authUser?.id) ? profileAsync.value : null;
+    final matchedUsers = (profile != null) ? (matchedUsersAsync.value ?? const []) : const [];
     
     final String fullName = profile?.fullName ?? 'User';
     final String initials = getInitials(fullName);
     final bool isMatching = matchmakingState.phase == MatchmakingPhase.queued;
     
-    // Only show skeleton on initial load (when it's loading and there's no data yet)
-    final bool showSkeleton = (profileAsync.isLoading || matchedUsersAsync.isLoading) && !matchedUsersAsync.hasValue;
+    // Show skeleton if current user profile is still loading
+    final bool showSkeleton = profile == null || ((profileAsync.isLoading || matchedUsersAsync.isLoading) && !matchedUsersAsync.hasValue);
 
     Widget content;
     if (showSkeleton) {
