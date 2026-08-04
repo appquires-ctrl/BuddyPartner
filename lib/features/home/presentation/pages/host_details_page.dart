@@ -12,6 +12,8 @@ import 'package:dating_app/features/call/application/matchmaking_state.dart';
 
 import 'package:dating_app/core/widgets/app_avatar.dart';
 
+import 'package:dating_app/core/utils/app_logger.dart';
+
 /// HostDetailsPage displays a host telecaller profile with large avatar
 /// cover photo, overlapping stats card, bios, languages, and action triggers.
 class HostDetailsPage extends ConsumerStatefulWidget {
@@ -224,8 +226,9 @@ class _HostDetailsPageState extends ConsumerState<HostDetailsPage> {
                       icon: Icon(Icons.chat_bubble_outline, color: colors.primary),
                       label: Text('Chat', style: TextStyle(color: colors.primary)),
                       onPressed: () {
-                        context.push(RouteNames.chat, extra: {
-                          'conversationId': 'user:${widget.hostId}',
+                        AppLogger.button('Message Host', screen: 'HostDetailsPage');
+                        context.pushNamed(RouteNames.chat, queryParameters: {
+                          'conversationId': 'conv_${widget.hostId}',
                           'userId': widget.hostId,
                           'userName': name,
                         });
@@ -246,6 +249,7 @@ class _HostDetailsPageState extends ConsumerState<HostDetailsPage> {
                       icon: const Icon(Icons.call),
                       label: const Text('Call Now'),
                       onPressed: () {
+                        AppLogger.button('Call Now', screen: 'HostDetailsPage');
                         final matchState = ref.read(matchmakingControllerProvider);
                         if (matchState.phase != MatchmakingPhase.idle) return;
 
