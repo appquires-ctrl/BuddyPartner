@@ -11,6 +11,7 @@ import 'package:dating_app/features/history/data/call_history_provider.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
 import 'package:dating_app/core/widgets/gradient_avatar.dart';
+import 'package:dating_app/core/utils/app_logger.dart';
 
 /// CallHistoryPage renders the list of call logs fetched dynamically from Supabase.
 class CallHistoryPage extends ConsumerStatefulWidget {
@@ -63,6 +64,7 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
 
   /// Initiate a direct call to this user and navigate to the calling screen.
   void _callUser(CallLog log) {
+    AppLogger.button('Call User from Call History', screen: 'CallHistoryPage');
     final controller = ref.read(matchmakingControllerProvider.notifier);
     final currentState = ref.read(matchmakingControllerProvider);
 

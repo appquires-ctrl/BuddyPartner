@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/core/utils/app_snack_bar.dart';
+import 'package:dating_app/core/utils/app_logger.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
 
@@ -385,6 +386,7 @@ class HelpPage extends StatelessWidget {
   }
 
   void _showReportBugModal(BuildContext context) {
+    AppLogger.dialogOpen('Report a Bug', screen: 'HelpPage');
     final colors = context.colors;
     final typography = context.typography;
     final controller = TextEditingController();
@@ -424,17 +426,17 @@ class HelpPage extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: const BoxDecoration(
-                      color: Color(0xFFFFEAEA),
+                      color: Color(0xFFFEF2F2),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.bug_report_outlined, color: Color(0xFFEF4444), size: 24),
+                    child: const Icon(Icons.bug_report_outlined, color: Color(0xFFDC2626), size: 24),
                   ),
                   const SizedBox(width: 14),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Report an Issue',
+                        'Report a Bug',
                         style: typography.titleCard.copyWith(fontWeight: FontWeight.bold, fontSize: 18),
                       ),
                       Text(
@@ -452,7 +454,7 @@ class HelpPage extends StatelessWidget {
                 style: typography.bodyMedium,
                 decoration: InputDecoration(
                   hintText: 'Describe the bug or issue you encountered...',
-                  hintStyle: typography.bodySmall.copyWith(color: colors.textSecondary.withOpacity(0.6)),
+                  hintStyle: typography.bodySmall.copyWith(color: colors.textSecondary.withValues(alpha: 0.6)),
                   filled: true,
                   fillColor: colors.surface,
                   border: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: colors.border)),
@@ -470,6 +472,8 @@ class HelpPage extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   onPressed: () {
+                    AppLogger.button('Submit Bug Report', screen: 'HelpPage');
+                    AppLogger.dialogClose('Submit Report', screen: 'HelpPage');
                     Navigator.pop(context);
                     AppSnackBar.showSuccess(context, 'Thank you! Your bug report has been submitted.');
                   },

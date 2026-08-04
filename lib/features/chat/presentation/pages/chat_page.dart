@@ -16,6 +16,8 @@ import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/features/subscription/application/subscription_providers.dart';
 import 'package:dating_app/core/widgets/gradient_avatar.dart';
 
+import 'package:dating_app/core/utils/app_logger.dart';
+
 class ChatPage extends ConsumerStatefulWidget {
   final String conversationId;
   final String userId;
@@ -67,6 +69,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   void _sendMessage() {
+    AppLogger.button('Send Chat Message', screen: 'ChatPage');
     final text = _messageController.text.trim();
     if (text.isNotEmpty) {
       ref.read(chatControllerProvider(widget.conversationId).notifier).sendMessage(text);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
+import 'package:dating_app/core/utils/app_logger.dart';
 
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/features/home/presentation/widgets/matching_illustration.dart';
@@ -20,6 +21,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   bool _isRefreshing = false;
 
   Future<void> _handleRefresh() async {
+    AppLogger.click('Pull to Refresh Favorites', screen: 'FavoritesPage');
     if (_isRefreshing) return;
     setState(() {
       _isRefreshing = true;
