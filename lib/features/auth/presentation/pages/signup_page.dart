@@ -155,7 +155,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
           language: _selectedLanguage!,
           avatarSeed: _selectedAvatarSeed,
           avatarStyle: 'avataaars',
-          isTelecaller: null,
+          isTelecaller: _selectedIsTelecaller,
         );
 
     if (success && mounted) {

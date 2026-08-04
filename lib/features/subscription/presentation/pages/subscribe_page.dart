@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/features/subscription/domain/subscription_plan.dart';
+import 'package:dating_app/core/utils/app_logger.dart';
 
 class SubscribePage extends ConsumerStatefulWidget {
   const SubscribePage({super.key});
@@ -165,6 +166,7 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
 
     return GestureDetector(
       onTap: () {
+        AppLogger.click('Select Plan: ${plan.title}', screen: 'SubscribePage');
         setState(() {
           _selectedPlanId = plan.id;
         });

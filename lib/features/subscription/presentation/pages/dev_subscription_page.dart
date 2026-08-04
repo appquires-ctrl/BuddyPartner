@@ -5,6 +5,7 @@ import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/core/utils/app_snack_bar.dart';
+import 'package:dating_app/core/utils/app_logger.dart';
 import 'package:dating_app/core/widgets/buttons/app_primary_button.dart';
 import 'package:dating_app/features/subscription/domain/subscription_plan.dart';
 import 'package:dating_app/features/subscription/application/subscription_providers.dart';
@@ -25,6 +26,7 @@ class _DevSubscriptionPageState extends ConsumerState<DevSubscriptionPage> {
   bool _isProcessing = false;
 
   Future<void> _handleStartSubscription() async {
+    AppLogger.button('Activate Dev Plan: ${widget.plan.title}', screen: 'DevSubscriptionPage');
     setState(() => _isProcessing = true);
     final success = await ref
         .read(subscriptionStatusProvider.notifier)
@@ -42,6 +44,7 @@ class _DevSubscriptionPageState extends ConsumerState<DevSubscriptionPage> {
   }
 
   Future<void> _handleExpireSubscription() async {
+    AppLogger.button('Expire Dev Subscription', screen: 'DevSubscriptionPage');
     setState(() => _isProcessing = true);
     final success = await ref
         .read(subscriptionStatusProvider.notifier)
