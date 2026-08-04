@@ -7,8 +7,6 @@ import 'package:dating_app/features/chat/domain/conversation.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 
 class ConversationsNotifier extends AutoDisposeAsyncNotifier<List<Conversation>> {
-  Timer? _syncTimer;
-
   @override
   FutureOr<List<Conversation>> build() async {
     final socket = ref.watch(socketProvider);
@@ -27,14 +25,7 @@ class ConversationsNotifier extends AutoDisposeAsyncNotifier<List<Conversation>>
       socket.on('conversation:new', _handleConversationEvent);
     }
 
-    // Real-time updates are handled instantly over WebSockets via socket.on events below.
-    _syncTimer?.cancel();
-    _syncTimer = Timer.periodic(const Duration(seconds: 60), (_) {
-      _syncConversationsSilently();
-    });
-
     ref.onDispose(() {
-      _syncTimer?.cancel();
       if (socket != null) {
         socket.off('message:new', _handleIncomingMessage);
         socket.off('new_message', _handleIncomingMessage);
@@ -49,30 +40,6 @@ class ConversationsNotifier extends AutoDisposeAsyncNotifier<List<Conversation>>
   Future<List<Conversation>> _fetchConversations() async {
     final repo = ref.read(chatRepositoryProvider);
     return await repo.fetchConversations();
-  }
-
-  /// Silently background-syncs conversations without showing loading spinners or flickering
-  Future<void> _syncConversationsSilently() async {
-    try {
-      final latest = await _fetchConversations();
-      final current = state.value;
-      if (current == null || !_isSameConversationList(current, latest)) {
-        state = AsyncData(latest);
-      }
-    } catch (_) {}
-  }
-
-  bool _isSameConversationList(List<Conversation> a, List<Conversation> b) {
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i].id != b[i].id ||
-          a[i].lastMessage != b[i].lastMessage ||
-          a[i].unreadCount != b[i].unreadCount ||
-          a[i].lastMessageAt != b[i].lastMessageAt) {
-        return false;
-      }
-    }
-    return true;
   }
 
   /// Robust multi-format incoming message handler.
