@@ -5,6 +5,7 @@ import 'package:dating_app/core/widgets/feedback/app_loading_indicator.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/core/utils/app_snack_bar.dart';
+import 'package:dating_app/core/utils/app_logger.dart';
 import 'package:dating_app/features/call/application/matchmaking_controller.dart';
 import 'package:dating_app/features/call/application/matchmaking_state.dart';
 
@@ -635,6 +636,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
     BuildContext context,
     MatchmakingController controller,
   ) async {
+    AppLogger.dialogOpen('Leave Call Confirmation', screen: 'ActiveCallPage');
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -729,6 +731,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
       },
     );
 
+    AppLogger.dialogClose(result == true ? 'End Call & Exit' : 'Stay on Call', screen: 'ActiveCallPage');
     if (result == true) {
       await controller.endCall();
     }
