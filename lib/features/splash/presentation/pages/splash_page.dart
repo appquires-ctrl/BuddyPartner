@@ -45,13 +45,16 @@ class _SplashPageState extends ConsumerState<SplashPage> {
 
       _controller.addListener(() {
         if (_controller.value.position >= _controller.value.duration && !_hasNavigated) {
-          _navigateToNext();
+          // Hold the final frame for 1000ms so the video splash doesn't feel rushed
+          Future.delayed(const Duration(milliseconds: 1000), () {
+            _navigateToNext();
+          });
         }
       });
 
       // Backup safety timer in case video completion listener does not trigger
       final durationMs = _controller.value.duration.inMilliseconds;
-      Future.delayed(Duration(milliseconds: durationMs + 200), () {
+      Future.delayed(Duration(milliseconds: durationMs + 1200), () {
         if (!_hasNavigated) {
           _navigateToNext();
         }
@@ -59,7 +62,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
     } catch (_) {
       // Fallback if video fails to initialize
       if (mounted) {
-        Future.delayed(const Duration(milliseconds: 1500), () {
+        Future.delayed(const Duration(milliseconds: 2500), () {
           _navigateToNext();
         });
       }

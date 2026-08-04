@@ -235,8 +235,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 // Branding Section (Logo & Tagline)
                 Image.asset(
                   'assets/images/app_logo.png',
-                  width: 115,
-                  height: 115,
+                  width: 175,
+                  height: 175,
                 ),
                 const SizedBox(height: 12),
                 Text(
