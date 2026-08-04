@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:dating_app/core/utils/app_logger.dart';
 
 /// AppBottomNav provides the bottom navigation bar for the app's shell.
 /// Unified 4-tab layout: Home, Chat, Favorite, Setting.
@@ -31,7 +32,12 @@ class AppBottomNav extends StatelessWidget {
       ),
       child: NavigationBar(
         selectedIndex: navSelectedIndex,
-        onDestinationSelected: onTap,
+        onDestinationSelected: (index) {
+          final tabNames = ['Home', 'Chat', 'Favorite', 'Setting'];
+          final tabName = index >= 0 && index < tabNames.length ? tabNames[index] : 'Tab $index';
+          AppLogger.click('Bottom Nav Tab: $tabName');
+          onTap(index);
+        },
         backgroundColor: colors.surface,
         indicatorColor: colors.chipLavender,
         elevation: 0,

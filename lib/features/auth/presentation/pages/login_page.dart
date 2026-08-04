@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dating_app/core/utils/app_snack_bar.dart';
+import 'package:dating_app/core/utils/app_logger.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/features/auth/application/auth_controller.dart';
@@ -89,6 +90,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   String get _enteredOtp => _otpControllers.map((c) => c.text).join();
 
   Future<void> _handleSendOtp() async {
+    AppLogger.button('Send Verification Code', screen: 'LoginScreen');
     if (!_formKey.currentState!.validate()) return;
 
     final phoneToSend = _fullPhoneNumber.replaceAll(' ', '');
@@ -111,6 +113,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _handleVerifyOtp() async {
+    AppLogger.button('Verify Code & Login', screen: 'LoginScreen');
     final otp = _enteredOtp;
     if (otp.length != 6) {
       AppSnackBar.showError(context, 'Please enter all 6 digits of the verification code.');
