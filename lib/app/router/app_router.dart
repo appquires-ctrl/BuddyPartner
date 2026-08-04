@@ -218,7 +218,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RouteNames.suspended,
-        name: 'BannedScreen',
+        name: 'SuspendedScreen',
         builder: (context, state) => const BannedScreen(),
       ),
       GoRoute(
