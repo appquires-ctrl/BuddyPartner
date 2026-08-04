@@ -97,8 +97,6 @@ class _SplashPageState extends ConsumerState<SplashPage> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -115,14 +113,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
             )
           else
             Container(
-              color: colors.surface,
-              child: Center(
-                child: Image.asset(
-                  'assets/images/app_logo.png',
-                  width: 180,
-                  height: 180,
-                ),
-              ),
+              color: Colors.black,
             ),
         ],
       ),
