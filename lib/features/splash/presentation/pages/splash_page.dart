@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 
 /// SplashPage plays the full-screen video splash screen
@@ -98,7 +97,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.white,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -113,7 +112,14 @@ class _SplashPageState extends ConsumerState<SplashPage> {
             )
           else
             Container(
-              color: Colors.black,
+              color: Colors.white,
+              child: Center(
+                child: Image.asset(
+                  'assets/images/app_logo.png',
+                  width: 220,
+                  height: 220,
+                ),
+              ),
             ),
         ],
       ),
