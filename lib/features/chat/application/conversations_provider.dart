@@ -27,9 +27,9 @@ class ConversationsNotifier extends AutoDisposeAsyncNotifier<List<Conversation>>
       socket.on('conversation:new', _handleConversationEvent);
     }
 
-    // 🚀 Fail-Safe Real-Time Periodic Sync (Every 3 seconds)
+    // Real-time updates are handled instantly over WebSockets via socket.on events below.
     _syncTimer?.cancel();
-    _syncTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+    _syncTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       _syncConversationsSilently();
     });
 
