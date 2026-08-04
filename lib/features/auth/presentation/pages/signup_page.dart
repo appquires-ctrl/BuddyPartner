@@ -10,6 +10,7 @@ import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/core/widgets/buttons/app_primary_button.dart';
 import 'package:dating_app/core/constants/avatar_catalog.dart';
 import 'package:dating_app/core/widgets/app_avatar.dart';
+import 'package:dating_app/core/utils/app_logger.dart';
 
 /// SignupPage is the multi-step Profile Onboarding Page.
 /// Step 1: Profile details (Full Name, Date of Birth, Gender, Language, Terms).
@@ -79,6 +80,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   }
 
   void _handleNextToAvatarStep() {
+    AppLogger.button('Next Step: Choose Avatar', screen: 'SignUpPage');
     if (!_formKey.currentState!.validate()) return;
     
     if (_selectedDob == null) {

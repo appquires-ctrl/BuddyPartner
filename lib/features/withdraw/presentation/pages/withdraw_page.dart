@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/core/utils/app_snack_bar.dart';
+import 'package:dating_app/core/utils/app_logger.dart';
 import 'package:dating_app/core/widgets/buttons/app_primary_button.dart';
 import 'package:dating_app/core/widgets/cards/app_card.dart';
 import 'package:dating_app/core/widgets/feedback/app_loading_indicator.dart';
@@ -43,6 +44,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
   }
 
   void _submitWithdrawal(int maxRoses) {
+    AppLogger.button('Submit Withdrawal Request', screen: 'WithdrawPage');
     final amount = int.tryParse(_amountController.text.trim()) ?? 0;
     if (amount <= 0) {
       AppSnackBar.showError(context, 'Please enter a valid amount of roses to withdraw.');

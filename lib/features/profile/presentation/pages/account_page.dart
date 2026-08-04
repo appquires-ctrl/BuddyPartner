@@ -10,6 +10,7 @@ import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/core/widgets/gradient_avatar.dart';
 import 'package:dating_app/core/constants/avatar_catalog.dart';
 import 'package:dating_app/core/widgets/app_avatar.dart';
+import 'package:dating_app/core/utils/app_logger.dart';
 
 /// AccountPage renders the profile details page.
 /// Displays user information dynamically loaded from Supabase profile state.
@@ -480,6 +481,7 @@ class AccountPage extends ConsumerWidget {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
                         onPressed: () async {
+                          AppLogger.button('Save Profile Changes', screen: 'AccountPage');
                           final nameText = nameController.text.trim();
                           if (nameText.isEmpty || nameText.length < 3) {
                             AppSnackBar.showError(context, 'Please enter a valid full name (at least 3 characters)');
