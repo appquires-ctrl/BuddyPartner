@@ -151,7 +151,7 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
                         style: typography.displayWordmark.copyWith(
                           color: const Color(0xFF1E4FAE), // Blue
                           fontSize: 32,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w800,
                           letterSpacing: -1.0,
                           height: 1.0,
                         ),
@@ -161,7 +161,7 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
                         style: typography.displayWordmark.copyWith(
                           color: const Color(0xFFE91E63), // Pink
                           fontSize: 32,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w800,
                           letterSpacing: -1.0,
                           height: 1.0,
                         ),
@@ -177,15 +177,69 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
                 opacity: _taglineFadeAnimation,
                 child: SlideTransition(
                   position: _taglineSlideAnimation,
-                  child: Text(
-                    'MEET · CONNECT · BE FRIENDS',
-                    style: typography.bodySmall.copyWith(
-                      color: colors.textSecondary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
+                  child: Row(
+  mainAxisAlignment: MainAxisAlignment.center,
+  children: [
+    // Left line
+    Container(
+      width: 30,
+      height: 1.6,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E88E5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+    ),
+
+    const SizedBox(width: 4),
+
+    // Left blue dot
+    Container(
+      width: 7,
+      height: 7,
+      decoration: const BoxDecoration(
+        color: Color(0xFF1E88E5),
+        shape: BoxShape.circle,
+      ),
+    ),
+
+    const SizedBox(width: 5),
+
+    Text(
+      'MEET. CONNECT. BE FRIENDS.',
+      style: typography.bodySmall.copyWith(
+        color: const Color(0xFF4B5563),
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 2.2,
+        height: 1,
+      ),
+    ),
+
+    const SizedBox(width: 5),
+
+    // Right pink dot
+    Container(
+      width: 7,
+      height: 7,
+      decoration: const BoxDecoration(
+        color: Color(0xFFE91E63),
+        shape: BoxShape.circle,
+      ),
+    ),
+
+    const SizedBox(width: 4),
+
+    // Right line
+    Container(
+      width: 30,
+      height: 1.6,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE91E63),
+        borderRadius: BorderRadius.circular(10),
+      ),
+    ),
+  ],
+)
                 ),
               ),
             ],
