@@ -72,12 +72,28 @@ async function sendWhatsAppOtp(countryCode, mobile, otp) {
       console.log(`✅ Authkey WhatsApp OTP response received for ${maskedMobile}. Status: ${response.status}`);
       return { success: true };
     } else {
+      const errMsg = response.data?.Message || response.data?.message || `Authkey API HTTP ${response.status}`;
       console.error(`❌ Authkey API non-200 response: HTTP ${response.status}`, response.data);
-      return { success: false, message: 'Failed to deliver OTP via WhatsApp.' };
+
+      // In non-production development mode, if Authkey fails due to invalid key or zero balance, simulate OTP so dev flow is unblocked
+      if (process.env.NODE_ENV !== 'production' || process.env.ALLOW_DEV_OTP_FALLBACK === 'true') {
+        console.warn(`⚠️ [DEV FALLBACK] Authkey error: "${errMsg}". Simulating OTP delivery for testing.`);
+        return { success: true, message: `[DEV] Simulated OTP: ${otp}` };
+      }
+
+      return { success: false, message: errMsg };
     }
   } catch (err) {
-    console.error(`❌ Error calling Authkey WhatsApp OTP API:`, err.response?.data || err.message);
-    return { success: false, message: 'WhatsApp OTP delivery service unavailable.' };
+    const errorData = err.response?.data;
+    const errMsg = errorData?.Message || errorData?.message || err.message || 'WhatsApp OTP delivery service unavailable.';
+    console.error(`❌ Error calling Authkey WhatsApp OTP API:`, errorData || err.message);
+
+    if (process.env.NODE_ENV !== 'production' || process.env.ALLOW_DEV_OTP_FALLBACK === 'true') {
+      console.warn(`⚠️ [DEV FALLBACK] Authkey call error: "${errMsg}". Simulating OTP delivery for testing.`);
+      return { success: true, message: `[DEV] Simulated OTP: ${otp}` };
+    }
+
+    return { success: false, message: errMsg };
   }
 }
 
