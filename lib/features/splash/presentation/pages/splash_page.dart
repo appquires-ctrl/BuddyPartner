@@ -123,7 +123,7 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
     final typography = context.typography;
 
     return Scaffold(
-      backgroundColor: colors.background,
+      backgroundColor: colors.surface,
       body: SafeArea(
         child: Center(
           child: Column(
