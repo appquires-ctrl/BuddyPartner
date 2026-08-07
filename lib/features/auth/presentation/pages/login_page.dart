@@ -103,6 +103,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           _otpFocusNodes[0].requestFocus();
         }
       });
+    } else if (mounted) {
+      final authState = ref.read(authControllerProvider);
+      final rawError = authState.error?.toString() ?? 'Failed to send OTP.';
+      final cleanMsg = rawError.replaceAll('Exception: ', '').replaceAll('DioException: ', '');
+      AppSnackBar.showError(context, cleanMsg);
     }
   }
 
@@ -126,6 +131,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       } else {
         context.go(RouteNames.signup);
       }
+    } else if (mounted) {
+      final errorMsg = result['error'] as String? ?? 'Invalid verification code.';
+      AppSnackBar.showError(context, errorMsg);
     }
   }
 
