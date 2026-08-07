@@ -137,7 +137,7 @@ class LegalDocumentContent {
       LegalDocumentSection(
         title: '2. Authentication & Credential Management',
         content:
-            'We utilize Firebase Authentication and our secure backend APIs to verify user mobile numbers via SMS OTP. User credentials and authorization tokens are transmitted over HTTPS encrypted channels and protected using industry-standard security practices.',
+            'We utilize secure backend APIs and Authkey WhatsApp OTP service to verify user mobile numbers via WhatsApp OTP. User credentials and authorization tokens are transmitted over HTTPS encrypted channels and protected using industry-standard security practices.',
       ),
       LegalDocumentSection(
         title: '3. How We Use Your Data',
@@ -154,7 +154,7 @@ class LegalDocumentContent {
             'We share data with trusted third-party providers solely to transport calls and process payments:\n\n'
             '• Agora.io / WebRTC Infrastructure: Powers low-latency real-time voice and video transmission.\n'
             '• Razorpay / Payment Gateways: Securely processes coin recharge purchases and payment transactions.\n'
-            '• Firebase (Google): Provides SMS OTP verification, analytics, and cloud infrastructure.',
+            '• Authkey.io: Provides WhatsApp OTP verification and messaging infrastructure.',
       ),
       LegalDocumentSection(
         title: '5. Data Retention & User Rights',

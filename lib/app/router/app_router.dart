@@ -65,13 +65,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isLegalRoute = state.matchedLocation.startsWith('/legal');
       final isBannedRoute = state.matchedLocation == RouteNames.banned ||
           state.matchedLocation == RouteNames.suspended;
+      final isSplashRoute = state.matchedLocation == RouteNames.splash;
       final isAuthRoute = state.matchedLocation == RouteNames.login ||
           state.matchedLocation == RouteNames.signup ||
-          state.matchedLocation == RouteNames.forgotPassword ||
-          state.matchedLocation == RouteNames.splash;
+          state.matchedLocation == RouteNames.forgotPassword;
 
-      if (isLegalRoute || isBannedRoute) {
-        // Legal pages and Banned/Suspended screens can be viewed anytime!
+      if (isLegalRoute || isBannedRoute || isSplashRoute) {
+        // Legal pages, Banned/Suspended screens, and Splash (which manages its own completion) can be viewed without auto-redirect!
         return null;
       }
 
@@ -81,9 +81,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           return RouteNames.login;
         }
       } else {
-        // Authenticated but profile is not complete: force onboarding (except splash)
+        // Authenticated but profile is not complete: force onboarding
         if (!isProfileComplete) {
-          if (state.matchedLocation != RouteNames.signup && state.matchedLocation != RouteNames.splash) {
+          if (state.matchedLocation != RouteNames.signup) {
             return RouteNames.signup;
           }
         } else {
@@ -100,7 +100,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteNames.splash,
         name: 'SplashPage',
-        builder: (context, state) => const SplashPage(),
+        builder: (context, state) => const AnimatedSplashScreen(),
       ),
       GoRoute(
         path: RouteNames.login,

@@ -143,16 +143,7 @@ db.query(`
 const server = http.createServer(app);
 
 // ── Redis client ────────────────────────────────────────────────────────────
-const redis = new Redis(process.env.REDIS_URL, {
-  maxRetriesPerRequest: 3,
-  retryStrategy(times) {
-    if (times > 5) return null; // Stop retrying after 5 attempts
-    return Math.min(times * 200, 2000);
-  },
-});
-
-redis.on('connect', () => console.log('✅ Redis connected'));
-redis.on('error', (err) => console.error('❌ Redis error:', err.message));
+const redis = require('./redis');
 
 // ── Socket.io setup ─────────────────────────────────────────────────────────
 const io = new Server(server, {

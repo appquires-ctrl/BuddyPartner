@@ -73,12 +73,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     });
   }
 
-  String get _fullPhoneNumber {
-    final rawPhone = _phoneController.text.trim();
-    if (rawPhone.startsWith('+')) return rawPhone;
-    return '$_selectedCountryCode $rawPhone';
-  }
-
   String get _formattedDisplayPhone {
     final rawPhone = _phoneController.text.trim().replaceAll(' ', '');
     if (rawPhone.length == 10) {
@@ -93,10 +87,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     AppLogger.button('Send Verification Code', screen: 'LoginScreen');
     if (!_formKey.currentState!.validate()) return;
 
-    final phoneToSend = _fullPhoneNumber.replaceAll(' ', '');
+    final mobile = _phoneController.text.trim().replaceAll(' ', '');
     final success = await ref
         .read(authControllerProvider.notifier)
-        .sendOtp(phoneToSend);
+        .sendOtp(countryCode: _selectedCountryCode, mobile: mobile);
 
     if (success && mounted) {
       setState(() {
@@ -120,10 +114,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       return;
     }
 
-    final phoneToSend = _fullPhoneNumber.replaceAll(' ', '');
+    final mobile = _phoneController.text.trim().replaceAll(' ', '');
     final result = await ref
         .read(authControllerProvider.notifier)
-        .verifyOtp(phoneToSend, otp);
+        .verifyOtp(countryCode: _selectedCountryCode, mobile: mobile, otp: otp);
 
     if (result['success'] == true && mounted) {
       final isProfileComplete = result['isProfileComplete'] as bool? ?? false;
@@ -239,15 +233,32 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   height: 175,
                 ),
                 const SizedBox(height: 12),
-                Text(
-                  'BuddyPartner',
-                  style: typography.displayWordmark.copyWith(
-                    color: colors.primary,
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                  ),
-                ),
+               RichText(
+  text: TextSpan(
+    children: [
+      TextSpan(
+        text: 'Buddy',
+        style: typography.displayWordmark.copyWith(
+          color: const Color(0xFF1E4FAE), // Blue
+          fontSize: 32,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -1.0,
+          height: 1.0,
+        ),
+      ),
+      TextSpan(
+        text: 'Partner',
+        style: typography.displayWordmark.copyWith(
+          color: const Color(0xFFE91E63), // Pink
+          fontSize: 32,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -1.0,
+          height: 1.0,
+        ),
+      ),
+    ],
+  ),
+),
                 const SizedBox(height: 4),
                 Text(
                   '. MEET. CONNECT. BE FRIENDS. ',

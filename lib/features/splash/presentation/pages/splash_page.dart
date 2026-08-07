@@ -2,70 +2,91 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:video_player/video_player.dart';
 import 'package:dating_app/app/router/route_names.dart';
+import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/features/auth/application/auth_state_provider.dart';
 
-/// SplashPage plays the full-screen video splash screen
-/// using assets/video/logoremover_1785844818487.mp4.
-class SplashPage extends ConsumerStatefulWidget {
-  const SplashPage({super.key});
+/// AnimatedSplashScreen renders a 3-step continuous animation sequence:
+/// 1. Logo Scale-in (0.3 -> 1.0)
+/// 2. Wordmark Fade-in ("BuddyPartner")
+/// 3. Tagline Fade & Slide-in ("MEET · CONNECT · BE FRIENDS")
+///
+/// Upon completion, auto-navigates to Home, Signup, or Login based on AuthState.
+class AnimatedSplashScreen extends ConsumerStatefulWidget {
+  const AnimatedSplashScreen({super.key});
 
   @override
-  ConsumerState<SplashPage> createState() => _SplashPageState();
+  ConsumerState<AnimatedSplashScreen> createState() => _AnimatedSplashScreenState();
 }
 
-class _SplashPageState extends ConsumerState<SplashPage> {
-  late VideoPlayerController _controller;
-  bool _isInitialized = false;
+class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  late Animation<double> _logoScaleAnimation;
+  late Animation<double> _wordmarkFadeAnimation;
+  late Animation<double> _taglineFadeAnimation;
+  late Animation<Offset> _taglineSlideAnimation;
+
   bool _hasNavigated = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeVideo();
-  }
 
-  Future<void> _initializeVideo() async {
-    _controller = VideoPlayerController.asset(
-      'assets/video/logoremover_1785844818487.mp4',
+    // Pre-fetch auth state in background so decision is ready when animation ends
+    ref.read(authStateProvider.future);
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
     );
 
-    try {
-      await _controller.initialize();
-      if (!mounted) return;
+    // Step 1 — Logo scale-in (0.0 to 0.40)
+    _logoScaleAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.40, curve: Curves.easeOutBack),
+      ),
+    );
 
-      setState(() {
-        _isInitialized = true;
-      });
+    // Step 2 — Wordmark fade-in (0.35 to 0.70)
+    _wordmarkFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.35, 0.70, curve: Curves.easeOut),
+      ),
+    );
 
-      _controller.setLooping(false);
-      _controller.play();
+    // Step 3 — Tagline fade & slide-up (0.65 to 0.95)
+    _taglineFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.65, 0.95, curve: Curves.easeOut),
+      ),
+    );
 
-      _controller.addListener(() {
-        if (_controller.value.position >= _controller.value.duration && !_hasNavigated) {
-          // Hold the final frame for 1000ms so the video splash doesn't feel rushed
-          Future.delayed(const Duration(milliseconds: 1000), () {
+    _taglineSlideAnimation = Tween<Offset>(
+      begin: const Offset(0.0, 0.3),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.65, 0.95, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
             _navigateToNext();
-          });
-        }
-      });
-
-      // Backup safety timer in case video completion listener does not trigger
-      final durationMs = _controller.value.duration.inMilliseconds;
-      Future.delayed(Duration(milliseconds: durationMs + 1200), () {
-        if (!_hasNavigated) {
-          _navigateToNext();
-        }
-      });
-    } catch (_) {
-      // Fallback if video fails to initialize
-      if (mounted) {
-        Future.delayed(const Duration(milliseconds: 2500), () {
-          _navigateToNext();
+          }
         });
       }
-    }
+    });
+
+    _controller.forward();
   }
 
   Future<void> _navigateToNext() async {
@@ -78,6 +99,8 @@ class _SplashPageState extends ConsumerState<SplashPage> {
 
       if (user != null && user.isProfileComplete) {
         context.go(RouteNames.home);
+      } else if (user != null && !user.isProfileComplete) {
+        context.go(RouteNames.signup);
       } else {
         context.go(RouteNames.login);
       }
@@ -96,26 +119,82 @@ class _SplashPageState extends ConsumerState<SplashPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final typography = context.typography;
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (_isInitialized && _controller.value.isInitialized)
-            FittedBox(
-              fit: BoxFit.cover,
-              child: SizedBox(
-                width: _controller.value.size.width,
-                height: _controller.value.size.height,
-                child: VideoPlayer(_controller),
+      backgroundColor: colors.background,
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Step 1: Logo Scale-in
+              ScaleTransition(
+                scale: _logoScaleAnimation,
+                child: Image.asset(
+                  'assets/images/app_logo.png',
+                  width: 160,
+                  height: 160,
+                ),
               ),
-            )
-          else
-            const SizedBox.expand(),
-        ],
+              const SizedBox(height: 20),
+
+              // Step 2: Wordmark Fade-in
+              FadeTransition(
+                opacity: _wordmarkFadeAnimation,
+                child: RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'Buddy',
+                        style: typography.displayWordmark.copyWith(
+                          color: const Color(0xFF1E4FAE), // Blue
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -1.0,
+                          height: 1.0,
+                        ),
+                      ),
+                      TextSpan(
+                        text: 'Partner',
+                        style: typography.displayWordmark.copyWith(
+                          color: const Color(0xFFE91E63), // Pink
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -1.0,
+                          height: 1.0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Step 3: Tagline Fade & Slide-in
+              FadeTransition(
+                opacity: _taglineFadeAnimation,
+                child: SlideTransition(
+                  position: _taglineSlideAnimation,
+                  child: Text(
+                    'MEET · CONNECT · BE FRIENDS',
+                    style: typography.bodySmall.copyWith(
+                      color: colors.textSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
-
+/// Alias for backwards compatibility with existing references
+typedef SplashPage = AnimatedSplashScreen;

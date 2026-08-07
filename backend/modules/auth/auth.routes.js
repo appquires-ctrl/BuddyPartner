@@ -1,310 +1,305 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const db = require('../../db');
+const redis = require('../../redis');
 const { authMiddleware } = require('../../middleware/auth.middleware');
+const { generateOTP, sanitizePhoneInputs, sendWhatsAppOtp } = require('./otpService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'loopcall_fallback_jwt_secret_key_change_me_in_prod';
-const OTP_EXPIRATION_MINUTES = 5;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'loopcall_fallback_jwt_refresh_secret_key';
 
-// Cache for Google's public certificates
-let googlePublicKeysCache = null;
-let googlePublicKeysExpiresAt = 0;
-
-async function getGooglePublicKeys() {
-  if (googlePublicKeysCache && Date.now() < googlePublicKeysExpiresAt) {
-    return googlePublicKeysCache;
-  }
-  const response = await fetch('https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com');
-  if (!response.ok) {
-    throw new Error('Failed to fetch Google public keys');
-  }
-  const keys = await response.json();
-  const cacheControl = response.headers.get('cache-control');
-  let maxAge = 3600;
-  if (cacheControl) {
-    const match = cacheControl.match(/max-age=(\d+)/);
-    if (match) maxAge = parseInt(match[1], 10);
-  }
-  googlePublicKeysCache = keys;
-  googlePublicKeysExpiresAt = Date.now() + (maxAge * 1000);
-  return keys;
-}
-
-async function verifyFirebaseToken(idToken) {
-  const decodedHeader = jwt.decode(idToken, { complete: true });
-  if (!decodedHeader || !decodedHeader.header || !decodedHeader.header.kid) {
-    throw new Error('Invalid token structure');
-  }
-  const kid = decodedHeader.header.kid;
-  const publicKeys = await getGooglePublicKeys();
-  const cert = publicKeys[kid];
-  if (!cert) {
-    throw new Error('Firebase public key expired or invalid');
-  }
-  const decoded = jwt.verify(idToken, cert, { algorithms: ['RS256'] });
-  const projectId = decoded.aud;
-  if (decoded.iss !== `https://securetoken.google.com/${projectId}`) {
-    throw new Error('Invalid token issuer');
-  }
-  return decoded;
-}
+// Rate limit constants
+const OTP_TTL_SECONDS = 300; // 5 minutes
+const SEND_LIMIT_MAX = 3; // Max 3 sends per 10 min
+const SEND_LIMIT_WINDOW = 600; // 10 minutes
+const VERIFY_ATTEMPTS_MAX = 5; // Max 5 wrong attempts before lockout
+const VERIFY_LOCKOUT_WINDOW = 600; // 10 minutes lockout
 
 /**
- * Generate a random 6-digit verification code.
+ * Endpoint: POST /api/auth/otp/send
+ * Validates country_code and mobile, enforces Redis rate limits, generates bcrypt-hashed OTP,
+ * stores it in Redis with 300s TTL, and sends it via Authkey WhatsApp OTP service.
  */
-function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
+router.post('/otp/send', async (req, res) => {
+  const { country_code, mobile } = req.body;
 
-/**
- * Endpoint: POST /api/auth/send-otp
- * Generates and sends a temporary verification code to the phone number.
- */
-router.post('/send-otp', async (req, res) => {
-  const { phone } = req.body;
+  const { cleanCountryCode, cleanMobile } = sanitizePhoneInputs(country_code, mobile);
 
-  if (!phone || typeof phone !== 'string' || phone.trim().length === 0) {
-    return res.status(400).json({ error: 'Valid phone number is required.' });
+  if (!cleanCountryCode || !cleanMobile || cleanMobile.length < 7 || cleanMobile.length > 15) {
+    return res.status(400).json({ error: 'Valid mobile number and country code are required.' });
   }
-
-  const cleanPhone = phone.trim();
-  let otpCode = generateOTP();
-  const expiresAt = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
 
   try {
-    // Delete any old OTPs for this number to clean up
-    await db.query(
-      'DELETE FROM public.otp_verifications WHERE phone_number = $1',
-      [cleanPhone]
+    // 1. Enforce send rate limit: max 3 sends per 10 minutes per mobile
+    const sendCountKey = `otp_send_count:${cleanMobile}`;
+    const sendCount = await redis.incr(sendCountKey);
+
+    if (sendCount === 1) {
+      await redis.expire(sendCountKey, SEND_LIMIT_WINDOW);
+    } else if (sendCount > SEND_LIMIT_MAX) {
+      return res.status(429).json({ error: 'Too many OTP requests. Please wait 10 minutes before trying again.' });
+    }
+
+    // 2. Generate random 6-digit OTP
+    const otp = generateOTP();
+
+    // 3. Hash OTP with bcrypt
+    const hashedOtp = await bcrypt.hash(otp, 10);
+
+    // 4. Store hashed OTP in Redis: otp:{country_code}{mobile} -> TTL 300s
+    const otpRedisKey = `otp:${cleanCountryCode}${cleanMobile}`;
+    await redis.set(otpRedisKey, hashedOtp, 'EX', OTP_TTL_SECONDS);
+
+    // 5. Send OTP via Authkey WhatsApp API
+    const sendResult = await sendWhatsAppOtp(cleanCountryCode, cleanMobile, otp);
+
+    if (!sendResult.success) {
+      return res.status(500).json({ error: sendResult.message || 'Failed to send WhatsApp verification code.' });
+    }
+
+    // Generic success response — does not reveal whether the user is registered or new
+    res.json({
+      success: true,
+      message: 'Verification code sent via WhatsApp.',
+    });
+  } catch (err) {
+    console.error('Error in /auth/otp/send:', err.message);
+    res.status(500).json({ error: 'Internal server error processing OTP request.' });
+  }
+});
+
+/**
+ * Endpoint: POST /api/auth/otp/verify
+ * Verifies submitted OTP against bcrypt hash in Redis.
+ * On success:
+ * - Provisions user + wallet + wallet_transactions (welcome bonus 100) atomically if new
+ * - Issues Access JWT (1d expiry) and rotating Refresh Token (stored in Redis with 30d TTL)
+ * - Deletes Redis OTP key immediately
+ */
+router.post('/otp/verify', async (req, res) => {
+  const { country_code, mobile, otp } = req.body;
+
+  const { cleanCountryCode, cleanMobile } = sanitizePhoneInputs(country_code, mobile);
+  const cleanOtp = (otp || '').toString().trim();
+
+  if (!cleanCountryCode || !cleanMobile || !cleanOtp || cleanOtp.length !== 6) {
+    return res.status(400).json({ error: 'Valid country code, mobile number, and 6-digit verification code are required.' });
+  }
+
+  try {
+    // 1. Check attempt lockout counter
+    const attemptsKey = `otp_verify_attempts:${cleanMobile}`;
+    const attempts = await redis.get(attemptsKey);
+    if (attempts && parseInt(attempts, 10) >= VERIFY_ATTEMPTS_MAX) {
+      return res.status(429).json({ error: 'Too many failed verification attempts. Please try again in 10 minutes.' });
+    }
+
+    // 2. Fetch stored hashed OTP from Redis
+    const otpRedisKey = `otp:${cleanCountryCode}${cleanMobile}`;
+    const storedHash = await redis.get(otpRedisKey);
+
+    if (!storedHash) {
+      // Increment attempt counter
+      const currentAttempts = await redis.incr(attemptsKey);
+      if (currentAttempts === 1) await redis.expire(attemptsKey, VERIFY_LOCKOUT_WINDOW);
+      return res.status(400).json({ error: 'Invalid or expired verification code.' });
+    }
+
+    // 3. Compare submitted OTP against hash
+    const isMatch = await bcrypt.compare(cleanOtp, storedHash);
+
+    if (!isMatch) {
+      const currentAttempts = await redis.incr(attemptsKey);
+      if (currentAttempts === 1) await redis.expire(attemptsKey, VERIFY_LOCKOUT_WINDOW);
+      return res.status(400).json({ error: 'Invalid or expired verification code.' });
+    }
+
+    // 4. Verification successful! Delete OTP key & clear attempt counter
+    await redis.del(otpRedisKey);
+    await redis.del(attemptsKey);
+
+    // Form legacy phone format e.g. "+919876543210"
+    const fullPhoneNumber = `+${cleanCountryCode}${cleanMobile}`;
+
+    // 5. Query user or run atomic transaction to create user + wallet + welcome bonus
+    let userResult = await db.query(
+      `SELECT id, country_code, mobile, phone_number, full_name 
+       FROM public.users 
+       WHERE (country_code = $1 AND mobile = $2) OR phone_number = $3`,
+      [cleanCountryCode, cleanMobile, fullPhoneNumber]
     );
 
-    // If MSG91 widget credentials are configured, attempt real-time Widget OTP delivery
-    if (process.env.MSG91_AUTH_KEY && process.env.MSG91_WIDGET_ID) {
+    let user;
+
+    if (userResult.rows.length === 0) {
+      // Atomic Transaction: Create user + wallet + welcome bonus 100
+      const client = await db.pool.connect();
       try {
-        console.log(`📱 Triggering MSG91 SendOTP Widget API for ${cleanPhone}...`);
-        const response = await fetch('https://api.msg91.com/api/v5/widget/sendOtp', {
-          method: 'POST',
-          headers: {
-            'authkey': process.env.MSG91_AUTH_KEY,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            widgetId: process.env.MSG91_WIDGET_ID,
-            identifier: cleanPhone
-          })
-        });
-        const data = await response.json();
-        if (data.type === 'success') {
-          // Store the MSG91 request ID inside the otp_code column
-          otpCode = data.message;
-          console.log(`✅ MSG91 SendOTP initiated. reqId: ${otpCode}`);
-        } else {
-          console.error('❌ MSG91 SendOTP widget returned error status:', data);
-        }
-      } catch (msg91Err) {
-        console.error('❌ Failed to request MSG91 SendOTP widget:', msg91Err.message);
+        await client.query('BEGIN');
+
+        const insertUserRes = await client.query(
+          `INSERT INTO public.users (country_code, mobile, phone_number) 
+           VALUES ($1, $2, $3) 
+           RETURNING id, country_code, mobile, phone_number, full_name`,
+          [cleanCountryCode, cleanMobile, fullPhoneNumber]
+        );
+        user = insertUserRes.rows[0];
+
+        // Provision wallet with 100 balance
+        await client.query(
+          `INSERT INTO public.wallets (user_id, balance) 
+           VALUES ($1, 100) 
+           ON CONFLICT (user_id) DO NOTHING`,
+          [user.id]
+        );
+
+        // Record welcome bonus transaction
+        await client.query(
+          `INSERT INTO public.wallet_transactions (user_id, amount, type, reason) 
+           VALUES ($1, 100, 'credit', 'Welcome Bonus')`,
+          [user.id]
+        );
+
+        await client.query('COMMIT');
+        console.log(`🎉 New user created via Authkey WhatsApp OTP: ID ${user.id}, mobile +${cleanCountryCode}${cleanMobile}`);
+      } catch (txErr) {
+        await client.query('ROLLBACK');
+        throw txErr;
+      } finally {
+        client.release();
       }
-    } else if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER) {
-      // If Twilio credentials are configured, attempt Twilio SMS delivery
-      try {
-        const twilio = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-        await twilio.messages.create({
-          body: `Your LoopCall verification code is: ${otpCode}. It will expire in 5 minutes.`,
-          from: process.env.TWILIO_PHONE_NUMBER,
-          to: cleanPhone,
-        });
-        console.log(`📱 Real-time SMS OTP sent successfully via Twilio to ${cleanPhone}`);
-      } catch (smsErr) {
-        console.error('❌ Failed to send SMS via Twilio:', smsErr.message);
+    } else {
+      user = userResult.rows[0];
+
+      // Backfill country_code / mobile if missing on existing record
+      if (!user.country_code || !user.mobile) {
+        await db.query(
+          `UPDATE public.users SET country_code = $1, mobile = $2 WHERE id = $3`,
+          [cleanCountryCode, cleanMobile, user.id]
+        );
       }
     }
 
-    // Insert new OTP (can be local 6-digit code or MSG91 reqId)
-    await db.query(
-      'INSERT INTO public.otp_verifications (phone_number, otp_code, expires_at) VALUES ($1, $2, $3)',
-      [cleanPhone, otpCode, expiresAt]
-    );
+    // 6. Generate Tokens
+    const jti = crypto.randomUUID();
+    const payload = {
+      id: user.id,
+      phone: fullPhoneNumber,
+      countryCode: cleanCountryCode,
+      mobile: cleanMobile,
+    };
 
-    // Console output fallback for development/test retrieval
-    console.log(`\n========================================`);
-    console.log(`[SMS OTP DEBUG]`);
-    console.log(`To:   ${cleanPhone}`);
-    console.log(`Code: ${otpCode}`);
-    console.log(`Expires: ${expiresAt.toISOString()}`);
-    console.log(`========================================\n`);
+    // Short-lived Access Token (1 day)
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
 
-    res.json({ success: true, message: 'Verification code sent.' });
+    // Refresh Token (30 days) with jti
+    const refreshToken = jwt.sign({ id: user.id, jti }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
+
+    // Store Refresh Token status in Redis: refresh:{userId}:{jti} -> TTL 30 days (2,592,000s)
+    await redis.set(`refresh:${user.id}:${jti}`, '1', 'EX', 30 * 24 * 60 * 60);
+
+    res.json({
+      success: true,
+      token,
+      refreshToken,
+      isProfileComplete: !!(user.full_name && user.full_name.trim().length > 0),
+    });
   } catch (err) {
-    console.error('Error sending OTP:', err.message);
+    console.error('Error in /auth/otp/verify:', err.message);
     res.status(500).json({ error: 'Internal server error during verification.' });
   }
 });
 
 /**
- * Endpoint: POST /api/auth/verify-otp
- * Verifies code, provisions new user/wallet on-demand, and signs a JWT session.
+ * Endpoint: POST /api/auth/refresh
+ * Rotates the refresh token: verifies signature & Redis presence, invalidates old token, and issues new Access + Refresh tokens.
  */
-router.post('/verify-otp', async (req, res) => {
-  const { phone, otp } = req.body;
+router.post('/refresh', async (req, res) => {
+  const { refreshToken } = req.body;
 
-  if (!phone || !otp) {
-    return res.status(400).json({ error: 'Phone number and verification code are required.' });
+  if (!refreshToken || typeof refreshToken !== 'string') {
+    return res.status(400).json({ error: 'Refresh token is required.' });
   }
 
-  const cleanPhone = phone.trim();
-  const cleanOtp = otp.trim();
-
   try {
-    // Fetch latest valid OTP record
-    const result = await db.query(
-      'SELECT * FROM public.otp_verifications WHERE phone_number = $1 AND expires_at > NOW() LIMIT 1',
-      [cleanPhone]
+    const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+    const { id, jti } = decoded;
+
+    if (!id || !jti) {
+      return res.status(401).json({ error: 'Invalid refresh token structure.' });
+    }
+
+    // Check Redis for active refresh token key
+    const redisKey = `refresh:${id}:${jti}`;
+    const exists = await redis.get(redisKey);
+
+    if (!exists) {
+      return res.status(401).json({ error: 'Invalid or revoked refresh token.' });
+    }
+
+    // Invalidate old refresh token key (rotation)
+    await redis.del(redisKey);
+
+    // Fetch user details
+    const userRes = await db.query(
+      `SELECT id, country_code, mobile, phone_number, full_name FROM public.users WHERE id = $1`,
+      [id]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(400).json({ error: 'Invalid or expired verification code.' });
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User profile not found.' });
     }
 
-    const record = result.rows[0];
-    let isOtpValid = false;
+    const user = userRes.rows[0];
 
-    // Check if the record holds a standard local 6-digit code or a MSG91 request ID
-    if (record.otp_code.length <= 6) {
-      isOtpValid = (record.otp_code === cleanOtp);
-    } else {
-      // MSG91 verification
-      if (process.env.MSG91_AUTH_KEY && process.env.MSG91_WIDGET_ID) {
-        try {
-          console.log(`📱 Verifying OTP with MSG91. reqId: ${record.otp_code}, code: ${cleanOtp}...`);
-          const verifyRes = await fetch('https://api.msg91.com/api/v5/widget/verifyOtp', {
-            method: 'POST',
-            headers: {
-              'authkey': process.env.MSG91_AUTH_KEY,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              widgetId: process.env.MSG91_WIDGET_ID,
-              reqId: record.otp_code,
-              otp: cleanOtp
-            })
-          });
-          const verifyData = await verifyRes.json();
-          if (verifyData.type === 'success') {
-            isOtpValid = true;
-            console.log('✅ MSG91 OTP verified successfully.');
-          } else {
-            console.error('❌ MSG91 OTP verification failed:', verifyData);
-          }
-        } catch (msg91Err) {
-          console.error('❌ Failed to call MSG91 verification API:', msg91Err.message);
-        }
-      }
-    }
+    // Issue new tokens
+    const newJti = crypto.randomUUID();
+    const payload = {
+      id: user.id,
+      phone: user.phone_number || `+${user.country_code}${user.mobile}`,
+      countryCode: user.country_code,
+      mobile: user.mobile,
+    };
 
-    if (!isOtpValid) {
-      return res.status(400).json({ error: 'Invalid or expired verification code.' });
-    }
+    const newAccessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
+    const newRefreshToken = jwt.sign({ id: user.id, jti: newJti }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
 
-    // OTP verified, consume it
-    await db.query(
-      'DELETE FROM public.otp_verifications WHERE phone_number = $1',
-      [cleanPhone]
-    );
-
-    // Check if user already exists
-    let userResult = await db.query(
-      'SELECT id, phone_number, full_name FROM public.users WHERE phone_number = $1',
-      [cleanPhone]
-    );
-
-    let user;
-
-    if (userResult.rows.length === 0) {
-      const insertUserRes = await db.query(
-        'INSERT INTO public.users (phone_number) VALUES ($1) RETURNING id, phone_number, full_name',
-        [cleanPhone]
-      );
-      user = insertUserRes.rows[0];
-    } else {
-      user = userResult.rows[0];
-    }
-
-    // Sign JWT
-    const payload = { id: user.id, phone: user.phone_number };
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '30d' });
+    // Store new refresh token in Redis
+    await redis.set(`refresh:${user.id}:${newJti}`, '1', 'EX', 30 * 24 * 60 * 60);
 
     res.json({
       success: true,
-      token,
-      isProfileComplete: !!user.full_name,
+      token: newAccessToken,
+      refreshToken: newRefreshToken,
     });
   } catch (err) {
-    console.error('Error verifying OTP:', err.message);
-    res.status(500).json({ error: 'Internal server error verifying authentication.' });
+    console.error('Error refreshing token:', err.message);
+    res.status(401).json({ error: 'Invalid or expired refresh token.' });
   }
 });
 
 /**
- * Endpoint: POST /api/auth/firebase-login
- * Verifies a Firebase ID token, registers/finds the user, and returns a custom signed JWT.
+ * Endpoint: POST /api/auth/logout
+ * Invalidates the session by deleting the refresh token from Redis.
  */
-router.post('/firebase-login', async (req, res) => {
-  const { phone, idToken } = req.body;
+router.post('/logout', async (req, res) => {
+  const { refreshToken } = req.body;
 
-  if (!phone || !idToken) {
-    return res.status(400).json({ error: 'Phone number and Firebase ID Token are required.' });
-  }
-
-  const cleanPhone = phone.trim();
-
-  try {
-    // 1. Verify the Firebase ID Token
-    let decoded;
+  if (refreshToken && typeof refreshToken === 'string') {
     try {
-      decoded = await verifyFirebaseToken(idToken);
-    } catch (verifyErr) {
-      console.error('Firebase token verification failed:', verifyErr.message);
-      return res.status(401).json({ error: 'Invalid or expired authentication token.' });
+      const decoded = jwt.decode(refreshToken);
+      if (decoded && decoded.id && decoded.jti) {
+        await redis.del(`refresh:${decoded.id}:${decoded.jti}`);
+      }
+    } catch (_) {
+      // Ignore decode failures on logout
     }
-
-    // 2. Validate that the phone number in the verified token matches the one requested
-    const tokenPhone = decoded.phone_number;
-    if (!tokenPhone || tokenPhone.replace(/\s+/g, '') !== cleanPhone.replace(/\s+/g, '')) {
-      return res.status(400).json({ error: 'Token phone number mismatch.' });
-    }
-
-    // 3. Check if user already exists
-    let userResult = await db.query(
-      'SELECT id, phone_number, full_name FROM public.users WHERE phone_number = $1',
-      [cleanPhone]
-    );
-
-    let user;
-    if (userResult.rows.length === 0) {
-      // Create new user profile row
-      const insertUserRes = await db.query(
-        'INSERT INTO public.users (phone_number) VALUES ($1) RETURNING id, phone_number, full_name',
-        [cleanPhone]
-      );
-      user = insertUserRes.rows[0];
-    } else {
-      user = userResult.rows[0];
-    }
-
-    // 4. Sign JWT session for our backend
-    const payload = { id: user.id, phone: user.phone_number };
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '30d' });
-
-    res.json({
-      success: true,
-      token,
-      isProfileComplete: !!user.full_name,
-    });
-  } catch (err) {
-    console.error('Error in firebase-login:', err.message);
-    res.status(500).json({ error: 'Internal server error verifying authentication.' });
   }
+
+  res.json({ success: true, message: 'Logged out successfully.' });
 });
 
 /**
@@ -354,7 +349,7 @@ router.get('/me', authMiddleware, async (req, res) => {
 
   try {
     const result = await db.query(
-      `SELECT u.id, u.phone_number, u.full_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.country, u.state, u.city, u.latitude, u.longitude, w.balance 
+      `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.country, u.state, u.city, u.latitude, u.longitude, w.balance 
        FROM public.users u
        LEFT JOIN public.wallets w ON w.user_id = u.id
        WHERE u.id = $1`,
@@ -370,7 +365,9 @@ router.get('/me', authMiddleware, async (req, res) => {
       success: true,
       user: {
         id: userRow.id,
-        phoneNumber: userRow.phone_number,
+        countryCode: userRow.country_code || '',
+        mobile: userRow.mobile || '',
+        phoneNumber: userRow.phone_number || `+${userRow.country_code || ''}${userRow.mobile || ''}`,
         fullName: userRow.full_name || '',
         dob: userRow.dob || null,
         gender: userRow.gender || '',
@@ -461,6 +458,5 @@ async function handleTelecallerStatusUpdate(req, res) {
 
 router.patch('/telecaller-status', authMiddleware, handleTelecallerStatusUpdate);
 router.patch('/me/telecaller-status', authMiddleware, handleTelecallerStatusUpdate);
-
 
 module.exports = router;

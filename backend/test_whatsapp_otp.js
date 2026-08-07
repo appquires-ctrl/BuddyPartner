@@ -1,0 +1,164 @@
+require('dotenv').config();
+const axios = require('axios');
+const db = require('./db');
+const redis = require('./redis');
+const { app, server } = require('./server');
+
+async function testAuthkeyOtpFlow() {
+  console.log('🚀 Running Unit & Integration Tests for Authkey WhatsApp OTP Flow...\n');
+  
+  const port = server.address()?.port || 3000;
+  const baseUrl = `http://localhost:${port}/api/auth`;
+
+  try {
+    const testCountryCode = '91';
+    const testMobile = '9998887770';
+    const redisOtpKey = `otp:${testCountryCode}${testMobile}`;
+    const redisSendCountKey = `otp_send_count:${testMobile}`;
+    const redisAttemptsKey = `otp_verify_attempts:${testMobile}`;
+
+    // Cleanup previous test state
+    await redis.del(redisOtpKey);
+    await redis.del(redisSendCountKey);
+    await redis.del(redisAttemptsKey);
+    await db.query(`DELETE FROM public.users WHERE mobile = $1`, [testMobile]);
+
+    // ────────────────────────────────────────────────────────────────────────
+    // TEST 1: Send OTP
+    // ────────────────────────────────────────────────────────────────────────
+    console.log('[TEST 1] Triggering POST /api/auth/otp/send...');
+    const sendRes = await axios.post(`${baseUrl}/otp/send`, {
+      country_code: testCountryCode,
+      mobile: testMobile,
+    });
+
+    console.log('Response:', sendRes.data);
+    if (!sendRes.data.success) throw new Error('Send OTP failed');
+
+    // Check Redis hash presence
+    const storedHash = await redis.get(redisOtpKey);
+    if (!storedHash) throw new Error('Redis OTP key was not created!');
+    console.log('✅ Hashed OTP successfully stored in Redis with 300s TTL.');
+
+    // Check rate limit key
+    const sendCount = await redis.get(redisSendCountKey);
+    if (parseInt(sendCount, 10) !== 1) throw new Error('Send rate limit count mismatch');
+    console.log('✅ Rate limit counter updated in Redis.');
+
+    // ────────────────────────────────────────────────────────────────────────
+    // TEST 2: Verify Incorrect OTP (Should fail & increment attempts)
+    // ────────────────────────────────────────────────────────────────────────
+    console.log('\n[TEST 2] Testing incorrect OTP verification...');
+    try {
+      await axios.post(`${baseUrl}/otp/verify`, {
+        country_code: testCountryCode,
+        mobile: testMobile,
+        otp: '000000',
+      });
+      throw new Error('Should have failed with 400 for incorrect OTP');
+    } catch (err) {
+      if (err.response?.status !== 400) throw err;
+      console.log('✅ Correctly rejected invalid OTP with HTTP 400.');
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // TEST 3: Verify Correct OTP (Inject test OTP in Redis to simulate known OTP)
+    // ────────────────────────────────────────────────────────────────────────
+    console.log('\n[TEST 3] Testing successful OTP verification & user/wallet provisioning...');
+    const bcrypt = require('bcryptjs');
+    const validTestOtp = '123456';
+    const testHash = await bcrypt.hash(validTestOtp, 10);
+    await redis.set(redisOtpKey, testHash, 'EX', 300);
+
+    const verifyRes = await axios.post(`${baseUrl}/otp/verify`, {
+      country_code: testCountryCode,
+      mobile: testMobile,
+      otp: validTestOtp,
+    });
+
+    console.log('Verify Response:', verifyRes.data);
+    if (!verifyRes.data.success || !verifyRes.data.token || !verifyRes.data.refreshToken) {
+      throw new Error('Verify response missing token or refreshToken!');
+    }
+    console.log('✅ OTP Verified! Received Access JWT and Refresh Token.');
+
+    // Check that Redis OTP key was deleted on success
+    const consumedKey = await redis.get(redisOtpKey);
+    if (consumedKey) throw new Error('Redis OTP key was not deleted on success!');
+    console.log('✅ Redis OTP key deleted immediately on verification success.');
+
+    // Verify DB user + wallet + welcome bonus 100 created
+    const userDbRes = await db.query(
+      `SELECT u.id, u.country_code, u.mobile, w.balance, count(wt.id) as tx_count 
+       FROM public.users u
+       JOIN public.wallets w ON w.user_id = u.id
+       LEFT JOIN public.wallet_transactions wt ON wt.user_id = u.id
+       WHERE u.mobile = $1
+       GROUP BY u.id, u.country_code, u.mobile, w.balance`,
+      [testMobile]
+    );
+
+    if (userDbRes.rows.length === 0) throw new Error('User was not created in PostgreSQL!');
+    const userRow = userDbRes.rows[0];
+    console.log(`✅ Database verified! User ID: ${userRow.id}, Wallet Balance: ${userRow.balance}, Welcome Tx: ${userRow.tx_count}`);
+    if (parseInt(userRow.balance, 10) !== 100) throw new Error('Wallet balance is not 100!');
+
+    // ────────────────────────────────────────────────────────────────────────
+    // TEST 4: Token Rotation (/api/auth/refresh)
+    // ────────────────────────────────────────────────────────────────────────
+    console.log('\n[TEST 4] Testing Refresh Token Rotation via POST /api/auth/refresh...');
+    const refreshRes = await axios.post(`${baseUrl}/refresh`, {
+      refreshToken: verifyRes.data.refreshToken,
+    });
+
+    console.log('Refresh Response:', refreshRes.data);
+    if (!refreshRes.data.token || !refreshRes.data.refreshToken) {
+      throw new Error('Refresh endpoint did not return new tokens!');
+    }
+    console.log('✅ Refresh token rotated successfully.');
+
+    // Re-using old refresh token should fail
+    try {
+      await axios.post(`${baseUrl}/refresh`, {
+        refreshToken: verifyRes.data.refreshToken,
+      });
+      throw new Error('Old refresh token should be invalidated!');
+    } catch (err) {
+      if (err.response?.status !== 401) throw err;
+      console.log('✅ Old refresh token correctly rejected (HTTP 401).');
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // TEST 5: Logout (/api/auth/logout)
+    // ────────────────────────────────────────────────────────────────────────
+    console.log('\n[TEST 5] Testing Logout via POST /api/auth/logout...');
+    await axios.post(`${baseUrl}/logout`, {
+      refreshToken: refreshRes.data.refreshToken,
+    });
+
+    // Trying to refresh after logout should fail
+    try {
+      await axios.post(`${baseUrl}/refresh`, {
+        refreshToken: refreshRes.data.refreshToken,
+      });
+      throw new Error('Refresh token should be revoked after logout!');
+    } catch (err) {
+      if (err.response?.status !== 401) throw err;
+      console.log('✅ Session revoked on logout.');
+    }
+
+    console.log('\n🎉 ALL BACKEND AUTHKEY WHATSAPP OTP TESTS PASSED SUCCESSFULLY!\n');
+
+    // Cleanup test user
+    await db.query(`DELETE FROM public.users WHERE mobile = $1`, [testMobile]);
+
+  } catch (err) {
+    console.error('❌ Test Failed:', err.response?.data || err.message);
+    process.exit(1);
+  } finally {
+    server.close();
+    db.pool.end();
+  }
+}
+
+testAuthkeyOtpFlow();
