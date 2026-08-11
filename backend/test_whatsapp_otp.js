@@ -71,6 +71,9 @@ async function testAuthkeyOtpFlow() {
     if (capturedPayload.payload.template.to_and_components[0].components.body_1.value !== '654321') {
       throw new Error('OTP parameter body_1 value mismatch');
     }
+    if (capturedPayload.payload.template.to_and_components[0].components.button_1.value !== '654321') {
+      throw new Error('OTP parameter button_1 value mismatch');
+    }
     console.log('✅ Outgoing MSG91 POST payload shape, headers, and phone formatting verified!');
 
     // Test error handling scenario with mock API failure

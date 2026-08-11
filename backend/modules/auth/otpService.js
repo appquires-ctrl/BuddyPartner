@@ -81,16 +81,12 @@ async function sendWhatsAppOtp(countryCode, mobile, otp) {
       type: 'text',
       value: otp,
     },
-  };
-
-  // Include button component if dynamic URL button is enabled for template
-  if (process.env.MSG91_ENABLE_BUTTON_OTP === 'true' || process.env.MSG91_INCLUDE_BUTTON_PARAM === 'true') {
-    components.button_1 = {
+    button_1: {
       subtype: 'url',
       type: 'text',
       value: otp,
-    };
-  }
+    },
+  };
 
   const payloadData = {
     integrated_number: integratedNumber,
