@@ -4,8 +4,8 @@ import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/app/theme/skeleton_colors.dart';
 import 'package:buddypartner/core/widgets/shimmer/app_shimmer.dart';
 
-/// FavoritesSkeleton provides a high-fidelity shimmer loading layout
-/// where cards and internal elements shimmer seamlessly together.
+/// FavoritesSkeleton provides a high-fidelity component-level shimmer loading
+/// layout matching the exact layout and elements of Favorite user cards.
 class FavoritesSkeleton extends StatelessWidget {
   const FavoritesSkeleton({super.key});
 
@@ -16,6 +16,7 @@ class FavoritesSkeleton extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     final blockColor = SkeletonColors.baseColor(isDark);
+    final secondaryBlockColor = blockColor.withValues(alpha: 0.65);
     final cardBg = isDark
         ? colors.surface.withValues(alpha: 0.6)
         : colors.surface;
@@ -56,34 +57,60 @@ class FavoritesSkeleton extends StatelessWidget {
         itemCount: 5,
         separatorBuilder: (context, index) => const SizedBox(height: 16),
         itemBuilder: (context, index) {
-          return AppShimmer(
-            child: Container(
-              height: 88,
-              decoration: BoxDecoration(
-                color: cardBg,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: borderColor, width: 1.2),
-                boxShadow: [
-                  if (!isDark)
-                    BoxShadow(
-                      color: colors.textPrimary.withValues(alpha: 0.03),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
-                    ),
-                ],
-              ),
+          final double nameWidth = (index % 2 == 0) ? 130 : 110;
+          final double statusWidth = (index % 2 == 0) ? 55 : 45;
+
+          return Container(
+            height: 88,
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: borderColor, width: 1.2),
+              boxShadow: [
+                if (!isDark)
+                  BoxShadow(
+                    color: colors.textPrimary.withValues(alpha: 0.03),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
+                  ),
+              ],
+            ),
+            child: AppShimmer(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Row(
                   children: [
-                    // Avatar circle (52px)
-                    Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: blockColor,
-                        shape: BoxShape.circle,
-                      ),
+                    // Avatar circle (52px) with status dot
+                    Stack(
+                      children: [
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: blockColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: isDark ? colors.surface : Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            padding: const EdgeInsets.all(2),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: blockColor.withValues(alpha: 0.8),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(width: 14),
 
@@ -94,7 +121,7 @@ class FavoritesSkeleton extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
-                            width: 110,
+                            width: nameWidth,
                             height: 14,
                             decoration: BoxDecoration(
                               color: blockColor,
@@ -114,10 +141,10 @@ class FavoritesSkeleton extends StatelessWidget {
                               ),
                               const SizedBox(width: 6),
                               Container(
-                                width: 45,
+                                width: statusWidth,
                                 height: 10,
                                 decoration: BoxDecoration(
-                                  color: blockColor.withValues(alpha: 0.7),
+                                  color: secondaryBlockColor,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                               ),
@@ -135,7 +162,7 @@ class FavoritesSkeleton extends StatelessWidget {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: blockColor.withValues(alpha: 0.8),
+                            color: blockColor.withValues(alpha: 0.7),
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -144,7 +171,7 @@ class FavoritesSkeleton extends StatelessWidget {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: blockColor.withValues(alpha: 0.8),
+                            color: blockColor.withValues(alpha: 0.7),
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -153,7 +180,7 @@ class FavoritesSkeleton extends StatelessWidget {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: blockColor.withValues(alpha: 0.8),
+                            color: blockColor.withValues(alpha: 0.7),
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -169,4 +196,3 @@ class FavoritesSkeleton extends StatelessWidget {
     );
   }
 }
-

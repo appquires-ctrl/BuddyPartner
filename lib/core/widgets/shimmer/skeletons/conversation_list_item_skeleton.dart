@@ -69,22 +69,22 @@ class ConversationListItemSkeleton extends StatelessWidget {
         break;
     }
 
-    return AppShimmer(
-      child: Container(
-        height: 88,
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: borderColor, width: 1.2),
-          boxShadow: [
-            if (!isDark)
-              BoxShadow(
-                color: colors.textPrimary.withValues(alpha: 0.03),
-                blurRadius: 6,
-                offset: const Offset(0, 3),
-              ),
-          ],
-        ),
+    return Container(
+      height: 88,
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: borderColor, width: 1.2),
+        boxShadow: [
+          if (!isDark)
+            BoxShadow(
+              color: colors.textPrimary.withValues(alpha: 0.03),
+              blurRadius: 6,
+              offset: const Offset(0, 3),
+            ),
+        ],
+      ),
+      child: AppShimmer(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Row(
