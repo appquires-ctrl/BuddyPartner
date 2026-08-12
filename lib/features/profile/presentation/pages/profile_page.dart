@@ -171,6 +171,7 @@ class ProfilePage extends ConsumerWidget {
                 ),
                 child: Column(
                   children: [
+                    /*
                     _buildSettingsTile(
                       context,
                       icon: Icons.card_membership_outlined,
@@ -179,12 +180,11 @@ class ProfilePage extends ConsumerWidget {
                       title: 'My Subscription',
                       subtitle: 'Unlimited Free Access Active',
                       onTap: () {
-                        // Original navigation commented out for free unlimited access
-                        // context.push(RouteNames.subscribe);
                         AppSnackBar.showSuccess(context, 'Unlimited Early Access Active! All features are currently free.');
                       },
                     ),
                     _buildDivider(context),
+                    */
                     _buildSettingsTile(
                       context,
                       icon: Icons.person_outline,
@@ -209,6 +209,7 @@ class ProfilePage extends ConsumerWidget {
                         context.push(RouteNames.history);
                       },
                     ),
+                    /*
                     _buildDivider(context),
                     _buildSettingsTile(
                       context,
@@ -221,6 +222,7 @@ class ProfilePage extends ConsumerWidget {
                         context.push(RouteNames.transactionHistory);
                       },
                     ),
+                    */
                   ],
                 ),
               ),
