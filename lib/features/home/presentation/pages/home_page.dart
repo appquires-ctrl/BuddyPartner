@@ -261,7 +261,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ],
               ),
               actions: [
-                // Subscription / Status Action Pill Button
+                // Subscription status pill (e.g. '365 days left') commented out for early access
+                /*
                 Consumer(
                   builder: (context, ref, child) {
                     final subAsync = ref.watch(subscriptionStatusProvider);
@@ -333,6 +334,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     );
                   },
                 ),
+                */
               ],
             ),
       body: isMatching
