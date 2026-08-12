@@ -52,7 +52,7 @@ class CountryCodes {
     CountryCode(name: 'Vietnam', code: '+84', flag: '🇻🇳', iso: 'VN', minLength: 9, maxLength: 10),
     CountryCode(name: 'Nepal', code: '+977', flag: '🇳🇵', iso: 'NP', minLength: 10, maxLength: 10),
     CountryCode(name: 'Bangladesh', code: '+880', flag: '🇧🇩', iso: 'BD', minLength: 10, maxLength: 10),
-    CountryCode(name: 'Pakistan', code: '+92', flag: '🇵🇰', iso: 'PK', minLength: 10, maxLength: 10),
+    //CountryCode(name: 'Pakistan', code: '+92', flag: '🇵🇰', iso: 'PK', minLength: 10, maxLength: 10),
     CountryCode(name: 'Sri Lanka', code: '+94', flag: '🇱🇰', iso: 'LK', minLength: 9, maxLength: 9),
     CountryCode(name: 'Qatar', code: '+974', flag: '🇶🇦', iso: 'QA', minLength: 8, maxLength: 8),
     CountryCode(name: 'Kuwait', code: '+965', flag: '🇰🇼', iso: 'KW', minLength: 8, maxLength: 8),

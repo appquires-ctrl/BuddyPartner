@@ -3,23 +3,71 @@ import 'package:buddypartner/app/theme/skeleton_colors.dart';
 import 'package:buddypartner/core/widgets/shimmer/app_shimmer.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 
-/// ConversationListItemSkeleton displays a high-fidelity shimmer loading card
-/// matching the exact layout, height, and border radius of the Conversation / Favorites cards.
+/// ConversationListItemSkeleton provides a high-fidelity, component-level
+/// skeleton loader matching the exact layout, dimensions, and typography
+/// of the real Conversation card in Messages screen.
 class ConversationListItemSkeleton extends StatelessWidget {
-  const ConversationListItemSkeleton({super.key});
+  final int itemIndex;
+
+  const ConversationListItemSkeleton({
+    super.key,
+    this.itemIndex = 0,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
+    // Soft lavender-tinted skeleton colors matching design system
     final blockColor = SkeletonColors.baseColor(isDark);
+    final secondaryBlockColor = blockColor.withValues(alpha: 0.65);
     final cardBg = isDark
         ? colors.surface.withValues(alpha: 0.6)
         : colors.surface;
     final borderColor = isDark
         ? colors.border.withValues(alpha: 0.3)
         : colors.border.withValues(alpha: 0.6);
+
+    // Dynamic width presets per item index for a realistic, varied conversation list preview
+    final double nameWidth;
+    final double previewWidth;
+    final double timeWidth;
+    final bool showBadge;
+
+    switch (itemIndex % 5) {
+      case 0:
+        nameWidth = 130;
+        previewWidth = 175;
+        timeWidth = 38;
+        showBadge = true;
+        break;
+      case 1:
+        nameWidth = 105;
+        previewWidth = 140;
+        timeWidth = 44;
+        showBadge = false;
+        break;
+      case 2:
+        nameWidth = 140;
+        previewWidth = 165;
+        timeWidth = 34;
+        showBadge = true;
+        break;
+      case 3:
+        nameWidth = 115;
+        previewWidth = 190;
+        timeWidth = 40;
+        showBadge = false;
+        break;
+      case 4:
+      default:
+        nameWidth = 125;
+        previewWidth = 150;
+        timeWidth = 36;
+        showBadge = false;
+        break;
+    }
 
     return AppShimmer(
       child: Container(
@@ -41,25 +89,49 @@ class ConversationListItemSkeleton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Row(
             children: [
-              // Circular avatar skeleton (52px diameter)
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: blockColor,
-                  shape: BoxShape.circle,
-                ),
+              // 1. Circular Avatar Skeleton (52px diameter) with status dot placeholder
+              Stack(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: blockColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: isDark ? colors.surface : Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      padding: const EdgeInsets.all(2),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: blockColor.withValues(alpha: 0.8),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(width: 14),
 
-              // Text details column
+              // 2. Name & Message Preview Skeleton Column
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // User name skeleton bar
                     Container(
-                      width: 120,
+                      width: nameWidth,
                       height: 14,
                       decoration: BoxDecoration(
                         color: blockColor,
@@ -67,12 +139,14 @@ class ConversationListItemSkeleton extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
+
+                    // Last message preview skeleton bar
                     Container(
-                      width: 160,
+                      width: previewWidth,
                       height: 11,
                       decoration: BoxDecoration(
-                        color: blockColor.withValues(alpha: 0.7),
-                        borderRadius: BorderRadius.circular(6),
+                        color: secondaryBlockColor,
+                        borderRadius: BorderRadius.circular(5),
                       ),
                     ),
                   ],
@@ -80,28 +154,34 @@ class ConversationListItemSkeleton extends StatelessWidget {
               ),
               const SizedBox(width: 12),
 
-              // Right time and badge skeleton column
+              // 3. Right Date/Time & Unread Badge Skeleton Column
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  // Time/date skeleton placeholder on right
                   Container(
-                    width: 38,
+                    width: timeWidth,
                     height: 10,
                     decoration: BoxDecoration(
-                      color: blockColor.withValues(alpha: 0.7),
+                      color: secondaryBlockColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Container(
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: blockColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
+
+                  // Unread badge indicator placeholder
+                  if (showBadge)
+                    Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: blockColor,
+                        shape: BoxShape.circle,
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 16),
                 ],
               ),
             ],
@@ -111,4 +191,3 @@ class ConversationListItemSkeleton extends StatelessWidget {
     );
   }
 }
-

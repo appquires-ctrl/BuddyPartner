@@ -97,7 +97,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
           physics: const NeverScrollableScrollPhysics(),
           itemCount: 5,
           separatorBuilder: (context, index) => const SizedBox(height: 16),
-          itemBuilder: (context, index) => const ConversationListItemSkeleton(),
+          itemBuilder: (context, index) => ConversationListItemSkeleton(itemIndex: index),
         ),
       );
     } else {
