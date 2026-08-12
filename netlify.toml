@@ -1,6 +1,7 @@
 [build]
   base = "admin_panel"
   publish = "admin_panel/build/web"
+  command = "if [ ! -d '/opt/buildhome/flutter' ]; then git clone https://github.com/flutter/flutter.git -b stable --depth 1 /opt/buildhome/flutter; fi && export PATH=\"$PATH:/opt/buildhome/flutter/bin\" && flutter build web"
 
 [[redirects]]
   from = "/*"
