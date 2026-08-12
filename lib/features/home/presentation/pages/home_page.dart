@@ -15,7 +15,6 @@ import 'package:buddypartner/features/call/application/matchmaking_state.dart';
 import 'package:buddypartner/features/home/presentation/providers/matched_users_provider.dart';
 import 'package:buddypartner/features/home/presentation/widgets/matched_user_card.dart';
 import 'package:buddypartner/features/home/presentation/widgets/home_skeleton.dart';
-import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
 import 'package:buddypartner/core/widgets/gradient_avatar.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 
