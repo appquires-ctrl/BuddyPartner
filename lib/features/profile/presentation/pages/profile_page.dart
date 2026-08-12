@@ -176,9 +176,11 @@ class ProfilePage extends ConsumerWidget {
                       iconBgColor: const Color(0xFFF5E6FF),
                       iconColor: const Color(0xFF8B5CF6),
                       title: 'My Subscription',
-                      subtitle: 'Manage subscription plans & duration',
+                      subtitle: 'Unlimited Free Access Active',
                       onTap: () {
-                        context.push(RouteNames.subscribe);
+                        // Original navigation commented out for free unlimited access
+                        // context.push(RouteNames.subscribe);
+                        AppSnackBar.showSuccess(context, 'Unlimited Early Access Active! All features are currently free.');
                       },
                     ),
                     _buildDivider(context),

@@ -74,52 +74,52 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Active Subscription indicator if subscribed
-              // if (subState != null && subState.isSubscribed) ...[
-              //   Container(
-              //     width: double.infinity,
-              //     padding: const EdgeInsets.all(AppSpacing.space16),
-              //     margin: const EdgeInsets.only(bottom: AppSpacing.space16),
-              //     decoration: BoxDecoration(
-              //       color: colors.success.withValues(alpha: 0.1),
-              //       borderRadius: BorderRadius.circular(16),
-              //       border: Border.all(color: colors.success.withValues(alpha: 0.4)),
-              //     ),
-              //     child: Row(
-              //       children: [
-              //         Container(
-              //           width: 10,
-              //           height: 10,
-              //           decoration: BoxDecoration(
-              //             color: colors.success,
-              //             shape: BoxShape.circle,
-              //           ),
-              //         ),
-              //         const SizedBox(width: AppSpacing.space12),
-              //         Expanded(
-              //           child: Column(
-              //             crossAxisAlignment: CrossAxisAlignment.start,
-              //             children: [
-              //               Text(
-              //                 'Active Subscription',
-              //                 style: typography.bodyMedium.copyWith(
-              //                   fontWeight: FontWeight.bold,
-              //                   color: colors.success,
-              //                 ),
-              //               ),
-              //               Text(
-              //                 subState.formattedLabel,
-              //                 style: typography.bodySmall.copyWith(
-              //                   color: colors.textSecondary,
-              //                 ),
-              //               ),
-              //             ],
-              //           ),
-              //         ),
-              //       ],
-              //     ),
-              //   ),
-              // ],
+              // Active Subscription indicator for Early Access
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(AppSpacing.space16),
+                margin: const EdgeInsets.only(bottom: AppSpacing.space16),
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colors.primary.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: colors.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.space12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '🎉 Unlimited Early Access Active',
+                            style: typography.bodyMedium.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colors.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'All calling, matchmaking & messaging features are 100% free!',
+                            style: typography.bodySmall.copyWith(
+                              color: colors.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
               // Top Unlimited Access Banner
               _buildTopBanner(context),

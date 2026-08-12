@@ -43,6 +43,18 @@ class SubscriptionsService {
    * @returns {Promise<Object|null>}
    */
   async getActiveSubscription(userId) {
+    // Unlimited Access Mode: Return active VIP plan for all users (No payment required)
+    return {
+      id: 'unlimited_early_access',
+      user_id: userId,
+      plan_duration_days: 365,
+      amount_paid: 0,
+      started_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      payment_reference: 'EARLY_ACCESS_FREE_VIP',
+      created_at: new Date().toISOString()
+    };
+    /* ORIGINAL LOGIC (PRESERVED):
     try {
       const result = await db.query(
         `SELECT id, user_id, plan_duration_days, amount_paid, started_at, expires_at, payment_reference, created_at
@@ -57,6 +69,7 @@ class SubscriptionsService {
       console.error('Error in getActiveSubscription:', err.message);
       return null;
     }
+    */
   }
 
   /**
