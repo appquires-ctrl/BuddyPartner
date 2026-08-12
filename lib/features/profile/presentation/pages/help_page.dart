@@ -171,7 +171,7 @@ class HelpPage extends StatelessWidget {
                       iconBgColor: const Color(0xFFFFF7EA),
                       iconColor: const Color(0xFFF59E0B),
                       title: 'Refund Policy',
-                      subtitle: 'Coin recharge billing & store refunds',
+                      subtitle: 'Subscription passes, billing & store refunds',
                       onTap: () {
                         context.push(RouteNames.refundPolicy);
                       },
@@ -182,8 +182,8 @@ class HelpPage extends StatelessWidget {
                       icon: Icons.account_balance_wallet_outlined,
                       iconBgColor: const Color(0xFFFFEAF2),
                       iconColor: const Color(0xFFEC4899),
-                      title: 'Withdrawal Terms',
-                      subtitle: 'Rose conversions & host payouts',
+                      title: 'Subscription Terms',
+                      subtitle: 'Pass rules & subscription guidelines',
                       onTap: () {
                         context.push(RouteNames.withdrawalTerms);
                       },
@@ -280,7 +280,7 @@ class HelpPage extends StatelessWidget {
       trailing: showChevron
           ? Icon(
               Icons.chevron_right,
-              color: colors.textSecondary.withOpacity(0.5),
+              color: colors.textSecondary.withValues(alpha: 0.5),
               size: 18,
             )
           : null,
