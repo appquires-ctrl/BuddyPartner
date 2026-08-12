@@ -36,9 +36,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     AppLogger.click('Start Matchmaking', screen: 'HomeScreen');
     if (_isProcessingPermissions) return;
 
-    // Step 1 — Subscription Check
-    // If the user does not have an active subscription, immediately navigate them to Subscription Screen.
-    // Do not request any permissions before subscription requirement has been satisfied.
+    // Step 1 — Subscription Check (Unlimited free access mode: bypassed)
+    /*
     final isSub = ref.read(subscriptionStatusProvider).value?.isSubscribed ?? false;
     if (!isSub) {
       if (mounted) {
@@ -46,6 +45,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
       return;
     }
+    */
 
     _isProcessingPermissions = true;
     try {
@@ -129,12 +129,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       if (next.errorMessage != null &&
           next.errorMessage!.isNotEmpty &&
           (prev == null || prev.errorMessage != next.errorMessage)) {
-        if (next.errorMessage!.contains('SUBSCRIPTION_REQUIRED') ||
-            next.errorMessage!.toLowerCase().contains('subscribe')) {
-          context.push(RouteNames.subscribe);
-        } else {
-          AppSnackBar.showError(context, next.errorMessage!);
-        }
+        AppSnackBar.showError(context, next.errorMessage!);
       }
     });
 
