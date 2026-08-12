@@ -239,8 +239,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           return DevSubscriptionPage(plan: plan);
         },
       ),
+      GoRoute(
+        path: RouteNames.favorites,
+        name: 'FavoritesPage',
+        builder: (context, state) => const FavoritesPage(),
+      ),
 
-      // Stateful Nested Shell for Main Dashboard (4 core tabs)
+      // Stateful Nested Shell for Main Dashboard (3 core tabs: Home, Chat, Setting)
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return Scaffold(
@@ -279,18 +284,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
 
-          // Tab 3: Favorites
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: RouteNames.favorites,
-                name: 'FavoritesPage',
-                builder: (context, state) => const FavoritesPage(),
-              ),
-            ],
-          ),
-
-          // Tab 4: User Profile Settings
+          // Tab 3: User Profile Settings
           StatefulShellBranch(
             routes: [
               GoRoute(

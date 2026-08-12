@@ -3,7 +3,7 @@ import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/core/utils/app_logger.dart';
 
 /// AppBottomNav provides the bottom navigation bar for the app's shell.
-/// Unified 4-tab layout: Home, Chat, Favorite, Setting.
+/// 3-tab layout: Home, Chat, Setting.
 class AppBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -21,7 +21,7 @@ class AppBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final navSelectedIndex = currentIndex.clamp(0, 3);
+    final navSelectedIndex = currentIndex.clamp(0, 2);
 
     return Container(
       decoration: BoxDecoration(
@@ -33,7 +33,7 @@ class AppBottomNav extends StatelessWidget {
       child: NavigationBar(
         selectedIndex: navSelectedIndex,
         onDestinationSelected: (index) {
-          final tabNames = ['Home', 'Chat', 'Favorite', 'Setting'];
+          final tabNames = ['Home', 'Chat', 'Setting'];
           final tabName = index >= 0 && index < tabNames.length ? tabNames[index] : 'Tab $index';
           AppLogger.click('Bottom Nav Tab: $tabName');
           onTap(index);
@@ -51,11 +51,6 @@ class AppBottomNav extends StatelessWidget {
             icon: Icon(Icons.chat_bubble_outline),
             selectedIcon: Icon(Icons.chat_bubble),
             label: 'Chat',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.favorite_border),
-            selectedIcon: Icon(Icons.favorite),
-            label: 'Favorite',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),

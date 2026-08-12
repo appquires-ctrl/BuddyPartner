@@ -227,7 +227,7 @@ class ProfilePage extends ConsumerWidget {
                       title: 'Favorites',
                       subtitle: 'View favorite telecallers',
                       onTap: () {
-                        context.push(RouteNames.home); // go to favorite list
+                        context.push(RouteNames.favorites);
                       },
                     ),
                   ],
