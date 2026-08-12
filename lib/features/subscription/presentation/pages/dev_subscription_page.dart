@@ -74,15 +74,32 @@ class _DevSubscriptionPageState extends ConsumerState<DevSubscriptionPage> {
     return Scaffold(
       backgroundColor: colors.surfaceMuted,
       appBar: AppBar(
-        title: Text(
-          'Dev Checkout',
-          style: typography.titleCard.copyWith(color: colors.textPrimary),
-        ),
-        backgroundColor: colors.surface,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: colors.textPrimary),
           onPressed: () => context.pop(),
+        ),
+        centerTitle: true,
+        title: Column(
+          children: [
+            Text(
+              'Dev Checkout',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: colors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Test payment gateway simulator',
+              style: typography.bodySmall.copyWith(
+                fontSize: 12,
+                color: colors.textSecondary,
+              ),
+            ),
+          ],
         ),
       ),
       body: SingleChildScrollView(

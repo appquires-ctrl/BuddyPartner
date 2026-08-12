@@ -40,34 +40,32 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
     return Scaffold(
       backgroundColor: colors.surfaceMuted,
       appBar: AppBar(
-        backgroundColor: colors.surfaceMuted,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        centerTitle: false,
-        leadingWidth: 64,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 16.0, top: 8.0, bottom: 8.0),
-          child: GestureDetector(
-            onTap: () => context.pop(),
-            child: Container(
-              decoration: BoxDecoration(
-                color: colors.chipLavender,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.arrow_back_rounded,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: colors.textPrimary),
+          onPressed: () => context.pop(),
+        ),
+        centerTitle: true,
+        title: Column(
+          children: [
+            Text(
+              'Choose Subscription',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
                 color: colors.textPrimary,
-                size: 20,
               ),
             ),
-          ),
-        ),
-        title: Text(
-          'Choose Subscription',
-          style: typography.titleCard.copyWith(
-            color: colors.textPrimary,
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-          ),
+            const SizedBox(height: 2),
+            Text(
+              'Select an access plan',
+              style: typography.bodySmall.copyWith(
+                fontSize: 12,
+                color: colors.textSecondary,
+              ),
+            ),
+          ],
         ),
       ),
       body: SafeArea(

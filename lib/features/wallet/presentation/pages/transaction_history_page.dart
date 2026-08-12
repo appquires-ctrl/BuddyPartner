@@ -115,15 +115,32 @@ class TransactionHistoryPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Subscription History',
-          style: typography.titleCard.copyWith(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: colors.surface,
-        elevation: 0.5,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: colors.textPrimary),
           onPressed: () => context.pop(),
+        ),
+        centerTitle: true,
+        title: Column(
+          children: [
+            Text(
+              'Subscription History',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: colors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'View your payment history',
+              style: typography.bodySmall.copyWith(
+                fontSize: 12,
+                color: colors.textSecondary,
+              ),
+            ),
+          ],
         ),
       ),
       body: historyState.when(

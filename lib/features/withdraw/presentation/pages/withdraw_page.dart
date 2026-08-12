@@ -89,10 +89,33 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
     if (currentUser != null && !currentUser.isTelecallerActive) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Withdraw Earnings'),
-          centerTitle: true,
-          backgroundColor: colors.surface,
+          backgroundColor: Colors.transparent,
           elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: colors.textPrimary),
+            onPressed: () => context.pop(),
+          ),
+          centerTitle: true,
+          title: Column(
+            children: [
+              Text(
+                'Withdraw Earnings',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  color: colors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Manage host payouts',
+                style: typography.bodySmall.copyWith(
+                  fontSize: 12,
+                  color: colors.textSecondary,
+                ),
+              ),
+            ],
+          ),
         ),
         body: Center(
           child: Padding(
@@ -137,10 +160,33 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Withdraw Earnings'),
-        centerTitle: true,
-        backgroundColor: colors.surface,
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: colors.textPrimary),
+          onPressed: () => context.pop(),
+        ),
+        centerTitle: true,
+        title: Column(
+          children: [
+            Text(
+              'Withdraw Earnings',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: colors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Manage host payouts',
+              style: typography.bodySmall.copyWith(
+                fontSize: 12,
+                color: colors.textSecondary,
+              ),
+            ),
+          ],
+        ),
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
