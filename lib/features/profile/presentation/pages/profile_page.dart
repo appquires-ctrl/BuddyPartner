@@ -218,18 +218,6 @@ class ProfilePage extends ConsumerWidget {
                         context.push(RouteNames.transactionHistory);
                       },
                     ),
-                    _buildDivider(context),
-                    _buildSettingsTile(
-                      context,
-                      icon: Icons.favorite_border,
-                      iconBgColor: const Color(0xFFFFEAF2),
-                      iconColor: const Color(0xFFEC4899),
-                      title: 'Favorites',
-                      subtitle: 'View favorite telecallers',
-                      onTap: () {
-                        context.push(RouteNames.favorites);
-                      },
-                    ),
                   ],
                 ),
               ),
