@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:socket_io_client/socket_io_client.dart' as sio;
-import 'package:dating_app/core/services/api_client.dart';
-import 'package:dating_app/core/services/socket_provider.dart';
+import 'package:buddypartner/core/services/api_client.dart';
+import 'package:buddypartner/core/services/socket_provider.dart';
 
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
 final presenceProvider =
     StateNotifierProvider.autoDispose<PresenceNotifier, Map<String, bool>>((ref) {
@@ -29,7 +29,14 @@ class PresenceNotifier extends StateNotifier<Map<String, bool>> {
     _socket.on('presence:update', _handlePresenceUpdate);
   }
 
+  @override
+  void dispose() {
+    _socket?.off('presence:update', _handlePresenceUpdate);
+    super.dispose();
+  }
+
   void _handlePresenceUpdate(dynamic data) {
+    if (!mounted) return;
     if (data is Map<String, dynamic>) {
       final userId = data['userId'] as String?;
       final isOnline = data['isOnline'] as bool?;
@@ -44,12 +51,14 @@ class PresenceNotifier extends StateNotifier<Map<String, bool>> {
 
   /// Query online presence for a list of user IDs via REST endpoint.
   Future<void> fetchPresence(List<String> userIds) async {
-    if (userIds.isEmpty) return;
+    if (userIds.isEmpty || !mounted) return;
 
     try {
       final response = await _apiClient.dio.get('/api/presence', queryParameters: {
         'userIds': userIds.join(','),
       });
+
+      if (!mounted) return;
 
       final map = (response.data['presence'] as Map<String, dynamic>?) ?? {};
       final updated = <String, bool>{...state};
@@ -58,7 +67,9 @@ class PresenceNotifier extends StateNotifier<Map<String, bool>> {
         updated[key] = val == true;
       });
 
-      state = updated;
+      if (mounted) {
+        state = updated;
+      }
     } catch (err) {
       // Keep existing status on error
     }

@@ -1,12 +1,15 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dating_app/app/router/app_router.dart';
-import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/core/config/app_config.dart';
-import 'package:dating_app/core/utils/app_logger.dart';
+import 'package:buddypartner/app/router/app_router.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/core/config/app_config.dart';
+import 'package:buddypartner/core/utils/app_logger.dart';
 
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
 
@@ -41,6 +44,19 @@ class ApiClient {
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
+
+          // Attach version & platform headers
+          try {
+            final platform = kIsWeb ? 'android' : (Platform.isIOS ? 'ios' : 'android');
+            options.headers['X-App-Platform'] = platform;
+            if (!kIsWeb) {
+              final pkg = await PackageInfo.fromPlatform();
+              options.headers['X-App-Version'] = pkg.version;
+            } else {
+              options.headers['X-App-Version'] = '1.0.0';
+            }
+          } catch (_) {}
+
           return handler.next(options);
         },
         onResponse: (response, handler) {
@@ -58,6 +74,14 @@ class ApiClient {
             err.response?.statusCode,
             err.error ?? err.message ?? 'Network Error',
           );
+
+          // Handle HTTP 426 Upgrade Required
+          if (err.response?.statusCode == 426) {
+            final context = rootNavigatorKey.currentContext;
+            if (context != null) {
+              context.go(RouteNames.updateRequired);
+            }
+          }
 
           // Automatic single-retry for transient network timeout / connection errors (e.g. Render server cold start)
           final isTimeoutOrConnErr = err.type == DioExceptionType.connectionTimeout ||

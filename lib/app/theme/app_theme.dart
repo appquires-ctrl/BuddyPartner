@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 import 'app_typography.dart';
 
@@ -19,6 +20,7 @@ class AppTheme {
       scaffoldBackgroundColor: colors.surfaceMuted,
       cardColor: colors.surface,
       dividerColor: colors.border,
+      textTheme: GoogleFonts.interTextTheme(),
       extensions: [
         colors,
         typography,
@@ -45,6 +47,7 @@ class AppTheme {
       scaffoldBackgroundColor: colors.surfaceMuted,
       cardColor: colors.surface,
       dividerColor: colors.border,
+      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
       extensions: [
         colors,
         typography,

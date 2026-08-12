@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dating_app/core/services/api_client.dart';
-import 'package:dating_app/features/chat/domain/conversation.dart';
-import 'package:dating_app/features/chat/domain/message.dart';
+import 'package:buddypartner/core/services/api_client.dart';
+import 'package:buddypartner/features/chat/domain/conversation.dart';
+import 'package:buddypartner/features/chat/domain/message.dart';
 
 final chatRepositoryProvider = Provider<ChatRepository>((ref) {
   return ChatRepository(ref.watch(apiClientProvider));

@@ -1,4 +1,4 @@
--- LoopCall: Calls table migration
+-- BuddyPartner: Calls table migration
 -- Run in Supabase SQL Editor or as a migration file
 
 CREATE TABLE IF NOT EXISTS public.calls (

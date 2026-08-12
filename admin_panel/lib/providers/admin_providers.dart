@@ -300,3 +300,9 @@ final transactionsProvider = FutureProvider.autoDispose<List<dynamic>>((ref) asy
   final res = await ApiService.get('/transactions');
   return res['transactions'] as List<dynamic>;
 });
+
+// ── App Config / Version Management Provider ──────────────────────────────
+final appConfigProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final res = await ApiService.get('/app-config');
+  return res['config'] as Map<String, dynamic>;
+});

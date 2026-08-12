@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
-import 'package:dating_app/app/theme/app_radius.dart';
-import 'package:dating_app/core/widgets/layout/section_header.dart';
-import 'package:dating_app/features/legal/data/legal_document_content.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/app/theme/app_radius.dart';
+import 'package:buddypartner/core/widgets/layout/section_header.dart';
+import 'package:buddypartner/features/legal/data/legal_document_content.dart';
 
 /// LegalDocumentPage renders legal terms, policies, and community guidelines
 /// using design-system tokens and components.
@@ -65,51 +65,51 @@ class LegalDocumentPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Draft legal notice banner
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(AppSpacing.space12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFFBEB), // Amber light fill
-                  borderRadius: AppRadius.md,
-                  border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4)),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.gavel_outlined,
-                      color: Color(0xFFD97706),
-                      size: 20,
-                    ),
-                    const SizedBox(width: AppSpacing.space12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Legal Draft Preview',
-                            style: typography.bodySmall.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFFB45309),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            document.summaryNotice,
-                            style: typography.bodySmall.copyWith(
-                              fontSize: 11.5,
-                              color: const Color(0xFF92400E),
-                              height: 1.35,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.space16),
+              // // Draft legal notice banner
+              // Container(
+              //   width: double.infinity,
+              //   padding: const EdgeInsets.all(AppSpacing.space12),
+              //   decoration: BoxDecoration(
+              //     color: const Color(0xFFFFFBEB), // Amber light fill
+              //     borderRadius: AppRadius.md,
+              //     border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4)),
+              //   ),
+              //   child: Row(
+              //     crossAxisAlignment: CrossAxisAlignment.start,
+              //     children: [
+              //       const Icon(
+              //         Icons.gavel_outlined,
+              //         color: Color(0xFFD97706),
+              //         size: 20,
+              //       ),
+              //       const SizedBox(width: AppSpacing.space12),
+              //       Expanded(
+              //         child: Column(
+              //           crossAxisAlignment: CrossAxisAlignment.start,
+              //           children: [
+              //             Text(
+              //               'Legal Draft Preview',
+              //               style: typography.bodySmall.copyWith(
+              //                 fontWeight: FontWeight.bold,
+              //                 color: const Color(0xFFB45309),
+              //               ),
+              //             ),
+              //             const SizedBox(height: 4),
+              //             Text(
+              //               document.summaryNotice,
+              //               style: typography.bodySmall.copyWith(
+              //                 fontSize: 11.5,
+              //                 color: const Color(0xFF92400E),
+              //                 height: 1.35,
+              //               ),
+              //             ),
+              //           ],
+              //         ),
+              //       ),
+              //     ],
+              //   ),
+              // ),
+              // const SizedBox(height: AppSpacing.space16),
 
               // Last updated badge
               Row(

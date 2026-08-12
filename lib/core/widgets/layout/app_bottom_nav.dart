@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/core/utils/app_logger.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/core/utils/app_logger.dart';
 
 /// AppBottomNav provides the bottom navigation bar for the app's shell.
 /// Unified 4-tab layout: Home, Chat, Favorite, Setting.

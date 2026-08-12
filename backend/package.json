@@ -1,7 +1,7 @@
 {
-  "name": "loopcall-backend",
+  "name": "buddypartner-backend",
   "version": "1.0.0",
-  "description": "LoopCall backend — matchmaking, calls, and real-time events",
+  "description": "BuddyPartner backend — matchmaking, calls, and real-time events",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -18,8 +18,10 @@
     "ioredis": "^5.4.1",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.22.0",
+    "razorpay": "^2.9.8",
     "socket.io": "^4.7.5",
     "socket.io-client": "^4.8.3",
+    "semver": "^7.6.3",
     "twilio": "^6.0.2"
   },
   "engines": {

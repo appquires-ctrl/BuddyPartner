@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:dating_app/core/widgets/shimmer/app_shimmer.dart';
-import 'package:dating_app/app/theme/skeleton_colors.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:buddypartner/core/widgets/shimmer/app_shimmer.dart';
+import 'package:buddypartner/app/theme/skeleton_colors.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
 
 /// CallHistorySkeleton displays a list item shimmer skeleton
 /// matching the CallHistoryPage log item structure.
@@ -13,17 +13,25 @@ class CallHistorySkeleton extends StatelessWidget {
     final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final blockColor = SkeletonColors.baseColor(isDark);
-    final cardBg = isDark ? colors.surface.withValues(alpha: 0.5) : colors.surface;
+    final cardBg = isDark ? colors.surface.withValues(alpha: 0.6) : colors.surface;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.border.withValues(alpha: 0.4)),
-      ),
-      child: AppShimmer(
+    return AppShimmer(
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: colors.border.withValues(alpha: isDark ? 0.3 : 0.5)),
+          boxShadow: [
+            if (!isDark)
+              BoxShadow(
+                color: colors.textPrimary.withValues(alpha: 0.02),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+          ],
+        ),
         child: Row(
           children: [
             // Circle avatar
@@ -46,7 +54,7 @@ class CallHistorySkeleton extends StatelessWidget {
                     height: 14,
                     decoration: BoxDecoration(
                       color: blockColor,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -54,8 +62,8 @@ class CallHistorySkeleton extends StatelessWidget {
                     width: 90,
                     height: 11,
                     decoration: BoxDecoration(
-                      color: blockColor,
-                      borderRadius: BorderRadius.circular(4),
+                      color: blockColor.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                 ],
@@ -66,7 +74,7 @@ class CallHistorySkeleton extends StatelessWidget {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: blockColor,
+                color: blockColor.withValues(alpha: 0.8),
                 shape: BoxShape.circle,
               ),
             ),
@@ -76,3 +84,4 @@ class CallHistorySkeleton extends StatelessWidget {
     );
   }
 }
+

@@ -1,4 +1,4 @@
--- LoopCall Database Schema Setup for Neon PostgreSQL
+-- BuddyPartner Database Schema Setup for Neon PostgreSQL
 
 -- 1. Users Table
 CREATE TABLE IF NOT EXISTS public.users (

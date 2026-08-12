@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/core/widgets/feedback/app_loading_indicator.dart';
-import 'package:dating_app/core/widgets/shimmer/skeletons/chat_message_skeleton.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
-import 'package:dating_app/app/theme/app_radius.dart';
-import 'package:dating_app/features/call/presentation/widgets/report_block_dialog.dart';
-import 'package:dating_app/features/call/application/matchmaking_controller.dart';
-import 'package:dating_app/features/call/application/matchmaking_state.dart';
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
-import 'package:dating_app/features/chat/application/chat_controller.dart';
-import 'package:dating_app/features/chat/application/presence_provider.dart';
-import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/features/subscription/application/subscription_providers.dart';
-import 'package:dating_app/core/widgets/gradient_avatar.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
+import 'package:buddypartner/core/widgets/shimmer/skeletons/chat_message_skeleton.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/app/theme/app_radius.dart';
+import 'package:buddypartner/features/call/presentation/widgets/report_block_dialog.dart';
+import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
+import 'package:buddypartner/features/call/application/matchmaking_state.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/features/chat/application/chat_controller.dart';
+import 'package:buddypartner/features/chat/application/presence_provider.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
+import 'package:buddypartner/core/widgets/gradient_avatar.dart';
 
-import 'package:dating_app/core/utils/app_logger.dart';
+import 'package:buddypartner/core/utils/app_logger.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   final String conversationId;

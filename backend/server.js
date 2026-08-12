@@ -39,6 +39,15 @@ const withdrawalRoutes = require('./modules/withdrawals/withdrawals.routes');
 const adminRoutes = require('./modules/admin/admin.routes');
 const adminService = require('./modules/admin/admin.service');
 const subscriptionsRoutes = require('./modules/subscriptions/subscriptions.routes');
+const appRoutes = require('./modules/app/app.routes');
+const { appService } = require('./modules/app/app.service');
+const { enforceMinimumVersion } = require('./middleware/version.middleware');
+
+// Public version routes mounted before middleware enforcement
+app.use('/api/app', appRoutes);
+
+// Apply HTTP 426 version enforcement middleware globally to all /api/* routes
+app.use('/api', enforceMinimumVersion);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', authRoutes);
@@ -49,8 +58,9 @@ app.use('/api', withdrawalRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/subscriptions', subscriptionsRoutes);
 
-// Initialize Admin Config
+// Initialize Admin & App Config
 adminService.initAdminConfig();
+appService.initAppConfig();
 
 // ── Auto-ensure subscriptions table exists ─────────────────────────────────
 db.query(`
@@ -167,12 +177,23 @@ io.use(async (socket, next) => {
   }
 
   try {
-    const secret = process.env.JWT_SECRET || 'loopcall_fallback_jwt_secret_key_change_me_in_prod';
+    const secret = process.env.JWT_SECRET || 'buddypartner_fallback_jwt_secret_key_change_me_in_prod';
     const decoded = jwt.verify(token, secret);
 
     const modStatus = await ModerationService.isUserBlocked(decoded.id);
     if (modStatus.isBanned) {
       return next(new Error('ACCOUNT_BANNED'));
+    }
+
+    // Perform version check during socket handshake if appVersion header/payload provided
+    const appVersion = socket.handshake.auth?.appVersion || socket.handshake.headers?.['x-app-version'];
+    const platform = socket.handshake.auth?.platform || socket.handshake.headers?.['x-app-platform'] || 'android';
+
+    if (appVersion) {
+      const verResult = await appService.checkVersion(platform, appVersion);
+      if (verResult.updateRequired) {
+        return next(new Error('ACCOUNT_UPGRADE_REQUIRED'));
+      }
     }
 
     socket.userId = decoded.id;
@@ -224,7 +245,7 @@ setInterval(async () => {
 // ── Start server ────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`🚀 LoopCall server listening on port ${PORT}`);
+  console.log(`🚀 BuddyPartner server listening on port ${PORT}`);
 });
 
 module.exports = { app, server, io, redis, db };

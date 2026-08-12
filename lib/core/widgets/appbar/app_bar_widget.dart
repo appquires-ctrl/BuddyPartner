@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/app/theme/app_radius.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
-import 'package:dating_app/core/widgets/app_avatar.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/app/theme/app_radius.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/core/widgets/app_avatar.dart';
 
 /// AppBarWidget provides the custom greeting top bar of the application.
 /// Displays the profile avatar, welcome text, and top-right coin balance pill.

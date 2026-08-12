@@ -5,18 +5,19 @@ import 'package:flutter/material.dart';
 class SkeletonColors {
   // Light Theme (Soft Brand Lavender Tint)
   static const Color lightBackground = Color(0xFFFAF9FE);
-  static const Color lightBase = Color(0xFFE8E3FD);
-  static const Color lightHighlight = Color(0xFFF7F5FE);
-  static const Color lightAccent = Color(0xFFDDD5FC);
+  static const Color lightBase = Color(0xFFE8E2FF);
+  static const Color lightHighlight = Color(0xFFFAF8FF);
+  static const Color lightAccent = Color(0xFFDDD4FE);
 
   // Dark Theme (Deep Brand Purple Tint)
-  static const Color darkBackground = Color(0xFF14121E);
-  static const Color darkBase = Color(0xFF28233A);
-  static const Color darkHighlight = Color(0xFF383150);
-  static const Color darkAccent = Color(0xFF453D60);
+  static const Color darkBackground = Color(0xFF12101A);
+  static const Color darkBase = Color(0xFF262137);
+  static const Color darkHighlight = Color(0xFF3C3456);
+  static const Color darkAccent = Color(0xFF4A4068);
 
   static Color background(bool isDark) => isDark ? darkBackground : lightBackground;
   static Color baseColor(bool isDark) => isDark ? darkBase : lightBase;
   static Color highlightColor(bool isDark) => isDark ? darkHighlight : lightHighlight;
   static Color accentColor(bool isDark) => isDark ? darkAccent : lightAccent;
 }
+

@@ -118,7 +118,7 @@ async function runE2ETests() {
     const port = server.address()?.port || 3000;
     const serverUrl = `http://localhost:${port}`;
 
-    const secret = process.env.JWT_SECRET || 'loopcall_fallback_jwt_secret_key_change_me_in_prod';
+    const secret = process.env.JWT_SECRET || 'buddypartner_fallback_jwt_secret_key_change_me_in_prod';
     const tokenA = jwt.sign({ id: userAId, phone: '+10000000001' }, secret);
     const tokenB = jwt.sign({ id: userBId, phone: '+10000000002' }, secret);
 

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/core/utils/app_snack_bar.dart';
-import 'package:dating_app/core/utils/app_logger.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
-import 'package:dating_app/app/theme/app_radius.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/core/utils/app_snack_bar.dart';
+import 'package:buddypartner/core/utils/app_logger.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/app/theme/app_radius.dart';
 
 /// HelpPage renders the Help & Support menu categories.
 /// Matches screenshots/help.jpeg exactly.
@@ -294,102 +294,107 @@ class HelpPage extends StatelessWidget {
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: colors.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFEFEAFF),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.mail_outline, color: Color(0xFF6B4EFF), size: 24),
-                  ),
-                  const SizedBox(width: 14),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Contact Support',
-                        style: typography.titleCard.copyWith(fontWeight: FontWeight.bold, fontSize: 18),
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: colors.border,
+                        borderRadius: BorderRadius.circular(2),
                       ),
-                      Text(
-                        'We are here to help 24/7',
-                        style: typography.bodySmall.copyWith(color: colors.textSecondary),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFEFEAFF),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.mail_outline, color: Color(0xFF6B4EFF), size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Contact Support',
+                            style: typography.titleCard.copyWith(fontWeight: FontWeight.bold, fontSize: 18),
+                          ),
+                          Text(
+                            'We are here to help 24/7',
+                            style: typography.bodySmall.copyWith(color: colors.textSecondary),
+                          ),
+                        ],
                       ),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      borderRadius: AppRadius.md,
+                      border: Border.all(color: colors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Official Support Email:', style: typography.bodySmall.copyWith(color: colors.textSecondary, fontSize: 11)),
+                        const SizedBox(height: 2),
+                        Text('support@buddypartner.in', style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold, color: colors.primary, fontSize: 13.5)),
+                        const SizedBox(height: 10),
+                        Text('Official Website:', style: typography.bodySmall.copyWith(color: colors.textSecondary, fontSize: 11)),
+                        const SizedBox(height: 2),
+                        Text('www.appquires.com', style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold, color: colors.primary, fontSize: 13.5)),
+                        const SizedBox(height: 10),
+                        Text('Registered Business Entity:', style: typography.bodySmall.copyWith(color: colors.textSecondary, fontSize: 11)),
+                        const SizedBox(height: 2),
+                        Text('Appquires Tech', style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                        const SizedBox(height: 10),
+                        Text('Registered Office Address:', style: typography.bodySmall.copyWith(color: colors.textSecondary, fontSize: 11)),
+                        const SizedBox(height: 2),
+                        Text(
+                          'GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India',
+                          style: typography.bodySmall.copyWith(color: colors.textPrimary, height: 1.25, fontSize: 11.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: colors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Close', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 20),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  borderRadius: AppRadius.md,
-                  border: Border.all(color: colors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Official Support Email:', style: typography.bodySmall.copyWith(color: colors.textSecondary)),
-                    const SizedBox(height: 4),
-                    Text('support@appquires.com', style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold, color: colors.primary)),
-                    const SizedBox(height: 12),
-                    Text('Official Website:', style: typography.bodySmall.copyWith(color: colors.textSecondary)),
-                    const SizedBox(height: 4),
-                    Text('www.appquires.com', style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold, color: colors.primary)),
-                    const SizedBox(height: 12),
-                    Text('Registered Business Entity:', style: typography.bodySmall.copyWith(color: colors.textSecondary)),
-                    const SizedBox(height: 4),
-                    Text('Appquires Tech', style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
-                    Text('Registered Office Address:', style: typography.bodySmall.copyWith(color: colors.textSecondary)),
-                    const SizedBox(height: 4),
-                    Text(
-                      'GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India',
-                      style: typography.bodySmall.copyWith(color: colors.textPrimary, height: 1.3),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: colors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Close', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
+            ),
           ),
         );
       },
@@ -483,10 +488,15 @@ class HelpPage extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   onPressed: () {
+                    final text = controller.text.trim();
+                    if (text.isEmpty) {
+                      AppSnackBar.showError(context, 'Please describe the bug before submitting.');
+                      return;
+                    }
                     AppLogger.button('Submit Bug Report', screen: 'HelpPage');
                     AppLogger.dialogClose('Submit Report', screen: 'HelpPage');
                     Navigator.pop(context);
-                    AppSnackBar.showSuccess(context, 'Thank you! Your bug report has been submitted.');
+                    AppSnackBar.showSuccess(context, 'Thank you! Your bug report has been submitted to support@buddypartner.in');
                   },
                   child: const Text('Submit Report', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 ),

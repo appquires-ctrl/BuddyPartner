@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:dating_app/core/widgets/shimmer/app_shimmer.dart';
+import 'package:buddypartner/core/widgets/shimmer/app_shimmer.dart';
 
 /// ListTileSkeleton displays a standard row shimmer skeleton
 /// containing a mock avatar, multiple lines of text, and a trailing icon box.

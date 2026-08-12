@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
-import 'package:dating_app/core/widgets/buttons/app_primary_button.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/core/widgets/buttons/app_primary_button.dart';
 
 /// AppEmptyState renders a centered layout for empty pages or missing data.
 /// It displays an illustration slot, a title, description, and an optional CTA.

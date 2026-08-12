@@ -25,6 +25,7 @@ class RouteNames {
   static const String banned = '/banned';
   static const String subscribe = '/subscribe';
   static const String devSubscription = '/dev-subscription';
+  static const String updateRequired = '/update-required';
 
   // Legal routes
   static const String termsOfService = '/legal/terms';

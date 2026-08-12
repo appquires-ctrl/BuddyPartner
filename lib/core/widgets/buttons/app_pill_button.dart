@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/app/theme/app_radius.dart';
-import 'package:dating_app/core/widgets/feedback/app_loading_indicator.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/app/theme/app_radius.dart';
+import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
+import 'package:buddypartner/core/utils/app_throttler.dart';
 
 /// AppPillButton is a compact, pill-shaped button typically used for selections,
 /// filters, or displaying plan prices (e.g. the lavender price buttons).
@@ -45,7 +46,7 @@ class AppPillButton extends StatelessWidget {
           ),
           disabledBackgroundColor: bgColor.withValues(alpha: 0.5),
         ),
-        onPressed: isLoading ? null : onPressed,
+        onPressed: isLoading ? null : AppThrottler.wrap(onPressed),
         child: isLoading
             ? AppLoadingIndicator(
                 size: 16,

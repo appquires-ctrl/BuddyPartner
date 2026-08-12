@@ -3,7 +3,7 @@ const db = require('./db');
 const { RoseService } = require('./modules/wallet/rose.service');
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'loopcall_fallback_jwt_secret_key_change_me_in_prod';
+const JWT_SECRET = process.env.JWT_SECRET || 'buddypartner_fallback_jwt_secret_key_change_me_in_prod';
 
 async function runTelecallerVerificationTests() {
   console.log('🚀 Running Telecaller Opt-In Automated Verification Suite...\n');

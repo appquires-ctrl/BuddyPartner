@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/core/utils/app_snack_bar.dart';
-import 'package:dating_app/core/utils/app_logger.dart';
-import 'package:dating_app/core/widgets/buttons/app_primary_button.dart';
-import 'package:dating_app/core/widgets/cards/app_card.dart';
-import 'package:dating_app/core/widgets/feedback/app_loading_indicator.dart';
-import 'package:dating_app/features/withdraw/application/rose_providers.dart';
-import 'package:dating_app/features/withdraw/application/withdraw_controller.dart';
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/core/utils/app_snack_bar.dart';
+import 'package:buddypartner/core/utils/app_logger.dart';
+import 'package:buddypartner/core/widgets/buttons/app_primary_button.dart';
+import 'package:buddypartner/core/widgets/cards/app_card.dart';
+import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
+import 'package:buddypartner/features/withdraw/application/rose_providers.dart';
+import 'package:buddypartner/features/withdraw/application/withdraw_controller.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
 class WithdrawPage extends ConsumerStatefulWidget {
   const WithdrawPage({super.key});
@@ -130,7 +130,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Telecaller Mode Disabled',
+                  'Partner Mode Disabled',
                   style: typography.titleCard.copyWith(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -138,7 +138,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Withdrawals and rose earnings are only available when Telecaller Mode is enabled.',
+                  'Withdrawals and rose earnings are only available when Partner Mode is enabled.',
                   textAlign: TextAlign.center,
                   style: typography.bodyMedium.copyWith(
                     color: colors.textSecondary,

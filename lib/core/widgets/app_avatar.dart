@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:dating_app/core/constants/avatar_catalog.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:buddypartner/core/constants/avatar_catalog.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
 
 /// AppAvatar renders bundled SVG avatars based on avatarSeed and avatarStyle,
 /// with a graceful fallback to a neutral initials avatar if no seed is available.

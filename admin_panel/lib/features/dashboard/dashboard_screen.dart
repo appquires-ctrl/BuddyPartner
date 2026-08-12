@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../theme/admin_colors.dart';
 import '../../providers/admin_providers.dart';
 import '../../widgets/stat_card.dart';
+import 'version_management_card.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -43,7 +44,10 @@ class DashboardScreen extends ConsumerWidget {
                 ],
               ),
               ElevatedButton.icon(
-                onPressed: () => ref.invalidate(dashboardStatsProvider),
+                onPressed: () {
+                  ref.invalidate(dashboardStatsProvider);
+                  ref.invalidate(appConfigProvider);
+                },
                 icon: const Icon(Icons.refresh_rounded, size: 18),
                 label: const Text('Refresh Data'),
                 style: ElevatedButton.styleFrom(
@@ -57,6 +61,10 @@ class DashboardScreen extends ConsumerWidget {
               ),
             ],
           ),
+          const SizedBox(height: 24),
+
+          // Version Gate Management Card
+          const VersionManagementCard(),
           const SizedBox(height: 24),
 
           // Stat Cards Grid

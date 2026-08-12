@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
 
 /// MatchingIllustration renders the central radar illustration.
 /// Customisable for both Home (group/purple) and Favorites (heart/pink) pages.

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/app/theme/app_radius.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/app/theme/app_radius.dart';
 
 /// LowBalanceDialog is an alert dialog shown when a user tries
 /// to start a call with insufficient coins/rupees in their wallet balance.

@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dating_app/core/services/socket_provider.dart';
-import 'package:dating_app/features/chat/data/chat_repository.dart';
-import 'package:dating_app/features/chat/domain/message.dart';
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
-import 'package:dating_app/features/chat/application/conversations_provider.dart';
-import 'package:dating_app/features/auth/application/auth_error_mapper.dart';
+import 'package:buddypartner/core/services/socket_provider.dart';
+import 'package:buddypartner/features/chat/data/chat_repository.dart';
+import 'package:buddypartner/features/chat/domain/message.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/features/chat/application/conversations_provider.dart';
+import 'package:buddypartner/features/auth/application/auth_error_mapper.dart';
 
 class ChatState {
   final List<Message> messages;
@@ -53,6 +53,7 @@ class ChatState {
 class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
   Timer? _typingTimer;
   bool _built = false;
+  bool _isFetchingInitial = false;
   String? _resolvedConvId;
 
   String get effectiveConversationId => _resolvedConvId ?? arg;
@@ -97,6 +98,8 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
   String get conversationId => effectiveConversationId;
 
   Future<void> loadInitial() async {
+    if (_isFetchingInitial) return;
+    _isFetchingInitial = true;
     final repo = ref.read(chatRepositoryProvider);
     
     try {
@@ -138,6 +141,8 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
         isBlocked: isBlockErr,
         errorMessage: isBlockErr ? 'You cannot message this user.' : cleanMessage,
       );
+    } finally {
+      _isFetchingInitial = false;
     }
   }
 

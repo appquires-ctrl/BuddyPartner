@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// AppTypography defines the typographic styles for the LoopCall design system.
-/// It uses Poppins as the geometric rounded/geometric sans font family.
+/// AppTypography defines the typographic styles for the BuddyPartner design system.
+/// It uses Inter as the modern sans font family.
 @immutable
 class AppTypography extends ThemeExtension<AppTypography> {
   final TextStyle displayWordmark;
@@ -24,32 +24,32 @@ class AppTypography extends ThemeExtension<AppTypography> {
   /// Factory constructor to generate text styles adapted to theme-specific colors
   factory AppTypography.create({required Color textColor, required Color textMutedColor}) {
     return AppTypography(
-      displayWordmark: GoogleFonts.poppins(
+      displayWordmark: GoogleFonts.inter(
         fontSize: 32.0,
         fontWeight: FontWeight.bold,
         color: textColor,
       ),
-      headlineGreeting: GoogleFonts.poppins(
+      headlineGreeting: GoogleFonts.inter(
         fontSize: 28.0,
         fontWeight: FontWeight.bold,
         color: textColor,
       ),
-      titleCard: GoogleFonts.poppins(
+      titleCard: GoogleFonts.inter(
         fontSize: 20.0,
         fontWeight: FontWeight.w600,
         color: textColor,
       ),
-      bodyMedium: GoogleFonts.poppins(
+      bodyMedium: GoogleFonts.inter(
         fontSize: 16.0,
         fontWeight: FontWeight.normal,
         color: textColor,
       ),
-      bodySmall: GoogleFonts.poppins(
+      bodySmall: GoogleFonts.inter(
         fontSize: 14.0,
         fontWeight: FontWeight.normal,
         color: textMutedColor,
       ),
-      labelPill: GoogleFonts.poppins(
+      labelPill: GoogleFonts.inter(
         fontSize: 14.0,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.5,

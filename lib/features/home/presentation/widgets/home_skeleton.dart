@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:shimmer/shimmer.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/app/theme/skeleton_colors.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/app/theme/skeleton_colors.dart';
+import 'package:buddypartner/core/widgets/shimmer/app_shimmer.dart';
 
 class HomeSkeleton extends StatelessWidget {
   const HomeSkeleton({super.key});
@@ -12,8 +12,6 @@ class HomeSkeleton extends StatelessWidget {
     final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
-    final baseColor = SkeletonColors.baseColor(isDark);
-    final highlightColor = SkeletonColors.highlightColor(isDark);
     final bgColor = SkeletonColors.background(isDark);
     final accentColor = SkeletonColors.accentColor(isDark);
     
@@ -25,9 +23,7 @@ class HomeSkeleton extends StatelessWidget {
         shadowColor: colors.border,
         automaticallyImplyLeading: false,
         titleSpacing: 16.0,
-        title: Shimmer.fromColors(
-          baseColor: baseColor,
-          highlightColor: highlightColor,
+        title: AppShimmer(
           child: Row(
             children: [
               Container(
@@ -48,7 +44,7 @@ class HomeSkeleton extends StatelessWidget {
                     height: 12,
                     decoration: BoxDecoration(
                       color: accentColor,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -57,7 +53,7 @@ class HomeSkeleton extends StatelessWidget {
                     height: 16,
                     decoration: BoxDecoration(
                       color: accentColor,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                 ],
@@ -69,15 +65,13 @@ class HomeSkeleton extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: Center(
-              child: Shimmer.fromColors(
-                baseColor: baseColor,
-                highlightColor: highlightColor,
+              child: AppShimmer(
                 child: Container(
                   width: 90,
                   height: 36,
                   decoration: BoxDecoration(
                     color: accentColor,
-                    borderRadius: BorderRadius.circular(12.0),
+                    borderRadius: BorderRadius.circular(18.0),
                   ),
                 ),
               ),
@@ -89,9 +83,7 @@ class HomeSkeleton extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.space24),
-          child: Shimmer.fromColors(
-            baseColor: baseColor,
-            highlightColor: highlightColor,
+          child: AppShimmer(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -117,7 +109,7 @@ class HomeSkeleton extends StatelessWidget {
                       height: 16,
                       decoration: BoxDecoration(
                         color: accentColor,
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                     ),
                     Container(
@@ -125,7 +117,7 @@ class HomeSkeleton extends StatelessWidget {
                       height: 16,
                       decoration: BoxDecoration(
                         color: accentColor,
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                     ),
                   ],
@@ -144,10 +136,10 @@ class HomeSkeleton extends StatelessWidget {
                       return Padding(
                         padding: const EdgeInsets.only(right: 16.0),
                         child: Container(
-                          width: 140, // Match typical card width
+                          width: 140,
                           decoration: BoxDecoration(
                             color: accentColor,
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(20),
                           ),
                         ),
                       );
@@ -162,3 +154,4 @@ class HomeSkeleton extends StatelessWidget {
     );
   }
 }
+

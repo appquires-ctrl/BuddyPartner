@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dating_app/core/services/api_client.dart';
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/core/services/api_client.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
 class MatchedUser {
   final String id;

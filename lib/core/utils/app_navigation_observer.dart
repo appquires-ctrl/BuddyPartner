@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:dating_app/core/utils/app_logger.dart';
+import 'package:buddypartner/core/utils/app_logger.dart';
 
 /// AppNavigationObserver tracks GoRouter navigation transitions and emits
 /// chronological [NAVIGATION] and [SCREEN] timeline logs to the terminal.

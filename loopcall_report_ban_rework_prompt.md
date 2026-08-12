@@ -43,7 +43,7 @@ Replace the existing `SuspendedScreen`/`BannedScreen` split with a single banned
 
 - Message: something like *"Your account has been blocked due to multiple reports from other users."*
 - Instructions: *"If you believe this was a mistake, please send an apology/appeal email to **[support@yourapp.com]** along with your registered mobile number, explaining your situation. Accounts are typically reviewed and reactivated within 24 hours."*
-- Show the actual support email clearly (use a real placeholder like `support@loopcall.com` — swap in your real support address before launch)
+- Show the actual support email clearly (use a real placeholder like `support@buddypartner.com` — swap in your real support address before launch)
 - No countdown timer (unlike the old suspension screen) — this is a hard block pending a manual human review, not a timed auto-unlock
 - Remove the old `SuspendedScreen` entirely (no more 24h/48h timed state exists anymore) — keep only this one banned-state screen
 

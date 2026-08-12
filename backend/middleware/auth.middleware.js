@@ -17,7 +17,7 @@ async function authMiddleware(req, res, next) {
   }
 
   try {
-    const secret = process.env.JWT_SECRET || 'loopcall_fallback_jwt_secret_key_change_me_in_prod';
+    const secret = process.env.JWT_SECRET || 'buddypartner_fallback_jwt_secret_key_change_me_in_prod';
     const decoded = jwt.verify(token, secret);
     req.user = decoded; // Decoded payload contains { id, phone }
 

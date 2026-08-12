@@ -1,4 +1,4 @@
-# Proguard rules for Dating App (release build optimizations)
+# Proguard rules for BuddyPartner (release build optimizations)
 
 # Agora RTC SDK rules
 -keep class io.agora.**{*;}

@@ -2,18 +2,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dating_app/core/utils/app_snack_bar.dart';
-import 'package:dating_app/core/utils/app_logger.dart';
+import 'package:buddypartner/core/utils/app_snack_bar.dart';
+import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/features/auth/application/auth_controller.dart';
-import 'package:dating_app/features/auth/application/auth_error_mapper.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
-import 'package:dating_app/app/theme/app_radius.dart';
-import 'package:dating_app/core/widgets/buttons/app_primary_button.dart';
-import 'package:dating_app/core/constants/country_codes.dart';
-import 'package:dating_app/core/widgets/country_code_picker_modal.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/features/auth/application/auth_controller.dart';
+import 'package:buddypartner/features/auth/application/auth_error_mapper.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/app/theme/app_radius.dart';
+import 'package:buddypartner/core/widgets/buttons/app_primary_button.dart';
+import 'package:buddypartner/core/constants/country_codes.dart';
+import 'package:buddypartner/core/widgets/country_code_picker_modal.dart';
 
 /// LoginPage handles phone number entry & 6-digit OTP verification
 /// matching the exact design mockup.

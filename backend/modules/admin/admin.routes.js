@@ -3,7 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const adminService = require('./admin.service');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'loopcall_fallback_jwt_secret_key_change_me_in_prod';
+const JWT_SECRET = process.env.JWT_SECRET || 'buddypartner_fallback_jwt_secret_key_change_me_in_prod';
 
 // Admin JWT Verification Middleware
 function adminAuth(req, res, next) {
@@ -148,12 +148,61 @@ router.patch('/withdrawals/:id/status', adminAuth, async (req, res) => {
   }
 });
 
-// ── 6. Transactions Log ─────────────────────────────────────────────────────
-router.get('/transactions', adminAuth, async (req, res) => {
+// ── 7. App Version Management ────────────────────────────────────────────────
+router.get('/app-config', adminAuth, async (_req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
-    const data = await adminService.getTransactions({ page: Number(page), limit: Number(limit) });
-    return res.json({ success: true, ...data });
+    const semver = require('semver');
+    const { appService } = require('../app/app.service');
+
+    const androidMin = await appService.getConfig('minimum_supported_version_android');
+    const iosMin = await appService.getConfig('minimum_supported_version_ios');
+    const androidStore = await appService.getConfig('store_url_android');
+    const iosStore = await appService.getConfig('store_url_ios');
+
+    return res.json({
+      success: true,
+      config: {
+        minimum_supported_version_android: androidMin,
+        minimum_supported_version_ios: iosMin,
+        store_url_android: androidStore,
+        store_url_ios: iosStore,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.put('/app-config/minimum-version', adminAuth, async (req, res) => {
+  try {
+    const semver = require('semver');
+    const { appService } = require('../app/app.service');
+    const { platform, version, storeUrl } = req.body;
+
+    if (!platform || !['android', 'ios'].includes(platform.toLowerCase())) {
+      return res.status(400).json({ success: false, message: 'Platform must be android or ios' });
+    }
+
+    const cleanPlatform = platform.toLowerCase();
+    const cleanVersion = semver.valid(semver.coerce(version));
+
+    if (!cleanVersion) {
+      return res.status(400).json({ success: false, message: 'Invalid semver version string' });
+    }
+
+    const versionKey = `minimum_supported_version_${cleanPlatform}`;
+    await appService.setConfig(versionKey, version.trim());
+
+    if (storeUrl && typeof storeUrl === 'string' && storeUrl.trim().length > 0) {
+      const storeKey = `store_url_${cleanPlatform}`;
+      await appService.setConfig(storeKey, storeUrl.trim());
+    }
+
+    console.log(`📌 Admin updated ${versionKey} to ${version.trim()}`);
+    return res.json({
+      success: true,
+      message: `Successfully updated ${cleanPlatform} minimum version to ${version.trim()}`,
+    });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }

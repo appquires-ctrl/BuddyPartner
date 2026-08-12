@@ -75,6 +75,20 @@ class ApiService {
     }
   }
 
+  static Future<dynamic> put(String path, {Map<String, dynamic>? body}) async {
+    try {
+      final uri = Uri.parse('$baseUrl$path');
+      final response = await http.put(
+        uri,
+        headers: await _headers(),
+        body: body != null ? jsonEncode(body) : null,
+      );
+      return _processResponse(response);
+    } catch (e) {
+      throw Exception('Network error: $e');
+    }
+  }
+
   static dynamic _processResponse(http.Response response) {
     final body = jsonDecode(response.body);
     if (response.statusCode >= 200 && response.statusCode < 300) {

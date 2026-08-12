@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/core/widgets/cards/app_card.dart';
-import 'package:dating_app/core/widgets/chips/badge_ribbon.dart';
-import 'package:dating_app/core/widgets/buttons/app_pill_button.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/core/widgets/cards/app_card.dart';
+import 'package:buddypartner/core/widgets/chips/badge_ribbon.dart';
+import 'package:buddypartner/core/widgets/buttons/app_pill_button.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 /// RechargePlanCard is a card rendering a coin recharge plan option.
 /// Wraps AppCard, BadgeRibbon, and AppPillButton in a layout with pricing headers.

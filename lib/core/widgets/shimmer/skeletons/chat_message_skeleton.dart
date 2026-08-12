@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:dating_app/core/widgets/shimmer/app_shimmer.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
-import 'package:dating_app/app/theme/skeleton_colors.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:buddypartner/core/widgets/shimmer/app_shimmer.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/app/theme/skeleton_colors.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
 
 /// ChatMessageSkeleton renders realistic chat bubble skeletons with text lines
 /// shimmering inside distinct message bubble frames.
@@ -88,3 +88,5 @@ class ChatMessageSkeleton extends StatelessWidget {
     );
   }
 }
+
+

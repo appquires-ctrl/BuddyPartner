@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
-import 'package:dating_app/core/widgets/buttons/app_primary_button.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/core/widgets/buttons/app_primary_button.dart';
 
 /// AppErrorState displays standard error alerts and handles retry action setups.
 class AppErrorState extends StatelessWidget {

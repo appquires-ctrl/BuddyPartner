@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:dating_app/core/constants/country_codes.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:buddypartner/core/constants/country_codes.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
 
 class CountryCodePickerModal extends StatefulWidget {
   final CountryCode selectedCountry;

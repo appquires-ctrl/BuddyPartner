@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dating_app/features/auth/application/auth_controller.dart';
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
-import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
-import 'package:dating_app/app/theme/app_radius.dart';
-import 'package:dating_app/core/widgets/cards/app_card.dart';
-import 'package:dating_app/core/widgets/gradient_avatar.dart';
+import 'package:buddypartner/features/auth/application/auth_controller.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/app/theme/app_radius.dart';
+import 'package:buddypartner/core/widgets/cards/app_card.dart';
+import 'package:buddypartner/core/widgets/gradient_avatar.dart';
 
 /// ProfilePage renders the Settings screen dashboard matching the screenshot layout exactly.
 /// Displays user info card, general settings categories, support links, and logout.

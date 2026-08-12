@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dating_app/core/services/api_client.dart';
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
-import 'package:dating_app/features/subscription/application/subscription_state.dart';
-import 'package:dating_app/features/subscription/domain/subscription_plan.dart';
+import 'package:buddypartner/core/services/api_client.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/features/subscription/application/subscription_state.dart';
+import 'package:buddypartner/features/subscription/domain/subscription_plan.dart';
 
 class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
   Timer? _countdownTimer;

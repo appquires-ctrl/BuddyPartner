@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/app/theme/app_radius.dart';
-import 'package:dating_app/core/widgets/feedback/app_loading_indicator.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/app/theme/app_radius.dart';
+import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
+
+import 'package:buddypartner/core/utils/app_throttler.dart';
 
 /// AppPrimaryButton is the main call-to-action button in the design system.
 /// Features a primary color background, circular/pill border radius, and loading support.
@@ -59,9 +61,9 @@ class AppPrimaryButton extends StatelessWidget {
           shape: const RoundedRectangleBorder(
             borderRadius: AppRadius.pill,
           ),
-          disabledBackgroundColor: colors.primary.withOpacity(0.5),
+          disabledBackgroundColor: colors.primary.withValues(alpha: 0.5),
         ),
-        onPressed: isLoading ? null : onPressed,
+        onPressed: isLoading ? null : AppThrottler.wrap(onPressed),
         child: buttonContent,
       ),
     );

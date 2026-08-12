@@ -1,9 +1,14 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:go_router/go_router.dart';
 import 'package:socket_io_client/socket_io_client.dart' as sio;
-import 'package:dating_app/core/config/app_config.dart';
-import 'package:dating_app/core/services/api_client.dart';
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/core/config/app_config.dart';
+import 'package:buddypartner/core/services/api_client.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/app/router/app_router.dart';
+import 'package:buddypartner/app/router/route_names.dart';
 
 /// Shared Socket.io connection provider.
 ///
@@ -43,9 +48,24 @@ class SocketNotifier extends Notifier<sio.Socket?> {
     final accessToken = await ref.read(apiClientProvider).getToken();
     if (accessToken == null) return;
 
+    String appVersion = '1.0.0';
+    try {
+      if (!kIsWeb) {
+        final pkg = await PackageInfo.fromPlatform();
+        appVersion = pkg.version;
+      }
+    } catch (_) {}
+
+    final platform = kIsWeb ? 'android' : (Platform.isIOS ? 'ios' : 'android');
+    final authPayload = {
+      'token': accessToken,
+      'appVersion': appVersion,
+      'platform': platform,
+    };
+
     if (state != null) {
       if (state!.io.options != null) {
-        state!.io.options!['auth'] = {'token': accessToken};
+        state!.io.options!['auth'] = authPayload;
       }
       if (!state!.connected) {
         state!.connect();
@@ -57,7 +77,7 @@ class SocketNotifier extends Notifier<sio.Socket?> {
       AppConfig.backendUrl,
       sio.OptionBuilder()
           .setTransports(['websocket'])
-          .setAuth({'token': accessToken})
+          .setAuth(authPayload)
           .disableAutoConnect()
           .enableReconnection()
           .build(),
@@ -73,12 +93,23 @@ class SocketNotifier extends Notifier<sio.Socket?> {
       // Refresh token for reconnection
       final token = await ref.read(apiClientProvider).getToken();
       if (token != null && socket.io.options != null) {
-        socket.io.options!['auth'] = {'token': token};
+        socket.io.options!['auth'] = {
+          'token': token,
+          'appVersion': appVersion,
+          'platform': platform,
+        };
       }
     });
 
     socket.onConnectError((err) {
       debugPrint('[SocketProvider] Connection error: $err');
+      final errStr = err.toString();
+      if (errStr.contains('ACCOUNT_UPGRADE_REQUIRED')) {
+        final context = rootNavigatorKey.currentContext;
+        if (context != null) {
+          context.go(RouteNames.updateRequired);
+        }
+      }
     });
 
     socket.connect();

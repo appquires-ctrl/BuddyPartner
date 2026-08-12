@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
-import 'package:dating_app/core/utils/app_logger.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/core/utils/app_logger.dart';
 
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/features/home/presentation/widgets/matching_illustration.dart';
-import 'package:dating_app/features/home/presentation/providers/matched_users_provider.dart';
-import 'package:dating_app/features/home/presentation/widgets/favorite_user_card.dart';
-import 'package:dating_app/features/home/presentation/widgets/favorites_skeleton.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/features/home/presentation/widgets/matching_illustration.dart';
+import 'package:buddypartner/features/home/presentation/providers/matched_users_provider.dart';
+import 'package:buddypartner/features/home/presentation/widgets/favorite_user_card.dart';
+import 'package:buddypartner/features/home/presentation/widgets/favorites_skeleton.dart';
 
 /// FavoritesPage renders the user's favorited telecallers.
 class FavoritesPage extends ConsumerStatefulWidget {
@@ -127,7 +127,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
                         child: Text(
-                          'Start adding telecallers to your favorites and they will appear here!',
+                          'Start adding partners to your favorites and they will appear here!',
                           style: typography.bodySmall.copyWith(
                             color: colors.textSecondary,
                             fontSize: 13,

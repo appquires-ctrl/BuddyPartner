@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
 
 /// SectionHeader displays a bold title and an optional trailing text button.
 class SectionHeader extends StatelessWidget {

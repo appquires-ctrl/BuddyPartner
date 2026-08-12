@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:dating_app/core/utils/app_logger.dart';
+import 'package:buddypartner/core/utils/app_logger.dart';
 
 /// Centralized utility for showing SnackBars across the application.
 /// Automatically logs every error, success, or info SnackBar message to the terminal.

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/core/widgets/app_avatar.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/core/widgets/app_avatar.dart';
 
 class GradientAvatar extends StatelessWidget {
   final String initials;

@@ -110,7 +110,7 @@ class MatchmakingService {
    * @returns {string}
    */
   generateChannelName() {
-    return `loopcall_${crypto.randomBytes(8).toString('hex')}`;
+    return `buddypartner_${crypto.randomBytes(8).toString('hex')}`;
   }
 
   /**

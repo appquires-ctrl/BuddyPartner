@@ -4,16 +4,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:socket_io_client/socket_io_client.dart' as sio;
-import 'package:dating_app/core/services/socket_provider.dart';
+import 'package:buddypartner/core/services/socket_provider.dart';
 
-import 'package:dating_app/core/config/app_config.dart';
+import 'package:buddypartner/core/config/app_config.dart';
 import 'matchmaking_state.dart';
-import 'package:dating_app/features/call/application/call_summary_provider.dart';
-import 'package:dating_app/features/subscription/application/subscription_providers.dart';
-import 'package:dating_app/features/home/presentation/providers/matched_users_provider.dart';
-import 'package:dating_app/features/history/data/call_history_provider.dart';
+import 'package:buddypartner/features/call/application/call_summary_provider.dart';
+import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
+import 'package:buddypartner/features/home/presentation/providers/matched_users_provider.dart';
+import 'package:buddypartner/features/history/data/call_history_provider.dart';
 
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
 /// MatchmakingController manages the full matchmaking lifecycle:
 ///   idle → queued → matched → inCall → ended → idle

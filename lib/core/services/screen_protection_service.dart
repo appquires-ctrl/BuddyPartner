@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:screen_protector/screen_protector.dart';
-import 'package:dating_app/app/router/app_router.dart';
-import 'package:dating_app/core/utils/app_snack_bar.dart';
-import 'package:dating_app/core/services/socket_provider.dart';
+import 'package:buddypartner/app/router/app_router.dart';
+import 'package:buddypartner/core/utils/app_snack_bar.dart';
+import 'package:buddypartner/core/services/socket_provider.dart';
 
 /// Service to manage app-wide screen protection across platforms.
 ///

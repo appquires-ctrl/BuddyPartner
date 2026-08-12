@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dating_app/core/widgets/feedback/app_loading_indicator.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/core/utils/app_snack_bar.dart';
-import 'package:dating_app/app/theme/app_radius.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
-import 'package:dating_app/features/chat/data/chat_repository.dart';
+import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/core/utils/app_snack_bar.dart';
+import 'package:buddypartner/app/theme/app_radius.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/features/chat/data/chat_repository.dart';
 
-import 'package:dating_app/core/utils/app_logger.dart';
+import 'package:buddypartner/core/utils/app_logger.dart';
 
 /// ReportBlockDialog displays options to report a host and block them from the app.
 class ReportBlockDialog extends ConsumerStatefulWidget {

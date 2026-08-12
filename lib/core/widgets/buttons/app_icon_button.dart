@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/core/utils/app_throttler.dart';
 
 /// AppIconButton provides a themed icon button wrapper.
 /// Can optionally render with a solid circular background.
@@ -23,6 +24,7 @@ class AppIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final buttonColor = color ?? colors.primary;
+    final throttledOnPressed = AppThrottler.wrap(onPressed)!;
 
     if (backgroundColor != null) {
       return Material(
@@ -30,7 +32,7 @@ class AppIconButton extends StatelessWidget {
         shape: const CircleBorder(),
         child: InkWell(
           customBorder: const CircleBorder(),
-          onTap: onPressed,
+          onTap: throttledOnPressed,
           child: Padding(
             padding: const EdgeInsets.all(8.0),
             child: Icon(
@@ -47,7 +49,7 @@ class AppIconButton extends StatelessWidget {
       icon: Icon(icon),
       color: buttonColor,
       iconSize: size,
-      onPressed: onPressed,
+      onPressed: throttledOnPressed,
     );
   }
 }

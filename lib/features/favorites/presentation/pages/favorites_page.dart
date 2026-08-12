@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:dating_app/core/widgets/feedback/app_empty_state.dart';
+import 'package:buddypartner/core/widgets/feedback/app_empty_state.dart';
 
 /// FavoritesPage displays the list of user-favorited telecallers.
 /// Currently stubbed with an AppEmptyState illustration placeholder.

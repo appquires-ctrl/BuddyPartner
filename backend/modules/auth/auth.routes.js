@@ -8,8 +8,8 @@ const redis = require('../../redis');
 const { authMiddleware } = require('../../middleware/auth.middleware');
 const { generateOTP, sanitizePhoneInputs, sendWhatsAppOtp } = require('./otpService');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'loopcall_fallback_jwt_secret_key_change_me_in_prod';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'loopcall_fallback_jwt_refresh_secret_key';
+const JWT_SECRET = process.env.JWT_SECRET || 'buddypartner_fallback_jwt_secret_key_change_me_in_prod';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'buddypartner_fallback_jwt_refresh_secret_key';
 
 // Rate limit constants
 const OTP_TTL_SECONDS = 300; // 5 minutes

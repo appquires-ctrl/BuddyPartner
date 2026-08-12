@@ -1,5 +1,5 @@
 /// AvatarCatalog defines the curated set of bundled DiceBear SVG avatars
-/// for male and female user profiles on LoopCall.
+/// for male and female user profiles on BuddyPartner.
 class AvatarCatalog {
   AvatarCatalog._();
 

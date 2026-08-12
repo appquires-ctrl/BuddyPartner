@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/core/utils/app_snack_bar.dart';
-import 'package:dating_app/core/utils/app_logger.dart';
-import 'package:dating_app/features/recharge/presentation/providers/recharge_providers.dart';
-import 'package:dating_app/features/recharge/presentation/widgets/recharge_plan_card.dart';
-import 'package:dating_app/core/widgets/cards/wallet_card.dart';
-import 'package:dating_app/core/widgets/layout/section_header.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/core/utils/app_snack_bar.dart';
+import 'package:buddypartner/core/utils/app_logger.dart';
+import 'package:buddypartner/features/recharge/presentation/providers/recharge_providers.dart';
+import 'package:buddypartner/features/recharge/presentation/widgets/recharge_plan_card.dart';
+import 'package:buddypartner/core/widgets/cards/wallet_card.dart';
+import 'package:buddypartner/core/widgets/layout/section_header.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
 
 
 

@@ -2,9 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
 /// AnimatedSplashScreen renders a 3-step continuous animation sequence:
 /// 1. Logo Scale-in (0.3 -> 1.0)

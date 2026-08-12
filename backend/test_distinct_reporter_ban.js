@@ -4,7 +4,7 @@ const { ModerationService } = require('./modules/moderation/moderation.service')
 const jwt = require('jsonwebtoken');
 const expressApp = require('./server').app;
 
-const JWT_SECRET = process.env.JWT_SECRET || 'loopcall_fallback_jwt_secret_key_change_me_in_prod';
+const JWT_SECRET = process.env.JWT_SECRET || 'buddypartner_fallback_jwt_secret_key_change_me_in_prod';
 
 async function runDistinctReporterBanTests() {
   console.log('🚀 Running 3-Distinct-Reporter Ban Automation Test Suite...\n');

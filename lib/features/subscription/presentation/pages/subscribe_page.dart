@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/features/subscription/domain/subscription_plan.dart';
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
-import 'package:dating_app/features/subscription/application/subscription_providers.dart';
-import 'package:dating_app/core/utils/app_logger.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/features/subscription/domain/subscription_plan.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
+import 'package:buddypartner/core/utils/app_logger.dart';
 
 class SubscribePage extends ConsumerStatefulWidget {
   const SubscribePage({super.key});
@@ -290,6 +290,7 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
 
   Widget _buildTrustBadges(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 1. Secure Payment
         Expanded(
@@ -301,7 +302,7 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
           ),
         ),
 
-        const SizedBox(width: 12),
+        const SizedBox(width: 10),
 
         // 2. 30-Day Guarantee
         Expanded(
@@ -326,10 +327,11 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
     final typography = context.typography;
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 40,
-          height: 40,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
             color: colors.primary.withValues(alpha: 0.12),
             shape: BoxShape.circle,
@@ -337,10 +339,10 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
           child: Icon(
             icon,
             color: colors.primary,
-            size: 20,
+            size: 18,
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,23 +352,23 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
                 title,
                 style: typography.bodyMedium.copyWith(
                   fontWeight: FontWeight.bold,
-                  fontSize: 13.5,
+                  fontSize: 13.0,
                   color: colors.textPrimary,
-                  height: 1.2,
+                  height: 1.25,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+                softWrap: true,
               ),
               const SizedBox(height: 2),
               Text(
                 subtitle,
                 style: typography.bodySmall.copyWith(
-                  fontSize: 11.5,
+                  fontSize: 11.0,
                   color: colors.textSecondary,
                   height: 1.2,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+                softWrap: true,
               ),
             ],
           ),

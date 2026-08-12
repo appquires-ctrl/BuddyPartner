@@ -1,23 +1,23 @@
-import 'package:dating_app/core/utils/app_snack_bar.dart';
-import 'package:dating_app/core/widgets/feedback/app_loading_indicator.dart';
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/core/utils/app_snack_bar.dart';
+import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:dating_app/core/services/location_service.dart';
-import 'package:dating_app/features/home/presentation/widgets/matching_illustration.dart';
-import 'package:dating_app/features/call/application/matchmaking_controller.dart';
-import 'package:dating_app/features/call/application/matchmaking_state.dart';
-import 'package:dating_app/features/home/presentation/providers/matched_users_provider.dart';
-import 'package:dating_app/features/home/presentation/widgets/matched_user_card.dart';
-import 'package:dating_app/features/home/presentation/widgets/home_skeleton.dart';
-import 'package:dating_app/features/subscription/application/subscription_providers.dart';
-import 'package:dating_app/core/widgets/gradient_avatar.dart';
-import 'package:dating_app/core/utils/app_logger.dart';
+import 'package:buddypartner/core/services/location_service.dart';
+import 'package:buddypartner/features/home/presentation/widgets/matching_illustration.dart';
+import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
+import 'package:buddypartner/features/call/application/matchmaking_state.dart';
+import 'package:buddypartner/features/home/presentation/providers/matched_users_provider.dart';
+import 'package:buddypartner/features/home/presentation/widgets/matched_user_card.dart';
+import 'package:buddypartner/features/home/presentation/widgets/home_skeleton.dart';
+import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
+import 'package:buddypartner/core/widgets/gradient_avatar.dart';
+import 'package:buddypartner/core/utils/app_logger.dart';
 
 /// HomePage renders the primary "stranger search" radar screen.
 /// Matches screenshots/home.jpeg exactly.

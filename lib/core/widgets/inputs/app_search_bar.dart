@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/app/theme/app_radius.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/app/theme/app_radius.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
 
 /// AppSearchBar renders a geometric, rounded input bar
 /// with search icon, tailored to the app themes.
@@ -12,7 +12,7 @@ class AppSearchBar extends StatelessWidget {
 
   const AppSearchBar({
     super.key,
-    this.hintText = 'Search telecallers...',
+    this.hintText = 'Search partners...',
     this.onChanged,
     this.controller,
   });

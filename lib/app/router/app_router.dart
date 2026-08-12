@@ -2,43 +2,49 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/features/splash/presentation/pages/splash_page.dart';
-import 'package:dating_app/features/auth/presentation/pages/login_page.dart';
-import 'package:dating_app/features/auth/presentation/pages/signup_page.dart';
-import 'package:dating_app/features/auth/presentation/pages/forgot_password_page.dart';
-import 'package:dating_app/features/home/presentation/pages/home_page.dart';
-import 'package:dating_app/features/home/presentation/pages/host_details_page.dart';
-import 'package:dating_app/features/home/presentation/pages/favorites_page.dart';
-import 'package:dating_app/features/call/presentation/pages/calling_page.dart';
-import 'package:dating_app/features/call/presentation/pages/active_call_page.dart';
-import 'package:dating_app/features/call/presentation/pages/incoming_call_page.dart';
-import 'package:dating_app/features/call/presentation/pages/call_summary_page.dart';
-import 'package:dating_app/features/chat/presentation/pages/conversations_list_page.dart';
-import 'package:dating_app/features/chat/presentation/pages/chat_page.dart';
-import 'package:dating_app/features/history/presentation/pages/call_history_page.dart';
-import 'package:dating_app/features/profile/presentation/pages/profile_page.dart';
-import 'package:dating_app/features/profile/presentation/pages/account_page.dart';
-import 'package:dating_app/features/profile/presentation/pages/help_page.dart';
-import 'package:dating_app/features/subscription/presentation/pages/subscribe_page.dart';
-import 'package:dating_app/features/subscription/presentation/pages/dev_subscription_page.dart';
-import 'package:dating_app/features/subscription/domain/subscription_plan.dart';
-import 'package:dating_app/features/legal/presentation/pages/legal_document_page.dart';
-import 'package:dating_app/features/legal/data/legal_document_content.dart';
-import 'package:dating_app/features/wallet/presentation/pages/transaction_history_page.dart';
-import 'package:dating_app/features/auth/presentation/pages/banned_screen.dart';
-import 'package:dating_app/core/widgets/layout/app_bottom_nav.dart';
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
-import 'package:dating_app/core/utils/app_navigation_observer.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/features/splash/presentation/pages/splash_page.dart';
+import 'package:buddypartner/features/auth/presentation/pages/login_page.dart';
+import 'package:buddypartner/features/auth/presentation/pages/signup_page.dart';
+import 'package:buddypartner/features/auth/presentation/pages/forgot_password_page.dart';
+import 'package:buddypartner/features/home/presentation/pages/home_page.dart';
+import 'package:buddypartner/features/home/presentation/pages/host_details_page.dart';
+import 'package:buddypartner/features/home/presentation/pages/favorites_page.dart';
+import 'package:buddypartner/features/call/presentation/pages/calling_page.dart';
+import 'package:buddypartner/features/call/presentation/pages/active_call_page.dart';
+import 'package:buddypartner/features/call/presentation/pages/incoming_call_page.dart';
+import 'package:buddypartner/features/call/presentation/pages/call_summary_page.dart';
+import 'package:buddypartner/features/chat/presentation/pages/conversations_list_page.dart';
+import 'package:buddypartner/features/chat/presentation/pages/chat_page.dart';
+import 'package:buddypartner/features/history/presentation/pages/call_history_page.dart';
+import 'package:buddypartner/features/profile/presentation/pages/profile_page.dart';
+import 'package:buddypartner/features/profile/presentation/pages/account_page.dart';
+import 'package:buddypartner/features/profile/presentation/pages/help_page.dart';
+import 'package:buddypartner/features/subscription/presentation/pages/subscribe_page.dart';
+import 'package:buddypartner/features/subscription/presentation/pages/dev_subscription_page.dart';
+import 'package:buddypartner/features/subscription/domain/subscription_plan.dart';
+import 'package:buddypartner/features/legal/presentation/pages/legal_document_page.dart';
+import 'package:buddypartner/features/legal/data/legal_document_content.dart';
+import 'package:buddypartner/features/wallet/presentation/pages/transaction_history_page.dart';
+import 'package:buddypartner/features/auth/presentation/pages/banned_screen.dart';
+import 'package:buddypartner/core/widgets/layout/app_bottom_nav.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/core/utils/app_navigation_observer.dart';
+
+import 'package:buddypartner/features/version/application/version_check_provider.dart';
+import 'package:buddypartner/features/version/presentation/pages/update_required_page.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
 final bool _isTest = Platform.environment.containsKey('FLUTTER_TEST');
 
-/// ChangeNotifier that forwards Riverpod authState changes to GoRouter's refresh listener
+/// ChangeNotifier that forwards Riverpod auth & version changes to GoRouter's refresh listener
 class RouterTransitionNotifier extends ChangeNotifier {
   RouterTransitionNotifier(Ref ref) {
     ref.listen(authStateProvider, (previous, next) {
+      notifyListeners();
+    });
+    ref.listen(versionCheckProvider, (previous, next) {
       notifyListeners();
     });
   }
@@ -58,6 +64,14 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       if (_isTest) return null;
 
+      final versionState = ref.read(versionCheckProvider);
+      if (versionState.updateRequired) {
+        if (state.matchedLocation != RouteNames.updateRequired) {
+          return RouteNames.updateRequired;
+        }
+        return null;
+      }
+
       final currentUser = ref.read(authStateProvider).value;
       final isLoggedIn = currentUser != null;
       final isProfileComplete = currentUser?.isProfileComplete ?? false;
@@ -66,12 +80,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isBannedRoute = state.matchedLocation == RouteNames.banned ||
           state.matchedLocation == RouteNames.suspended;
       final isSplashRoute = state.matchedLocation == RouteNames.splash;
+      final isUpdateRequiredRoute = state.matchedLocation == RouteNames.updateRequired;
       final isAuthRoute = state.matchedLocation == RouteNames.login ||
           state.matchedLocation == RouteNames.signup ||
           state.matchedLocation == RouteNames.forgotPassword;
 
-      if (isLegalRoute || isBannedRoute || isSplashRoute) {
-        // Legal pages, Banned/Suspended screens, and Splash (which manages its own completion) can be viewed without auto-redirect!
+      if (isLegalRoute || isBannedRoute || isSplashRoute || isUpdateRequiredRoute) {
+        // Exempt routes can be viewed without auto-redirect
         return null;
       }
 
@@ -96,6 +111,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: RouteNames.updateRequired,
+        name: 'UpdateRequiredPage',
+        builder: (context, state) => const UpdateRequiredPage(),
+      ),
       // Onboarding stacked pages
       GoRoute(
         path: RouteNames.splash,

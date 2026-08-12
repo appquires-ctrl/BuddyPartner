@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// AppColors is a custom ThemeExtension that holds the color palette
-/// for the LoopCall design system. This enables access to design system
+/// for the BuddyPartner design system. This enables access to design system
 /// colors directly from context using `Theme.of(context).extension<AppColors>()`.
 @immutable
 class AppColors extends ThemeExtension<AppColors> {

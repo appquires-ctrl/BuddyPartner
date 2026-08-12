@@ -28,13 +28,13 @@ class LegalDocument {
   });
 }
 
-/// LegalDocumentContent contains complete draft legal texts for LoopCall.
+/// LegalDocumentContent contains complete draft legal texts for BuddyPartner.
 class LegalDocumentContent {
   LegalDocumentContent._();
 
   static const String defaultLastUpdated = 'July 25, 2026';
   static const String companyName = 'Appquires Tech';
-  static const String companyEmail = 'support@appquires.com';
+  static const String companyEmail = 'support@buddypartner.in';
   static const String companyWebsite = 'www.appquires.com';
   static const String companyAddress =
       'GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India';
@@ -47,17 +47,17 @@ class LegalDocumentContent {
     subtitle: 'Rules, user agreement & platform conditions',
     lastUpdated: defaultLastUpdated,
     summaryNotice:
-        'Official Terms of Service agreement governing access to LoopCall subscription plans and platform features.',
+        'Official Terms of Service agreement governing access to BuddyPartner subscription plans and platform features.',
     sections: [
       LegalDocumentSection(
         title: '1. Important Notice & Legal Disclaimer',
         content:
-            'Welcome to LoopCall (the "App"), operated by Appquires Tech ("Company", "we", "us", or "our"), having its registered address at GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India. These Terms of Service ("Terms") govern your access to and use of LoopCall, including our live voice/video calling features and subscription plans.\n\nBy creating an account or accessing LoopCall, you enter into a legally binding contract with Appquires Tech. If you do not agree to these Terms, you must immediately cease accessing or using the App.',
+            'Welcome to BuddyPartner (the "App"), operated by Appquires Tech ("Company", "we", "us", or "our"), having its registered address at GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India. These Terms of Service ("Terms") govern your access to and use of BuddyPartner, including our live voice/video calling features and subscription plans.\n\nBy creating an account or accessing BuddyPartner, you enter into a legally binding contract with Appquires Tech. If you do not agree to these Terms, you must immediately cease accessing or using the App.',
       ),
       LegalDocumentSection(
         title: '2. Eligibility & Age Requirement (18+ Only)',
         content:
-            'LoopCall is strictly intended for individuals who are at least eighteen (18) years of age. By registering an account, you self-attest and warrant that you are 18 years of age or older.\n\nWe maintain zero tolerance for underage access. If we discover or have reason to suspect that an account belongs to anyone under 18, we reserve the right to immediately terminate the account without prior notice or refund of any subscription pass.',
+            'BuddyPartner is strictly intended for individuals who are at least eighteen (18) years of age. By registering an account, you self-attest and warrant that you are 18 years of age or older.\n\nWe maintain zero tolerance for underage access. If we discover or have reason to suspect that an account belongs to anyone under 18, we reserve the right to immediately terminate the account without prior notice or refund of any subscription pass.',
       ),
       LegalDocumentSection(
         title: '3. Account Responsibilities & Security',
@@ -67,13 +67,13 @@ class LegalDocumentContent {
       LegalDocumentSection(
         title: '4. Prohibited Conduct & Safety Obligations',
         content:
-            'When participating in live audio/video matches, messaging, or interacting on LoopCall, you explicitly agree NOT to:\n\n'
+            'When participating in live audio/video matches, messaging, or interacting on BuddyPartner, you explicitly agree NOT to:\n\n'
             'a) Engage in harassment, bullying, intimidation, hate speech, stalking, or abusive behavior toward any user or host.\n'
             'b) Broadcast or transmit nudity, sexually explicit content, vulgar language, violence, or illegal acts during live calls.\n'
             'c) Share, solicit, or exchange off-platform contact details (such as whatsapp numbers, personal social media handles, messaging IDs, or financial account details) to circumvent the App or route around platform subscription rules.\n'
             'd) Impersonate any entity, celebrity, company representative, or other user.\n'
             'e) Engage in fraud, scamming, commercial solicitation, spamming, or unauthorized advertising.\n'
-            'f) Attempt to reverse-engineer, exploit, hack, or disrupt LoopCall servers, real-time call connections, or payment processing APIs.',
+            'f) Attempt to reverse-engineer, exploit, hack, or disrupt BuddyPartner servers, real-time call connections, or payment processing APIs.',
       ),
       LegalDocumentSection(
         title: '5. Subscription Economy & Pass Access',
@@ -93,7 +93,7 @@ class LegalDocumentContent {
         title: '7. Matched Users Disclaimer (Unverified Strangers)',
         content:
             'YOU ACKNOWLEDGE AND AGREE THAT MATCHED USERS ARE UNVERIFIED STRANGERS. THE PLATFORM DOES NOT GUARANTEE ANY USER\'S IDENTITY, AGE, BACKGROUND, OR CONDUCT.\n\n'
-            'LoopCall provides the real-time transportation infrastructure for audio and video calls, but does not control user interactions. You participate in live calls at your own risk and discretion. Exercise caution when interacting with strangers.',
+            'BuddyPartner provides the real-time transportation infrastructure for audio and video calls, but does not control user interactions. You participate in live calls at your own risk and discretion. Exercise caution when interacting with strangers.',
       ),
       LegalDocumentSection(
         title: '8. Limitation of Liability',
@@ -108,13 +108,13 @@ class LegalDocumentContent {
       LegalDocumentSection(
         title: '10. Changes to Terms',
         content:
-            'We reserve the right to revise these Terms at any time. When changes are published, we will update the "Last Updated" date at the top of this page. Your continued use of LoopCall after revised Terms are posted constitutes acceptance of the updated Terms.',
+            'We reserve the right to revise these Terms at any time. When changes are published, we will update the "Last Updated" date at the top of this page. Your continued use of BuddyPartner after revised Terms are posted constitutes acceptance of the updated Terms.',
       ),
       LegalDocumentSection(
         title: '11. Contact Information',
         content:
             'For any questions or legal inquiries regarding these Terms, please contact us at:\n\n'
-            '• Email: support@appquires.com\n'
+            '• Email: support@buddypartner.in\n'
             '• Website: www.appquires.com\n'
             '• Address: GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India\n'
             '• Entity: Appquires Tech',
@@ -167,7 +167,7 @@ class LegalDocumentContent {
         content:
             '• Data Retention: We retain user profile data and transaction logs as long as your account remains active or as required by law (e.g. tax and financial record obligations under Indian law).\n'
             '• Access & Deletion Rights: You have the right to request access to your stored personal data or request permanent deletion of your account and associated profile data.\n'
-            '• Request Submission: Submit data access or deletion requests by emailing support@appquires.com.',
+            '• Request Submission: Submit data access or deletion requests by emailing support@buddypartner.in.',
       ),
       LegalDocumentSection(
         title: '6. Cookies, Storage & Analytics',
@@ -178,7 +178,7 @@ class LegalDocumentContent {
         title: '7. Privacy Inquiries & Contact Info',
         content:
             'If you have questions regarding this Privacy Policy or wish to exercise your privacy rights, please reach out to our privacy officer:\n\n'
-            '• Privacy Officer Email: support@appquires.com\n'
+            '• Privacy Officer Email: support@buddypartner.in\n'
             '• Legal Entity: Appquires Tech\n'
             '• Website: www.appquires.com\n'
             '• Address: GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India',
@@ -193,12 +193,12 @@ class LegalDocumentContent {
     subtitle: 'Standards for safe & respectful interactions',
     lastUpdated: defaultLastUpdated,
     summaryNotice:
-        'Written in clear, accessible language for all LoopCall users. Everyone on LoopCall must follow these standards.',
+        'Written in clear, accessible language for all BuddyPartner users. Everyone on BuddyPartner must follow these standards.',
     sections: [
       LegalDocumentSection(
         title: '1. Respect & Be Kind',
         content:
-            'LoopCall is built for genuine, friendly connections. Treat every user with respect.\n\n'
+            'BuddyPartner is built for genuine, friendly connections. Treat every user with respect.\n\n'
             '• Zero Bullying & Hate Speech: Harassment, hate speech, body shaming, religious disrespect, or racial slurs will result in immediate account suspension.\n'
             '• Respect Boundaries: If someone expresses discomfort or asks to end a call, respect their decision gracefully.',
       ),
@@ -212,7 +212,7 @@ class LegalDocumentContent {
       LegalDocumentSection(
         title: '3. No Off-Platform Routing or Scams',
         content:
-            '• Keep Calls Inside LoopCall: Asking users to exchange personal whatsapp numbers, WhatsApp, Telegram, or social media handles to bypass platform subscription rules is strictly prohibited.\n'
+            '• Keep Calls Inside BuddyPartner: Asking users to exchange personal whatsapp numbers, WhatsApp, Telegram, or social media handles to bypass platform subscription rules is strictly prohibited.\n'
             '• Anti-Fraud Policy: Asking for money transfers, sharing fake UPI payment links, or attempting financial scams will lead to immediate permanent ban and reporting to authorities.',
       ),
       LegalDocumentSection(
@@ -239,12 +239,12 @@ class LegalDocumentContent {
     subtitle: 'Subscription pass billing & refund rules',
     lastUpdated: defaultLastUpdated,
     summaryNotice:
-        'Clear terms governing subscription pass purchases and billing inquiries on LoopCall.',
+        'Clear terms governing subscription pass purchases and billing inquiries on BuddyPartner.',
     sections: [
       LegalDocumentSection(
         title: '1. Subscription Pass Purchases (Non-Refundable)',
         content:
-            'All subscription pass purchases (1 Day Pass, 1 Week Pass, 1 Month Pass, 1 Year VIP) made through LoopCall are final, non-refundable, and non-exchangeable for cash, except as explicitly required by applicable law or app store policy (Google Play / Apple App Store).\n\n'
+            'All subscription pass purchases (1 Day Pass, 1 Week Pass, 1 Month Pass, 1 Year VIP) made through BuddyPartner are final, non-refundable, and non-exchangeable for cash, except as explicitly required by applicable law or app store policy (Google Play / Apple App Store).\n\n'
             'Subscriptions are activated immediately upon successful payment verification.',
       ),
       LegalDocumentSection(
@@ -253,13 +253,13 @@ class LegalDocumentContent {
             'If you purchased a subscription via Google Play Billing or Apple In-App Purchase:\n\n'
             '• Store Policy: Refund requests are subject to the policies of Google Play or the Apple App Store.\n'
             '• Request Process: You may request a refund directly through your Google Play Account history or Apple ID purchase receipt.\n'
-            '• Consumed Access: If a refund is granted by the store provider for a subscription pass, LoopCall reserves the right to cancel the subscription or suspend the account if fraudulent activity is detected.',
+            '• Consumed Access: If a refund is granted by the store provider for a subscription pass, BuddyPartner reserves the right to cancel the subscription or suspend the account if fraudulent activity is detected.',
       ),
       LegalDocumentSection(
         title: '3. Technical Billing Errors',
         content:
-            'In the event of a technical glitch where money was debited from your bank account or card but subscription status was not activated on your LoopCall account:\n\n'
-            '• Contact Support: Email support@appquires.com with your transaction payment ID, registered mobile number, and order receipt.\n'
+            'In the event of a technical glitch where money was debited from your bank account or card but subscription status was not activated on your BuddyPartner account:\n\n'
+            '• Contact Support: Email support@buddypartner.in with your transaction payment ID, registered mobile number, and order receipt.\n'
             '• Resolution: Upon verification with payment gateway logs (e.g. Razorpay), your subscription will be manually activated within 24–48 hours.',
       ),
       LegalDocumentSection(
@@ -282,7 +282,7 @@ class LegalDocumentContent {
       LegalDocumentSection(
         title: '1. Universal Subscription Model',
         content:
-            'LoopCall operates on a unified subscription model for both male and female users. Access to matchmaking, direct voice/video calling, and instant messaging requires an active subscription pass.\n\n'
+            'BuddyPartner operates on a unified subscription model for both male and female users. Access to matchmaking, direct voice/video calling, and instant messaging requires an active subscription pass.\n\n'
             'Subscription options include 1 Day Pass, 1 Week Pass, 1 Month Pass, and 1 Year VIP.',
       ),
       LegalDocumentSection(
@@ -305,7 +305,7 @@ class LegalDocumentContent {
       LegalDocumentSection(
         title: '5. Inquiries & Support',
         content:
-            'For questions concerning subscription passes or billing status, contact support at support@appquires.com.',
+            'For questions concerning subscription passes or billing status, contact support at support@buddypartner.in.',
       ),
     ],
   );

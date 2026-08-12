@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
-import 'package:dating_app/app/theme/app_radius.dart';
-import 'package:dating_app/core/widgets/cards/app_card.dart';
-import 'package:dating_app/core/widgets/buttons/app_primary_button.dart';
-import 'package:dating_app/features/call/application/call_summary_provider.dart';
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/app/theme/app_radius.dart';
+import 'package:buddypartner/core/widgets/cards/app_card.dart';
+import 'package:buddypartner/core/widgets/buttons/app_primary_button.dart';
+import 'package:buddypartner/features/call/application/call_summary_provider.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
 /// CallSummaryPage displays the final call duration and cost summaries,
 /// prompting users to provide ratings and optional text reviews.

@@ -47,11 +47,11 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <intent-filter android:label="loopcall_auth_callback">
+            <intent-filter android:label="buddypartner_auth_callback">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="loopcall" android:host="login" />
+                <data android:scheme="buddypartner" android:host="login" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/features/home/presentation/providers/matched_users_provider.dart';
-import 'package:dating_app/features/call/application/matchmaking_controller.dart';
-import 'package:dating_app/features/call/application/matchmaking_state.dart';
-import 'package:dating_app/features/auth/application/auth_state_provider.dart'; // for getInitials
-import 'package:dating_app/core/widgets/gradient_avatar.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/features/home/presentation/providers/matched_users_provider.dart';
+import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
+import 'package:buddypartner/features/call/application/matchmaking_state.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart'; // for getInitials
+import 'package:buddypartner/core/widgets/gradient_avatar.dart';
 
 class MatchedUserCard extends ConsumerStatefulWidget {
   final MatchedUser user;

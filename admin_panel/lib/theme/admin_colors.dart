@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// LoopCall Admin Panel Color System
-/// Derived from LoopCall mobile app's brand tokens with web density contrast.
+/// BuddyPartner Admin Panel Color System
+/// Derived from BuddyPartner mobile app's brand tokens with web density contrast.
 class AdminColors {
   // Brand Purples & Lavender Accent
   static const Color primary = Color(0xFF7C6AEF);

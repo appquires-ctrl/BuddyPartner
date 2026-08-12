@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dating_app/core/services/socket_provider.dart';
-import 'package:dating_app/features/chat/data/chat_repository.dart';
-import 'package:dating_app/features/chat/domain/conversation.dart';
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/core/services/socket_provider.dart';
+import 'package:buddypartner/features/chat/data/chat_repository.dart';
+import 'package:buddypartner/features/chat/domain/conversation.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
 class ConversationsNotifier extends AutoDisposeAsyncNotifier<List<Conversation>> {
   @override

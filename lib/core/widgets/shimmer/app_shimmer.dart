@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:dating_app/app/theme/skeleton_colors.dart';
+import 'package:buddypartner/app/theme/skeleton_colors.dart';
 
 /// AppShimmer wraps arbitrary layout structures with animated theme color bands.
 /// Uses application theme tint colors by default for consistent brand aesthetics.

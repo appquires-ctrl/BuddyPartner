@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dating_app/core/widgets/feedback/app_loading_indicator.dart';
+import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
-import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/core/utils/app_snack_bar.dart';
-import 'package:dating_app/core/utils/app_logger.dart';
-import 'package:dating_app/features/call/application/matchmaking_controller.dart';
-import 'package:dating_app/features/call/application/matchmaking_state.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/core/utils/app_snack_bar.dart';
+import 'package:buddypartner/core/utils/app_logger.dart';
+import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
+import 'package:buddypartner/features/call/application/matchmaking_state.dart';
 
-import 'package:dating_app/core/widgets/app_avatar.dart';
+import 'package:buddypartner/core/widgets/app_avatar.dart';
 
 /// ActiveCallPage displays the active voice call interface.
 /// Wired to the MatchmakingController for real Agora audio/video and

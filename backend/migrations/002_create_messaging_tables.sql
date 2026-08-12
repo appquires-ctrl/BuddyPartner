@@ -1,4 +1,4 @@
--- LoopCall: Messaging tables migration
+-- BuddyPartner: Messaging tables migration
 -- Conversations, Messages, Read receipts, Blocks, Reports
 
 -- 1. Conversations — one canonical row per user pair

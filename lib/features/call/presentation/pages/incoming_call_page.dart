@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/features/call/application/matchmaking_controller.dart';
-import 'package:dating_app/features/call/application/matchmaking_state.dart';
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
-import 'package:dating_app/core/widgets/app_avatar.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
+import 'package:buddypartner/features/call/application/matchmaking_state.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/core/widgets/app_avatar.dart';
 
 class IncomingCallPage extends ConsumerWidget {
   const IncomingCallPage({super.key});

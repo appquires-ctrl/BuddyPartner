@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
 
 /// TelecallerOptInPage renders the "Join as Telecaller?" onboarding step for female users.
 /// Matches the reference screenshot layout and styling precisely.
@@ -59,7 +59,7 @@ class _TelecallerOptInPageState extends State<TelecallerOptInPage> {
 
                     // Main Title
                     Text(
-                      'Join as Telecaller?',
+                      'Join as Partner?',
                       style: typography.headlineGreeting.copyWith(
                         fontSize: 28.0,
                         fontWeight: FontWeight.bold,

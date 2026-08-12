@@ -2,16 +2,17 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dating_app/app/router/route_names.dart';
-import 'package:dating_app/app/theme/app_spacing.dart';
-import 'package:dating_app/core/extensions/context_extensions.dart';
-import 'package:dating_app/features/chat/application/conversations_provider.dart';
-import 'package:dating_app/features/chat/application/presence_provider.dart';
-import 'package:dating_app/features/chat/domain/conversation.dart';
-import 'package:dating_app/features/auth/application/auth_state_provider.dart';
-import 'package:dating_app/core/widgets/gradient_avatar.dart';
-import 'package:dating_app/core/widgets/shimmer/skeletons/conversation_list_item_skeleton.dart';
-import 'package:dating_app/features/home/presentation/widgets/matching_illustration.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/features/chat/application/conversations_provider.dart';
+import 'package:buddypartner/features/chat/application/presence_provider.dart';
+import 'package:buddypartner/features/chat/domain/conversation.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/core/widgets/gradient_avatar.dart';
+import 'package:buddypartner/core/widgets/shimmer/skeletons/conversation_list_item_skeleton.dart';
+import 'package:buddypartner/features/home/presentation/widgets/matching_illustration.dart';
+import 'package:buddypartner/core/utils/app_throttler.dart';
 
 /// ConversationsListPage displays the user's active conversations
 /// styled identically to the Favorites screen design system.
@@ -181,7 +182,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16.0),
                           child: Text(
-                            'Start a conversation with a telecaller to see your chats here!',
+                            'Start a conversation with a partner to see your chats here!',
                             style: typography.bodySmall.copyWith(
                               color: colors.textSecondary,
                               fontSize: 13,
@@ -322,6 +323,7 @@ class _ConversationCard extends ConsumerWidget {
             child: InkWell(
               borderRadius: BorderRadius.circular(24),
               onTap: () async {
+                if (!AppThrottler.canProcess(actionId: 'open_chat_${conversation.id}')) return;
                 await context.push(RouteNames.chat, extra: {
                   'conversationId': conversation.id,
                   'userId': conversation.otherUserId,
