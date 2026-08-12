@@ -33,6 +33,12 @@ class LegalDocumentContent {
   LegalDocumentContent._();
 
   static const String defaultLastUpdated = 'July 25, 2026';
+  static const String companyName = 'Appquires Tech';
+  static const String companyEmail = 'support@appquires.com';
+  static const String companyWebsite = 'www.appquires.com';
+  static const String companyAddress =
+      'GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India';
+  static const String jurisdictionCity = 'Ahmedabad, Gujarat, India';
 
   // 1. Terms of Service
   static const LegalDocument termsOfService = LegalDocument(
@@ -41,12 +47,12 @@ class LegalDocumentContent {
     subtitle: 'Rules, user agreement & platform conditions',
     lastUpdated: defaultLastUpdated,
     summaryNotice:
-        'DRAFT DOCUMENT — NOT LEGAL ADVICE. This terms agreement governs access to LoopCall subscription plans and platform features.',
+        'Official Terms of Service agreement governing access to LoopCall subscription plans and platform features.',
     sections: [
       LegalDocumentSection(
         title: '1. Important Notice & Legal Disclaimer',
         content:
-            'Welcome to LoopCall (the "App"), operated by [Company Legal Name] ("Company", "we", "us", or "our"), having its registered address at [Registered Address]. These Terms of Service ("Terms") govern your access to and use of LoopCall, including our live voice/video calling features and subscription plans.\n\nBy creating an account or accessing LoopCall, you enter into a legally binding contract with [Company Legal Name]. If you do not agree to these Terms, you must immediately cease accessing or using the App.',
+            'Welcome to LoopCall (the "App"), operated by Appquires Tech ("Company", "we", "us", or "our"), having its registered address at GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India. These Terms of Service ("Terms") govern your access to and use of LoopCall, including our live voice/video calling features and subscription plans.\n\nBy creating an account or accessing LoopCall, you enter into a legally binding contract with Appquires Tech. If you do not agree to these Terms, you must immediately cease accessing or using the App.',
       ),
       LegalDocumentSection(
         title: '2. Eligibility & Age Requirement (18+ Only)',
@@ -92,12 +98,12 @@ class LegalDocumentContent {
       LegalDocumentSection(
         title: '8. Limitation of Liability',
         content:
-            'To the maximum extent permitted by applicable law, [Company Legal Name], its officers, directors, employees, and agents shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or goodwill, arising from your use of or inability to use the App.',
+            'To the maximum extent permitted by applicable law, Appquires Tech, its officers, directors, employees, and agents shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or goodwill, arising from your use of or inability to use the App.',
       ),
       LegalDocumentSection(
         title: '9. Dispute Resolution & Governing Law',
         content:
-            'These Terms shall be governed by and construed in accordance with the laws of India. Any legal action, dispute, or proceeding arising out of or relating to these Terms shall be subject to the exclusive jurisdiction of the courts located in [Jurisdiction / City, India].',
+            'These Terms shall be governed by and construed in accordance with the laws of India. Any legal action, dispute, or proceeding arising out of or relating to these Terms shall be subject to the exclusive jurisdiction of the courts located in Ahmedabad, Gujarat, India.',
       ),
       LegalDocumentSection(
         title: '10. Changes to Terms',
@@ -108,9 +114,10 @@ class LegalDocumentContent {
         title: '11. Contact Information',
         content:
             'For any questions or legal inquiries regarding these Terms, please contact us at:\n\n'
-            '• Email: [Contact Email]\n'
-            '• Address: [Registered Address]\n'
-            '• Entity: [Company Legal Name]',
+            '• Email: support@appquires.com\n'
+            '• Website: www.appquires.com\n'
+            '• Address: GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India\n'
+            '• Entity: Appquires Tech',
       ),
     ],
   );
@@ -122,7 +129,7 @@ class LegalDocumentContent {
     subtitle: 'How your data is collected, used & protected',
     lastUpdated: defaultLastUpdated,
     summaryNotice:
-        'DRAFT DOCUMENT — NOT LEGAL ADVICE. This privacy policy complies with Indian Information Technology (IT Rules 2021) guidelines and governs subscription and user data protection.',
+        'This privacy policy complies with Indian Information Technology (IT Rules 2021) guidelines and governs subscription and user data protection.',
     sections: [
       LegalDocumentSection(
         title: '1. Information We Collect',
@@ -160,7 +167,7 @@ class LegalDocumentContent {
         content:
             '• Data Retention: We retain user profile data and transaction logs as long as your account remains active or as required by law (e.g. tax and financial record obligations under Indian law).\n'
             '• Access & Deletion Rights: You have the right to request access to your stored personal data or request permanent deletion of your account and associated profile data.\n'
-            '• Request Submission: Submit data access or deletion requests by emailing [Privacy Contact Email].',
+            '• Request Submission: Submit data access or deletion requests by emailing support@appquires.com.',
       ),
       LegalDocumentSection(
         title: '6. Cookies, Storage & Analytics',
@@ -171,9 +178,10 @@ class LegalDocumentContent {
         title: '7. Privacy Inquiries & Contact Info',
         content:
             'If you have questions regarding this Privacy Policy or wish to exercise your privacy rights, please reach out to our privacy officer:\n\n'
-            '• Privacy Officer Email: [Privacy Contact Email]\n'
-            '• Legal Entity: [Company Legal Name]\n'
-            '• Address: [Registered Address]',
+            '• Privacy Officer Email: support@appquires.com\n'
+            '• Legal Entity: Appquires Tech\n'
+            '• Website: www.appquires.com\n'
+            '• Address: GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India',
       ),
     ],
   );
@@ -251,7 +259,7 @@ class LegalDocumentContent {
         title: '3. Technical Billing Errors',
         content:
             'In the event of a technical glitch where money was debited from your bank account or card but subscription status was not activated on your LoopCall account:\n\n'
-            '• Contact Support: Email [Contact Email] with your transaction payment ID, registered mobile number, and order receipt.\n'
+            '• Contact Support: Email support@appquires.com with your transaction payment ID, registered mobile number, and order receipt.\n'
             '• Resolution: Upon verification with payment gateway logs (e.g. Razorpay), your subscription will be manually activated within 24–48 hours.',
       ),
       LegalDocumentSection(
@@ -297,7 +305,7 @@ class LegalDocumentContent {
       LegalDocumentSection(
         title: '5. Inquiries & Support',
         content:
-            'For questions concerning subscription passes or billing status, contact support at [Contact Email].',
+            'For questions concerning subscription passes or billing status, contact support at support@appquires.com.',
       ),
     ],
   );
