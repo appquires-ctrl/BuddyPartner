@@ -147,7 +147,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     final profile = (profileAsync.value?.id == authUser?.id) ? profileAsync.value : null;
     final matchedUsers = (profile != null) ? (matchedUsersAsync.value ?? const []) : const [];
     
-    final String fullName = profile?.fullName ?? 'User';
+    final String rawProfileName = profile?.fullName ?? '';
+    final String fullName = (rawProfileName.isNotEmpty && rawProfileName != 'User')
+        ? rawProfileName
+        : (authUser?.fullName != null && authUser!.fullName!.trim().isNotEmpty
+            ? authUser.fullName!.trim()
+            : 'User');
     final String initials = getInitials(fullName);
     final bool isMatching = matchmakingState.phase == MatchmakingPhase.queued;
     
@@ -195,13 +200,21 @@ class _HomePageState extends ConsumerState<HomePage> {
             )
           : AppBar(
               backgroundColor: colors.surface,
-              elevation: 0.5,
-              shadowColor: colors.border,
+              elevation: 0,
+              toolbarHeight: 68.0,
+              shadowColor: Colors.transparent,
               automaticallyImplyLeading: false,
               titleSpacing: 16.0,
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(1.0),
+                child: Container(
+                  color: colors.border.withValues(alpha: 0.4),
+                  height: 1.0,
+                ),
+              ),
               title: Row(
                 children: [
-                  // User Avatar ST block
+                  // User Avatar
                   GestureDetector(
                     onTap: () {
                       context.push(RouteNames.account);
@@ -211,44 +224,44 @@ class _HomePageState extends ConsumerState<HomePage> {
                       avatarSeed: profile.avatarSeed,
                       avatarStyle: profile.avatarStyle,
                       gender: profile.gender,
-                      radius: 20,
+                      radius: 21,
                       showStatus: true,
                       isOnline: true,
-                      statusIndicatorSize: 12,
+                      statusIndicatorSize: 11,
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // User Greeting Info
-                  GestureDetector(
-                    onTap: () {
-                      context.push(RouteNames.account);
-                    },
+                  // User Greeting Info & Location Indicator in AppBar
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          'Hey,',
-                          style: TextStyle(
-                            color: colors.textSecondary,
-                            fontSize: 12,
+                        GestureDetector(
+                          onTap: () {
+                            context.push(RouteNames.account);
+                          },
+                          child: Text(
+                            fullName,
+                            style: typography.bodyMedium.copyWith(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15.5,
+                              color: colors.textPrimary,
+                              height: 1.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        Text(
-                          fullName,
-                          style: typography.bodyMedium.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: colors.textPrimary,
-                          ),
-                        ),
+                        const SizedBox(height: 3),
+                        const _HomeLocationIndicator(),
                       ],
                     ),
-                  )
+                  ),
                 ],
               ),
               actions: [
-                // Balance Chip Button (Coins for Male, Roses for Female)
+                // Subscription / Status Action Pill Button
                 Consumer(
                   builder: (context, ref, child) {
                     final subAsync = ref.watch(subscriptionStatusProvider);
@@ -268,22 +281,29 @@ class _HomePageState extends ConsumerState<HomePage> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
-                              vertical: 6,
+                              vertical: 7,
                             ),
                             decoration: BoxDecoration(
                               color: colors.surface,
                               borderRadius: BorderRadius.circular(16.0),
                               border: Border.all(
-                                color: statusColor.withValues(alpha: 0.5),
-                                width: 1.5,
+                                color: statusColor.withValues(alpha: 0.4),
+                                width: 1.2,
                               ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: statusColor.withValues(alpha: 0.08),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Container(
-                                  width: 10,
-                                  height: 10,
+                                  width: 8,
+                                  height: 8,
                                   decoration: BoxDecoration(
                                     color: statusColor,
                                     shape: BoxShape.circle,
@@ -296,7 +316,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 7),
                                 Text(
                                   label,
                                   style: typography.bodySmall.copyWith(
@@ -448,9 +468,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const SizedBox(height: 16),
-
-                      // Location Header Section
-                      const _HomeLocationIndicator(),
 
                       // Matchmaking Banner Card
                       GestureDetector(
@@ -856,41 +873,48 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
     }
 
     if (!_isPermissionGranted) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 12.0),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: GestureDetector(
-            onTap: _handleEnableLocationTap,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3EFFF),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFF7A58FF).withValues(alpha: 0.4), width: 1.2),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Text('📍', style: TextStyle(fontSize: 13)),
-                  SizedBox(width: 6),
-                  Text(
-                    'Enable Location',
-                    style: TextStyle(
-                      color: Color(0xFF6B4EFF),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
+      return GestureDetector(
+        onTap: _handleEnableLocationTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: colors.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: colors.primary.withValues(alpha: 0.3),
+              width: 1,
             ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.location_on_rounded,
+                size: 12,
+                color: colors.primary,
+              ),
+              const SizedBox(width: 3),
+              Text(
+                'Enable Location',
+                style: TextStyle(
+                  color: colors.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11.5,
+                ),
+              ),
+              const SizedBox(width: 2),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 13,
+                color: colors.primary,
+              ),
+            ],
           ),
         ),
       );
     }
 
-    // Granted state: display city name (e.g. 📍 Lucknow)
+    // Granted state: display city name (e.g. Lucknow)
     final String? city = profile?.city;
     final String? state = profile?.state;
     final String? country = profile?.country;
@@ -903,38 +927,41 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
     } else if (country != null && country.trim().isNotEmpty) {
       displayCity = country;
     } else if (_isFetchingLocation) {
-      displayCity = 'Fetching city...';
+      displayCity = 'Fetching...';
     } else {
-      displayCity = 'Detecting city...';
+      displayCity = 'Detecting...';
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: colors.border.withValues(alpha: 0.5), width: 1),
+    return GestureDetector(
+      onTap: _fetchAndSave,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.location_on_rounded,
+            size: 12,
+            color: colors.textSecondary,
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('📍', style: TextStyle(fontSize: 13)),
-              const SizedBox(width: 4),
-              Text(
-                displayCity,
-                style: typography.bodySmall.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: colors.textPrimary,
-                ),
+          const SizedBox(width: 3),
+          Flexible(
+            child: Text(
+              displayCity,
+              style: typography.bodySmall.copyWith(
+                fontWeight: FontWeight.w600,
+                fontSize: 11.5,
+                color: colors.textSecondary,
               ),
-            ],
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-        ),
+          // const SizedBox(width: 2),
+          // Icon(
+          //   Icons.keyboard_arrow_down_rounded,
+          //   size: 13,
+          //   color: colors.textSecondary,
+          // ),
+        ],
       ),
     );
   }

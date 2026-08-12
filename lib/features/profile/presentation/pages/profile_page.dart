@@ -25,7 +25,12 @@ class ProfilePage extends ConsumerWidget {
     final currentUser = userAsync.value;
     final profile = profileAsync.value;
     
-    final String fullName = profile?.fullName ?? 'User';
+    final String rawProfileName = profile?.fullName ?? '';
+    final String fullName = (rawProfileName.isNotEmpty && rawProfileName != 'User')
+        ? rawProfileName
+        : (currentUser?.fullName != null && currentUser!.fullName!.trim().isNotEmpty
+            ? currentUser.fullName!.trim()
+            : 'User');
     final String phoneNumber = currentUser?.phoneNumber ?? '';
     final String initials = getInitials(fullName);
 

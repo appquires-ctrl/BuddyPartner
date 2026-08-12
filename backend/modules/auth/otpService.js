@@ -120,7 +120,7 @@ async function sendWhatsAppOtp(countryCode, mobile, otp) {
           'Content-Type': 'application/json',
           authkey: authKey,
         },
-        timeout: 10000,
+        timeout: 20000,
       }
     );
 

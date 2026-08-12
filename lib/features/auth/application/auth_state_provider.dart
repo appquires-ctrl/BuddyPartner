@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dating_app/core/services/api_client.dart';
 import 'package:dating_app/core/services/socket_provider.dart';
@@ -17,19 +18,51 @@ class CustomUser {
   final String phoneNumber;
   final bool isProfileComplete;
   final String gender;
+  final String? fullName;
   final String? avatarSeed;
   final String? avatarStyle;
   final bool? isTelecaller;
+  final bool hasClaimedIntroOffer;
 
   CustomUser({
     required this.id,
     required this.phoneNumber,
     required this.isProfileComplete,
     required this.gender,
+    this.fullName,
     this.avatarSeed,
     this.avatarStyle,
     this.isTelecaller,
+    this.hasClaimedIntroOffer = false,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'phoneNumber': phoneNumber,
+      'isProfileComplete': isProfileComplete,
+      'gender': gender,
+      'fullName': fullName,
+      'avatarSeed': avatarSeed,
+      'avatarStyle': avatarStyle,
+      'isTelecaller': isTelecaller,
+      'hasClaimedIntroOffer': hasClaimedIntroOffer,
+    };
+  }
+
+  factory CustomUser.fromJson(Map<String, dynamic> json) {
+    return CustomUser(
+      id: json['id'] as String? ?? '',
+      phoneNumber: json['phoneNumber'] as String? ?? '',
+      isProfileComplete: json['isProfileComplete'] as bool? ?? false,
+      gender: json['gender'] as String? ?? 'Male',
+      fullName: json['fullName'] as String?,
+      avatarSeed: json['avatarSeed'] as String?,
+      avatarStyle: json['avatarStyle'] as String? ?? 'avataaars',
+      isTelecaller: json['isTelecaller'] as bool?,
+      hasClaimedIntroOffer: json['hasClaimedIntroOffer'] as bool? ?? false,
+    );
+  }
 
   /// Convenience getters for gender-based routing
   bool get isFemale {
@@ -47,18 +80,22 @@ class CustomUser {
     String? phoneNumber,
     bool? isProfileComplete,
     String? gender,
+    String? fullName,
     String? avatarSeed,
     String? avatarStyle,
     bool? isTelecaller,
+    bool? hasClaimedIntroOffer,
   }) {
     return CustomUser(
       id: id ?? this.id,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       isProfileComplete: isProfileComplete ?? this.isProfileComplete,
       gender: gender ?? this.gender,
+      fullName: fullName ?? this.fullName,
       avatarSeed: avatarSeed ?? this.avatarSeed,
       avatarStyle: avatarStyle ?? this.avatarStyle,
       isTelecaller: isTelecaller ?? this.isTelecaller,
+      hasClaimedIntroOffer: hasClaimedIntroOffer ?? this.hasClaimedIntroOffer,
     );
   }
 }
@@ -70,40 +107,73 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
     final hasToken = await apiClient.hasToken();
     if (!hasToken) return null;
 
+    // Load cached session instantly from platform secure storage
+    CustomUser? cachedUser;
+    final cachedMap = await apiClient.getUserSessionJson();
+    if (cachedMap != null) {
+      try {
+        cachedUser = CustomUser.fromJson(cachedMap);
+      } catch (_) {}
+    }
+
+    // Asynchronously revalidate session against backend in background
+    _revalidateSession(apiClient);
+
+    return cachedUser;
+  }
+
+  Future<void> _revalidateSession(ApiClient apiClient) async {
     try {
       final response = await apiClient.dio.get('/api/auth/me');
       if (response.statusCode == 200 && response.data != null) {
         final userMap = response.data['user'];
         final fullName = userMap['fullName'] as String? ?? '';
         final gender = userMap['gender'] as String? ?? 'Male';
-        return CustomUser(
+        final freshUser = CustomUser(
           id: userMap['id'] as String,
           phoneNumber: userMap['phoneNumber'] as String,
           isProfileComplete: fullName.trim().isNotEmpty,
           gender: gender,
+          fullName: fullName.trim().isNotEmpty ? fullName.trim() : null,
           avatarSeed: userMap['avatarSeed'] as String?,
           avatarStyle: userMap['avatarStyle'] as String? ?? 'avataaars',
           isTelecaller: userMap['isTelecaller'] as bool?,
+          hasClaimedIntroOffer: userMap['hasClaimedIntroOffer'] as bool? ?? false,
         );
+
+        await apiClient.saveUserSessionJson(freshUser.toJson());
+        state = AsyncData(freshUser);
       }
-    } catch (e) {
-      // In case token is invalid, delete it
-      await apiClient.deleteToken();
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+        // Session explicitly revoked or expired
+        await apiClient.deleteTokens();
+        state = const AsyncData(null);
+      }
+    } catch (_) {
+      // Preserve cached session for offline/network errors
     }
-    return null;
   }
 
   /// Sets user state manually on successful verification
-  void setSession(CustomUser? user) {
+  Future<void> setSession(CustomUser? user) async {
+    final apiClient = ref.read(apiClientProvider);
+    if (user != null) {
+      await apiClient.saveUserSessionJson(user.toJson());
+    } else {
+      await apiClient.deleteUserSessionJson();
+    }
     state = AsyncData(user);
     if (user != null) {
-      ref.invalidate(subscriptionStatusProvider);
-      ref.invalidate(userProfileProvider);
-      ref.invalidate(conversationsProvider);
-      ref.invalidate(presenceProvider);
-      ref.invalidate(matchedUsersProvider);
-      ref.invalidate(favoriteUsersProvider);
-      ref.invalidate(callHistoryProvider);
+      Future.microtask(() {
+        ref.invalidate(subscriptionStatusProvider);
+        ref.invalidate(userProfileProvider);
+        ref.invalidate(conversationsProvider);
+        ref.invalidate(presenceProvider);
+        ref.invalidate(matchedUsersProvider);
+        ref.invalidate(favoriteUsersProvider);
+        ref.invalidate(callHistoryProvider);
+      });
     }
   }
 
@@ -113,24 +183,26 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
       // Explicitly disconnect and dispose real-time Socket.io connection on backend
       ref.read(socketProvider.notifier).disconnectAndDispose();
 
-      // Clear local auth token
-      await ref.read(apiClientProvider).deleteToken();
+      // Clear local auth tokens and cached user session
+      await ref.read(apiClientProvider).deleteTokens();
 
       // Clear session state to notify GoRouter and state listeners
       state = const AsyncData(null);
 
-      // Invalidate all user-specific provider caches to prevent state leakage across account switches
-      ref.invalidate(presenceProvider);
-      ref.invalidate(conversationsProvider);
-      ref.invalidate(userProfileProvider);
-      ref.invalidate(subscriptionStatusProvider);
-      ref.invalidate(matchmakingControllerProvider);
-      ref.invalidate(lastCallSummaryProvider);
-      ref.invalidate(withdrawalHistoryProvider);
-      ref.invalidate(withdrawControllerProvider);
-      ref.invalidate(matchedUsersProvider);
-      ref.invalidate(favoriteUsersProvider);
-      ref.invalidate(callHistoryProvider);
+      // Invalidate all user-specific provider caches safely in microtask
+      Future.microtask(() {
+        ref.invalidate(presenceProvider);
+        ref.invalidate(conversationsProvider);
+        ref.invalidate(userProfileProvider);
+        ref.invalidate(subscriptionStatusProvider);
+        ref.invalidate(matchmakingControllerProvider);
+        ref.invalidate(lastCallSummaryProvider);
+        ref.invalidate(withdrawalHistoryProvider);
+        ref.invalidate(withdrawControllerProvider);
+        ref.invalidate(matchedUsersProvider);
+        ref.invalidate(favoriteUsersProvider);
+        ref.invalidate(callHistoryProvider);
+      });
     } catch (e) {
       state = const AsyncData(null);
     }
@@ -155,6 +227,7 @@ class UserProfile {
   final String? avatarSeed;
   final String? avatarStyle;
   final bool? isTelecaller;
+  final bool hasClaimedIntroOffer;
   final String? country;
   final String? state;
   final String? city;
@@ -170,6 +243,7 @@ class UserProfile {
     this.avatarSeed,
     this.avatarStyle,
     this.isTelecaller,
+    this.hasClaimedIntroOffer = false,
     this.country,
     this.state,
     this.city,
@@ -187,6 +261,7 @@ class UserProfile {
       avatarSeed: json['avatarSeed'] as String?,
       avatarStyle: json['avatarStyle'] as String? ?? 'avataaars',
       isTelecaller: json['isTelecaller'] as bool?,
+      hasClaimedIntroOffer: json['hasClaimedIntroOffer'] as bool? ?? false,
       country: json['country'] as String?,
       state: json['state'] as String?,
       city: json['city'] as String?,

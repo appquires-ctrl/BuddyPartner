@@ -9,9 +9,15 @@ const router = express.Router();
 router.get('/status', authMiddleware, async (req, res) => {
   try {
     const timeInfo = await subscriptionsService.getTimeRemaining(req.user.id);
+    const hasClaimedIntroOffer = await subscriptionsService.hasClaimedIntroOffer(req.user.id);
+    const availablePlans = hasClaimedIntroOffer
+      ? SUBSCRIPTION_PLANS.filter((p) => p.id !== '1_day')
+      : SUBSCRIPTION_PLANS;
+
     res.json({
       ...timeInfo,
-      plans: SUBSCRIPTION_PLANS,
+      hasClaimedIntroOffer,
+      plans: availablePlans,
     });
   } catch (err) {
     console.error('Error in GET /subscriptions/status:', err.message);
@@ -52,6 +58,14 @@ const handleStartSubscription = async (req, res) => {
       return res.status(400).json({ error: 'Valid planDurationDays is required' });
     }
 
+    // Strict server-side check for introductory 1-day ₹9 offer
+    if (planId === '1_day' || duration === 1 || amount === 9) {
+      const alreadyClaimed = await subscriptionsService.hasClaimedIntroOffer(req.user.id);
+      if (alreadyClaimed) {
+        return res.status(400).json({ error: 'The ₹9 introductory offer can only be claimed once per user.' });
+      }
+    }
+
     const subscription = await subscriptionsService.createSubscription(
       req.user.id,
       duration,
@@ -60,15 +74,19 @@ const handleStartSubscription = async (req, res) => {
     );
 
     const status = await subscriptionsService.getTimeRemaining(req.user.id);
+    const hasClaimedIntroOffer = await subscriptionsService.hasClaimedIntroOffer(req.user.id);
 
     res.json({
       success: true,
       subscription,
-      status,
+      status: {
+        ...status,
+        hasClaimedIntroOffer,
+      },
     });
   } catch (err) {
     console.error('Error in starting subscription:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to start subscription' });
+    res.status(400).json({ error: err.message || 'Failed to start subscription' });
   }
 };
 

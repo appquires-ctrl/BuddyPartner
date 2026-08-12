@@ -100,8 +100,9 @@ db.query(`
   ALTER TABLE public.users ADD COLUMN IF NOT EXISTS city VARCHAR(100);
   ALTER TABLE public.users ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
   ALTER TABLE public.users ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS has_claimed_intro_offer BOOLEAN DEFAULT FALSE;
 `).then(() => {
-  console.log('✅ User moderation, telecaller, and location columns checked/initialized.');
+  console.log('✅ User moderation, telecaller, location, and intro offer columns checked/initialized.');
 }).catch((err) => {
   console.error('❌ Failed to initialize user columns:', err.message);
 });

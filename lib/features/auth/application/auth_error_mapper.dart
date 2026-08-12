@@ -11,7 +11,7 @@ class AuthErrorMapper {
       final response = error.response;
       if (response != null && response.data != null && response.data is Map) {
         final errorMsg = response.data['error'];
-        if (errorMsg != null && errorMsg is String) {
+        if (errorMsg != null && errorMsg is String && errorMsg.trim().isNotEmpty) {
           return errorMsg;
         }
       }
@@ -20,7 +20,7 @@ class AuthErrorMapper {
       if (type == DioExceptionType.connectionTimeout ||
           type == DioExceptionType.receiveTimeout ||
           type == DioExceptionType.sendTimeout) {
-        return 'Connection timeout. Please check your internet connection and try again.';
+        return 'Connection timeout. The server took too long to respond. Please try again.';
       }
       if (type == DioExceptionType.connectionError) {
         return 'Network connection error. Please check your internet connection.';
@@ -28,13 +28,42 @@ class AuthErrorMapper {
       return 'Failed to reach server. Please try again later.';
     }
 
-    final rawMessage = error.toString().toLowerCase();
-    if (rawMessage.contains('invalid verification code') || 
-        rawMessage.contains('expired')) {
+    final rawMessage = error.toString();
+    final lowerMessage = rawMessage.toLowerCase();
+
+    if (lowerMessage.contains('connection timeout') ||
+        lowerMessage.contains('connecttimeout') ||
+        lowerMessage.contains('receivetimeout') ||
+        lowerMessage.contains('sendtimeout') ||
+        lowerMessage.contains('timeoutexception') ||
+        lowerMessage.contains('took longer than')) {
+      return 'Connection timeout. The server took too long to respond. Please try again.';
+    }
+
+    if (lowerMessage.contains('socketexception') ||
+        lowerMessage.contains('connection error') ||
+        lowerMessage.contains('failed host lookup') ||
+        lowerMessage.contains('connection refused') ||
+        lowerMessage.contains('network error')) {
+      return 'Network connection error. Please check your internet connection.';
+    }
+
+    if (lowerMessage.contains('invalid verification code') || 
+        lowerMessage.contains('expired')) {
       return 'Incorrect or expired verification code. Please try again.';
     }
-    if (rawMessage.contains('phone number') || rawMessage.contains('phone')) {
-      return 'Invalid phone number format. Please enter a valid number.';
+
+    if (lowerMessage.contains('phone number') || lowerMessage.contains('phone')) {
+      return 'Invalid whatsapp number format. Please enter a valid number.';
+    }
+
+    final cleaned = rawMessage
+        .replaceAll('Exception: ', '')
+        .replaceAll('DioException: ', '')
+        .trim();
+
+    if (cleaned.isNotEmpty && !cleaned.startsWith('DioException [')) {
+      return cleaned;
     }
 
     return 'An unexpected error occurred. Please try again.';

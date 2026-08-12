@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -14,14 +15,16 @@ class ApiClient {
   final _secureStorage = const FlutterSecureStorage();
   static const _tokenKey = 'auth_token';
   static const _refreshTokenKey = 'refresh_token';
+  static const _userSessionKey = 'cached_user_session';
   bool _isRefreshing = false;
 
   ApiClient() {
     dio = Dio(
       BaseOptions(
         baseUrl: AppConfig.backendUrl,
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 10),
+        connectTimeout: const Duration(seconds: 35),
+        receiveTimeout: const Duration(seconds: 35),
+        sendTimeout: const Duration(seconds: 35),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -55,6 +58,30 @@ class ApiClient {
             err.response?.statusCode,
             err.error ?? err.message ?? 'Network Error',
           );
+
+          // Automatic single-retry for transient network timeout / connection errors (e.g. Render server cold start)
+          final isTimeoutOrConnErr = err.type == DioExceptionType.connectionTimeout ||
+              err.type == DioExceptionType.receiveTimeout ||
+              err.type == DioExceptionType.sendTimeout ||
+              err.type == DioExceptionType.connectionError;
+
+          final retried = err.requestOptions.extra['retried'] == true;
+          if (isTimeoutOrConnErr && !retried) {
+            err.requestOptions.extra['retried'] = true;
+            try {
+              AppLogger.apiError(
+                err.requestOptions.method,
+                err.requestOptions.path,
+                null,
+                'Connection timeout. Retrying request after 2s...',
+              );
+              await Future.delayed(const Duration(seconds: 2));
+              final cloneReq = await dio.fetch(err.requestOptions);
+              return handler.resolve(cloneReq);
+            } catch (_) {
+              // If retry fails, fall through to normal error handling
+            }
+          }
 
           // Handle 401 Unauthorized with silent token refresh attempt
           if (err.response?.statusCode == 401 && 
@@ -119,10 +146,36 @@ class ApiClient {
     return await _secureStorage.read(key: _refreshTokenKey);
   }
 
-  /// Delete both tokens from platform secure storage (logout)
+  /// Save serialized user session to platform secure storage
+  Future<void> saveUserSessionJson(Map<String, dynamic> userMap) async {
+    try {
+      await _secureStorage.write(key: _userSessionKey, value: jsonEncode(userMap));
+    } catch (_) {}
+  }
+
+  /// Read serialized user session from platform secure storage
+  Future<Map<String, dynamic>?> getUserSessionJson() async {
+    try {
+      final jsonStr = await _secureStorage.read(key: _userSessionKey);
+      if (jsonStr == null || jsonStr.trim().isEmpty) return null;
+      return jsonDecode(jsonStr) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Delete cached user session
+  Future<void> deleteUserSessionJson() async {
+    try {
+      await _secureStorage.delete(key: _userSessionKey);
+    } catch (_) {}
+  }
+
+  /// Delete both tokens & user session from platform secure storage (logout)
   Future<void> deleteTokens() async {
     await _secureStorage.delete(key: _tokenKey);
     await _secureStorage.delete(key: _refreshTokenKey);
+    await deleteUserSessionJson();
   }
 
   /// Alias for deleteTokens
@@ -153,8 +206,13 @@ class ApiClient {
         await saveTokens(token: newToken, refreshToken: newRefreshToken);
         return true;
       }
+    } on DioException catch (e) {
+      // Only delete tokens if server explicitly returned 401 or 403 (invalid/revoked refresh token)
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+        await deleteTokens();
+      }
     } catch (e) {
-      await deleteTokens();
+      // Network timeout / offline error — preserve local tokens for offline/retry
     }
     return false;
   }

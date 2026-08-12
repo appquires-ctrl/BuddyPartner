@@ -78,12 +78,18 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
         final userProfileResponse = await apiClient.dio.get('/api/auth/me');
         if (userProfileResponse.statusCode == 200 && userProfileResponse.data != null) {
           final userMap = userProfileResponse.data['user'];
-          ref.read(authStateProvider.notifier).setSession(
+          final fullNameStr = (userMap['fullName'] as String? ?? '').trim();
+          await ref.read(authStateProvider.notifier).setSession(
             CustomUser(
               id: userMap['id'] as String,
               phoneNumber: userMap['phoneNumber'] as String,
               isProfileComplete: isProfileComplete,
               gender: userMap['gender'] as String? ?? 'Male',
+              fullName: fullNameStr.isNotEmpty ? fullNameStr : null,
+              avatarSeed: userMap['avatarSeed'] as String?,
+              avatarStyle: userMap['avatarStyle'] as String? ?? 'avataaars',
+              isTelecaller: userMap['isTelecaller'] as bool?,
+              hasClaimedIntroOffer: userMap['hasClaimedIntroOffer'] as bool? ?? false,
             ),
           );
 
@@ -130,7 +136,7 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
           'language': language,
           'avatarSeed': avatarSeed,
           'avatarStyle': avatarStyle ?? 'avataaars',
-          if (isTelecaller != null) 'isTelecaller': isTelecaller,
+          '?isTelecaller': isTelecaller,
         },
       );
 
@@ -142,21 +148,24 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
       final userProfileResponse = await apiClient.dio.get('/api/auth/me');
       if (userProfileResponse.statusCode == 200 && userProfileResponse.data != null) {
         final userMap = userProfileResponse.data['user'];
-        ref.read(authStateProvider.notifier).setSession(
+        final updatedName = (userMap['fullName'] as String? ?? fullName).trim();
+        await ref.read(authStateProvider.notifier).setSession(
           CustomUser(
             id: userMap['id'] as String,
             phoneNumber: userMap['phoneNumber'] as String,
             isProfileComplete: true,
-            gender: userMap['gender'] as String? ?? 'Male',
-            avatarSeed: userMap['avatarSeed'] as String?,
-            avatarStyle: userMap['avatarStyle'] as String? ?? 'avataaars',
-            isTelecaller: userMap['isTelecaller'] as bool?,
+            gender: userMap['gender'] as String? ?? gender,
+            fullName: updatedName.isNotEmpty ? updatedName : fullName.trim(),
+            avatarSeed: userMap['avatarSeed'] as String? ?? avatarSeed,
+            avatarStyle: userMap['avatarStyle'] as String? ?? avatarStyle ?? 'avataaars',
+            isTelecaller: userMap['isTelecaller'] as bool? ?? isTelecaller,
+            hasClaimedIntroOffer: userMap['hasClaimedIntroOffer'] as bool? ?? false,
           ),
         );
       }
 
       // Refresh userProfileProvider to notify profile widget listeners
-      ref.invalidate(userProfileProvider);
+      Future.microtask(() => ref.invalidate(userProfileProvider));
     });
 
     if (result.hasError) {
@@ -189,12 +198,12 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
 
       final currentUser = ref.read(authStateProvider).value;
       if (currentUser != null) {
-        ref.read(authStateProvider.notifier).setSession(
+        await ref.read(authStateProvider.notifier).setSession(
           currentUser.copyWith(isTelecaller: isTelecaller),
         );
       }
 
-      ref.invalidate(userProfileProvider);
+      Future.microtask(() => ref.invalidate(userProfileProvider));
     });
 
     if (result.hasError) {

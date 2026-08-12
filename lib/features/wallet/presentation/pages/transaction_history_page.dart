@@ -53,7 +53,6 @@ class SubscriptionItem {
 
   String get planLabel {
     if (planDurationDays == 1) return '1 Day Plan';
-    if (planDurationDays == 4) return '4 Days Plan';
     if (planDurationDays == 7) return '7 Days Plan';
     if (planDurationDays == 30) return '1 Month (30 Days) Plan';
     if (planDurationDays == 365) return '1 Year (365 Days) Plan';

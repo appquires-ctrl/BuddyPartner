@@ -11,6 +11,7 @@ import 'package:dating_app/core/widgets/buttons/app_primary_button.dart';
 import 'package:dating_app/core/constants/avatar_catalog.dart';
 import 'package:dating_app/core/widgets/app_avatar.dart';
 import 'package:dating_app/core/utils/app_logger.dart';
+import 'package:dating_app/core/utils/app_snack_bar.dart';
 
 /// SignupPage is the multi-step Profile Onboarding Page.
 /// Step 1: Profile details (Full Name, Date of Birth, Gender, Language, Terms).
@@ -48,16 +49,28 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     super.dispose();
   }
 
+  int _calculateAge(DateTime dob) {
+    final now = DateTime.now();
+    int age = now.year - dob.year;
+    if (now.month < dob.month || (now.month == dob.month && now.day < dob.day)) {
+      age--;
+    }
+    return age;
+  }
+
   Future<void> _pickDob() async {
     final now = DateTime.now();
     final firstDate = DateTime(now.year - 100);
-    final lastDate = DateTime(now.year - 18); // Must be 18 or older
+    final eighteenYearsAgo = DateTime(now.year - 18, now.month, now.day);
+    final initialDate = (_selectedDob != null && _selectedDob!.isBefore(eighteenYearsAgo))
+        ? _selectedDob!
+        : eighteenYearsAgo;
     
     final picked = await showDatePicker(
       context: context,
-      initialDate: lastDate,
+      initialDate: initialDate,
       firstDate: firstDate,
-      lastDate: now,
+      lastDate: eighteenYearsAgo,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -73,6 +86,10 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     );
 
     if (picked != null) {
+      if (_calculateAge(picked) < 18) {
+        AppSnackBar.showError(context, 'You must be 18 years or older to use this app.');
+        return;
+      }
       setState(() {
         _selectedDob = picked;
       });
@@ -84,9 +101,12 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     if (!_formKey.currentState!.validate()) return;
     
     if (_selectedDob == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select your date of birth')),
-      );
+      AppSnackBar.showError(context, 'Please select your date of birth');
+      return;
+    }
+
+    if (_calculateAge(_selectedDob!) < 18) {
+      AppSnackBar.showError(context, 'You must be 18 years or older to use this app.');
       return;
     }
 

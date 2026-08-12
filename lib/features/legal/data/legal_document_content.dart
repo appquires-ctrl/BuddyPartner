@@ -64,7 +64,7 @@ class LegalDocumentContent {
             'When participating in live audio/video matches, messaging, or interacting on LoopCall, you explicitly agree NOT to:\n\n'
             'a) Engage in harassment, bullying, intimidation, hate speech, stalking, or abusive behavior toward any user or host.\n'
             'b) Broadcast or transmit nudity, sexually explicit content, vulgar language, violence, or illegal acts during live calls.\n'
-            'c) Share, solicit, or exchange off-platform contact details (such as phone numbers, personal social media handles, messaging IDs, or financial account details) to circumvent the App or route around platform charges.\n'
+            'c) Share, solicit, or exchange off-platform contact details (such as whatsapp numbers, personal social media handles, messaging IDs, or financial account details) to circumvent the App or route around platform charges.\n'
             'd) Impersonate any entity, celebrity, company representative, or other user.\n'
             'e) Engage in fraud, scamming, commercial solicitation, spamming, or unauthorized advertising.\n'
             'f) Attempt to reverse-engineer, exploit, hack, or disrupt LoopCall servers, real-time call connections, or payment processing APIs.',
@@ -129,7 +129,7 @@ class LegalDocumentContent {
         title: '1. Information We Collect',
         content:
             'We collect information to provide, maintain, and improve our live calling platform:\n\n'
-            '• Account & Profile Information: Mobile phone number, Full Name, Date of Birth, Gender, Preferred Language, and optional avatar image.\n'
+            '• Account & Profile Information: Mobile whatsapp number, Full Name, Date of Birth, Gender, Preferred Language, and optional avatar image.\n'
             '• Call Metadata & Technical Data: Real-time call logs, call duration, timestamp, socket connection status, network performance, IP address, device model, and OS version.\n'
             '• Call Content Disclaimer: We do NOT record or store live audio/video call stream content unless explicitly notified for safety moderation. Calls are transmitted real-time via secure WebRTC protocols.\n'
             '• Transaction & Financial Logs: Recharge order IDs, payment transaction amounts, coin balances, rose earnings, and withdrawal request records. We do not store raw credit card numbers or UPI PINs.',
@@ -205,7 +205,7 @@ class LegalDocumentContent {
       LegalDocumentSection(
         title: '3. No Off-Platform Routing or Scams',
         content:
-            '• Keep Calls Inside LoopCall: Asking users to exchange personal phone numbers, WhatsApp, Telegram, or social media handles to bypass platform coin rates is strictly prohibited.\n'
+            '• Keep Calls Inside LoopCall: Asking users to exchange personal whatsapp numbers, WhatsApp, Telegram, or social media handles to bypass platform coin rates is strictly prohibited.\n'
             '• Anti-Fraud Policy: Asking for money transfers, sharing fake UPI payment links, or attempting financial scams will lead to immediate permanent ban and reporting to authorities.',
       ),
       LegalDocumentSection(
@@ -252,7 +252,7 @@ class LegalDocumentContent {
         title: '3. Technical Billing Errors',
         content:
             'In the event of a technical glitch where money was debited from your bank account or card but coin balance was not credited to your LoopCall wallet:\n\n'
-            '• Contact Support: Email [Contact Email] with your transaction payment ID, registered phone number, and order screenshot.\n'
+            '• Contact Support: Email [Contact Email] with your transaction payment ID, registered whatsapp number, and order screenshot.\n'
             '• Resolution: Upon verification with payment gateway logs (e.g. Razorpay), your wallet balance will be manually updated within 24–48 hours.',
       ),
       LegalDocumentSection(

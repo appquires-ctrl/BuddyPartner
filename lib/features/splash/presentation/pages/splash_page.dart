@@ -91,11 +91,13 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
 
   Future<void> _navigateToNext() async {
     if (_hasNavigated) return;
-    _hasNavigated = true;
 
     try {
-      final user = await ref.read(authStateProvider.future);
+      CustomUser? user = ref.read(authStateProvider).value;
+      user ??= await ref.read(authStateProvider.future);
       if (!mounted) return;
+
+      _hasNavigated = true;
 
       if (user != null && user.isProfileComplete) {
         context.go(RouteNames.home);
@@ -106,6 +108,7 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
       }
     } catch (_) {
       if (mounted) {
+        _hasNavigated = true;
         context.go(RouteNames.login);
       }
     }

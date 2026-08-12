@@ -38,7 +38,12 @@ class _DevSubscriptionPageState extends ConsumerState<DevSubscriptionPage> {
         AppSnackBar.showSuccess(context, 'DEV MODE: ${widget.plan.title} activated successfully!');
         context.go(RouteNames.home);
       } else {
-        AppSnackBar.showError(context, 'Failed to activate dev subscription.');
+        final subState = ref.read(subscriptionStatusProvider);
+        final rawErr = subState.error?.toString();
+        final cleanMsg = rawErr != null
+            ? rawErr.replaceAll('Exception: ', '').replaceAll('DioException: ', '')
+            : 'Failed to activate subscription.';
+        AppSnackBar.showError(context, cleanMsg);
       }
     }
   }

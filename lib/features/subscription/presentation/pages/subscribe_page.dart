@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:dating_app/app/router/route_names.dart';
 import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/features/subscription/domain/subscription_plan.dart';
+import 'package:dating_app/features/auth/application/auth_state_provider.dart';
+import 'package:dating_app/features/subscription/application/subscription_providers.dart';
 import 'package:dating_app/core/utils/app_logger.dart';
 
 class SubscribePage extends ConsumerStatefulWidget {
@@ -20,6 +22,20 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final typography = context.typography;
+    final authUser = ref.watch(authStateProvider).value;
+    final subState = ref.watch(subscriptionStatusProvider).value;
+
+    final hasClaimedIntroOffer = (authUser?.hasClaimedIntroOffer ?? false) ||
+        (subState?.hasClaimedIntroOffer ?? false);
+
+    final availablePlans = hasClaimedIntroOffer
+        ? SubscriptionPlan.defaultPlans.where((plan) => plan.id != '1_day').toList()
+        : SubscriptionPlan.defaultPlans;
+
+    // Ensure selected plan exists in available plans
+    if (!availablePlans.any((p) => p.id == _selectedPlanId)) {
+      _selectedPlanId = availablePlans.first.id;
+    }
 
     return Scaffold(
       backgroundColor: colors.surfaceMuted,
@@ -137,7 +153,7 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
               // Trust Badges
               _buildTrustBadges(context),
 
-              const SizedBox(height: 70),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -275,85 +291,90 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
   }
 
   Widget _buildTrustBadges(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildTrustBadgeItem(
-              context,
-              icon: Icons.shield_outlined,
-              title: 'Secure Payment',
-              subtitle: '100% secure & safe',
-            ),
-            const SizedBox(width: 12),
-            _buildTrustBadgeItem(
-              context,
-              icon: Icons.history_rounded,
-              title: '7-Day Refund',
-              subtitle: 'Easy refund policy',
-            ),
-            const SizedBox(width: 12),
-            _buildTrustBadgeItem(
-              context,
-              icon: Icons.verified_outlined,
-              title: 'Cancel Anytime',
-              subtitle: 'No hidden charges',
-            ),
-          ],
+    return Row(
+      children: [
+        // 1. Secure Payment
+        Expanded(
+          child: _buildInlineTrustItem(
+            context,
+            icon: Icons.shield_outlined,
+            title: 'Secure Payment',
+            subtitle: '100% secure & safe',
+          ),
         ),
-      ),
+
+        const SizedBox(width: 12),
+
+        // 2. 30-Day Guarantee
+        Expanded(
+          child: _buildInlineTrustItem(
+            context,
+            icon: Icons.history_rounded,
+            title: '30-Day Guarantee',
+            subtitle: 'Match guaranteed',
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildTrustBadgeItem(
+  Widget _buildInlineTrustItem(
     BuildContext context, {
     required IconData icon,
     required String title,
     required String subtitle,
   }) {
     final colors = context.colors;
+    final typography = context.typography;
 
     return Row(
       children: [
         Container(
-          width: 36,
-          height: 36,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
-            color: colors.chipLavender,
+            color: colors.primary.withValues(alpha: 0.12),
             shape: BoxShape.circle,
           ),
           child: Icon(
             icon,
             color: colors.primary,
-            size: 18,
+            size: 20,
           ),
         ),
-        const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.bold,
-                color: colors.textPrimary,
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: typography.bodyMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13.5,
+                  color: colors.textPrimary,
+                  height: 1.2,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 9.5,
-                color: colors.textSecondary,
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: typography.bodySmall.copyWith(
+                  fontSize: 11.5,
+                  color: colors.textSecondary,
+                  height: 1.2,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
   }
 }
+

@@ -311,6 +311,22 @@ router.post('/profile', authMiddleware, async (req, res) => {
   const { fullName, dob, gender, language, avatarSeed, avatarStyle, isTelecaller, country, state, city, latitude, longitude } = req.body;
 
   try {
+    if (dob) {
+      const birthDate = new Date(dob);
+      if (isNaN(birthDate.getTime())) {
+        return res.status(400).json({ error: 'Invalid date of birth format.' });
+      }
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      if (age < 18) {
+        return res.status(400).json({ error: 'You must be 18 years or older to use this app.' });
+      }
+    }
+
     if (fullName) {
       const cleanGender = (gender || '').toLowerCase();
       const isFemale = cleanGender === 'female' || cleanGender === 'girl' || cleanGender === 'woman';
@@ -349,7 +365,7 @@ router.get('/me', authMiddleware, async (req, res) => {
 
   try {
     const result = await db.query(
-      `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.country, u.state, u.city, u.latitude, u.longitude, w.balance 
+      `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, w.balance 
        FROM public.users u
        LEFT JOIN public.wallets w ON w.user_id = u.id
        WHERE u.id = $1`,
@@ -375,6 +391,7 @@ router.get('/me', authMiddleware, async (req, res) => {
         avatarSeed: userRow.avatar_seed || null,
         avatarStyle: userRow.avatar_style || 'avataaars',
         isTelecaller: userRow.is_telecaller ?? null,
+        hasClaimedIntroOffer: userRow.has_claimed_intro_offer === true,
         country: userRow.country || null,
         state: userRow.state || null,
         city: userRow.city || null,

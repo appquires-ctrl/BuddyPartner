@@ -35,8 +35,14 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
         final expiresAtStr = data['expiresAt'] as String?;
         final expiresAt = expiresAtStr != null ? DateTime.tryParse(expiresAtStr) : null;
         final planDays = (data['planDurationDays'] as num?)?.toInt() ?? 0;
+        final hasClaimedIntroOffer = data['hasClaimedIntroOffer'] as bool? ?? false;
 
-        final statePayload = _calculateTimeState(isSub: isSub, expiresAt: expiresAt, planDays: planDays);
+        final statePayload = _calculateTimeState(
+          isSub: isSub,
+          expiresAt: expiresAt,
+          planDays: planDays,
+          hasClaimedIntroOffer: hasClaimedIntroOffer,
+        );
         _startTimer();
         return statePayload;
       }
@@ -51,9 +57,14 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
     required bool isSub,
     required DateTime? expiresAt,
     required int planDays,
+    bool hasClaimedIntroOffer = false,
   }) {
     if (!isSub || expiresAt == null) {
-      return const SubscriptionState(isSubscribed: false, formattedLabel: 'Not Subscribed');
+      return SubscriptionState(
+        isSubscribed: false,
+        formattedLabel: 'Not Subscribed',
+        hasClaimedIntroOffer: hasClaimedIntroOffer,
+      );
     }
 
     final now = DateTime.now();
@@ -65,6 +76,7 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
         expiresAt: expiresAt,
         planDurationDays: planDays,
         formattedLabel: 'Expired',
+        hasClaimedIntroOffer: hasClaimedIntroOffer,
       );
     }
 
@@ -89,6 +101,7 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
       remainingHours: remainingHrs,
       remainingDays: remainingDays,
       formattedLabel: label,
+      hasClaimedIntroOffer: hasClaimedIntroOffer,
     );
   }
 
@@ -105,6 +118,7 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
         isSub: true,
         expiresAt: currentVal.expiresAt,
         planDays: currentVal.planDurationDays,
+        hasClaimedIntroOffer: currentVal.hasClaimedIntroOffer,
       );
 
       state = AsyncData(newState);
@@ -127,6 +141,11 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
           'amountPaid': plan.priceRupees,
         });
       } on DioException catch (e) {
+        if (e.response?.statusCode == 400) {
+          final serverErr = e.response?.data?['error'] ?? 'Subscription request failed.';
+          state = AsyncError(Exception(serverErr), StackTrace.current);
+          return false;
+        }
         if (e.response?.statusCode == 403 || e.response?.statusCode == 404) {
           response = await apiClient.dio.post('/api/subscriptions/subscribe', data: {
             'planId': plan.id,
@@ -139,12 +158,21 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
       }
 
       if (response.statusCode == 200 || response.statusCode == 201) {
+        // Refresh auth state and profile so hasClaimedIntroOffer updates across app
+        Future.microtask(() {
+          ref.invalidate(authStateProvider);
+          ref.invalidate(userProfileProvider);
+        });
         final updatedState = await fetchStatus();
         state = AsyncData(updatedState);
         return true;
       }
-    } catch (e) {
-      // Graceful local activation fallback for dev testing if backend is unreachable or blocking dev endpoints
+    } catch (e, stack) {
+      if (e is DioException && e.response?.data is Map) {
+        final serverErr = e.response?.data['error'] ?? 'Subscription activation failed.';
+        state = AsyncError(Exception(serverErr), stack);
+        return false;
+      }
     }
 
     final expiresAt = DateTime.now().add(Duration(days: plan.durationDays));

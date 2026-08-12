@@ -12,6 +12,8 @@ import 'package:dating_app/core/extensions/context_extensions.dart';
 import 'package:dating_app/app/theme/app_spacing.dart';
 import 'package:dating_app/app/theme/app_radius.dart';
 import 'package:dating_app/core/widgets/buttons/app_primary_button.dart';
+import 'package:dating_app/core/constants/country_codes.dart';
+import 'package:dating_app/core/widgets/country_code_picker_modal.dart';
 
 /// LoginPage handles phone number entry & 6-digit OTP verification
 /// matching the exact design mockup.
@@ -22,10 +24,10 @@ class LoginPage extends ConsumerStatefulWidget {
   ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends ConsumerState<LoginPage> {
+class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
-  final String _selectedCountryCode = '+91';
+  CountryCode _selectedCountry = CountryCodes.defaultCountry;
   bool _otpSent = false;
   
   // 6-digit OTP controllers & focus nodes
@@ -37,7 +39,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   bool _canResend = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _phoneController.dispose();
     for (final c in _otpControllers) {
       c.dispose();
@@ -47,6 +56,45 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
     _resendTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _otpSent && mounted) {
+      _checkClipboardForOtp();
+    }
+  }
+
+  /// Automatically checks clipboard for a 6-digit OTP code when user returns to app
+  Future<void> _checkClipboardForOtp() async {
+    if (!_otpSent || !mounted) return;
+    if (_enteredOtp.length == 6) return;
+
+    try {
+      final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+      final text = clipboardData?.text ?? '';
+      if (text.isEmpty) return;
+
+      final match = RegExp(r'\b\d{6}\b').firstMatch(text);
+      if (match != null) {
+        final code = match.group(0)!;
+        if (_enteredOtp == code) return;
+
+        AppLogger.click('Auto-pasted OTP from clipboard: $code', screen: 'LoginScreen');
+        if (mounted) {
+          setState(() {
+            for (int i = 0; i < 6; i++) {
+              _otpControllers[i].text = code[i];
+            }
+          });
+          _otpFocusNodes[5].unfocus();
+          AppSnackBar.showSuccess(context, 'Auto-filled OTP from clipboard');
+          _handleVerifyOtp();
+        }
+      }
+    } catch (e) {
+      // Swallowed safely if clipboard permission is unavailable
+    }
   }
 
   void _startResendTimer() {
@@ -75,10 +123,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   String get _formattedDisplayPhone {
     final rawPhone = _phoneController.text.trim().replaceAll(' ', '');
-    if (rawPhone.length == 10) {
-      return '$_selectedCountryCode ${rawPhone.substring(0, 5)} ${rawPhone.substring(5)}';
-    }
-    return '$_selectedCountryCode $rawPhone';
+    return '${_selectedCountry.flag} ${_selectedCountry.code} $rawPhone';
   }
 
   String get _enteredOtp => _otpControllers.map((c) => c.text).join();
@@ -88,9 +133,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     if (!_formKey.currentState!.validate()) return;
 
     final mobile = _phoneController.text.trim().replaceAll(' ', '');
+    if (mobile.isEmpty || mobile.length < _selectedCountry.minLength) {
+      AppSnackBar.showError(context, 'Please enter a valid mobile number (${_selectedCountry.minLength}–${_selectedCountry.maxLength} digits).');
+      return;
+    }
+
     final success = await ref
         .read(authControllerProvider.notifier)
-        .sendOtp(countryCode: _selectedCountryCode, mobile: mobile);
+        .sendOtp(countryCode: _selectedCountry.code, mobile: mobile);
 
     if (success && mounted) {
       setState(() {
@@ -105,8 +155,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       });
     } else if (mounted) {
       final authState = ref.read(authControllerProvider);
-      final rawError = authState.error?.toString() ?? 'Failed to send OTP.';
-      final cleanMsg = rawError.replaceAll('Exception: ', '').replaceAll('DioException: ', '');
+      final rawError = authState.error;
+      final cleanMsg = rawError != null ? AuthErrorMapper.mapMessage(rawError) : 'Failed to send OTP.';
       AppSnackBar.showError(context, cleanMsg);
     }
   }
@@ -122,7 +172,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final mobile = _phoneController.text.trim().replaceAll(' ', '');
     final result = await ref
         .read(authControllerProvider.notifier)
-        .verifyOtp(countryCode: _selectedCountryCode, mobile: mobile, otp: otp);
+        .verifyOtp(countryCode: _selectedCountry.code, mobile: mobile, otp: otp);
 
     if (result['success'] == true && mounted) {
       final isProfileComplete = result['isProfileComplete'] as bool? ?? false;
@@ -293,7 +343,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
                 if (!_otpSent) ...[
                   Text(
-                    'Sign in or register using your phone number.',
+                    'Sign in or register using your whatsapp number.',
                     style: typography.bodySmall.copyWith(
                       color: colors.textSecondary,
                       fontSize: 14,
@@ -358,7 +408,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Phone Number',
+                      'Whatsapp Number',
                       style: typography.bodySmall.copyWith(
                         fontWeight: FontWeight.bold,
                         color: colors.textPrimary,
@@ -395,23 +445,41 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           size: 20,
                         ),
                         const SizedBox(width: 10),
-                        Row(
-                          children: [
-                            Text(
-                              _selectedCountryCode,
-                              style: typography.bodyMedium.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: colors.textPrimary,
-                                fontSize: 15,
+                        GestureDetector(
+                          onTap: () {
+                            CountryCodePickerModal.show(
+                              context,
+                              selectedCountry: _selectedCountry,
+                              onSelected: (country) {
+                                setState(() {
+                                  _selectedCountry = country;
+                                });
+                              },
+                            );
+                          },
+                          child: Row(
+                            children: [
+                              Text(
+                                _selectedCountry.flag,
+                                style: const TextStyle(fontSize: 18),
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.keyboard_arrow_down,
-                              color: colors.textSecondary,
-                              size: 18,
-                            ),
-                          ],
+                              const SizedBox(width: 6),
+                              Text(
+                                _selectedCountry.code,
+                                style: typography.bodyMedium.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: colors.textPrimary,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.keyboard_arrow_down,
+                                color: colors.textSecondary,
+                                size: 18,
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Container(
@@ -426,14 +494,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             keyboardType: TextInputType.phone,
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(10),
+                              LengthLimitingTextInputFormatter(_selectedCountry.maxLength),
                             ],
                             style: typography.bodyMedium.copyWith(
                               fontSize: 15,
                               fontWeight: FontWeight.w500,
                             ),
                             decoration: InputDecoration(
-                              hintText: 'Enter phone number',
+                              hintText: 'Enter whatsapp number',
                               hintStyle: typography.bodyMedium.copyWith(
                                 color: colors.textSecondary.withValues(alpha: 0.5),
                                 fontSize: 15,
@@ -446,10 +514,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             ),
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
-                                return 'Please enter your phone number';
+                                return 'Please enter your whatsapp number';
                               }
                               if (value.trim().length < 8) {
-                                return 'Please enter a valid phone number';
+                                return 'Please enter a valid whatsapp number';
                               }
                               return null;
                             },

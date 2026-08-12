@@ -27,7 +27,12 @@ class AccountPage extends ConsumerWidget {
     final currentUser = userAsync.value;
     final profile = profileAsync.value;
 
-    final String fullName = profile?.fullName ?? 'User';
+    final String rawProfileName = profile?.fullName ?? '';
+    final String fullName = (rawProfileName.isNotEmpty && rawProfileName != 'User')
+        ? rawProfileName
+        : (currentUser?.fullName != null && currentUser!.fullName!.trim().isNotEmpty
+            ? currentUser.fullName!.trim()
+            : 'User');
     final String phoneNumber = currentUser?.phoneNumber ?? '';
     final String initials = getInitials(fullName);
     final String gender = profile?.gender.toUpperCase() ?? 'OTHER';
@@ -188,7 +193,7 @@ class AccountPage extends ConsumerWidget {
                       icon: Icons.phone_outlined,
                       iconBgColor: const Color(0xFFE8F8F0),
                       iconColor: const Color(0xFF22C55E),
-                      label: 'Phone Number',
+                      label: 'Whatsapp Number',
                       value: phoneNumber,
                     ),
                     _buildDivider(context),
@@ -386,11 +391,13 @@ class AccountPage extends ConsumerWidget {
                     InkWell(
                       onTap: () async {
                         final now = DateTime.now();
+                        final eighteenYearsAgo = DateTime(now.year - 18, now.month, now.day);
+                        final initialDate = selectedDob.isBefore(eighteenYearsAgo) ? selectedDob : eighteenYearsAgo;
                         final picked = await showDatePicker(
                           context: context,
-                          initialDate: selectedDob,
+                          initialDate: initialDate,
                           firstDate: DateTime(now.year - 100),
-                          lastDate: DateTime(now.year - 18),
+                          lastDate: eighteenYearsAgo,
                         );
                         if (picked != null) {
                           setModalState(() => selectedDob = picked);
@@ -485,6 +492,17 @@ class AccountPage extends ConsumerWidget {
                           final nameText = nameController.text.trim();
                           if (nameText.isEmpty || nameText.length < 3) {
                             AppSnackBar.showError(context, 'Please enter a valid full name (at least 3 characters)');
+                            return;
+                          }
+
+                          final now = DateTime.now();
+                          int age = now.year - selectedDob.year;
+                          if (now.month < selectedDob.month || (now.month == selectedDob.month && now.day < selectedDob.day)) {
+                            age--;
+                          }
+
+                          if (age < 18) {
+                            AppSnackBar.showError(context, 'You must be 18 years or older to use this app.');
                             return;
                           }
 
