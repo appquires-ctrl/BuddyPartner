@@ -33,7 +33,6 @@ class _MatchedUserCardState extends ConsumerState<MatchedUserCard> {
         'userName': widget.user.fullName,
         'avatarSeed': widget.user.avatarSeed,
         'avatarStyle': widget.user.avatarStyle,
-        'userAvatar': widget.user.avatarUrl,
         'gender': widget.user.gender,
       },
     );
