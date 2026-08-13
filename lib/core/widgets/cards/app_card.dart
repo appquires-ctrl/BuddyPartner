@@ -32,18 +32,18 @@ class AppCard extends StatelessWidget {
     final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final defaultElevation = isDark ? AppElevation.cardDark : AppElevation.card;
-    final defaultBorder = Border.all(color: colors.border, width: 1);
+    final defaultElevation = AppElevation.card;
+    final defaultBorder = Border.all(color: colors.border.withValues(alpha: 0.5), width: 1);
 
     return Container(
       width: width,
       height: height,
       padding: padding ?? const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: backgroundColor ?? colors.surface,
+        color: backgroundColor ?? Colors.white,
         borderRadius: borderRadius ?? AppRadius.lg,
         boxShadow: elevation ?? defaultElevation,
-        border: border ?? (isDark ? null : defaultBorder),
+        border: border ?? defaultBorder,
       ),
       child: child,
     );

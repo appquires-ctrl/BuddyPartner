@@ -52,21 +52,21 @@ class AppColors extends ThemeExtension<AppColors> {
     border: Color(0xFFECEBF3),
   );
 
-  /// Dark theme color definitions
+  /// Dark theme color definitions (tuned for app_bg.jpeg wallpaper harmony)
   static const dark = AppColors(
-    primary: Color(0xFF9282F2),
-    primaryGradientStart: Color(0xFF9B8DF7),
-    primaryGradientEnd: Color(0xFFEDBAE7),
-    surface: Color(0xFF1E1E24),
-    surfaceMuted: Color(0xFF121216),
-    walletCardBg: [Color(0xFF0C0C0C), Color(0xFF1A1A1A)],
-    chipLavender: Color(0xFF2B273F),
-    success: Color(0xFF3DCE89),
-    warningAmber: Color(0xFFF5B958),
-    danger: Color(0xFFF26B68),
-    textPrimary: Color(0xFFFFFFFF),
-    textSecondary: Color(0xFFA1A1AA),
-    border: Color(0xFF2E2D38),
+    primary: Color(0xFF7C6AEF),
+    primaryGradientStart: Color(0xFF8B7CF6),
+    primaryGradientEnd: Color(0xFFE8A9E0),
+    surface: Color(0xFFFFFFFF),
+    surfaceMuted: Color(0xFFF5F4FA),
+    walletCardBg: [Color(0xFF161616), Color(0xFF2A2A2A)],
+    chipLavender: Color(0xFFE7E3FB),
+    success: Color(0xFF2FBE7A),
+    warningAmber: Color(0xFFF2A93B),
+    danger: Color(0xFFEF5350),
+    textPrimary: Color(0xFF1A1A1A),
+    textSecondary: Color(0xFF6B7280),
+    border: Color(0xFFECEBF3),
   );
 
   @override

@@ -47,15 +47,9 @@ class _FavoriteUserCardState extends ConsumerState<FavoriteUserCard> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Premium Glassmorphism styling configuration
-    final Color glassBg = isDark
-        ? Colors.white.withValues(alpha: 0.05)
-        : Colors.white.withValues(alpha: 0.65);
-    final Color glassBorder = isDark
-        ? Colors.white.withValues(alpha: 0.08)
-        : Colors.white.withValues(alpha: 0.25);
-    final Color cardShadow = isDark
-        ? Colors.black.withValues(alpha: 0.2)
-        : colors.textPrimary.withValues(alpha: 0.05);
+    final Color glassBg = Colors.white;
+    final Color glassBorder = colors.border.withValues(alpha: 0.5);
+    final Color cardShadow = colors.primary.withValues(alpha: 0.04);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
