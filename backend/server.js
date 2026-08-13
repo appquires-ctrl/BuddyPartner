@@ -64,6 +64,7 @@ app.use('/api', withdrawalRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/subscriptions', subscriptionsRoutes);
 app.use('/api/advertisements', advertisementsRoutes);
+app.use('/api/admin/advertisements', advertisementsRoutes);
 
 // Initialize Admin & App Config
 adminService.initAdminConfig();

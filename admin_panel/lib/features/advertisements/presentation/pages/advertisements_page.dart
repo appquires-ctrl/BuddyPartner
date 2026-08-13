@@ -47,7 +47,7 @@ class _AdvertisementsPageState extends State<AdvertisementsPage> {
     });
 
     try {
-      final res = await ApiService.get('/advertisements/admin/list');
+      final res = await ApiService.get('/advertisements');
       if (res['success'] == true && res['advertisements'] is List) {
         final list = (res['advertisements'] as List)
             .map((item) => Advertisement.fromJson(item))
@@ -92,7 +92,7 @@ class _AdvertisementsPageState extends State<AdvertisementsPage> {
 
         // Upload to backend
         final res = await ApiService.uploadFile(
-          '/advertisements/admin/upload-image',
+          '/advertisements/upload-image',
           file.bytes!,
           file.name,
         );
@@ -147,7 +147,7 @@ class _AdvertisementsPageState extends State<AdvertisementsPage> {
     try {
       if (_editingAdId == null) {
         // Create new ad
-        final res = await ApiService.post('/advertisements/admin/create', body: {
+        final res = await ApiService.post('/advertisements', body: {
           'imageUrl': imageUrl,
           'clickUrl': clickUrl,
           'isActive': _isActive,
@@ -163,7 +163,7 @@ class _AdvertisementsPageState extends State<AdvertisementsPage> {
         }
       } else {
         // Edit existing ad
-        final res = await ApiService.put('/advertisements/admin/$_editingAdId', body: {
+        final res = await ApiService.put('/advertisements/$_editingAdId', body: {
           'imageUrl': imageUrl,
           'clickUrl': clickUrl,
           'isActive': _isActive,
@@ -209,7 +209,7 @@ class _AdvertisementsPageState extends State<AdvertisementsPage> {
 
     if (confirm == true) {
       try {
-        final res = await ApiService.delete('/advertisements/admin/$id');
+        final res = await ApiService.delete('/advertisements/$id');
         if (res['success'] == true) {
           _showSnackBar('Advertisement deleted!');
           _fetchAds();

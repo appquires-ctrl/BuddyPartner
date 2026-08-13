@@ -64,8 +64,8 @@ class DashboardScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // Version Gate Management Card
-          const VersionManagementCard(),
-          const SizedBox(height: 24),
+          // const VersionManagementCard(),
+          // const SizedBox(height: 24),
 
           // Stat Cards Grid
           statsAsync.when(

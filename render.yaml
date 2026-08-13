@@ -8,9 +8,3 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 18.0.0
-
-  - type: static
-    name: buddypartner-admin-panel
-    rootDir: admin_panel
-    buildCommand: flutter/bin/flutter build web --release
-    publishDir: admin_panel/build/web

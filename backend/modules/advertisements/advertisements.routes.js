@@ -125,8 +125,8 @@ router.post('/:id/click', async (req, res) => {
 
 // ── 2. Admin Endpoints ───────────────────────────────────────────────────────
 
-// POST /api/admin/advertisements/upload-image
-router.post('/admin/upload-image', adminAuth, (req, res) => {
+// POST /api/admin/advertisements/upload-image OR /api/advertisements/upload-image
+router.post(['/upload-image', '/admin/upload-image'], adminAuth, (req, res) => {
   upload.single('image')(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
@@ -160,8 +160,8 @@ router.post('/admin/upload-image', adminAuth, (req, res) => {
   });
 });
 
-// GET /api/admin/advertisements
-router.get('/admin/list', adminAuth, async (_req, res) => {
+// GET /api/admin/advertisements OR /api/admin/advertisements/list
+router.get(['/', '/list', '/admin/list'], adminAuth, async (_req, res) => {
   try {
     const ads = await adsService.getAllAds();
     return res.json({ success: true, advertisements: ads });
@@ -170,8 +170,8 @@ router.get('/admin/list', adminAuth, async (_req, res) => {
   }
 });
 
-// POST /api/admin/advertisements
-router.post('/admin/create', adminAuth, async (req, res) => {
+// POST /api/admin/advertisements OR /api/admin/advertisements/create
+router.post(['/', '/create', '/admin/create'], adminAuth, async (req, res) => {
   try {
     const { imageUrl, clickUrl, isActive = true, displayOrder = 0 } = req.body;
 
@@ -198,7 +198,7 @@ router.post('/admin/create', adminAuth, async (req, res) => {
 });
 
 // PUT /api/admin/advertisements/:id
-router.put('/admin/:id', adminAuth, async (req, res) => {
+router.put(['/:id', '/admin/:id'], adminAuth, async (req, res) => {
   try {
     const { imageUrl, clickUrl, isActive, displayOrder } = req.body;
 
@@ -224,7 +224,7 @@ router.put('/admin/:id', adminAuth, async (req, res) => {
 });
 
 // DELETE /api/admin/advertisements/:id
-router.delete('/admin/:id', adminAuth, async (req, res) => {
+router.delete(['/:id', '/admin/:id'], adminAuth, async (req, res) => {
   try {
     const deleted = await adsService.deleteAd(req.params.id);
     if (!deleted) {
