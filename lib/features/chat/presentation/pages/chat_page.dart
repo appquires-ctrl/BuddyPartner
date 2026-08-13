@@ -437,8 +437,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               ),
             ),
           ],
-        ],
-      ),
-    );
+        ),
+      ],
+    ),
+  );
   }
 }
