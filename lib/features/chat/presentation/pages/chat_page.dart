@@ -363,40 +363,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   ),
                   child: Builder(
                     builder: (context) {
-                      final subState = ref.watch(subscriptionStatusProvider).value;
-                      final isSubscribed = subState?.isSubscribed ?? false;
-
-                      if (!isSubscribed) {
-                        return InkWell(
-                          onTap: () => context.push(RouteNames.subscribe),
-                          borderRadius: BorderRadius.circular(16),
-                          child: Container(
-                            height: 48,
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            decoration: BoxDecoration(
-                              color: colors.primary.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: colors.primary.withValues(alpha: 0.4)),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.lock_outline, color: colors.primary, size: 20),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'Subscribe to start sending messages',
-                                    style: typography.bodyMedium.copyWith(
-                                      color: colors.primary,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                Icon(Icons.arrow_forward_ios, color: colors.primary, size: 14),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
+                      // Subscription bypass: Allow all users to send messages immediately
+                      // final subState = ref.watch(subscriptionStatusProvider).value;
+                      // final isSubscribed = subState?.isSubscribed ?? false;
+                      // if (!isSubscribed) { ... }
 
                       return Row(
                         children: [
