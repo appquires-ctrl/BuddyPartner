@@ -13,6 +13,8 @@ import 'package:buddypartner/core/services/location_service.dart';
 import 'package:buddypartner/features/home/presentation/widgets/matching_illustration.dart';
 import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
 import 'package:buddypartner/features/call/application/matchmaking_state.dart';
+import 'package:buddypartner/features/home/domain/advertisement.dart';
+import 'package:buddypartner/features/home/presentation/providers/advertisements_provider.dart';
 import 'package:buddypartner/features/home/presentation/providers/matched_users_provider.dart';
 import 'package:buddypartner/features/home/presentation/widgets/matched_user_card.dart';
 import 'package:buddypartner/features/home/presentation/widgets/ad_banner_widget.dart';
@@ -114,7 +116,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     });
     ref.invalidate(matchedUsersProvider);
     ref.invalidate(activeAdvertisementsProvider);
-    await Future.wait([
+    await Future.wait<dynamic>([
       ref.read(matchedUsersProvider.future).catchError((_) => <MatchedUser>[]),
       ref.read(activeAdvertisementsProvider.future).catchError((_) => <Advertisement>[]),
     ]);
