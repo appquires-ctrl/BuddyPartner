@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
@@ -110,11 +111,23 @@ class ApiService {
       if (token != null && token.isNotEmpty) {
         request.headers['Authorization'] = 'Bearer $token';
       }
+
+      MediaType? contentType;
+      final ext = filename.toLowerCase();
+      if (ext.endsWith('.png')) {
+        contentType = MediaType('image', 'png');
+      } else if (ext.endsWith('.webp')) {
+        contentType = MediaType('image', 'webp');
+      } else if (ext.endsWith('.jpg') || ext.endsWith('.jpeg')) {
+        contentType = MediaType('image', 'jpeg');
+      }
+
       request.files.add(
         http.MultipartFile.fromBytes(
           'image',
           bytes,
           filename: filename,
+          contentType: contentType,
         ),
       );
       final streamedResponse = await request.send();
