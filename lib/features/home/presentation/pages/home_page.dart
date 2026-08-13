@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/app/theme/app_radius.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:buddypartner/core/services/location_service.dart';
@@ -14,6 +15,7 @@ import 'package:buddypartner/features/call/application/matchmaking_controller.da
 import 'package:buddypartner/features/call/application/matchmaking_state.dart';
 import 'package:buddypartner/features/home/presentation/providers/matched_users_provider.dart';
 import 'package:buddypartner/features/home/presentation/widgets/matched_user_card.dart';
+import 'package:buddypartner/features/home/presentation/widgets/ad_banner_widget.dart';
 import 'package:buddypartner/features/home/presentation/widgets/home_skeleton.dart';
 import 'package:buddypartner/core/widgets/gradient_avatar.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
@@ -422,9 +424,17 @@ class _HomePageState extends ConsumerState<HomePage> {
                             const Spacer(),
 
                             // Cancel button at bottom
-                            SizedBox(
+                            Container(
                               width: double.infinity,
                               height: 56,
+                               decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.55),
+                                borderRadius: AppRadius.pill,
+                                border: Border.all(
+                                  color: colors.primary.withValues(alpha: 0.25),
+                                  width: 1.0,
+                                ),
+                              ),
                               child: OutlinedButton(
                                 onPressed: _cancelMatchmaking,
                                 style: OutlinedButton.styleFrom(
@@ -724,7 +734,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                   //     ),
                   //   ),
                   // ),
-                  // const SizedBox(height: 80),
+                  const SizedBox(height: 16),
+                  const AdBannerWidget(),
+                  const SizedBox(height: 80),
                 ],
               ],
             ),
@@ -734,10 +746,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
     }
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      child: content,
-    );
+    return content;
   }
 }
 

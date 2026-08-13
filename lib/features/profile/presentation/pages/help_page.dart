@@ -294,6 +294,7 @@ class HelpPage extends StatelessWidget {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: colors.surface,
       shape: const RoundedRectangleBorder(
@@ -409,6 +410,7 @@ class HelpPage extends StatelessWidget {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: colors.surface,
       shape: const RoundedRectangleBorder(

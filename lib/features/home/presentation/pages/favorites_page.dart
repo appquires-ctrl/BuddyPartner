@@ -180,9 +180,6 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     );
     }
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      child: content,
-    );
+    return content;
   }
 }

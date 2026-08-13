@@ -237,10 +237,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
       );
     }
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      child: content,
-    );
+    return content;
   }
 }
 
@@ -274,7 +271,6 @@ class _ConversationCard extends ConsumerWidget {
     final colors = context.colors;
     final typography = context.typography;
     final initials = getInitials(conversation.otherUserName);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final authState = ref.watch(authStateProvider).value;
     final currentUserId = authState?.id;
@@ -285,15 +281,9 @@ class _ConversationCard extends ConsumerWidget {
 
     final showUnreadBadge = !isSentByMe && conversation.unreadCount > 0;
 
-    final Color glassBg = isDark
-        ? Colors.white.withValues(alpha: 0.65)
-        : Colors.white;
-    final Color glassBorder = isDark
-        ? Colors.white.withValues(alpha: 0.08)
-        : colors.border.withValues(alpha: 0.25);
-    final Color cardShadow = isDark
-        ? Colors.black.withValues(alpha: 0.2)
-        : colors.textPrimary.withValues(alpha: 0.04);
+    final Color glassBg = colors.cardBackground;
+    final Color glassBorder = colors.cardBorder;
+    final Color cardShadow = colors.cardShadow;
 
     final timeStr = _formatTime(conversation.lastMessageAt);
     final previewText = conversation.lastMessage != null

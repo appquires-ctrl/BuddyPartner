@@ -19,6 +19,7 @@ class CountryCodePickerModal extends StatefulWidget {
   }) {
     return showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => CountryCodePickerModal(

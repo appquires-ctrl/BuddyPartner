@@ -322,6 +322,7 @@ class AccountPage extends ConsumerWidget {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: colors.surface,
       shape: const RoundedRectangleBorder(

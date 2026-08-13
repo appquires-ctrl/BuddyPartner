@@ -50,12 +50,12 @@ class _MatchedUserCardState extends ConsumerState<MatchedUserCard> {
       width: widget.isGrid ? null : 150,
       margin: widget.isGrid ? EdgeInsets.zero : const EdgeInsets.only(right: 16, bottom: 8),
       decoration: BoxDecoration(
-        color: colors.surface,
+        color: colors.cardBackground,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colors.border),
+        border: Border.all(color: colors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: colors.textPrimary.withValues(alpha: 0.04),
+            color: colors.cardShadow,
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

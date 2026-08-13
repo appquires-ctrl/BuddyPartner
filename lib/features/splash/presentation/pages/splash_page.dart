@@ -31,6 +31,12 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
   bool _hasNavigated = false;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    precacheImage(const AssetImage('assets/images/app_bg.jpeg'), context);
+  }
+
+  @override
   void initState() {
     super.initState();
 

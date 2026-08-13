@@ -43,6 +43,12 @@ const appRoutes = require('./modules/app/app.routes');
 const { appService } = require('./modules/app/app.service');
 const { enforceMinimumVersion } = require('./middleware/version.middleware');
 
+const path = require('path');
+const advertisementsRoutes = require('./modules/advertisements/advertisements.routes');
+
+// Serve uploaded images statically
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Public version routes mounted before middleware enforcement
 app.use('/api/app', appRoutes);
 
@@ -57,6 +63,7 @@ app.use('/api', roseRoutes);
 app.use('/api', withdrawalRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/subscriptions', subscriptionsRoutes);
+app.use('/api/advertisements', advertisementsRoutes);
 
 // Initialize Admin & App Config
 adminService.initAdminConfig();

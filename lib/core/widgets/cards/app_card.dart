@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
-import 'package:buddypartner/app/theme/app_elevation.dart';
 import 'package:buddypartner/app/theme/app_radius.dart';
 
 /// AppCard is a stylized container that applies the design system's
@@ -30,20 +29,25 @@ class AppCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final defaultElevation = isDark ? AppElevation.cardDark : AppElevation.card;
-    final defaultBorder = Border.all(color: colors.border, width: 1);
+    final defaultBorder = Border.all(color: colors.cardBorder, width: 1);
+    final defaultElevation = [
+      BoxShadow(
+        color: colors.cardShadow,
+        blurRadius: 10,
+        offset: const Offset(0, 4),
+      ),
+    ];
 
     return Container(
       width: width,
       height: height,
       padding: padding ?? const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: backgroundColor ?? colors.surface,
+        color: backgroundColor ?? colors.cardBackground,
         borderRadius: borderRadius ?? AppRadius.lg,
         boxShadow: elevation ?? defaultElevation,
-        border: border ?? (isDark ? null : defaultBorder),
+        border: border ?? defaultBorder,
       ),
       child: child,
     );

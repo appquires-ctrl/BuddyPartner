@@ -9,6 +9,8 @@ import '../features/dashboard/dashboard_screen.dart';
 import '../features/users/user_management_screen.dart';
 import '../features/reports/reports_queue_screen.dart';
 import '../features/withdrawals/withdrawals_screen.dart';
+import '../features/advertisements/presentation/pages/advertisements_page.dart';
+import '../features/version_config/presentation/pages/app_config_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
@@ -67,6 +69,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/withdrawals',
             pageBuilder: (context, state) => const NoTransitionPage(
               child: WithdrawalsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/advertisements',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: AdvertisementsPage(),
+            ),
+          ),
+          GoRoute(
+            path: '/app-config',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: AppConfigPage(),
             ),
           ),
         ],

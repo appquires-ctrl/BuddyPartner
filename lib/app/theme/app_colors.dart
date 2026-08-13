@@ -10,6 +10,9 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color primaryGradientEnd;
   final Color surface;
   final Color surfaceMuted;
+  final Color cardBackground;
+  final Color cardBorder;
+  final Color cardShadow;
   final List<Color> walletCardBg;
   final Color chipLavender;
   final Color success;
@@ -25,6 +28,9 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.primaryGradientEnd,
     required this.surface,
     required this.surfaceMuted,
+    required this.cardBackground,
+    required this.cardBorder,
+    required this.cardShadow,
     required this.walletCardBg,
     required this.chipLavender,
     required this.success,
@@ -36,12 +42,16 @@ class AppColors extends ThemeExtension<AppColors> {
   });
 
   /// Light theme color definitions
+  /// EDIT THESE CENTRAL MASTER COLOR DEFINITIONS TO CHANGE ALL CARDS & COLORS ACROSS THE APPLICATION:
   static const light = AppColors(
     primary: Color(0xFF7C6AEF),
     primaryGradientStart: Color(0xFF8B7CF6),
     primaryGradientEnd: Color(0xFFE8A9E0),
     surface: Color(0xFFFFFFFF),
     surfaceMuted: Color(0xFFF5F4FA),
+    cardBackground: Color(0xFFFFFFFF),                // <--- CENTRAL MASTER CARD BACKGROUND COLOR
+    cardBorder: Color(0xFFECEBF3),                    // <--- CENTRAL MASTER CARD BORDER COLOR
+    cardShadow: Color(0x0A1A1A1A),                    // <--- CENTRAL MASTER CARD SHADOW COLOR
     walletCardBg: [Color(0xFF161616), Color(0xFF2A2A2A)],
     chipLavender: Color(0xFFE7E3FB),
     success: Color(0xFF2FBE7A),
@@ -62,6 +72,9 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? primaryGradientEnd,
     Color? surface,
     Color? surfaceMuted,
+    Color? cardBackground,
+    Color? cardBorder,
+    Color? cardShadow,
     List<Color>? walletCardBg,
     Color? chipLavender,
     Color? success,
@@ -77,6 +90,9 @@ class AppColors extends ThemeExtension<AppColors> {
       primaryGradientEnd: primaryGradientEnd ?? this.primaryGradientEnd,
       surface: surface ?? this.surface,
       surfaceMuted: surfaceMuted ?? this.surfaceMuted,
+      cardBackground: cardBackground ?? this.cardBackground,
+      cardBorder: cardBorder ?? this.cardBorder,
+      cardShadow: cardShadow ?? this.cardShadow,
       walletCardBg: walletCardBg ?? this.walletCardBg,
       chipLavender: chipLavender ?? this.chipLavender,
       success: success ?? this.success,
@@ -97,6 +113,9 @@ class AppColors extends ThemeExtension<AppColors> {
       primaryGradientEnd: Color.lerp(primaryGradientEnd, other.primaryGradientEnd, t)!,
       surface: Color.lerp(surface, other.surface, t)!,
       surfaceMuted: Color.lerp(surfaceMuted, other.surfaceMuted, t)!,
+      cardBackground: Color.lerp(cardBackground, other.cardBackground, t)!,
+      cardBorder: Color.lerp(cardBorder, other.cardBorder, t)!,
+      cardShadow: Color.lerp(cardShadow, other.cardShadow, t)!,
       walletCardBg: t < 0.5 ? walletCardBg : other.walletCardBg,
       chipLavender: Color.lerp(chipLavender, other.chipLavender, t)!,
       success: Color.lerp(success, other.success, t)!,

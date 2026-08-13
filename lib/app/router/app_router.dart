@@ -272,6 +272,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             body: Stack(
               fit: StackFit.expand,
               children: [
+                Container(color: const Color(0xFFFAF9FE)),
                 Image.asset(
                   'assets/images/app_bg.jpeg',
                   fit: BoxFit.cover,

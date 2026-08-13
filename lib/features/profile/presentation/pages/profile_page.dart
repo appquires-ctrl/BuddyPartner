@@ -165,9 +165,9 @@ class ProfilePage extends ConsumerWidget {
               // General Options container list
               Container(
                 decoration: BoxDecoration(
-                  color: colors.surface,
+                  color: colors.cardBackground,
                   borderRadius: AppRadius.lg,
-                  border: Border.all(color: colors.border),
+                  border: Border.all(color: colors.cardBorder),
                 ),
                 child: Column(
                   children: [
@@ -245,9 +245,9 @@ class ProfilePage extends ConsumerWidget {
               // Support Options container
               Container(
                 decoration: BoxDecoration(
-                  color: colors.surface,
+                  color: colors.cardBackground,
                   borderRadius: AppRadius.lg,
-                  border: Border.all(color: colors.border),
+                  border: Border.all(color: colors.cardBorder),
                 ),
                 child: _buildSettingsTile(
                   context,
@@ -280,9 +280,9 @@ class ProfilePage extends ConsumerWidget {
               // Legal Options container
               Container(
                 decoration: BoxDecoration(
-                  color: colors.surface,
+                  color: colors.cardBackground,
                   borderRadius: AppRadius.lg,
-                  border: Border.all(color: colors.border),
+                  border: Border.all(color: colors.cardBorder),
                 ),
                 child: Column(
                   children: [
@@ -317,9 +317,9 @@ class ProfilePage extends ConsumerWidget {
               // Logout Option card
               Container(
                 decoration: BoxDecoration(
-                  color: colors.surface,
+                  color: colors.cardBackground,
                   borderRadius: AppRadius.lg,
-                  border: Border.all(color: colors.border),
+                  border: Border.all(color: colors.cardBorder),
                 ),
                 child: _buildSettingsTile(
                   context,
@@ -345,6 +345,7 @@ class ProfilePage extends ConsumerWidget {
     final colors = context.colors;
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),

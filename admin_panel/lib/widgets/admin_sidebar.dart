@@ -91,6 +91,20 @@ class AdminSidebar extends StatelessWidget {
             route: '/reports',
             isSelected: currentPath == '/reports',
           ),
+          _buildNavItem(
+            context,
+            title: 'Advertisements',
+            icon: Icons.view_carousel_rounded,
+            route: '/advertisements',
+            isSelected: currentPath == '/advertisements',
+          ),
+          _buildNavItem(
+            context,
+            title: 'App Version Gate',
+            icon: Icons.system_update_rounded,
+            route: '/app-config',
+            isSelected: currentPath == '/app-config',
+          ),
           
 
           const Spacer(),

@@ -89,6 +89,42 @@ class ApiService {
     }
   }
 
+  static Future<dynamic> delete(String path) async {
+    try {
+      final uri = Uri.parse('$baseUrl$path');
+      final response = await http.delete(
+        uri,
+        headers: await _headers(),
+      );
+      return _processResponse(response);
+    } catch (e) {
+      throw Exception('Network error: $e');
+    }
+  }
+
+  static Future<dynamic> uploadFile(String path, List<int> bytes, String filename) async {
+    try {
+      final uri = Uri.parse('$baseUrl$path');
+      final request = http.MultipartRequest('POST', uri);
+      final token = await getToken();
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'image',
+          bytes,
+          filename: filename,
+        ),
+      );
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      return _processResponse(response);
+    } catch (e) {
+      throw Exception('Upload error: $e');
+    }
+  }
+
   static dynamic _processResponse(http.Response response) {
     final body = jsonDecode(response.body);
     if (response.statusCode >= 200 && response.statusCode < 300) {
