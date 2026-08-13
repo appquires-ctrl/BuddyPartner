@@ -52,22 +52,8 @@ class AppColors extends ThemeExtension<AppColors> {
     border: Color(0xFFECEBF3),
   );
 
-  /// Dark theme color definitions (tuned for app_bg.jpeg wallpaper harmony)
-  static const dark = AppColors(
-    primary: Color(0xFF7C6AEF),
-    primaryGradientStart: Color(0xFF8B7CF6),
-    primaryGradientEnd: Color(0xFFE8A9E0),
-    surface: Color(0xFFFFFFFF),
-    surfaceMuted: Color(0xFFF5F4FA),
-    walletCardBg: [Color(0xFF161616), Color(0xFF2A2A2A)],
-    chipLavender: Color(0xFFE7E3FB),
-    success: Color(0xFF2FBE7A),
-    warningAmber: Color(0xFFF2A93B),
-    danger: Color(0xFFEF5350),
-    textPrimary: Color(0xFF1A1A1A),
-    textSecondary: Color(0xFF6B7280),
-    border: Color(0xFFECEBF3),
-  );
+  /// Dark theme color definitions (mirrors light theme)
+  static const dark = light;
 
   @override
   AppColors copyWith({

@@ -40,39 +40,7 @@ class AppTheme {
     );
   }
 
-  static ThemeData get dark {
-    final colors = AppColors.dark;
-    final typography = AppTypography.create(
-      textColor: colors.textPrimary,
-      textMutedColor: colors.textSecondary,
-    );
-
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-      primaryColor: colors.primary,
-      scaffoldBackgroundColor: colors.surfaceMuted,
-      cardColor: colors.surface,
-      dividerColor: colors.border,
-      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        shadowColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-      ),
-      extensions: [
-        colors,
-        typography,
-      ],
-      colorScheme: ColorScheme.dark(
-        primary: colors.primary,
-        surface: colors.surface,
-        error: colors.danger,
-      ),
-    );
-  }
+  static ThemeData get dark => light;
 
   AppTheme._();
 }

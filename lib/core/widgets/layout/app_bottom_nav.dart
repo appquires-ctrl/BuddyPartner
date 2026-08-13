@@ -22,6 +22,7 @@ class AppBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final navSelectedIndex = currentIndex.clamp(0, 3);
 
     return SafeArea(
@@ -31,15 +32,21 @@ class AppBottomNav extends StatelessWidget {
         child: Container(
           height: 64,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.94),
+            color: isDark
+                ? colors.surface.withValues(alpha: 0.92)
+                : Colors.white.withValues(alpha: 0.94),
             borderRadius: BorderRadius.circular(32),
             border: Border.all(
-              color: colors.primary.withValues(alpha: 0.12),
+              color: isDark
+                  ? colors.border.withValues(alpha: 0.3)
+                  : colors.primary.withValues(alpha: 0.12),
               width: 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: colors.primary.withValues(alpha: 0.10),
+                color: isDark
+                    ? Colors.black.withValues(alpha: 0.35)
+                    : colors.primary.withValues(alpha: 0.10),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),

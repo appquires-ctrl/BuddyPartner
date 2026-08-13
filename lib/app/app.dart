@@ -44,8 +44,8 @@ class BuddyPartnerApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'BuddyPartner',
       theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.system,
+      darkTheme: AppTheme.light,
+      themeMode: ThemeMode.light,
       routerConfig: router,
       builder: (context, child) {
         final mediaQueryData = MediaQuery.of(context);

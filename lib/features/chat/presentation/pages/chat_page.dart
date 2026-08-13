@@ -351,8 +351,16 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             )
           else
             Container(
-              decoration: const BoxDecoration(
-                color: Colors.transparent,
+              decoration: BoxDecoration(
+                color: colors.surface,
+                border: Border(top: BorderSide(color: colors.border.withValues(alpha: 0.5))),
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.textPrimary.withValues(alpha: 0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, -3),
+                  ),
+                ],
               ),
               child: SafeArea(
                 top: false,
@@ -364,37 +372,31 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   ),
                   child: Builder(
                     builder: (context) {
-                      final isDark = Theme.of(context).brightness == Brightness.dark;
+                      // Subscription bypass: Allow all users to send messages immediately
+                      // final subState = ref.watch(subscriptionStatusProvider).value;
+                      // final isSubscribed = subState?.isSubscribed ?? false;
+                      // if (!isSubscribed) { ... }
+
                       return Row(
                         children: [
                           Expanded(
                             child: Container(
                               height: 48,
                               decoration: BoxDecoration(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.08)
-                                    : Colors.white.withValues(alpha: 0.25),
+                                color: colors.surfaceMuted,
                                 borderRadius: AppRadius.pill,
-                                border: Border.all(
-                                  color: isDark
-                                      ? Colors.white.withValues(alpha: 0.18)
-                                      : colors.primary.withValues(alpha: 0.25),
-                                  width: 1.0,
-                                ),
+                                border: Border.all(color: colors.border),
                               ),
                               child: TextField(
                                 controller: _messageController,
-                                style: typography.bodyMedium.copyWith(
-                                  color: colors.textPrimary,
-                                  fontSize: 14.0,
-                                ),
+                                style: typography.bodyMedium.copyWith(color: colors.textPrimary),
                                 onChanged: _onTyping,
                                 textInputAction: TextInputAction.send,
                                 decoration: InputDecoration(
                                   hintText: 'Type a message...',
                                   hintStyle: typography.bodySmall.copyWith(
-                                    color: colors.textSecondary.withValues(alpha: 0.8),
-                                    fontSize: 14.0,
+                                    color: colors.textSecondary,
+                                    fontSize: 14,
                                   ),
                                   border: InputBorder.none,
                                   contentPadding: const EdgeInsets.symmetric(
