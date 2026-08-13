@@ -145,13 +145,13 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                             },
                             style: typography.bodyMedium.copyWith(
                               color: colors.textPrimary,
-                              fontSize: 14,
+                              fontSize: 14.0,
                             ),
                             decoration: InputDecoration(
                               hintText: 'Search chats or names...',
                               hintStyle: typography.bodySmall.copyWith(
                                 color: colors.textSecondary.withValues(alpha: 0.7),
-                                fontSize: 14,
+                                fontSize: 14.0,
                               ),
                               prefixIcon: Icon(
                                 Icons.search_rounded,
@@ -195,7 +195,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                               style: typography.bodySmall.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: colors.textSecondary,
-                                fontSize: 12,
+                                fontSize: 12.0,
                                 letterSpacing: 0.5,
                               ),
                             ),
@@ -239,7 +239,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                                       child: Text(
                                         onlineConv.otherUserName.split(' ').first,
                                         style: typography.bodySmall.copyWith(
-                                          fontSize: 11,
+                                          fontSize: 11.0,
                                           fontWeight: FontWeight.w600,
                                           color: colors.textPrimary,
                                         ),
@@ -300,7 +300,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                             'No conversations found',
                             style: typography.titleCard.copyWith(
                               fontWeight: FontWeight.bold,
-                              fontSize: 18,
+                              fontSize: 18.0,
                               color: colors.textPrimary,
                             ),
                           ),
@@ -309,7 +309,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                             'No chats match "$_searchQuery"',
                             style: typography.bodySmall.copyWith(
                               color: colors.textSecondary,
-                              fontSize: 13,
+                              fontSize: 13.0,
                             ),
                           ),
                         ],
@@ -337,7 +337,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                           'No Messages Yet',
                           style: typography.titleCard.copyWith(
                             fontWeight: FontWeight.bold,
-                            fontSize: 20,
+                            fontSize: 20.0,
                             color: colors.textPrimary,
                           ),
                           textAlign: TextAlign.center,
@@ -347,7 +347,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                           'Start a conversation with a partner to see your chats here!',
                           style: typography.bodySmall.copyWith(
                             color: colors.textSecondary,
-                            fontSize: 13,
+                            fontSize: 13.0,
                             height: 1.4,
                           ),
                           textAlign: TextAlign.center,
@@ -381,7 +381,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
             'Messages',
             style: typography.titleCard.copyWith(
               fontWeight: FontWeight.bold,
-              fontSize: 24,
+              fontSize: 24.0,
               color: colors.textPrimary,
               letterSpacing: -0.5,
             ),
@@ -399,7 +399,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                 style: typography.bodySmall.copyWith(
                   color: colors.primary,
                   fontWeight: FontWeight.bold,
-                  fontSize: 12,
+                  fontSize: 12.0,
                 ),
               ),
             ),
@@ -550,7 +550,7 @@ class _ConversationCard extends ConsumerWidget {
                         previewText,
                         style: typography.bodySmall.copyWith(
                           color: showUnreadBadge ? colors.textPrimary : colors.textSecondary,
-                          fontSize: 13,
+                          fontSize: 13.0,
                           fontWeight: showUnreadBadge ? FontWeight.w600 : FontWeight.normal,
                         ),
                         maxLines: 1,
@@ -570,7 +570,7 @@ class _ConversationCard extends ConsumerWidget {
                       timeStr,
                       style: typography.bodySmall.copyWith(
                         color: showUnreadBadge ? colors.primary : colors.textSecondary.withValues(alpha: 0.8),
-                        fontSize: 11,
+                        fontSize: 11.0,
                         fontWeight: showUnreadBadge ? FontWeight.bold : FontWeight.w500,
                       ),
                     ),
@@ -590,7 +590,7 @@ class _ConversationCard extends ConsumerWidget {
                                 : conversation.unreadCount.toString(),
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 11,
+                              fontSize: 11.0,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
