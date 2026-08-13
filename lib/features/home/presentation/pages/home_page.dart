@@ -158,10 +158,11 @@ class _HomePageState extends ConsumerState<HomePage> {
       content = const HomeSkeleton();
     } else {
       content = Scaffold(
+        backgroundColor: Colors.transparent,
         key: const ValueKey('home_content'),
         appBar: isMatching
           ? AppBar(
-              backgroundColor: colors.surface,
+              backgroundColor: Colors.transparent,
               elevation: 0.5,
               shadowColor: colors.border,
               leading: IconButton(
@@ -193,7 +194,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               ),
             )
           : AppBar(
-              backgroundColor: colors.surface,
+              backgroundColor: Colors.transparent,
               elevation: 0,
               toolbarHeight: 68.0,
               shadowColor: Colors.transparent,

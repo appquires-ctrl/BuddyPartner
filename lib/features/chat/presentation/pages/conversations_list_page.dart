@@ -66,6 +66,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
     Widget content;
     if (showSkeleton) {
       content = Scaffold(
+        backgroundColor: Colors.transparent,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -102,6 +103,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
       );
     } else {
       content = Scaffold(
+        backgroundColor: Colors.transparent,
         key: const ValueKey('conversations_content'),
         appBar: AppBar(
           backgroundColor: Colors.transparent,

@@ -100,9 +100,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final isOnline = ref.watch(presenceProvider)[widget.userId] ?? false;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         titleSpacing: 0,
-        backgroundColor: colors.surface,
+        backgroundColor: Colors.transparent,
         elevation: 0.5,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: colors.textPrimary),
@@ -178,7 +179,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            'assets/images/app_bg.jpeg',
+            fit: BoxFit.cover,
+          ),
+          Column(
         children: [
           Expanded(
             child: chatState.errorMessage != null
@@ -428,6 +436,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 ),
               ),
             ),
+          ],
         ],
       ),
     );

@@ -50,6 +50,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       content = const FavoritesSkeleton();
     } else {
       content = Scaffold(
+        backgroundColor: Colors.transparent,
         key: const ValueKey('favorites_content'),
         appBar: AppBar(
         backgroundColor: Colors.transparent,

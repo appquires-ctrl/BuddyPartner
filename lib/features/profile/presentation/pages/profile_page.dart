@@ -35,6 +35,7 @@ class ProfilePage extends ConsumerWidget {
     final String initials = getInitials(fullName);
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,

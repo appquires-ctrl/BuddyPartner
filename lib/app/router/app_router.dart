@@ -265,7 +265,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return Scaffold(
-            body: navigationShell,
+            body: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.asset(
+                  'assets/images/app_bg.jpeg',
+                  fit: BoxFit.cover,
+                ),
+                navigationShell,
+              ],
+            ),
             bottomNavigationBar: AppBottomNav(
               currentIndex: navigationShell.currentIndex,
               onTap: (index) {
