@@ -9,7 +9,6 @@ class HomeSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final accentColor = SkeletonColors.accentColor(isDark);
     
