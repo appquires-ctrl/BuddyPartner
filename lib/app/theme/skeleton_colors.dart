@@ -15,7 +15,7 @@ class SkeletonColors {
   static const Color darkHighlight = Color(0xFF3C3456);
   static const Color darkAccent = Color(0xFF4A4068);
 
-  static Color background(bool isDark) => isDark ? darkBackground : lightBackground;
+  static Color background(bool isDark) => Colors.transparent;
   static Color baseColor(bool isDark) => isDark ? darkBase : lightBase;
   static Color highlightColor(bool isDark) => isDark ? darkHighlight : lightHighlight;
   static Color accentColor(bool isDark) => isDark ? darkAccent : lightAccent;

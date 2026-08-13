@@ -16,9 +16,9 @@ class HomeSkeleton extends StatelessWidget {
     final accentColor = SkeletonColors.accentColor(isDark);
     
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: bgColor,
+        backgroundColor: Colors.transparent,
         elevation: 0.5,
         shadowColor: colors.border,
         automaticallyImplyLeading: false,

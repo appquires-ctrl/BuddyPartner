@@ -25,6 +25,7 @@ class FavoritesSkeleton extends StatelessWidget {
         : colors.border.withValues(alpha: 0.6);
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,

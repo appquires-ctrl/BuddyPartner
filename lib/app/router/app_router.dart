@@ -265,6 +265,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return Scaffold(
+            extendBody: true,
+            backgroundColor: Colors.transparent,
             body: Stack(
               fit: StackFit.expand,
               children: [
