@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:buddypartner/app/theme/app_spacing.dart';
-import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/app/theme/skeleton_colors.dart';
 import 'package:buddypartner/core/widgets/shimmer/app_shimmer.dart';
 
