@@ -24,7 +24,7 @@ class ConversationListItemSkeleton extends StatelessWidget {
     final secondaryBlockColor = blockColor.withValues(alpha: 0.65);
     final cardBg = isDark
         ? colors.surface.withValues(alpha: 0.6)
-        : colors.surface;
+        : Colors.white;
     final borderColor = isDark
         ? colors.border.withValues(alpha: 0.3)
         : colors.border.withValues(alpha: 0.6);
