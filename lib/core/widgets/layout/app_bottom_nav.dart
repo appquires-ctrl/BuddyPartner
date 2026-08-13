@@ -22,7 +22,6 @@ class AppBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final navSelectedIndex = currentIndex.clamp(0, 3);
 
     return SafeArea(

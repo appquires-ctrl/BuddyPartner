@@ -44,7 +44,6 @@ class _FavoriteUserCardState extends ConsumerState<FavoriteUserCard> {
     final colors = context.colors;
     final typography = context.typography;
     final initials = getInitials(widget.user.fullName);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Premium Glassmorphism styling configuration
     final Color glassBg = Colors.white;

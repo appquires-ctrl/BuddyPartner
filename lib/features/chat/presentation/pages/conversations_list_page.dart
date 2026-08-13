@@ -274,7 +274,6 @@ class _ConversationCard extends ConsumerWidget {
     final colors = context.colors;
     final typography = context.typography;
     final initials = getInitials(conversation.otherUserName);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final authState = ref.watch(authStateProvider).value;
     final currentUserId = authState?.id;

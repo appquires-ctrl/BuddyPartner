@@ -30,7 +30,6 @@ class AppCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final defaultElevation = AppElevation.card;
     final defaultBorder = Border.all(color: colors.border.withValues(alpha: 0.5), width: 1);
