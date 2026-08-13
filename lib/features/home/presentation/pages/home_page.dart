@@ -113,7 +113,11 @@ class _HomePageState extends ConsumerState<HomePage> {
       _isRefreshing = true;
     });
     ref.invalidate(matchedUsersProvider);
-    await ref.read(matchedUsersProvider.future).catchError((_) => <MatchedUser>[]);
+    ref.invalidate(activeAdvertisementsProvider);
+    await Future.wait([
+      ref.read(matchedUsersProvider.future).catchError((_) => <MatchedUser>[]),
+      ref.read(activeAdvertisementsProvider.future).catchError((_) => <Advertisement>[]),
+    ]);
     if (mounted) {
       setState(() {
         _isRefreshing = false;
