@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import '../../theme/admin_colors.dart';
 import '../../providers/admin_providers.dart';
 import '../../widgets/stat_card.dart';
-import 'version_management_card.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
