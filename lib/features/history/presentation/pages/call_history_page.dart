@@ -133,7 +133,7 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
               vertical: AppSpacing.space12,
             ),
             itemCount: 5,
-            itemBuilder: (context, index) => const CallHistorySkeleton(),
+            itemBuilder: (context, index) => CallHistorySkeleton(itemIndex: index),
           ),
           error: (err, stack) => SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
