@@ -163,8 +163,10 @@ class _HomePageState extends ConsumerState<HomePage> {
         appBar: isMatching
           ? AppBar(
               backgroundColor: Colors.transparent,
-              elevation: 0.5,
-              shadowColor: colors.border,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              shadowColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
               leading: IconButton(
                 icon: Icon(Icons.arrow_back, color: colors.textPrimary),
                 onPressed: _cancelMatchmaking,

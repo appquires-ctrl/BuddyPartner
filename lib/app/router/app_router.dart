@@ -22,6 +22,7 @@ import 'package:buddypartner/features/profile/presentation/pages/account_page.da
 import 'package:buddypartner/features/profile/presentation/pages/help_page.dart';
 import 'package:buddypartner/features/subscription/presentation/pages/subscribe_page.dart';
 import 'package:buddypartner/features/subscription/presentation/pages/dev_subscription_page.dart';
+import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
 import 'package:buddypartner/features/subscription/domain/subscription_plan.dart';
 import 'package:buddypartner/features/legal/presentation/pages/legal_document_page.dart';
 import 'package:buddypartner/features/legal/data/legal_document_content.dart';
@@ -277,12 +278,20 @@ final routerProvider = Provider<GoRouter>((ref) {
                 navigationShell,
               ],
             ),
-            bottomNavigationBar: AppBottomNav(
-              currentIndex: navigationShell.currentIndex,
-              onTap: (index) {
-                navigationShell.goBranch(
-                  index,
-                  initialLocation: index == navigationShell.currentIndex,
+            bottomNavigationBar: Consumer(
+              builder: (context, ref, child) {
+                final matchState = ref.watch(matchmakingControllerProvider);
+                if (matchState.phase != MatchmakingPhase.idle) {
+                  return const SizedBox.shrink();
+                }
+                return AppBottomNav(
+                  currentIndex: navigationShell.currentIndex,
+                  onTap: (index) {
+                    navigationShell.goBranch(
+                      index,
+                      initialLocation: index == navigationShell.currentIndex,
+                    );
+                  },
                 );
               },
             ),

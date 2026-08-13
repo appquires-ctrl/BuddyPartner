@@ -17,8 +17,10 @@ class HomeSkeleton extends StatelessWidget {
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        elevation: 0.5,
-        shadowColor: colors.border,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         automaticallyImplyLeading: false,
         titleSpacing: 16.0,
         title: AppShimmer(

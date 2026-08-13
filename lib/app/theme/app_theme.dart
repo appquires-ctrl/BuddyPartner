@@ -21,6 +21,13 @@ class AppTheme {
       cardColor: colors.surface,
       dividerColor: colors.border,
       textTheme: GoogleFonts.interTextTheme(),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+      ),
       extensions: [
         colors,
         typography,
@@ -48,6 +55,13 @@ class AppTheme {
       cardColor: colors.surface,
       dividerColor: colors.border,
       textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+      ),
       extensions: [
         colors,
         typography,
