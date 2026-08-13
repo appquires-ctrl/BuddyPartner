@@ -196,6 +196,7 @@ class MessagingService {
         u.gender AS other_user_gender,
         u.avatar_seed AS other_user_avatar_seed,
         u.avatar_style AS other_user_avatar_style,
+        u.avatar_url AS other_user_avatar_url,
         -- Unread count: messages after the user's last read message
         COALESCE(
           (SELECT COUNT(*) FROM public.messages m
@@ -236,6 +237,7 @@ class MessagingService {
       otherUserGender: row.other_user_gender,
       otherUserAvatarSeed: row.other_user_avatar_seed || null,
       otherUserAvatarStyle: row.other_user_avatar_style || 'avataaars',
+      otherUserAvatar: row.other_user_avatar_url || null,
       lastMessage: row.last_message_content,
       lastMessageType: row.last_message_type,
       lastMessageSenderId: row.last_message_sender_id,

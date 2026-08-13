@@ -117,6 +117,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               avatarSeed: widget.avatarSeed,
               avatarStyle: widget.avatarStyle,
               gender: widget.gender,
+              userAvatar: widget.userAvatar,
               radius: 18,
               showStatus: true,
               isOnline: isOnline,
@@ -257,42 +258,59 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4.0),
-                        child: Column(
-                          crossAxisAlignment: alignment,
+                        child: Row(
+                          mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Container(
-                              constraints: BoxConstraints(
-                                maxWidth: MediaQuery.of(context).size.width * 0.75,
+                            if (!isMe) ...[
+                              GradientAvatar(
+                                initials: initials,
+                                avatarSeed: widget.avatarSeed,
+                                avatarStyle: widget.avatarStyle,
+                                gender: widget.gender,
+                                userAvatar: widget.userAvatar,
+                                radius: 14,
                               ),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: bubbleBg,
-                                borderRadius: BorderRadius.only(
-                                  topLeft: const Radius.circular(16),
-                                  topRight: const Radius.circular(16),
-                                  bottomLeft: Radius.circular(isMe ? 16 : 0),
-                                  bottomRight: Radius.circular(isMe ? 0 : 16),
+                              const SizedBox(width: 8),
+                            ],
+                            Column(
+                              crossAxisAlignment: alignment,
+                              children: [
+                                Container(
+                                  constraints: BoxConstraints(
+                                    maxWidth: MediaQuery.of(context).size.width * 0.70,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: bubbleBg,
+                                    borderRadius: BorderRadius.only(
+                                      topLeft: const Radius.circular(16),
+                                      topRight: const Radius.circular(16),
+                                      bottomLeft: Radius.circular(isMe ? 16 : 0),
+                                      bottomRight: Radius.circular(isMe ? 0 : 16),
+                                    ),
+                                    border: isMe ? null : Border.all(color: colors.border),
+                                  ),
+                                  child: Text(
+                                    msg.content,
+                                    style: typography.bodyMedium.copyWith(color: txtColor, fontSize: 14),
+                                  ),
                                 ),
-                                border: isMe ? null : Border.all(color: colors.border),
-                              ),
-                              child: Text(
-                                msg.content,
-                                style: typography.bodyMedium.copyWith(color: txtColor, fontSize: 14),
-                              ),
+                                if (isMe)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2, right: 4),
+                                    child: Icon(
+                                      msg.status == 'sent'
+                                          ? Icons.check
+                                          : Icons.done_all,
+                                      size: 14,
+                                      color: msg.status == 'read'
+                                          ? colors.primary
+                                          : colors.textSecondary,
+                                    ),
+                                  ),
+                              ],
                             ),
-                            if (isMe)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2, right: 4),
-                                child: Icon(
-                                  msg.status == 'sent'
-                                      ? Icons.check
-                                      : Icons.done_all,
-                                  size: 14,
-                                  color: msg.status == 'read'
-                                      ? colors.primary
-                                      : colors.textSecondary,
-                                ),
-                              ),
                           ],
                         ),
                       );

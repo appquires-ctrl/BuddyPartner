@@ -7,6 +7,7 @@ class GradientAvatar extends StatelessWidget {
   final String? avatarSeed;
   final String? avatarStyle;
   final String? gender;
+  final String? userAvatar;
   final double radius;
   final bool? isOnline;
   final bool showStatus;
@@ -18,6 +19,7 @@ class GradientAvatar extends StatelessWidget {
     this.avatarSeed,
     this.avatarStyle,
     this.gender,
+    this.userAvatar,
     this.radius = 26,
     this.isOnline,
     this.showStatus = false,
@@ -28,12 +30,16 @@ class GradientAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
 
+    final hasAvatarSeed = avatarSeed != null && avatarSeed!.trim().isNotEmpty;
+    final hasUserAvatar = userAvatar != null && userAvatar!.trim().isNotEmpty;
+
     Widget avatarCore;
-    if (avatarSeed != null && avatarSeed!.trim().isNotEmpty) {
+    if (hasAvatarSeed || hasUserAvatar) {
       avatarCore = AppAvatar(
         avatarSeed: avatarSeed,
         avatarStyle: avatarStyle,
         gender: gender,
+        userAvatar: userAvatar,
         initials: initials,
         radius: radius,
       );

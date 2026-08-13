@@ -198,6 +198,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           final userAvatar = extra['userAvatar'] as String?;
           final avatarSeed = extra['avatarSeed'] as String?;
           final avatarStyle = extra['avatarStyle'] as String?;
+          final gender = extra['gender'] as String?;
           return ChatPage(
             conversationId: conversationId,
             userId: userId,
@@ -205,6 +206,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             userAvatar: userAvatar,
             avatarSeed: avatarSeed,
             avatarStyle: avatarStyle,
+            gender: gender,
           );
         },
       ),

@@ -328,6 +328,10 @@ class _ConversationCard extends ConsumerWidget {
                   'conversationId': conversation.id,
                   'userId': conversation.otherUserId,
                   'userName': conversation.otherUserName,
+                  'avatarSeed': conversation.otherUserAvatarSeed,
+                  'avatarStyle': conversation.otherUserAvatarStyle,
+                  'userAvatar': conversation.otherUserAvatar,
+                  'gender': conversation.otherUserGender,
                 });
                 if (context.mounted) {
                   ref.invalidate(conversationsProvider);
@@ -343,6 +347,7 @@ class _ConversationCard extends ConsumerWidget {
                       avatarSeed: conversation.otherUserAvatarSeed,
                       avatarStyle: conversation.otherUserAvatarStyle,
                       gender: conversation.otherUserGender,
+                      userAvatar: conversation.otherUserAvatar,
                       radius: 26,
                       showStatus: true,
                       isOnline: isOnline,

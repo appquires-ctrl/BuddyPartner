@@ -3,12 +3,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:buddypartner/core/constants/avatar_catalog.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 
-/// AppAvatar renders bundled SVG avatars based on avatarSeed and avatarStyle,
-/// with a graceful fallback to a neutral initials avatar if no seed is available.
+/// AppAvatar renders bundled SVG avatars or network avatar URLs,
+/// with a graceful fallback to a neutral initials avatar if no seed/URL is available.
 class AppAvatar extends StatelessWidget {
   final String? avatarSeed;
   final String? avatarStyle;
   final String? gender;
+  final String? userAvatar;
   final String initials;
   final double radius;
   final bool isSelected;
@@ -20,6 +21,7 @@ class AppAvatar extends StatelessWidget {
     this.avatarSeed,
     this.avatarStyle,
     this.gender,
+    this.userAvatar,
     this.initials = 'U',
     this.radius = 24,
     this.isSelected = false,
@@ -31,36 +33,52 @@ class AppAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final typography = context.typography;
-    final assetPath = AvatarCatalog.getAssetPath(avatarSeed, gender: gender);
+
+    final effectiveSeed = (avatarSeed != null && avatarSeed!.trim().isNotEmpty)
+        ? avatarSeed!.trim()
+        : (userAvatar != null && userAvatar!.trim().isNotEmpty ? userAvatar!.trim() : null);
 
     final double size = radius * 2;
     final activeBorderColor = borderColor ?? colors.primary;
 
     Widget avatarChild;
-    if (assetPath != null) {
+    if (effectiveSeed != null && (effectiveSeed.startsWith('http://') || effectiveSeed.startsWith('https://'))) {
       avatarChild = ClipOval(
-        child: SvgPicture.asset(
-          assetPath,
+        child: Image.network(
+          effectiveSeed,
           width: size,
           height: size,
           fit: BoxFit.cover,
-          placeholderBuilder: (context) => _buildFallback(colors, typography),
-          errorBuilder: (context, error, stackTrace) {
-            final altPath = assetPath.contains('/female/')
-                ? assetPath.replaceAll('/female/', '/male/')
-                : assetPath.replaceAll('/male/', '/female/');
-            return SvgPicture.asset(
-              altPath,
-              width: size,
-              height: size,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error2, stackTrace2) => _buildFallback(colors, typography),
-            );
-          },
+          errorBuilder: (context, error, stackTrace) => _buildFallback(colors, typography),
         ),
       );
     } else {
-      avatarChild = _buildFallback(colors, typography);
+      final assetPath = AvatarCatalog.getAssetPath(effectiveSeed, gender: gender);
+      if (assetPath != null) {
+        avatarChild = ClipOval(
+          child: SvgPicture.asset(
+            assetPath,
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            placeholderBuilder: (context) => _buildFallback(colors, typography),
+            errorBuilder: (context, error, stackTrace) {
+              final altPath = assetPath.contains('/female/')
+                  ? assetPath.replaceAll('/female/', '/male/')
+                  : assetPath.replaceAll('/male/', '/female/');
+              return SvgPicture.asset(
+                altPath,
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error2, stackTrace2) => _buildFallback(colors, typography),
+              );
+            },
+          ),
+        );
+      } else {
+        avatarChild = _buildFallback(colors, typography);
+      }
     }
 
     Widget content = Container(
@@ -99,13 +117,13 @@ class AppAvatar extends StatelessWidget {
     final cleanInitials = initials.isNotEmpty ? initials[0].toUpperCase() : 'U';
     return CircleAvatar(
       radius: radius,
-      backgroundColor: colors.primary,
+      backgroundColor: colors.primary.withValues(alpha: 0.15),
       child: Text(
         cleanInitials,
-        style: typography.labelPill.copyWith(
-          color: Colors.white,
-          fontSize: (radius * 0.8).toDouble(),
+        style: TextStyle(
+          color: colors.primary,
           fontWeight: FontWeight.bold,
+          fontSize: radius * 0.8,
         ),
       ),
     );
