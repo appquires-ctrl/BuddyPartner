@@ -99,94 +99,97 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final currentUser = ref.watch(authStateProvider).value;
     final isOnline = ref.watch(presenceProvider)[widget.userId] ?? false;
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        titleSpacing: 0,
-        backgroundColor: Colors.transparent,
-        elevation: 0.5,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: colors.textPrimary),
-          onPressed: () => context.pop(),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset(
+          'assets/images/app_bg.jpeg',
+          fit: BoxFit.cover,
         ),
-        title: Row(
-          children: [
-            GradientAvatar(
-              initials: initials,
-              avatarSeed: widget.avatarSeed,
-              avatarStyle: widget.avatarStyle,
-              gender: widget.gender,
-              userAvatar: widget.userAvatar,
-              radius: 18,
-              showStatus: true,
-              isOnline: isOnline,
+        Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            titleSpacing: 0,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: Icon(Icons.arrow_back, color: colors.textPrimary),
+              onPressed: () => context.pop(),
             ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            title: Row(
               children: [
-                Text(
-                  widget.userName,
-                  style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                GradientAvatar(
+                  initials: initials,
+                  avatarSeed: widget.avatarSeed,
+                  avatarStyle: widget.avatarStyle,
+                  gender: widget.gender,
+                  userAvatar: widget.userAvatar,
+                  radius: 18,
+                  showStatus: true,
+                  isOnline: isOnline,
                 ),
-                if (chatState.typingUserId == widget.userId)
-                  Text(
-                    'typing...',
-                    style: typography.bodySmall.copyWith(
-                      color: colors.primary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.userName,
+                      style: typography.bodyMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colors.textPrimary,
+                      ),
                     ),
-                  )
-                else
-                  Text(
-                    isOnline ? 'Online' : 'Offline',
-                    style: typography.bodySmall.copyWith(
-                      color: isOnline ? colors.success : colors.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                    if (chatState.typingUserId == widget.userId)
+                      Text(
+                        'typing...',
+                        style: typography.bodySmall.copyWith(
+                          color: colors.primary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      )
+                    else
+                      Text(
+                        isOnline ? 'Online' : 'Offline',
+                        style: typography.bodySmall.copyWith(
+                          color: isOnline ? colors.success : colors.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                  ],
+                ),
               ],
             ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.call, color: colors.primary),
-            onPressed: () {
-              final matchState = ref.read(matchmakingControllerProvider);
-              if (matchState.phase != MatchmakingPhase.idle) return;
+            actions: [
+              IconButton(
+                icon: Icon(Icons.call, color: colors.primary),
+                onPressed: () {
+                  final matchState = ref.read(matchmakingControllerProvider);
+                  if (matchState.phase != MatchmakingPhase.idle) return;
 
-              ref.read(matchmakingControllerProvider.notifier).callUser(
-                targetUserId: widget.userId,
-                targetUserName: widget.userName,
-              );
-            },
+                  ref.read(matchmakingControllerProvider.notifier).callUser(
+                    targetUserId: widget.userId,
+                    targetUserName: widget.userName,
+                  );
+                },
+              ),
+              IconButton(
+                icon: Icon(Icons.more_vert, color: colors.textSecondary),
+                onPressed: () {
+                  // Pass the reported user ID + conversation info down to the dialog
+                  showDialog(
+                    context: context,
+                    builder: (context) => ReportBlockDialog(
+                      reportedUserId: widget.userId,
+                      conversationId: widget.conversationId,
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
-          IconButton(
-            icon: Icon(Icons.more_vert, color: colors.textSecondary),
-            onPressed: () {
-              // Pass the reported user ID + conversation info down to the dialog
-              showDialog(
-                context: context,
-                builder: (context) => ReportBlockDialog(
-                  reportedUserId: widget.userId,
-                  conversationId: widget.conversationId,
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset(
-            'assets/images/app_bg.jpeg',
-            fit: BoxFit.cover,
-          ),
-          Column(
+          body: Column(
         children: [
           Expanded(
             child: chatState.errorMessage != null
@@ -438,8 +441,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             ),
           ],
         ),
-      ],
-    ),
+      ),
+    ],
   );
-  }
 }

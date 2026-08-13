@@ -286,11 +286,11 @@ class _ConversationCard extends ConsumerWidget {
     final showUnreadBadge = !isSentByMe && conversation.unreadCount > 0;
 
     final Color glassBg = isDark
-        ? Colors.white.withValues(alpha: 0.05)
+        ? Colors.white.withValues(alpha: 0.65)
         : Colors.white;
     final Color glassBorder = isDark
         ? Colors.white.withValues(alpha: 0.08)
-        : colors.border.withValues(alpha: 0.5);
+        : colors.border.withValues(alpha: 0.25);
     final Color cardShadow = isDark
         ? Colors.black.withValues(alpha: 0.2)
         : colors.textPrimary.withValues(alpha: 0.04);
