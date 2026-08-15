@@ -249,6 +249,7 @@ class HelpPage extends StatelessWidget {
     bool showChevron = true,
     required VoidCallback onTap,
   }) {
+    final colors = context.colors;
     return Material(
       color: Colors.transparent,
       child: ListTile(

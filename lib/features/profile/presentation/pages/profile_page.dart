@@ -478,6 +478,7 @@ class ProfilePage extends ConsumerWidget {
     required String subtitle,
     required VoidCallback onTap,
   }) {
+    final colors = context.colors;
     return Material(
       color: Colors.transparent,
       child: ListTile(
