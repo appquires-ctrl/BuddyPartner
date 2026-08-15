@@ -334,14 +334,14 @@ router.post('/profile', authMiddleware, async (req, res) => {
 
       await db.query(
         `UPDATE public.users 
-         SET full_name = COALESCE($1, full_name), 
-             dob = COALESCE($2, dob), 
-             gender = COALESCE($3, gender), 
-             language = COALESCE($4, language), 
-             avatar_seed = COALESCE($5, avatar_seed), 
-             avatar_style = COALESCE($6, avatar_style), 
-             is_telecaller = COALESCE($7, is_telecaller) 
-         WHERE id = $8`,
+         SET full_name = COALESCE($1::TEXT, full_name), 
+             dob = COALESCE($2::TIMESTAMPTZ, dob), 
+             gender = COALESCE($3::TEXT, gender), 
+             language = COALESCE($4::TEXT, language), 
+             avatar_seed = COALESCE($5::TEXT, avatar_seed), 
+             avatar_style = COALESCE($6::TEXT, avatar_style), 
+             is_telecaller = COALESCE($7::BOOLEAN, is_telecaller) 
+         WHERE id = $8::UUID`,
         [fullName || null, dob || null, gender || null, language || null, avatarSeed || null, avatarStyle || 'avataaars', telecallerVal, userId]
       );
     }
