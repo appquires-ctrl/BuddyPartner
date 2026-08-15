@@ -9,7 +9,6 @@ import 'package:buddypartner/app/theme/app_spacing.dart';
 import 'package:buddypartner/app/theme/app_radius.dart';
 import 'package:buddypartner/core/widgets/gradient_avatar.dart';
 import 'package:buddypartner/core/constants/avatar_catalog.dart';
-import 'package:buddypartner/core/widgets/app_avatar.dart';
 import 'package:buddypartner/core/widgets/avatar_grid_picker.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 

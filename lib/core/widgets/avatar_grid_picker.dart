@@ -132,7 +132,6 @@ class _AvatarGridPickerState extends ConsumerState<AvatarGridPicker> {
     final hasUploaded = _uploadedPhotoUrl != null && _uploadedPhotoUrl!.trim().isNotEmpty;
     final isSelected = hasUploaded && (widget.selectedAvatarSeed == _uploadedPhotoUrl);
     final double size = widget.radius * 2;
-    final activeBorderColor = colors.primary;
 
     if (_isUploading) {
       return Container(
