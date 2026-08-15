@@ -83,9 +83,9 @@ class ProfilePage extends ConsumerWidget {
                     children: [
                       GradientAvatar(
                         initials: initials,
-                        avatarSeed: profile?.avatarSeed,
-                        avatarStyle: profile?.avatarStyle,
-                        gender: profile?.gender,
+                        avatarSeed: profile?.avatarSeed ?? currentUser?.avatarSeed,
+                        avatarStyle: profile?.avatarStyle ?? currentUser?.avatarStyle,
+                        gender: profile?.gender ?? currentUser?.gender,
                         radius: 32,
                       ),
                       const SizedBox(width: AppSpacing.space16),

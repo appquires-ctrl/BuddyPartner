@@ -327,16 +327,22 @@ router.post('/profile', authMiddleware, async (req, res) => {
       }
     }
 
-    if (fullName) {
+    if (fullName || avatarSeed || gender || language || dob) {
       const cleanGender = (gender || '').toLowerCase();
       const isFemale = cleanGender === 'female' || cleanGender === 'girl' || cleanGender === 'woman';
       const telecallerVal = isFemale ? (typeof isTelecaller === 'boolean' ? isTelecaller : null) : null;
 
       await db.query(
         `UPDATE public.users 
-         SET full_name = $1, dob = $2, gender = $3, language = $4, avatar_seed = $5, avatar_style = $6, is_telecaller = $7 
+         SET full_name = COALESCE($1, full_name), 
+             dob = COALESCE($2, dob), 
+             gender = COALESCE($3, gender), 
+             language = COALESCE($4, language), 
+             avatar_seed = COALESCE($5, avatar_seed), 
+             avatar_style = COALESCE($6, avatar_style), 
+             is_telecaller = COALESCE($7, is_telecaller) 
          WHERE id = $8`,
-        [fullName, dob || null, gender || null, language || null, avatarSeed || null, avatarStyle || 'avataaars', telecallerVal, userId]
+        [fullName || null, dob || null, gender || null, language || null, avatarSeed || null, avatarStyle || 'avataaars', telecallerVal, userId]
       );
     }
 

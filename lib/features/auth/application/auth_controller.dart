@@ -136,7 +136,7 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
           'language': language,
           'avatarSeed': avatarSeed,
           'avatarStyle': avatarStyle ?? 'avataaars',
-          '?isTelecaller': isTelecaller,
+          'isTelecaller': isTelecaller,
         },
       );
 
