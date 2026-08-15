@@ -165,37 +165,40 @@ class _CountryCodePickerModalState extends State<CountryCodePickerModal> {
                       final isSelected = country.code == widget.selectedCountry.code &&
                           country.iso == widget.selectedCountry.iso;
 
-                      return ListTile(
-                        onTap: () {
-                          widget.onSelected(country);
-                          Navigator.pop(context);
-                        },
-                        leading: Text(
-                          country.flag,
-                          style: const TextStyle(fontSize: 24),
-                        ),
-                        title: Text(
-                          country.name,
-                          style: typography.bodyMedium.copyWith(
-                            color: colors.textPrimary,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      return Material(
+                        color: Colors.transparent,
+                        child: ListTile(
+                          onTap: () {
+                            widget.onSelected(country);
+                            Navigator.pop(context);
+                          },
+                          leading: Text(
+                            country.flag,
+                            style: const TextStyle(fontSize: 24),
                           ),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              country.code,
-                              style: typography.bodyMedium.copyWith(
-                                color: isSelected ? colors.primary : colors.textSecondary,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                              ),
+                          title: Text(
+                            country.name,
+                            style: typography.bodyMedium.copyWith(
+                              color: colors.textPrimary,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                             ),
-                            if (isSelected) ...[
-                              const SizedBox(width: 8),
-                              Icon(Icons.check_circle, color: colors.primary, size: 18),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                country.code,
+                                style: typography.bodyMedium.copyWith(
+                                  color: isSelected ? colors.primary : colors.textSecondary,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                              if (isSelected) ...[
+                                const SizedBox(width: 8),
+                                Icon(Icons.check_circle_rounded, color: colors.primary, size: 20),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
                       );
                     },

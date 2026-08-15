@@ -249,42 +249,44 @@ class HelpPage extends StatelessWidget {
     bool showChevron = true,
     required VoidCallback onTap,
   }) {
-    final colors = context.colors;
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: iconBgColor,
-          borderRadius: BorderRadius.circular(12),
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: iconBgColor,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, color: iconColor, size: 20),
         ),
-        alignment: Alignment.center,
-        child: Icon(icon, color: iconColor, size: 20),
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 15,
-          color: colors.textPrimary,
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+            color: colors.textPrimary,
+          ),
         ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(
-          color: colors.textSecondary,
-          fontSize: 12,
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(
+            color: colors.textSecondary,
+            fontSize: 12,
+          ),
         ),
+        trailing: showChevron
+            ? Icon(
+                Icons.chevron_right,
+                color: colors.textSecondary.withValues(alpha: 0.5),
+                size: 18,
+              )
+            : null,
+        onTap: onTap,
       ),
-      trailing: showChevron
-          ? Icon(
-              Icons.chevron_right,
-              color: colors.textSecondary.withValues(alpha: 0.5),
-              size: 18,
-            )
-          : null,
-      onTap: onTap,
     );
   }
 
