@@ -71,7 +71,6 @@ class CloudinaryUploadService {
 
       final formData = FormData.fromMap({
         'file': multipartFile,
-        'image': multipartFile,
       });
 
       final response = await apiClient.dio.post(
