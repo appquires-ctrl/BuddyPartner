@@ -298,7 +298,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
         text: 'Buddy',
         style: typography.displayWordmark.copyWith(
           color: const Color(0xFF1E4FAE), // Blue
-          fontSize: 32,
+          fontSize: 32.0,
           fontWeight: FontWeight.w900,
           letterSpacing: -1.0,
           height: 1.0,
@@ -308,7 +308,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
         text: 'Partner',
         style: typography.displayWordmark.copyWith(
           color: const Color(0xFFE91E63), // Pink
-          fontSize: 32,
+          fontSize: 32.0,
           fontWeight: FontWeight.w900,
           letterSpacing: -1.0,
           height: 1.0,

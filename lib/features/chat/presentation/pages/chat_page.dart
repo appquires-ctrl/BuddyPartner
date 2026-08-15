@@ -103,7 +103,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       fit: StackFit.expand,
       children: [
         Image.asset(
-          'assets/images/app_bg.jpeg',
+          'assets/images/app_bg.jpg',
           fit: BoxFit.cover,
         ),
         Scaffold(

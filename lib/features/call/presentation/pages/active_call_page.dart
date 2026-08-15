@@ -8,6 +8,8 @@ import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
 import 'package:buddypartner/features/call/application/matchmaking_state.dart';
+import 'package:buddypartner/features/call/presentation/widgets/spin_wheel_dialog.dart';
+
 
 import 'package:buddypartner/core/widgets/app_avatar.dart';
 
@@ -311,10 +313,19 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
 
                     const SizedBox(height: 24),
 
-                    // Action Buttons row: Follow & Message (no-op stubs)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    // Action Buttons row: Spin Wheel, Follow & Message
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 12,
+                      runSpacing: 12,
                       children: [
+                        _buildActionButton(
+                          icon: Icons.casino_rounded,
+                          label: 'Spin Wheel',
+                          onTap: () {
+                            SpinWheelDialog.show(context);
+                          },
+                        ),
                         _buildActionButton(
                           icon: Icons.person_add_alt_1_outlined,
                           label: 'Follow',
@@ -322,7 +333,6 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                             AppSnackBar.showInfo(context, 'Coming soon!');
                           },
                         ),
-                        const SizedBox(width: 16),
                         _buildActionButton(
                           icon: Icons.chat_bubble_outline_rounded,
                           label: 'Message',
@@ -338,6 +348,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                         ),
                       ],
                     ),
+
 
                     const Spacer(flex: 3),
                   ] else ...[

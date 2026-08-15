@@ -274,7 +274,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               children: [
                 Container(color: const Color(0xFFFAF9FE)),
                 Image.asset(
-                  'assets/images/app_bg.jpeg',
+                  'assets/images/app_bg.jpg',
                   fit: BoxFit.cover,
                 ),
                 navigationShell,

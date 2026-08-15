@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../../../app/theme/app_colors.dart';
 import '../../../../core/services/api_client.dart';
 import '../../domain/advertisement.dart';
 import '../providers/advertisements_provider.dart';
@@ -23,7 +22,7 @@ class _AdBannerWidgetState extends ConsumerState<AdBannerWidget> {
     _timer?.cancel();
     if (count <= 1) return;
 
-    _timer = Timer.periodic(const Duration(seconds: 4), (timer) {
+    _timer = Timer.periodic(const Duration(seconds: 10), (timer) {
       if (_pageController != null && _pageController!.hasClients) {
         _currentPage = (_currentPage + 1) % count;
         _pageController!.animateToPage(
@@ -43,17 +42,25 @@ class _AdBannerWidgetState extends ConsumerState<AdBannerWidget> {
   }
 
   Future<void> _handleAdTap(Advertisement ad) async {
+    debugPrint('Ad banner tapped! ID: ${ad.id}, URL: ${ad.clickUrl}');
     // 1. Fire-and-forget click tracking API call
     try {
       final client = ref.read(apiClientProvider);
       client.dio.post('/api/advertisements/${ad.id}/click');
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error recording ad click: $e');
+    }
 
-    // 2. Open click-through URL in default device browser
+    // 2. Open click-through URL in browser
     try {
-      final uri = Uri.parse(ad.clickUrl);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      String rawUrl = ad.clickUrl.trim();
+      if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
+        rawUrl = 'https://$rawUrl';
+      }
+      final uri = Uri.parse(rawUrl);
+      final success = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!success) {
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
       }
     } catch (e) {
       debugPrint('Error launching ad URL: $e');
@@ -75,17 +82,17 @@ class _AdBannerWidgetState extends ConsumerState<AdBannerWidget> {
 
         return Container(
           width: double.infinity,
-          height: 100,
+          height: 190,
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.light.cardShadow.withValues(alpha: 0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            // boxShadow: [
+            //   BoxShadow(
+            //     color: AppColors.light.cardShadow.withValues(alpha: 0.1),
+            //     blurRadius: 10,
+            //     offset: const Offset(0, 4),
+            //   ),
+            // ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
@@ -112,15 +119,16 @@ class _AdBannerWidgetState extends ConsumerState<AdBannerWidget> {
   }
 
   Widget _buildAdCard(Advertisement ad) {
-    return InkWell(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () => _handleAdTap(ad),
       child: Image.network(
         ad.imageUrl,
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
+        alignment: Alignment.center,
         width: double.infinity,
         height: double.infinity,
         errorBuilder: (context, error, stackTrace) {
-          // Collapse cleanly if image fails to load
           return const SizedBox.shrink();
         },
       ),

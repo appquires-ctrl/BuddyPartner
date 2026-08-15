@@ -140,4 +140,12 @@ class LocationService {
       return null;
     }
   }
+
+  /// Automatically checks if location permission is granted.
+  /// If granted, automatically fetches current position and updates user location on backend.
+  static Future<String?> checkAndUpdateLocationIfGranted(WidgetRef ref) async {
+    final granted = await isLocationPermissionGranted();
+    if (!granted) return null;
+    return await fetchAndSaveUserLocation(ref);
+  }
 }

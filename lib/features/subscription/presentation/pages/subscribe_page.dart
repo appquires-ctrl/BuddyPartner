@@ -164,7 +164,7 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
     return ClipRRect(
       borderRadius: BorderRadius.circular(22),
       child: Image.asset(
-        'assets/images/subscription_banner.png',
+        'assets/images/subscription_banner.jpg',
         width: double.infinity,
         fit: BoxFit.fitWidth,
       ),

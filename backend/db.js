@@ -35,8 +35,9 @@ pool.query(`
   );
 `).then(() => {
   console.log('✅ Favorites table checked/initialized in database.');
+  return pool.query(`ALTER TABLE public.users ALTER COLUMN avatar_seed TYPE TEXT;`);
 }).catch((err) => {
-  console.error('❌ Failed to initialize favorites table:', err.message);
+  console.error('❌ Failed to initialize database schemas:', err.message);
 });
 
 module.exports = {

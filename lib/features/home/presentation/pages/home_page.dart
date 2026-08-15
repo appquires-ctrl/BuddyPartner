@@ -9,6 +9,7 @@ import 'package:buddypartner/app/theme/app_spacing.dart';
 import 'package:buddypartner/app/theme/app_radius.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:buddypartner/core/services/location_service.dart';
 import 'package:buddypartner/features/home/presentation/widgets/matching_illustration.dart';
 import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
@@ -77,10 +78,13 @@ class _HomePageState extends ConsumerState<HomePage> {
       if (!isLocationAlreadyGranted) {
         final locGrantedNow = await LocationService.requestLocationPermission();
         if (locGrantedNow) {
-          // Step 4 — Save Location ONCE upon first location permission grant
+          // Save location upon location permission grant
           await LocationService.fetchAndSaveUserLocation(ref);
         }
         // If user denies location permission: do not block matchmaking. Continue requesting remaining required permissions.
+      } else {
+        // Automatically ensure location is fresh before starting matchmaking if location is enabled
+        LocationService.fetchAndSaveUserLocation(ref);
       }
 
       // 3. Camera Permission
@@ -562,7 +566,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                         ),
                                         const SizedBox(width: 6),
                                         Text(
-                                          'MEET SOMEONE NEW',
+                                          'MEET SOMEONE SPECIAL',
                                           style: typography.bodySmall.copyWith(
                                             color: Colors.white.withValues(alpha: 0.85),
                                             fontSize: 10,
@@ -575,7 +579,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     const SizedBox(height: 6),
                                     // Start matchmaking heading text
                                     Text(
-                                      'Start matchmaking',
+                                      'Let’s Connect',
                                       style: typography.titleCard.copyWith(
                                         color: Colors.white,
                                         fontSize: 22,
@@ -586,11 +590,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     const SizedBox(height: 4),
                                     // Subtitle details text
                                     Text(
-                                      'A random voice connection awaits',
+                                      'Let fate choose your next connection',
                                       style: typography.bodySmall.copyWith(
                                         color: Colors.white.withValues(alpha: 0.8),
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w400,
+                                        fontSize: 13.0,
+                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
                                   ],
@@ -670,7 +674,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       },
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 24),
                 ] else ...[
                   const SizedBox(height: 40),
 
@@ -705,45 +709,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  // const SizedBox(height: 32),
-
-                  // Lavender pull down action button
-                  // GestureDetector(
-                  //   onTap: _handleRefresh,
-                  //   child: Container(
-                  //     padding: const EdgeInsets.symmetric(
-                  //       horizontal: 20,
-                  //       vertical: 10,
-                  //     ),
-                  //     decoration: BoxDecoration(
-                  //       color: const Color(0xFFF3EFFF), // light lavender fill
-                  //       borderRadius: AppRadius.pill,
-                  //     ),
-                  //     child: Row(
-                  //       mainAxisSize: MainAxisSize.min,
-                  //       children: const [
-                  //         Icon(
-                  //           Icons.refresh,
-                  //           color: Color(0xFF6B4EFF), // purple icon
-                  //           size: 16,
-                  //         ),
-                  //         SizedBox(width: 8),
-                  //         Text(
-                  //           'Pull down to refresh',
-                  //           style: TextStyle(
-                  //             color: Color(0xFF6B4EFF), // purple text
-                  //             fontSize: 12,
-                  //             fontWeight: FontWeight.bold,
-                  //           ),
-                  //         ),
-                  //       ],
-                  //     ),
-                  //   ),
-                  // ),
-                  const SizedBox(height: 16),
-                  const AdBannerWidget(),
-                  const SizedBox(height: 80),
                 ],
+
+                const AdBannerWidget(),
+                const SizedBox(height: 80),
               ],
             ),
           ),
@@ -824,7 +793,7 @@ class _HomeLocationIndicator extends ConsumerStatefulWidget {
   ConsumerState<_HomeLocationIndicator> createState() => _HomeLocationIndicatorState();
 }
 
-class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> {
+class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> with WidgetsBindingObserver {
   bool _isPermissionGranted = false;
   bool _isChecking = true;
   bool _isFetchingLocation = false;
@@ -832,7 +801,21 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkPermission();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkPermission();
+    }
   }
 
   Future<void> _checkPermission() async {
@@ -845,34 +828,68 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
     }
 
     if (isGranted) {
-      // If granted but profile city is empty, trigger location save once
-      final profile = ref.read(userProfileProvider).value;
-      if (profile == null || profile.city == null || profile.city!.trim().isEmpty) {
-        _fetchAndSave();
+      _handleLocationTap(userInitiated: false);
+    }
+  }
+
+  Future<void> _handleLocationTap({bool userInitiated = true}) async {
+    if (_isFetchingLocation) return;
+
+    // 1. Check permission status & request if not granted
+    bool granted = await LocationService.isLocationPermissionGranted();
+    if (!granted) {
+      granted = await LocationService.requestLocationPermission();
+      if (!granted) {
+        if (mounted) {
+          setState(() {
+            _isPermissionGranted = false;
+          });
+          if (userInitiated) {
+            AppSnackBar.showError(context, 'Location permission is required to detect your location.');
+          }
+        }
+        return;
       }
     }
-  }
 
-  Future<void> _fetchAndSave() async {
-    if (_isFetchingLocation) return;
-    setState(() => _isFetchingLocation = true);
-    await LocationService.fetchAndSaveUserLocation(ref);
+    // 2. Check if Location Services / GPS are enabled on device
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          if (userInitiated) {
+            AppSnackBar.showError(context, 'Please turn on Location / GPS services on your device.');
+            try {
+              await Geolocator.openLocationSettings();
+            } catch (_) {}
+          }
+        }
+        return;
+      }
+    } catch (_) {}
+
+    // 3. Permission & GPS enabled -> Fetch exact location & update profile
     if (mounted) {
-      final isGranted = await LocationService.isLocationPermissionGranted();
       setState(() {
-        _isPermissionGranted = isGranted;
-        _isFetchingLocation = false;
+        _isPermissionGranted = true;
+        _isFetchingLocation = true;
       });
     }
-  }
 
-  Future<void> _handleEnableLocationTap() async {
-    final granted = await LocationService.requestLocationPermission();
-    if (granted) {
-      setState(() => _isPermissionGranted = true);
-      await _fetchAndSave();
-    } else {
-      setState(() => _isPermissionGranted = false);
+    final updatedCity = await LocationService.fetchAndSaveUserLocation(ref);
+
+    if (mounted) {
+      setState(() {
+        _isFetchingLocation = false;
+      });
+
+      if (userInitiated) {
+        if (updatedCity != null && updatedCity.trim().isNotEmpty) {
+          AppSnackBar.showSuccess(context, 'Location updated: $updatedCity');
+        } else {
+          AppSnackBar.showError(context, 'Could not fetch exact location. Please try again.');
+        }
+      }
     }
   }
 
@@ -888,7 +905,7 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
 
     if (!_isPermissionGranted) {
       return GestureDetector(
-        onTap: _handleEnableLocationTap,
+        onTap: () => _handleLocationTap(userInitiated: true),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
@@ -934,20 +951,20 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
     final String? country = profile?.country;
 
     String displayCity;
-    if (city != null && city.trim().isNotEmpty) {
+    if (_isFetchingLocation) {
+      displayCity = 'Fetching...';
+    } else if (city != null && city.trim().isNotEmpty) {
       displayCity = city;
     } else if (state != null && state.trim().isNotEmpty) {
       displayCity = state;
     } else if (country != null && country.trim().isNotEmpty) {
       displayCity = country;
-    } else if (_isFetchingLocation) {
-      displayCity = 'Fetching...';
     } else {
       displayCity = 'Detecting...';
     }
 
     return GestureDetector(
-      onTap: _fetchAndSave,
+      onTap: () => _handleLocationTap(userInitiated: true),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -969,12 +986,6 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          // const SizedBox(width: 2),
-          // Icon(
-          //   Icons.keyboard_arrow_down_rounded,
-          //   size: 13,
-          //   color: colors.textSecondary,
-          // ),
         ],
       ),
     );

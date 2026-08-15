@@ -476,4 +476,77 @@ async function handleTelecallerStatusUpdate(req, res) {
 router.patch('/telecaller-status', authMiddleware, handleTelecallerStatusUpdate);
 router.patch('/me/telecaller-status', authMiddleware, handleTelecallerStatusUpdate);
 
+/**
+ * Endpoint: POST /api/auth/upload-avatar
+ * Uploads custom profile avatar to Cloudinary (or local storage fallback) and returns the image URL.
+ */
+const multer = require('multer');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('cloudinary').v2;
+const path = require('path');
+const fs = require('fs');
+
+const hasCloudinary =
+  Boolean(process.env.CLOUDINARY_CLOUD_NAME) &&
+  Boolean(process.env.CLOUDINARY_API_KEY) &&
+  Boolean(process.env.CLOUDINARY_API_SECRET);
+
+if (hasCloudinary) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+}
+
+let avatarStorage;
+if (hasCloudinary) {
+  avatarStorage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+      folder: 'buddypartner/avatars',
+      allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+    },
+  });
+} else {
+  const uploadsDir = path.join(__dirname, '../../uploads/avatars');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  avatarStorage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadsDir),
+    filename: (_req, file, cb) => cb(null, `${Date.now()}_${file.originalname}`),
+  });
+}
+
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+});
+
+router.post('/upload-avatar', (req, res) => {
+  avatarUpload.single('file')(req, res, (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ success: false, error: 'File size exceeds 5MB limit.' });
+      }
+      return res.status(400).json({ success: false, error: err.message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No image file provided.' });
+    }
+    let imageUrl;
+    if (req.file.path && (req.file.path.startsWith('http://') || req.file.path.startsWith('https://'))) {
+      imageUrl = req.file.path;
+    } else if (req.file.secure_url) {
+      imageUrl = req.file.secure_url;
+    } else {
+      const host = req.get('host');
+      const protocol = req.protocol;
+      imageUrl = `${protocol}://${host}/uploads/avatars/${req.file.filename}`;
+    }
+    return res.json({ success: true, imageUrl, url: imageUrl });
+  });
+});
+
 module.exports = router;

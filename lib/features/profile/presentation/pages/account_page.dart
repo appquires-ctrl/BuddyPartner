@@ -10,6 +10,7 @@ import 'package:buddypartner/app/theme/app_radius.dart';
 import 'package:buddypartner/core/widgets/gradient_avatar.dart';
 import 'package:buddypartner/core/constants/avatar_catalog.dart';
 import 'package:buddypartner/core/widgets/app_avatar.dart';
+import 'package:buddypartner/core/widgets/avatar_grid_picker.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 
 /// AccountPage renders the profile details page.
@@ -451,30 +452,14 @@ class AccountPage extends ConsumerWidget {
                     // Avatar Selection Grid
                     Text('Choose Profile Avatar', style: typography.bodySmall.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        crossAxisSpacing: 10,
-                        mainAxisSpacing: 10,
-                        childAspectRatio: 1.0,
-                      ),
-                      itemCount: AvatarCatalog.getSeedsForGender(selectedGender).length,
-                      itemBuilder: (context, index) {
-                        final seed = AvatarCatalog.getSeedsForGender(selectedGender)[index];
-                        final isSelected = seed == selectedAvatarSeed;
-                        return AppAvatar(
-                          avatarSeed: seed,
-                          gender: selectedGender,
-                          radius: 26,
-                          isSelected: isSelected,
-                          onTap: () {
-                            setModalState(() {
-                              selectedAvatarSeed = seed;
-                            });
-                          },
-                        );
+                    AvatarGridPicker(
+                      selectedGender: selectedGender,
+                      selectedAvatarSeed: selectedAvatarSeed,
+                      radius: 26,
+                      onAvatarSelected: (seed) {
+                        setModalState(() {
+                          selectedAvatarSeed = seed;
+                        });
                       },
                     ),
                     const SizedBox(height: 24),

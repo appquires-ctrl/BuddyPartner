@@ -48,3 +48,4 @@ app.*.map.json
 **/node_modules/
 **/node_modules
 backend/.env
+/android/key.properties

@@ -56,7 +56,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               // Header Icon
               Center(
                 child: Image.asset(
-                  'assets/images/app_logo.png',
+                  'assets/images/app_logo.jpg',
                   width: 115,
                   height: 115,
                 ),

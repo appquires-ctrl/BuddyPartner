@@ -29,7 +29,7 @@ class AdminSidebar extends StatelessWidget {
             child: Row(
               children: [
                 Image.asset(
-                  'assets/images/app_logo.png',
+                  'assets/images/app_logo.jpg',
                   width: 36,
                   height: 36,
                 ),

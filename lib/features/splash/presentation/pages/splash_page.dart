@@ -33,7 +33,7 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    precacheImage(const AssetImage('assets/images/app_bg.jpeg'), context);
+    precacheImage(const AssetImage('assets/images/app_bg.jpg'), context);
   }
 
   @override
@@ -142,6 +142,7 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
               ScaleTransition(
                 scale: _logoScaleAnimation,
                 child: Image.asset(
+                  
                   'assets/images/app_logo.png',
                   width: 160,
                   height: 160,
@@ -159,7 +160,7 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
                         text: 'Buddy',
                         style: typography.displayWordmark.copyWith(
                           color: const Color(0xFF1E4FAE), // Blue
-                          fontSize: 32,
+                          fontSize: 32.0,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -1.0,
                           height: 1.0,
@@ -169,7 +170,7 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
                         text: 'Partner',
                         style: typography.displayWordmark.copyWith(
                           color: const Color(0xFFE91E63), // Pink
-                          fontSize: 32,
+                          fontSize: 32.0,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -1.0,
                           height: 1.0,
@@ -217,10 +218,10 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
       'MEET. CONNECT. BE FRIENDS.',
       style: typography.bodySmall.copyWith(
         color: const Color(0xFF4B5563),
-        fontSize: 13,
+        fontSize: 13.0,
         fontWeight: FontWeight.w700,
         letterSpacing: 2.2,
-        height: 1,
+        height: 1.0,
       ),
     ),
 

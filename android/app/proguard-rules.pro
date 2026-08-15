@@ -21,3 +21,7 @@
 # Ignore warnings from Google Play Core classes referenced by Flutter Embedding
 -dontwarn com.google.android.play.core.**
 
+# Dio / Http network rules
+-dontwarn javax.annotation.**
+-dontwarn org.codehaus.mojo.animal_sniffer.IgnoreJRERequirement
+

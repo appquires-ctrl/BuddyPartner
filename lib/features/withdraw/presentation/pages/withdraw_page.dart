@@ -206,7 +206,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                     children: [
                       const Text(
                         '🌹',
-                        style: TextStyle(fontSize: 32),
+                        style: TextStyle(fontSize: 32.0),
                       ),
                       const SizedBox(width: 10),
                       Text(

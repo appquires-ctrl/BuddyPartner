@@ -10,6 +10,7 @@ import 'package:buddypartner/app/theme/app_radius.dart';
 import 'package:buddypartner/core/widgets/buttons/app_primary_button.dart';
 import 'package:buddypartner/core/constants/avatar_catalog.dart';
 import 'package:buddypartner/core/widgets/app_avatar.dart';
+import 'package:buddypartner/core/widgets/avatar_grid_picker.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 
@@ -242,12 +243,30 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                   height: 100,
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  'BuddyPartner',
-                  style: typography.displayWordmark.copyWith(
-                    color: colors.primary,
-                    fontSize: 28.0,
-                    fontWeight: FontWeight.bold,
+               RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'Buddy',
+                        style: typography.displayWordmark.copyWith(
+                          color: const Color(0xFF1E4FAE), // Blue
+                          fontSize: 32.0,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -1.0,
+                          height: 1.0,
+                        ),
+                      ),
+                      TextSpan(
+                        text: 'Partner',
+                        style: typography.displayWordmark.copyWith(
+                          color: const Color(0xFFE91E63), // Pink
+                          fontSize: 32.0,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -1.0,
+                          height: 1.0,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -668,7 +687,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
         Align(
           alignment: Alignment.centerLeft,
           child: Text(
-            'Available Avatars',
+            'Choose Profile Avatar',
             style: typography.bodySmall.copyWith(
               fontWeight: FontWeight.bold,
               color: colors.textPrimary,
@@ -677,30 +696,14 @@ class _SignupPageState extends ConsumerState<SignupPage> {
         ),
         const SizedBox(height: 12),
 
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.0,
-          ),
-          itemCount: availableSeeds.length,
-          itemBuilder: (context, index) {
-            final seed = availableSeeds[index];
-            final isSelected = seed == _selectedAvatarSeed;
-            return AppAvatar(
-              avatarSeed: seed,
-              gender: _selectedGender,
-              radius: 28,
-              isSelected: isSelected,
-              onTap: () {
-                setState(() {
-                  _selectedAvatarSeed = seed;
-                });
-              },
-            );
+        AvatarGridPicker(
+          selectedGender: _selectedGender,
+          selectedAvatarSeed: _selectedAvatarSeed,
+          radius: 28,
+          onAvatarSelected: (seed) {
+            setState(() {
+              _selectedAvatarSeed = seed;
+            });
           },
         ),
         const SizedBox(height: AppSpacing.space32),

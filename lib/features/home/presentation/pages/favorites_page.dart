@@ -69,7 +69,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
             ),
             const SizedBox(height: 2),
             Text(
-              'Your saved telecallers',
+              'Your saved partners',
               style: typography.bodySmall.copyWith(
                 fontSize: 12,
                 color: colors.textSecondary,
