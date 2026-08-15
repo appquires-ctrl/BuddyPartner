@@ -57,19 +57,7 @@ class CloudinaryUploadService {
       }
     } catch (_) {}
 
-    // Method A: Direct Signed Upload to Cloudinary REST API
-    try {
-      final directUrl = await _uploadDirectToCloudinary(pickedFile);
-      if (directUrl != null && directUrl.trim().isNotEmpty) {
-        return directUrl.trim();
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Direct Cloudinary upload failed, attempting backend fallback: $e');
-      }
-    }
-
-    // Method B: Backend Server Fallback Route (/api/auth/upload-avatar)
+    // Method A: Backend route — uploads to Cloudinary AND persists URL to DB in one step
     try {
       final apiClient = ref.read(apiClientProvider);
 
@@ -87,16 +75,12 @@ class CloudinaryUploadService {
         );
       }
 
-      final formData = FormData.fromMap({
-        'file': multipartFile,
-      });
+      final formData = FormData.fromMap({'file': multipartFile});
 
       final response = await apiClient.dio.post(
         '/api/auth/upload-avatar',
         data: formData,
-        options: Options(
-          contentType: 'multipart/form-data',
-        ),
+        options: Options(contentType: 'multipart/form-data'),
       );
 
       if (response.statusCode == 200 && response.data != null) {
@@ -106,24 +90,35 @@ class CloudinaryUploadService {
           return imageUrl.toString().trim();
         }
       }
-
-      if (context.mounted) {
-        AppSnackBar.showError(context, 'Failed to upload photo. Please try again.');
+    } catch (backendErr) {
+      if (kDebugMode) {
+        debugPrint('Backend upload failed, falling back to direct Cloudinary: $backendErr');
       }
-      return null;
-    } catch (err) {
-      if (context.mounted) {
-        String msg = 'Error uploading photo. Please try again.';
-        if (err is DioException && err.response?.data != null) {
-          final errData = err.response?.data;
-          if (errData is Map && (errData['error'] != null || errData['message'] != null)) {
-            msg = errData['error'] ?? errData['message'];
-          }
-        }
-        AppSnackBar.showError(context, msg);
-      }
-      return null;
     }
+
+    // Method B: Direct signed upload to Cloudinary (fallback — does NOT auto-save to DB)
+    try {
+      final directUrl = await _uploadDirectToCloudinary(pickedFile);
+      if (directUrl != null && directUrl.trim().isNotEmpty) {
+        // Also persist via a lightweight backend PATCH call
+        try {
+          final apiClient = ref.read(apiClientProvider);
+          await apiClient.dio.post('/api/auth/profile', data: {'avatarSeed': directUrl.trim()});
+        } catch (_) {
+          // Best-effort DB persist; URL still returned for local UI update
+        }
+        return directUrl.trim();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Direct Cloudinary upload also failed: $e');
+      }
+    }
+
+    if (context.mounted) {
+      AppSnackBar.showError(context, 'Failed to upload photo. Please try again.');
+    }
+    return null;
   }
 
   /// Direct signed upload to Cloudinary API

@@ -530,8 +530,8 @@ const avatarUpload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
 });
 
-router.post('/upload-avatar', (req, res) => {
-  avatarUpload.single('file')(req, res, (err) => {
+router.post('/upload-avatar', authMiddleware, (req, res) => {
+  avatarUpload.single('file')(req, res, async (err) => {
     if (err) {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({ success: false, error: 'File size exceeds 5MB limit.' });
@@ -551,6 +551,23 @@ router.post('/upload-avatar', (req, res) => {
       const protocol = req.protocol;
       imageUrl = `${protocol}://${host}/uploads/avatars/${req.file.filename}`;
     }
+
+    // Persist avatar URL directly to DB immediately on upload
+    try {
+      const userId = req.user?.id;
+      if (userId) {
+        // Ensure avatar_seed column can hold URLs (run at first upload, safe to repeat)
+        await db.query(`ALTER TABLE public.users ALTER COLUMN avatar_seed TYPE TEXT`).catch(() => {});
+        await db.query(
+          `UPDATE public.users SET avatar_seed = $1 WHERE id = $2`,
+          [imageUrl, userId]
+        );
+      }
+    } catch (dbErr) {
+      console.error('Failed to save avatar URL to DB:', dbErr.message);
+      // Still return success — the URL was uploaded to Cloudinary
+    }
+
     return res.json({ success: true, imageUrl, url: imageUrl });
   });
 });

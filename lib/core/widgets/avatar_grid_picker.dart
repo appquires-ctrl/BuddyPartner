@@ -4,6 +4,7 @@ import 'package:buddypartner/core/constants/avatar_catalog.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/core/services/cloudinary_upload_service.dart';
 import 'package:buddypartner/core/widgets/app_avatar.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
 /// AvatarGridPicker renders a 4-column avatar selection grid where:
 /// - Index 0 is reserved for "Upload Photo" (integrates with Cloudinary)
@@ -86,6 +87,8 @@ class _AvatarGridPickerState extends ConsumerState<AvatarGridPicker> {
         _uploadedPhotoUrl = uploadedUrl;
       });
       widget.onAvatarSelected(uploadedUrl);
+      // Immediately refresh userProfileProvider so avatar updates everywhere in the app
+      Future.microtask(() => ref.invalidate(userProfileProvider));
     }
   }
 
