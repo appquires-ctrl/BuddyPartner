@@ -171,20 +171,18 @@ class ProfilePage extends ConsumerWidget {
                 ),
                 child: Column(
                   children: [
-                    /*
                     _buildSettingsTile(
                       context,
                       icon: Icons.card_membership_outlined,
                       iconBgColor: const Color(0xFFF5E6FF),
                       iconColor: const Color(0xFF8B5CF6),
                       title: 'My Subscription',
-                      subtitle: 'Unlimited Free Access Active',
+                      subtitle: 'Manage subscription plans & duration',
                       onTap: () {
-                        AppSnackBar.showSuccess(context, 'Unlimited Early Access Active! All features are currently free.');
+                        context.push(RouteNames.subscribe);
                       },
                     ),
                     _buildDivider(context),
-                    */
                     _buildSettingsTile(
                       context,
                       icon: Icons.person_outline,
@@ -209,7 +207,6 @@ class ProfilePage extends ConsumerWidget {
                         context.push(RouteNames.history);
                       },
                     ),
-                    /*
                     _buildDivider(context),
                     _buildSettingsTile(
                       context,
@@ -222,7 +219,6 @@ class ProfilePage extends ConsumerWidget {
                         context.push(RouteNames.transactionHistory);
                       },
                     ),
-                    */
                   ],
                 ),
               ),

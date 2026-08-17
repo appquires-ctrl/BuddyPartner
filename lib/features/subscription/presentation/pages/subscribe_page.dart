@@ -75,15 +75,21 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Active Subscription indicator for Early Access
+              // Active / Inactive Subscription status indicator
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(AppSpacing.space16),
                 margin: const EdgeInsets.only(bottom: AppSpacing.space16),
                 decoration: BoxDecoration(
-                  color: colors.primary.withValues(alpha: 0.12),
+                  color: (subState?.isSubscribed ?? false)
+                      ? colors.primary.withValues(alpha: 0.12)
+                      : colors.surface,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: colors.primary.withValues(alpha: 0.4)),
+                  border: Border.all(
+                    color: (subState?.isSubscribed ?? false)
+                        ? colors.primary.withValues(alpha: 0.4)
+                        : colors.cardBorder,
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -91,7 +97,9 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
                       width: 10,
                       height: 10,
                       decoration: BoxDecoration(
-                        color: colors.primary,
+                        color: (subState?.isSubscribed ?? false)
+                            ? colors.primary
+                            : colors.textSecondary,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -101,15 +109,21 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '🎉 Unlimited Early Access Active',
+                            (subState?.isSubscribed ?? false)
+                                ? '👑 Active Subscription (${subState!.formattedLabel})'
+                                : '⭐ Unlock Premium Access',
                             style: typography.bodyMedium.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: colors.primary,
+                              color: (subState?.isSubscribed ?? false)
+                                  ? colors.primary
+                                  : colors.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'All calling, matchmaking & messaging features are 100% free!',
+                            (subState?.isSubscribed ?? false)
+                                ? 'You have full unlimited access to video calling & matchmaking!'
+                                : 'Select a plan below to activate video calling, matchmaking & messaging.',
                             style: typography.bodySmall.copyWith(
                               color: colors.textSecondary,
                               fontSize: 12,

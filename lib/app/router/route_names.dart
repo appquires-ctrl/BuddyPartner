@@ -1,6 +1,7 @@
 /// RouteNames defines the routing paths for all 14 screens.
 class RouteNames {
   static const String splash = '/splash';
+  static const String onboarding = '/onboarding';
   static const String login = '/login';
   static const String signup = '/signup';
   static const String forgotPassword = '/forgot-password';

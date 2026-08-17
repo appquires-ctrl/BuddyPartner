@@ -21,6 +21,7 @@ import 'package:buddypartner/features/home/presentation/widgets/matched_user_car
 import 'package:buddypartner/features/home/presentation/widgets/ad_banner_widget.dart';
 import 'package:buddypartner/features/home/presentation/widgets/home_skeleton.dart';
 import 'package:buddypartner/core/widgets/gradient_avatar.dart';
+import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 
 /// HomePage renders the primary "stranger search" radar screen.
@@ -40,8 +41,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     AppLogger.click('Start Matchmaking', screen: 'HomeScreen');
     if (_isProcessingPermissions) return;
 
-    // Step 1 — Subscription Check (Unlimited free access mode: bypassed)
-    /*
+    // Step 1 — Subscription Check
     final isSub = ref.read(subscriptionStatusProvider).value?.isSubscribed ?? false;
     if (!isSub) {
       if (mounted) {
@@ -49,7 +49,6 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
       return;
     }
-    */
 
     _isProcessingPermissions = true;
     try {
@@ -140,7 +139,12 @@ class _HomePageState extends ConsumerState<HomePage> {
       if (next.errorMessage != null &&
           next.errorMessage!.isNotEmpty &&
           (prev == null || prev.errorMessage != next.errorMessage)) {
-        AppSnackBar.showError(context, next.errorMessage!);
+        if (next.errorMessage!.contains('SUBSCRIPTION_REQUIRED') ||
+            next.errorMessage!.toLowerCase().contains('subscribe')) {
+          context.push(RouteNames.subscribe);
+        } else {
+          AppSnackBar.showError(context, next.errorMessage!);
+        }
       }
     });
 
@@ -270,8 +274,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ],
               ),
               actions: [
-                // Subscription status pill (e.g. '365 days left') commented out for early access
-                /*
                 Consumer(
                   builder: (context, ref, child) {
                     final subAsync = ref.watch(subscriptionStatusProvider);
@@ -343,7 +345,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                     );
                   },
                 ),
-                */
               ],
             ),
       body: isMatching

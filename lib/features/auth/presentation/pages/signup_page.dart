@@ -589,8 +589,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
 
   /// Step 2 UI: Dedicated Avatar Picker Page
   Widget _buildStep2AvatarPicker(dynamic colors, dynamic typography, AsyncValue<void> authState) {
-    final availableSeeds = AvatarCatalog.getSeedsForGender(_selectedGender);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [

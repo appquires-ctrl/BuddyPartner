@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/features/splash/presentation/pages/splash_page.dart';
+import 'package:buddypartner/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:buddypartner/features/auth/presentation/pages/login_page.dart';
 import 'package:buddypartner/features/auth/presentation/pages/signup_page.dart';
 import 'package:buddypartner/features/auth/presentation/pages/forgot_password_page.dart';
@@ -82,12 +83,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isBannedRoute = state.matchedLocation == RouteNames.banned ||
           state.matchedLocation == RouteNames.suspended;
       final isSplashRoute = state.matchedLocation == RouteNames.splash;
+      final isOnboardingRoute = state.matchedLocation == RouteNames.onboarding;
       final isUpdateRequiredRoute = state.matchedLocation == RouteNames.updateRequired;
       final isAuthRoute = state.matchedLocation == RouteNames.login ||
           state.matchedLocation == RouteNames.signup ||
           state.matchedLocation == RouteNames.forgotPassword;
 
-      if (isLegalRoute || isBannedRoute || isSplashRoute || isUpdateRequiredRoute) {
+      if (isLegalRoute || isBannedRoute || isSplashRoute || isUpdateRequiredRoute || isOnboardingRoute) {
         // Exempt routes can be viewed without auto-redirect
         return null;
       }
@@ -123,6 +125,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RouteNames.splash,
         name: 'SplashPage',
         builder: (context, state) => const AnimatedSplashScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.onboarding,
+        name: 'OnboardingPage',
+        builder: (context, state) => const OnboardingPage(),
       ),
       GoRoute(
         path: RouteNames.login,

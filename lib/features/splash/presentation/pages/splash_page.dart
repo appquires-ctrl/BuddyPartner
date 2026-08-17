@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/core/services/api_client.dart';
 
 /// AnimatedSplashScreen renders a 3-step continuous animation sequence:
 /// 1. Logo Scale-in (0.3 -> 1.0)
@@ -99,6 +100,15 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
     if (_hasNavigated) return;
 
     try {
+      final hasSeenOnboarding = await ref.read(apiClientProvider).hasSeenOnboarding();
+      if (!mounted) return;
+
+      if (!hasSeenOnboarding) {
+        _hasNavigated = true;
+        context.go(RouteNames.onboarding);
+        return;
+      }
+
       CustomUser? user = ref.read(authStateProvider).value;
       user ??= await ref.read(authStateProvider.future);
       if (!mounted) return;

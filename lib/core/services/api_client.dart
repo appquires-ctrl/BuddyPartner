@@ -240,4 +240,23 @@ class ApiClient {
     }
     return false;
   }
+
+  static const _hasSeenOnboardingKey = 'has_seen_onboarding';
+
+  /// Check if user has already seen the 3-screen onboarding intro
+  Future<bool> hasSeenOnboarding() async {
+    try {
+      final value = await _secureStorage.read(key: _hasSeenOnboardingKey);
+      return value == 'true';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Mark onboarding as completed so it is never shown again
+  Future<void> setSeenOnboarding() async {
+    try {
+      await _secureStorage.write(key: _hasSeenOnboardingKey, value: 'true');
+    } catch (_) {}
+  }
 }
