@@ -167,7 +167,6 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
     if (user != null) {
       Future.microtask(() {
         ref.invalidate(subscriptionStatusProvider);
-        ref.invalidate(userProfileProvider);
         ref.invalidate(conversationsProvider);
         ref.invalidate(presenceProvider);
         ref.invalidate(matchedUsersProvider);

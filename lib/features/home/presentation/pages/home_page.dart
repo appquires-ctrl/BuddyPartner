@@ -174,8 +174,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     final matchedUsersAsync = ref.watch(matchedUsersProvider);
     
     // Ensure profile matches currently authenticated user ID to prevent stale name flash
-    final profile = (profileAsync.value?.id == authUser?.id) ? profileAsync.value : null;
-    final matchedUsers = (profile != null) ? (matchedUsersAsync.value ?? const []) : const [];
+    final profile = (profileAsync.valueOrNull?.id == authUser?.id) ? profileAsync.valueOrNull : null;
+    final matchedUsers = (profile != null) ? (matchedUsersAsync.valueOrNull ?? const []) : const [];
     
     final String rawProfileName = profile?.fullName ?? '';
     final String fullName = (rawProfileName.isNotEmpty && rawProfileName != 'User')

@@ -31,20 +31,20 @@ class _DevSubscriptionPageState extends ConsumerState<DevSubscriptionPage> {
     final success = await ref
         .read(subscriptionStatusProvider.notifier)
         .devStartSubscription(widget.plan);
+
+    if (!mounted) return;
     setState(() => _isProcessing = false);
 
-    if (mounted) {
-      if (success) {
-        AppSnackBar.showSuccess(context, 'DEV MODE: ${widget.plan.title} activated successfully!');
-        context.go(RouteNames.home);
-      } else {
-        final subState = ref.read(subscriptionStatusProvider);
-        final rawErr = subState.error?.toString();
-        final cleanMsg = rawErr != null
-            ? rawErr.replaceAll('Exception: ', '').replaceAll('DioException: ', '')
-            : 'Failed to activate subscription.';
-        AppSnackBar.showError(context, cleanMsg);
-      }
+    if (success) {
+      AppSnackBar.showSuccess(context, 'DEV MODE: ${widget.plan.title} activated successfully!');
+      context.go(RouteNames.home);
+    } else {
+      final subState = ref.read(subscriptionStatusProvider);
+      final rawErr = subState.error?.toString();
+      final cleanMsg = rawErr != null
+          ? rawErr.replaceAll('Exception: ', '').replaceAll('DioException: ', '')
+          : 'Failed to activate subscription.';
+      AppSnackBar.showError(context, cleanMsg);
     }
   }
 
@@ -54,10 +54,11 @@ class _DevSubscriptionPageState extends ConsumerState<DevSubscriptionPage> {
     final success = await ref
         .read(subscriptionStatusProvider.notifier)
         .devExpireSubscription();
+
+    if (!mounted) return;
     setState(() => _isProcessing = false);
 
-    if (mounted) {
-      if (success) {
+    if (success) {
         AppSnackBar.showInfo(context, 'DEV MODE: Subscription expired immediately!');
         context.go(RouteNames.home);
       } else {
