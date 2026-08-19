@@ -23,12 +23,12 @@ class AppBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final navSelectedIndex = currentIndex.clamp(0, 3);
+    final navSelectedIndex = currentIndex.clamp(0, 4);
 
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.only(left: 20.0, right: 20.0, bottom: 12.0, top: 4.0),
+        padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 12.0, top: 4.0),
         child: Container(
           height: 64,
           decoration: BoxDecoration(
@@ -57,7 +57,7 @@ class AppBottomNav extends StatelessWidget {
             child: NavigationBar(
               selectedIndex: navSelectedIndex,
               onDestinationSelected: (index) {
-                final tabNames = ['Home', 'Chat', 'Favorite', 'Setting'];
+                final tabNames = ['Home', 'Chat', 'Wallet', 'Favorite', 'Setting'];
                 final tabName = index >= 0 && index < tabNames.length ? tabNames[index] : 'Tab $index';
                 AppLogger.click('Bottom Nav Tab: $tabName');
                 onTap(index);
@@ -76,6 +76,11 @@ class AppBottomNav extends StatelessWidget {
                   icon: Icon(Icons.chat_bubble_outline),
                   selectedIcon: Icon(Icons.chat_bubble),
                   label: 'Chat',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.account_balance_wallet_outlined),
+                  selectedIcon: Icon(Icons.account_balance_wallet),
+                  label: 'Wallet',
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.favorite_border),

@@ -29,6 +29,7 @@ import 'package:buddypartner/features/subscription/domain/subscription_plan.dart
 import 'package:buddypartner/features/legal/presentation/pages/legal_document_page.dart';
 import 'package:buddypartner/features/legal/data/legal_document_content.dart';
 import 'package:buddypartner/features/wallet/presentation/pages/transaction_history_page.dart';
+import 'package:buddypartner/features/wallet/presentation/pages/wallet_recharge_page.dart';
 import 'package:buddypartner/features/auth/presentation/pages/banned_screen.dart';
 import 'package:buddypartner/core/widgets/layout/app_bottom_nav.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
@@ -329,7 +330,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
 
-          // Tab 3: Favorites
+          // Tab 3: Wallet & Recharge
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RouteNames.recharge,
+                name: 'WalletRechargePage',
+                builder: (context, state) => const WalletRechargePage(),
+              ),
+            ],
+          ),
+
+          // Tab 4: Favorites
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -340,7 +352,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
 
-          // Tab 4: User Profile Settings
+          // Tab 5: User Profile Settings
           StatefulShellBranch(
             routes: [
               GoRoute(
