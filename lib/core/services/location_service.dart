@@ -30,40 +30,43 @@ class LocationService {
     }
   }
 
+  static bool _isCurrentlyFetching = false;
+
   /// Captures current GPS coordinates, reverse geocodes to Country, State, City,
-  /// and saves the result to the user's profile database ONCE.
+  /// and saves the result to the user's profile database silently in the background.
   static Future<String?> fetchAndSaveUserLocation(WidgetRef ref) async {
+    if (_isCurrentlyFetching) return null;
+    _isCurrentlyFetching = true;
+
     try {
       // 1. Check if location services are enabled on device
       try {
         final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-        if (!serviceEnabled && kDebugMode) {
-          debugPrint('Location services are disabled on device.');
+        if (!serviceEnabled) {
+          _isCurrentlyFetching = false;
+          return null;
         }
       } catch (_) {}
 
-      // 2. Fetch current GPS position with fallback to last known position
+      // 2. Fetch last known position first for instant response, or quick 2s current position
       Position? position;
       try {
-        position = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.medium,
-            timeLimit: Duration(seconds: 8),
-          ),
-        );
-      } catch (posErr) {
-        if (kDebugMode) {
-          debugPrint('getCurrentPosition failed, trying getLastKnownPosition: $posErr');
-        }
+        position = await Geolocator.getLastKnownPosition();
+      } catch (_) {}
+
+      if (position == null) {
         try {
-          position = await Geolocator.getLastKnownPosition();
+          position = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.low,
+              timeLimit: Duration(seconds: 2),
+            ),
+          );
         } catch (_) {}
       }
 
       if (position == null) {
-        if (kDebugMode) {
-          print('Could not obtain GPS position.');
-        }
+        _isCurrentlyFetching = false;
         return null;
       }
 
@@ -71,39 +74,22 @@ class LocationService {
       String? state;
       String? city;
 
-      // 3. Reverse geocode position into Country, State, City
+      // 3. Reverse geocode with 2-second timeout so it never hangs
       try {
         final placemarks = await placemarkFromCoordinates(
           position.latitude,
           position.longitude,
-        );
+        ).timeout(const Duration(seconds: 2));
 
         if (placemarks.isNotEmpty) {
           final place = placemarks.first;
           country = place.country;
           state = place.administrativeArea;
-          city = place.locality;
-
-          if (city == null || city.trim().isEmpty) {
-            city = place.subAdministrativeArea;
-          }
-          if (city == null || city.trim().isEmpty) {
-            city = place.subLocality;
-          }
-          if (city == null || city.trim().isEmpty) {
-            city = place.administrativeArea;
-          }
-          if (city == null || city.trim().isEmpty) {
-            city = place.name;
-          }
+          city = place.locality ?? place.subAdministrativeArea ?? place.name;
         }
-      } catch (geocodeErr) {
-        if (kDebugMode) {
-          print('Error reverse geocoding coordinates: $geocodeErr');
-        }
-      }
+      } catch (_) {}
 
-      // 4. Save to User Profile on Backend
+      // 4. Save to User Profile on Backend silently
       try {
         final apiClient = ref.read(apiClientProvider);
         final payload = {
@@ -113,26 +99,14 @@ class LocationService {
           'latitude': position.latitude,
           'longitude': position.longitude,
         };
+        await apiClient.dio.post('/api/auth/location', data: payload);
+      } catch (_) {}
 
-        try {
-          await apiClient.dio.post('/api/auth/location', data: payload);
-        } catch (postErr) {
-          // Fallback to /api/auth/profile if /api/auth/location route returned 404 (e.g. backend server auto-reload pending)
-          await apiClient.dio.post('/api/auth/profile', data: payload);
-        }
-      } catch (apiErr) {
-        if (kDebugMode) {
-          print('Error saving location to backend: $apiErr');
-        }
-      }
-
-      // 5. Location saved silently in background
       return city;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error in fetchAndSaveUserLocation: $e');
-      }
+    } catch (_) {
       return null;
+    } finally {
+      _isCurrentlyFetching = false;
     }
   }
 

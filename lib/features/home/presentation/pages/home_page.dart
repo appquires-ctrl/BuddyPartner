@@ -81,12 +81,11 @@ class _HomePageState extends ConsumerState<HomePage> {
       if (!isLocationAlreadyGranted) {
         final locGrantedNow = await LocationService.requestLocationPermission();
         if (locGrantedNow) {
-          // Save location upon location permission grant
-          await LocationService.fetchAndSaveUserLocation(ref);
+          // Trigger background location update without blocking matchmaking
+          LocationService.fetchAndSaveUserLocation(ref);
         }
-        // If user denies location permission: do not block matchmaking. Continue requesting remaining required permissions.
       } else {
-        // Automatically ensure location is fresh before starting matchmaking if location is enabled
+        // Trigger background location refresh without blocking
         LocationService.fetchAndSaveUserLocation(ref);
       }
 
