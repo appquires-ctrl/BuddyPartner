@@ -74,31 +74,40 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
         // Save backend access and refresh tokens locally
         await apiClient.saveTokens(token: token, refreshToken: refreshToken);
 
-        // Fetch user profile from backend
-        final userProfileResponse = await apiClient.dio.get('/api/auth/me');
-        if (userProfileResponse.statusCode == 200 && userProfileResponse.data != null) {
-          final userMap = userProfileResponse.data['user'];
-          final fullNameStr = (userMap['fullName'] as String? ?? '').trim();
-          await ref.read(authStateProvider.notifier).setSession(
-            CustomUser(
-              id: userMap['id'] as String,
-              phoneNumber: userMap['phoneNumber'] as String,
-              isProfileComplete: isProfileComplete,
-              gender: userMap['gender'] as String? ?? 'Male',
-              fullName: fullNameStr.isNotEmpty ? fullNameStr : null,
-              avatarSeed: userMap['avatarSeed'] as String?,
-              avatarStyle: userMap['avatarStyle'] as String? ?? 'avataaars',
-              isTelecaller: userMap['isTelecaller'] as bool?,
-              hasClaimedIntroOffer: userMap['hasClaimedIntroOffer'] as bool? ?? false,
-            ),
-          );
-
-          state = const AsyncData(null);
-          return {
-            'success': true,
-            'isProfileComplete': isProfileComplete,
-          };
+        // Extract user directly from response payload (instant login without extra roundtrip)
+        Map<String, dynamic>? userMap = response.data['user'] as Map<String, dynamic>?;
+        if (userMap == null) {
+          try {
+            final userProfileResponse = await apiClient.dio.get('/api/auth/me');
+            if (userProfileResponse.statusCode == 200 && userProfileResponse.data != null) {
+              userMap = userProfileResponse.data['user'] as Map<String, dynamic>?;
+            }
+          } catch (_) {}
         }
+
+        final fullNameStr = (userMap?['fullName'] as String? ?? '').trim();
+        final userId = userMap?['id'] as String? ?? '';
+        final phoneNumber = userMap?['phoneNumber'] as String? ?? '+$countryCode$mobile';
+
+        await ref.read(authStateProvider.notifier).setSession(
+          CustomUser(
+            id: userId,
+            phoneNumber: phoneNumber,
+            isProfileComplete: isProfileComplete,
+            gender: userMap?['gender'] as String? ?? 'Male',
+            fullName: fullNameStr.isNotEmpty ? fullNameStr : null,
+            avatarSeed: userMap?['avatarSeed'] as String?,
+            avatarStyle: userMap?['avatarStyle'] as String? ?? 'avataaars',
+            isTelecaller: userMap?['isTelecaller'] as bool?,
+            hasClaimedIntroOffer: userMap?['hasClaimedIntroOffer'] as bool? ?? false,
+          ),
+        );
+
+        state = const AsyncData(null);
+        return {
+          'success': true,
+          'isProfileComplete': isProfileComplete,
+        };
       }
 
       final errMsg = response.data?['error'] ?? 'Invalid or expired verification code.';

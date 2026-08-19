@@ -126,9 +126,12 @@ router.post('/otp/verify', async (req, res) => {
 
     // 5. Query user or run atomic transaction to create user + wallet + welcome bonus
     let userResult = await db.query(
-      `SELECT id, country_code, mobile, phone_number, full_name 
-       FROM public.users 
-       WHERE (country_code = $1 AND mobile = $2) OR phone_number = $3`,
+      `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.dob, u.gender, u.language, 
+              u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, 
+              u.country, u.state, u.city, u.latitude, u.longitude, w.balance 
+       FROM public.users u
+       LEFT JOIN public.wallets w ON w.user_id = u.id
+       WHERE (u.country_code = $1 AND u.mobile = $2) OR u.phone_number = $3`,
       [cleanCountryCode, cleanMobile, fullPhoneNumber]
     );
 
@@ -143,7 +146,7 @@ router.post('/otp/verify', async (req, res) => {
         const insertUserRes = await client.query(
           `INSERT INTO public.users (country_code, mobile, phone_number) 
            VALUES ($1, $2, $3) 
-           RETURNING id, country_code, mobile, phone_number, full_name`,
+           RETURNING id, country_code, mobile, phone_number, full_name, dob, gender, language, avatar_seed, avatar_style, is_telecaller, has_claimed_intro_offer, country, state, city, latitude, longitude`,
           [cleanCountryCode, cleanMobile, fullPhoneNumber]
         );
         user = insertUserRes.rows[0];
@@ -201,11 +204,33 @@ router.post('/otp/verify', async (req, res) => {
     // Store Refresh Token status in Redis: refresh:{userId}:{jti} -> TTL 30 days (2,592,000s)
     await redis.set(`refresh:${user.id}:${jti}`, '1', 'EX', 30 * 24 * 60 * 60);
 
+    const isProfileComplete = !!(user.full_name && user.full_name.trim().length > 0);
+
     res.json({
       success: true,
       token,
       refreshToken,
-      isProfileComplete: !!(user.full_name && user.full_name.trim().length > 0),
+      isProfileComplete,
+      user: {
+        id: user.id,
+        countryCode: user.country_code || cleanCountryCode,
+        mobile: user.mobile || cleanMobile,
+        phoneNumber: user.phone_number || fullPhoneNumber,
+        fullName: user.full_name || '',
+        dob: user.dob ? user.dob.toISOString() : null,
+        gender: user.gender || 'Male',
+        language: user.language || 'English',
+        avatarSeed: user.avatar_seed || null,
+        avatarStyle: user.avatar_style || 'avataaars',
+        isTelecaller: user.is_telecaller || false,
+        hasClaimedIntroOffer: user.has_claimed_intro_offer || false,
+        country: user.country || null,
+        state: user.state || null,
+        city: user.city || null,
+        latitude: user.latitude ? parseFloat(user.latitude) : null,
+        longitude: user.longitude ? parseFloat(user.longitude) : null,
+        balance: user.balance ? parseInt(user.balance, 10) : 0,
+      },
     });
   } catch (err) {
     console.error('Error in /auth/otp/verify:', err.message);
