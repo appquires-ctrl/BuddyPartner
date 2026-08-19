@@ -66,13 +66,13 @@ class AppBottomNav extends StatelessWidget {
               indicatorColor: colors.primary.withValues(alpha: 0.12),
               elevation: 0,
               height: 64,
-              destinations: const [
-                NavigationDestination(
+              destinations: [
+                const NavigationDestination(
                   icon: Icon(Icons.home_outlined),
                   selectedIcon: Icon(Icons.home),
                   label: 'Home',
                 ),
-                NavigationDestination(
+                const NavigationDestination(
                   icon: Icon(Icons.chat_bubble_outline),
                   selectedIcon: Icon(Icons.chat_bubble),
                   label: 'Chat',
@@ -82,12 +82,12 @@ class AppBottomNav extends StatelessWidget {
                   selectedIcon: Icon(isFemale ? Icons.payments : Icons.account_balance_wallet),
                   label: isFemale ? 'Earnings' : 'Wallet',
                 ),
-                NavigationDestination(
+                const NavigationDestination(
                   icon: Icon(Icons.favorite_border),
                   selectedIcon: Icon(Icons.favorite),
                   label: 'Favorite',
                 ),
-                NavigationDestination(
+                const NavigationDestination(
                   icon: Icon(Icons.settings_outlined),
                   selectedIcon: Icon(Icons.settings),
                   label: 'Setting',
