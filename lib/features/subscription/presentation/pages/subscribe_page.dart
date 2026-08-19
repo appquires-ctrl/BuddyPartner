@@ -29,13 +29,12 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
     final hasClaimedIntroOffer = (authUser?.hasClaimedIntroOffer ?? false) ||
         (subState?.hasClaimedIntroOffer ?? false);
 
-    final availablePlans = hasClaimedIntroOffer
-        ? SubscriptionPlan.defaultPlans.where((plan) => plan.id != '1_day').toList()
-        : SubscriptionPlan.defaultPlans;
+    final allPlans = SubscriptionPlan.defaultPlans;
 
-    // Ensure selected plan exists in available plans
-    if (!availablePlans.any((p) => p.id == _selectedPlanId)) {
-      _selectedPlanId = availablePlans.first.id;
+    // Ensure selected plan exists and is available for purchase
+    if (!allPlans.any((p) => p.id == _selectedPlanId) ||
+        (_selectedPlanId == '1_day' && hasClaimedIntroOffer)) {
+      _selectedPlanId = allPlans.firstWhere((p) => p.id != '1_day', orElse: () => allPlans.first).id;
     }
 
     return Scaffold(
@@ -75,89 +74,69 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Active / Inactive Subscription status indicator
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(AppSpacing.space16),
-                margin: const EdgeInsets.only(bottom: AppSpacing.space16),
-                decoration: BoxDecoration(
-                  color: (subState?.isSubscribed ?? false)
-                      ? colors.primary.withValues(alpha: 0.12)
-                      : colors.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: (subState?.isSubscribed ?? false)
-                        ? colors.primary.withValues(alpha: 0.4)
-                        : colors.cardBorder,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: (subState?.isSubscribed ?? false)
-                            ? colors.primary
-                            : colors.textSecondary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.space12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            (subState?.isSubscribed ?? false)
-                                ? '👑 Active Subscription (${subState!.formattedLabel})'
-                                : '⭐ Unlock Premium Access',
-                            style: typography.bodyMedium.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: (subState?.isSubscribed ?? false)
-                                  ? colors.primary
-                                  : colors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            (subState?.isSubscribed ?? false)
-                                ? 'You have full unlimited access to video calling & matchmaking!'
-                                : 'Select a plan below to activate video calling, matchmaking & messaging.',
-                            style: typography.bodySmall.copyWith(
-                              color: colors.textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
               // Top Unlimited Access Banner
               _buildTopBanner(context),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
-              Text(
-                'Select a Plan',
-                style: typography.titleCard.copyWith(
-                  color: colors.textPrimary,
-                  fontSize: 19,
-                  fontWeight: FontWeight.bold,
-                ),
+              // Section Heading + Current Active Plan pill
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Select a Plan',
+                    style: typography.titleCard.copyWith(
+                      color: colors.textPrimary,
+                      fontSize: 19,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  // if (subState?.isSubscribed ?? false)
+                  //   Container(
+                  //     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  //     decoration: BoxDecoration(
+                  //       color: colors.primary.withValues(alpha: 0.12),
+                  //       borderRadius: BorderRadius.circular(12),
+                  //       border: Border.all(color: colors.primary.withValues(alpha: 0.3)),
+                  //     ),
+                  //     child: Row(
+                  //       mainAxisSize: MainAxisSize.min,
+                  //       children: [
+                  //         Icon(Icons.stars_rounded, color: colors.primary, size: 14),
+                  //         const SizedBox(width: 4),
+                  //         Text(
+                  //           'Active: ${subState!.formattedLabel}',
+                  //           style: TextStyle(
+                  //             color: colors.primary,
+                  //             fontSize: 11.5,
+                  //             fontWeight: FontWeight.bold,
+                  //           ),
+                  //         ),
+                  //       ],
+                  //     ),
+                  //   ),
+                ],
               ),
 
               const SizedBox(height: 14),
 
-              // Plan Cards List
-              ...SubscriptionPlan.defaultPlans.map((plan) {
+              // Plan Cards List (Includes ₹9 1-Day Pass)
+              ...allPlans.map((plan) {
                 final isSelected = plan.id == _selectedPlanId;
+                final isCurrentActivePlan = (subState?.isSubscribed ?? false) &&
+                    (subState?.planDurationDays == plan.durationDays);
+                final isClaimed = (plan.id == '1_day') && hasClaimedIntroOffer;
+
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),
-                  child: _buildPlanCard(context, plan, isSelected),
+                  child: _buildPlanCard(
+                    context,
+                    plan,
+                    isSelected: isSelected,
+                    isCurrentActivePlan: isCurrentActivePlan,
+                    isClaimed: isClaimed,
+                    activeLabel: isCurrentActivePlan ? subState?.formattedLabel : null,
+                  ),
                 );
               }),
 
@@ -187,11 +166,106 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
 
   Widget _buildPlanCard(
     BuildContext context,
-    SubscriptionPlan plan,
-    bool isSelected,
-  ) {
+    SubscriptionPlan plan, {
+    required bool isSelected,
+    required bool isCurrentActivePlan,
+    required bool isClaimed,
+    String? activeLabel,
+  }) {
     final colors = context.colors;
     final typography = context.typography;
+
+    if (isClaimed) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 16.0),
+        decoration: BoxDecoration(
+          color: colors.surfaceMuted.withValues(alpha: 1),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: colors.textSecondary.withValues(alpha: 0.1),
+            width: 1.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        plan.title,
+                        style: typography.bodyMedium.copyWith(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: colors.textSecondary.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: colors.textSecondary.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          'CLAIMED',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'One-time intro offer already claimed',
+                    style: typography.bodySmall.copyWith(
+                      fontSize: 12.0,
+                      color: colors.textSecondary.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '₹${plan.priceRupees}',
+                  style: typography.titleCard.copyWith(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: colors.textSecondary.withValues(alpha: 0.4),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Claimed',
+                  style: typography.bodySmall.copyWith(
+                    fontSize: 11.5,
+                    color: colors.textSecondary.withValues(alpha: 0.4),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    final border = isCurrentActivePlan
+        ? Border.all(color: colors.primary, width: 2.0)
+        : Border.all(color: Colors.transparent, width: 0.0);
+
+    final backgroundColor = isCurrentActivePlan
+        ? colors.primary.withValues(alpha: 0.08)
+        : colors.surface;
 
     return GestureDetector(
       onTap: () {
@@ -199,7 +273,6 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
         setState(() {
           _selectedPlanId = plan.id;
         });
-        // Proceed to dev checkout on tap
         context.push(
           RouteNames.devSubscription,
           extra: plan,
@@ -209,23 +282,19 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 16.0),
         decoration: BoxDecoration(
-          color: colors.surface,
+          color: backgroundColor,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: colors.primary,
-            width: 0.0,
-          ),
+          border: border,
           boxShadow: [
             BoxShadow(
-              color: colors.primary.withValues(alpha: 0.12),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: colors.primary.withValues(alpha: isCurrentActivePlan ? 0.15 : 0.06),
+              blurRadius: isCurrentActivePlan ? 12 : 8,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Row(
           children: [
-            // Plan Title, Badge, Description
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,8 +309,25 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
                           color: colors.textPrimary,
                         ),
                       ),
-                      if (plan.badge != null) ...[
-                        const SizedBox(width: 8),
+                      const SizedBox(width: 8),
+                      if (isCurrentActivePlan) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: colors.primary,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Text(
+                            'CURRENT PLAN',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ),
+                      ] else if (plan.badge != null) ...[
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
@@ -272,10 +358,7 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
                 ],
               ),
             ),
-
             const SizedBox(width: 10),
-
-            // Price & Duration
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -289,10 +372,13 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${plan.durationDays} ${plan.durationDays == 1 ? 'day' : 'days'}',
+                  isCurrentActivePlan
+                      ? (activeLabel ?? 'Active')
+                      : '${plan.durationDays} ${plan.durationDays == 1 ? 'day' : 'days'}',
                   style: typography.bodySmall.copyWith(
                     fontSize: 11.5,
-                    color: colors.textSecondary,
+                    fontWeight: isCurrentActivePlan ? FontWeight.bold : FontWeight.normal,
+                    color: isCurrentActivePlan ? colors.primary : colors.textSecondary,
                   ),
                 ),
               ],

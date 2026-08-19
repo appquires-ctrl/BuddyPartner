@@ -14,6 +14,9 @@ import 'package:buddypartner/features/chat/application/chat_controller.dart';
 import 'package:buddypartner/features/chat/application/presence_provider.dart';
 import 'package:buddypartner/core/widgets/gradient_avatar.dart';
 
+import 'package:buddypartner/core/utils/app_snack_bar.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
@@ -70,6 +73,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     AppLogger.button('Send Chat Message', screen: 'ChatPage');
     final text = _messageController.text.trim();
     if (text.isNotEmpty) {
+      final isSubscribed = ref.read(subscriptionStatusProvider).value?.isSubscribed ?? false;
+      if (!isSubscribed) {
+        if (mounted) {
+          AppSnackBar.showError(context, 'An active subscription is required to send messages.');
+          context.push(RouteNames.subscribe);
+        }
+        return;
+      }
+
       ref.read(chatControllerProvider(widget.conversationId).notifier).sendMessage(text);
       _messageController.clear();
       // Scroll to bottom (since we are reversed, bottom is 0)
@@ -98,6 +110,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final chatState = ref.watch(chatControllerProvider(widget.conversationId));
     final currentUser = ref.watch(authStateProvider).value;
     final isOnline = ref.watch(presenceProvider)[widget.userId] ?? false;
+    final isSubscribed = ref.watch(subscriptionStatusProvider).value?.isSubscribed ?? false;
 
     return Stack(
       fit: StackFit.expand,
@@ -343,6 +356,63 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       style: typography.bodyMedium.copyWith(
                         color: colors.textSecondary,
                         fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else if (!isSubscribed)
+            Container(
+              decoration: const BoxDecoration(
+                color: Colors.transparent,
+              ),
+              child: SafeArea(
+                top: false,
+                bottom: true,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.space16,
+                    vertical: 10.0,
+                  ),
+                  child: GestureDetector(
+                    onTap: () {
+                      AppLogger.click('Subscribe to Chat Prompt Bar', screen: 'ChatPage');
+                      context.push(RouteNames.subscribe);
+                    },
+                    child: Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: AppRadius.pill,
+                        border: Border.all(
+                          color: colors.primary,
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colors.primary.withValues(alpha: 0.12),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.lock_outline_rounded, color: colors.primary, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Subscribe to Send Messages',
+                            style: typography.bodyMedium.copyWith(
+                              color: colors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14.0,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Icon(Icons.arrow_forward_rounded, color: colors.primary, size: 16),
+                        ],
                       ),
                     ),
                   ),

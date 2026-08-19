@@ -45,6 +45,7 @@ const { enforceMinimumVersion } = require('./middleware/version.middleware');
 
 const path = require('path');
 const advertisementsRoutes = require('./modules/advertisements/advertisements.routes');
+const instantConnectRoutes = require('./modules/instant_connect/instant_connect.routes');
 
 // Serve uploaded images statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -63,6 +64,7 @@ app.use('/api', roseRoutes);
 app.use('/api', withdrawalRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/subscriptions', subscriptionsRoutes);
+app.use('/api/instant', instantConnectRoutes);
 app.use('/api/advertisements', advertisementsRoutes);
 app.use('/api/admin/advertisements', advertisementsRoutes);
 
@@ -119,10 +121,47 @@ db.query(`
   ALTER TABLE public.users ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
   ALTER TABLE public.users ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
   ALTER TABLE public.users ADD COLUMN IF NOT EXISTS has_claimed_intro_offer BOOLEAN DEFAULT FALSE;
+  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS incoming_paid_calls_enabled BOOLEAN DEFAULT FALSE;
+  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS fcm_token TEXT;
 `).then(() => {
-  console.log('✅ User moderation, telecaller, location, and intro offer columns checked/initialized.');
+  console.log('✅ User moderation, telecaller, location, intro offer, and instant connect columns checked/initialized.');
 }).catch((err) => {
   console.error('❌ Failed to initialize user columns:', err.message);
+});
+
+// Auto-ensure instant connect sessions and scratch cards tables exist
+db.query(`
+  CREATE TABLE IF NOT EXISTS public.instant_call_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    male_user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+    female_user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    bid_amount INTEGER NOT NULL CHECK (bid_amount >= 10),
+    status TEXT CHECK (status IN ('queued', 'ringing', 'in_call', 'completed', 'dropped', 'cancelled')) NOT NULL DEFAULT 'queued',
+    agora_channel_name TEXT,
+    started_at TIMESTAMPTZ,
+    milestone_10m_at TIMESTAMPTZ,
+    ended_at TIMESTAMPTZ,
+    duration_seconds INTEGER DEFAULT 0,
+    scratch_card_unlocked BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_instant_sess_male ON public.instant_call_sessions(male_user_id);
+  CREATE INDEX IF NOT EXISTS idx_instant_sess_female ON public.instant_call_sessions(female_user_id);
+
+  CREATE TABLE IF NOT EXISTS public.scratch_cards (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID REFERENCES public.instant_call_sessions(id) ON DELETE SET NULL,
+    female_user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+    coin_reward INTEGER NOT NULL CHECK (coin_reward >= 1),
+    is_scratched BOOLEAN DEFAULT FALSE,
+    scratched_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_scratch_cards_female ON public.scratch_cards(female_user_id);
+`).then(() => {
+  console.log('✅ Instant connect sessions and scratch cards tables checked/initialized.');
+}).catch((err) => {
+  console.error('❌ Failed to initialize instant connect tables:', err.message);
 });
 
 
@@ -216,6 +255,7 @@ io.use(async (socket, next) => {
 // ── Register socket handlers ────────────────────────────────────────────────
 const { registerMatchmakingHandlers } = require('./modules/matchmaking/matchmaking.socket');
 const { registerMessagingHandlers } = require('./modules/messaging/messaging.socket');
+const { registerInstantConnectHandlers } = require('./modules/instant_connect/instant_connect.socket');
 
 io.on('connection', (socket) => {
   console.log(`🔌 User connected: ${socket.userId} (socket: ${socket.id})`);
@@ -225,6 +265,7 @@ io.on('connection', (socket) => {
 
   registerMatchmakingHandlers(io, socket, redis);
   registerMessagingHandlers(io, socket, redis);
+  registerInstantConnectHandlers(io, socket, redis);
 
   socket.on('disconnect', (reason) => {
     console.log(`🔌 User disconnected: ${socket.userId} — ${reason}`);

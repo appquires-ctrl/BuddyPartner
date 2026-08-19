@@ -19,6 +19,22 @@ router.get('/roses/balance', authMiddleware, async (req, res) => {
 });
 
 /**
+ * GET /api/wallet/balance
+ * Returns the current coin balance for the authenticated user.
+ */
+router.get('/wallet/balance', authMiddleware, async (req, res) => {
+  try {
+    const { WalletService } = require('./wallet.service');
+    const walletService = new WalletService();
+    const balance = await walletService.getBalance(req.user.id);
+    res.json({ success: true, balance });
+  } catch (err) {
+    console.error('Error fetching wallet balance:', err.message);
+    res.status(500).json({ error: 'Failed to fetch wallet balance.' });
+  }
+});
+
+/**
  * GET /api/wallet/transactions?cursor=&limit=
  * Reads from wallet_transactions for male users, cursor-paginated.
  */

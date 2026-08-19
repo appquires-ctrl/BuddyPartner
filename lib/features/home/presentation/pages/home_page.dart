@@ -23,6 +23,10 @@ import 'package:buddypartner/features/home/presentation/widgets/home_skeleton.da
 import 'package:buddypartner/core/widgets/gradient_avatar.dart';
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
+import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
+import 'package:buddypartner/features/home/presentation/widgets/instant_connect_sheet.dart';
+import 'package:buddypartner/features/call/presentation/widgets/incoming_paid_call_dialog.dart';
+import 'package:buddypartner/features/call/presentation/widgets/scratch_card_dialog.dart';
 
 /// HomePage renders the primary "stranger search" radar screen.
 /// Matches screenshots/home.jpeg exactly.
@@ -148,9 +152,25 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     });
 
+    ref.listen<InstantConnectState>(instantConnectControllerProvider, (prev, next) {
+      if (next.phase == InstantPhase.incomingRequest && prev?.phase != InstantPhase.incomingRequest) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => const IncomingPaidCallDialog(),
+        );
+      }
+      if (next.errorMessage != null &&
+          next.errorMessage!.isNotEmpty &&
+          (prev == null || prev.errorMessage != next.errorMessage)) {
+        AppSnackBar.showError(context, next.errorMessage!);
+      }
+    });
+
     final authUser = ref.watch(authStateProvider).value;
     final profileAsync = ref.watch(userProfileProvider);
     final matchmakingState = ref.watch(matchmakingControllerProvider);
+    final instantConnectState = ref.watch(instantConnectControllerProvider);
     final matchedUsersAsync = ref.watch(matchedUsersProvider);
     
     // Ensure profile matches currently authenticated user ID to prevent stale name flash
@@ -488,6 +508,280 @@ class _HomePageState extends ConsumerState<HomePage> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const SizedBox(height: 16),
+
+                      // Female User: Incoming Paid Calls Toggle Card
+                      if (authUser?.isFemale == true) ...[
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(22),
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF8B5CF6), Color(0xFFC084FC)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+                                blurRadius: 16,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 22),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Incoming Paid Calls',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          instantConnectState.femaleStatus.incomingPaidCallsEnabled
+                                              ? '● Active & Ready to Earn'
+                                              : '○ Offline (Toggle ON to Earn)',
+                                          style: TextStyle(
+                                            color: instantConnectState.femaleStatus.incomingPaidCallsEnabled
+                                                ? const Color(0xFFB7F4D8)
+                                                : Colors.white70,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Switch(
+                                    value: instantConnectState.femaleStatus.incomingPaidCallsEnabled,
+                                    activeColor: Colors.white,
+                                    activeTrackColor: const Color(0xFF10B981),
+                                    onChanged: (val) async {
+                                      final isSub = ref.read(subscriptionStatusProvider).value?.isSubscribed ?? false;
+                                      if (!isSub) {
+                                        context.push(RouteNames.subscribe);
+                                        return;
+                                      }
+                                      await ref
+                                          .read(instantConnectControllerProvider.notifier)
+                                          .toggleIncomingPaidCalls(val);
+                                    },
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                'Receive instant paid calls from male buddies. Talk for 10 minutes to unlock Scratch Cards and earn real coins!',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontSize: 12,
+                                  height: 1.3,
+                                ),
+                              ),
+                              // Unclaimed scratch cards banner
+                              if (instantConnectState.femaleStatus.unscratchedCount > 0 &&
+                                  instantConnectState.scratchCards.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                GestureDetector(
+                                  onTap: () {
+                                    final unscratched = instantConnectState.scratchCards
+                                        .firstWhere((c) => !c.isScratched, orElse: () => instantConnectState.scratchCards.first);
+                                    ScratchCardDialog.show(context, unscratched);
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFD54F),
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.card_giftcard_rounded, color: Color(0xFF5D4037), size: 18),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          '🎁 ${instantConnectState.femaleStatus.unscratchedCount} Scratch Cards Waiting! (Tap to Reveal)',
+                                          style: const TextStyle(
+                                            color: Color(0xFF5D4037),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      // Male User: VIP Instant Connect Queue or Entry Card
+                      if (authUser?.isMale == true) ...[
+                        if (instantConnectState.phase == InstantPhase.queued)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(22),
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.bolt_rounded, color: Colors.white, size: 28),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'VIP Instant Matching...',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          Text(
+                                            'Position #${instantConnectState.queuePosition} • Bid: ${instantConnectState.bidAmount} Coins',
+                                            style: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 14),
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 40,
+                                  child: OutlinedButton(
+                                    onPressed: () {
+                                      ref.read(instantConnectControllerProvider.notifier).leaveQueue();
+                                    },
+                                    style: OutlinedButton.styleFrom(
+                                      side: const BorderSide(color: Colors.white, width: 1.5),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                    child: const Text(
+                                      'Cancel Search (Refund 100%)',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          GestureDetector(
+                            onTap: () {
+                              InstantConnectSheet.show(context);
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              height: 100,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(22),
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFF59E0B), Color(0xFFFBBF24)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 14.0),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 48,
+                                      height: 48,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.25),
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                      child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 28),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: const [
+                                          Text(
+                                            'VIP Instant Connect ⚡',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 17,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          SizedBox(height: 2),
+                                          Text(
+                                            'Skip the line & match with online buddies',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 16),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
 
                       // Matchmaking Banner Card
                       GestureDetector(

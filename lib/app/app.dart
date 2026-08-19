@@ -4,6 +4,8 @@ import 'package:responsive_framework/responsive_framework.dart';
 import 'package:go_router/go_router.dart';
 import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
 import 'package:buddypartner/features/call/application/matchmaking_state.dart';
+import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
+import 'package:buddypartner/features/call/presentation/widgets/incoming_paid_call_dialog.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 // ignore: unused_import
@@ -21,7 +23,7 @@ class BuddyPartnerApp extends ConsumerWidget {
     // Temporarily commented out screen protection listener for bug reporting
     // ref.watch(screenProtectionServiceProvider);
 
-    // Globally listen to call state changes
+    // Globally listen to normal call state changes
     ref.listen<MatchmakingState>(matchmakingControllerProvider, (prev, next) {
       final navContext = rootNavigatorKey.currentContext;
       if (navContext == null || !navContext.mounted) return;
@@ -32,6 +34,26 @@ class BuddyPartnerApp extends ConsumerWidget {
         navContext.go(RouteNames.incomingCall);
       } else if (next.phase == MatchmakingPhase.outgoingRequest && prev?.phase != MatchmakingPhase.outgoingRequest) {
         navContext.go(RouteNames.calling);
+      }
+
+      if (next.errorMessage != null && next.errorMessage != prev?.errorMessage) {
+        AppSnackBar.showError(navContext, next.errorMessage!);
+      }
+    });
+
+    // Globally listen to VIP Instant Connect call state changes
+    ref.listen<InstantConnectState>(instantConnectControllerProvider, (prev, next) {
+      final navContext = rootNavigatorKey.currentContext;
+      if (navContext == null || !navContext.mounted) return;
+
+      if (next.phase == InstantPhase.inCall && prev?.phase != InstantPhase.inCall) {
+        navContext.go(RouteNames.activeCall);
+      } else if (next.phase == InstantPhase.incomingRequest && prev?.phase != InstantPhase.incomingRequest) {
+        showDialog(
+          context: navContext,
+          barrierDismissible: false,
+          builder: (ctx) => const IncomingPaidCallDialog(),
+        );
       }
 
       if (next.errorMessage != null && next.errorMessage != prev?.errorMessage) {

@@ -263,6 +263,44 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
     state = state.reset();
   }
 
+  /// Connect and initialize Agora RTC engine for VIP Instant Connect call
+  Future<void> startInstantCall({
+    required String callId,
+    required String agoraChannelName,
+    required String agoraToken,
+    required int agoraUid,
+    int? remoteUid,
+    required String otherUserName,
+    String? agoraAppId,
+  }) async {
+    try {
+      if (agoraAppId != null && agoraAppId.isNotEmpty) {
+        _agoraAppId = agoraAppId;
+      }
+      state = state.reset().copyWith(
+        phase: MatchmakingPhase.matched,
+        callId: callId,
+        agoraChannel: agoraChannelName,
+        agoraToken: agoraToken,
+        agoraUid: agoraUid,
+        remoteUid: remoteUid,
+        matchedUser: MatchedUserInfo(
+          id: 'instant_partner',
+          fullName: otherUserName,
+        ),
+      );
+
+      await _initAgora(agoraChannelName, agoraToken, agoraUid);
+      state = state.copyWith(phase: MatchmakingPhase.inCall);
+    } catch (e) {
+      debugPrint('Failed to initialize Agora for Instant Call: $e');
+      state = state.copyWith(
+        phase: MatchmakingPhase.idle,
+        errorMessage: 'Failed to join instant call: $e',
+      );
+    }
+  }
+
   /// Manually end the current call. Navigating back to home is handled by the UI.
   Future<void> endCall() async {
     if (state.phase == MatchmakingPhase.queued) {

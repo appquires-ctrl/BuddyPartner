@@ -572,4 +572,27 @@ router.post('/upload-avatar', authMiddleware, (req, res) => {
   });
 });
 
+/**
+ * Endpoint: POST /api/users/fcm-token and POST /api/auth/fcm-token
+ * Saves the device FCM push token for push notifications and offline surge alerts.
+ */
+router.post('/fcm-token', authMiddleware, async (req, res) => {
+  try {
+    const { fcmToken } = req.body;
+    if (!fcmToken || typeof fcmToken !== 'string') {
+      return res.status(400).json({ error: 'Valid fcmToken string is required.' });
+    }
+
+    await db.query(
+      `UPDATE public.users SET fcm_token = $1 WHERE id = $2`,
+      [fcmToken.trim(), req.user.id]
+    );
+
+    res.json({ success: true, message: 'FCM token updated successfully.' });
+  } catch (err) {
+    console.error('Error updating FCM token:', err.message);
+    res.status(500).json({ error: 'Failed to update FCM token.' });
+  }
+});
+
 module.exports = router;
