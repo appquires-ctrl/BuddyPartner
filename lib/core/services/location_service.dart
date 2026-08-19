@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:buddypartner/core/services/api_client.dart';
-import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geocoding/geocoding.dart';
@@ -25,7 +24,7 @@ class LocationService {
       return status.isGranted;
     } catch (e) {
       if (kDebugMode) {
-        print('Exception requesting location permission: $e');
+        debugPrint('Exception requesting location permission: $e');
       }
       return false;
     }
@@ -39,7 +38,7 @@ class LocationService {
       try {
         final serviceEnabled = await Geolocator.isLocationServiceEnabled();
         if (!serviceEnabled && kDebugMode) {
-          print('Location services are disabled on device.');
+          debugPrint('Location services are disabled on device.');
         }
       } catch (_) {}
 
@@ -54,7 +53,7 @@ class LocationService {
         );
       } catch (posErr) {
         if (kDebugMode) {
-          print('getCurrentPosition failed, trying getLastKnownPosition: $posErr');
+          debugPrint('getCurrentPosition failed, trying getLastKnownPosition: $posErr');
         }
         try {
           position = await Geolocator.getLastKnownPosition();

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/app/theme/app_spacing.dart';
-import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';

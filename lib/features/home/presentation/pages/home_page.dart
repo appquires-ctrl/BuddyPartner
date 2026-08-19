@@ -254,9 +254,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                     },
                     child: GradientAvatar(
                       initials: initials,
-                      avatarSeed: profile.avatarSeed,
-                      avatarStyle: profile.avatarStyle,
-                      gender: profile.gender,
+                      avatarSeed: profile?.avatarSeed ?? authUser?.avatarSeed,
+                      avatarStyle: profile?.avatarStyle ?? authUser?.avatarStyle,
+                      gender: profile?.gender ?? authUser?.gender ?? 'Male',
                       radius: 21,
                       showStatus: true,
                       isOnline: true,
@@ -573,7 +573,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   ),
                                   Switch(
                                     value: instantConnectState.femaleStatus.incomingPaidCallsEnabled,
-                                    activeColor: Colors.white,
+                                    activeThumbColor: Colors.white,
                                     activeTrackColor: const Color(0xFF10B981),
                                     onChanged: (val) async {
                                       final isSub = ref.read(subscriptionStatusProvider).value?.isSubscribed ?? false;
