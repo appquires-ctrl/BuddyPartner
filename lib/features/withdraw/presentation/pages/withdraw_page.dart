@@ -11,6 +11,8 @@ import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
 import 'package:buddypartner/features/withdraw/application/rose_providers.dart';
 import 'package:buddypartner/features/withdraw/application/withdraw_controller.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
+import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
 
 class WithdrawPage extends ConsumerStatefulWidget {
   const WithdrawPage({super.key});
@@ -82,95 +84,24 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
 
     final historyAsync = ref.watch(withdrawalHistoryProvider);
     final withdrawState = ref.watch(withdrawControllerProvider);
-
-    const currentRoses = 0;
-
-    final currentUser = ref.watch(authStateProvider).value;
-    if (currentUser != null && !currentUser.isTelecallerActive) {
-      return Scaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back, color: colors.textPrimary),
-            onPressed: () => context.pop(),
-          ),
-          centerTitle: true,
-          title: Column(
-            children: [
-              Text(
-                'Withdraw Earnings',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  color: colors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'Manage host payouts',
-                style: typography.bodySmall.copyWith(
-                  fontSize: 12,
-                  color: colors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.do_not_disturb_on_outlined,
-                  size: 64,
-                  color: Color(0xFF8B5CF6),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Partner Mode Disabled',
-                  style: typography.titleCard.copyWith(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Withdrawals and rose earnings are only available when Partner Mode is enabled.',
-                  textAlign: TextAlign.center,
-                  style: typography.bodyMedium.copyWith(
-                    color: colors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                AppPrimaryButton(
-                  text: 'Go to Settings',
-                  onPressed: () {
-                    context.go(RouteNames.settings);
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+    final walletBalance = ref.watch(walletBalanceProvider).value ?? 0;
+    final instantState = ref.watch(instantConnectControllerProvider);
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: colors.textPrimary),
-          onPressed: () => context.pop(),
-        ),
+        leading: context.canPop()
+            ? IconButton(
+                icon: Icon(Icons.arrow_back, color: colors.textPrimary),
+                onPressed: () => context.pop(),
+              )
+            : null,
         centerTitle: true,
         title: Column(
           children: [
             Text(
-              'Withdraw Earnings',
+              'Earnings & Withdraw',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
@@ -179,7 +110,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
             ),
             const SizedBox(height: 2),
             Text(
-              'Manage host payouts',
+              'Manage your payouts & earnings',
               style: typography.bodySmall.copyWith(
                 fontSize: 12,
                 color: colors.textSecondary,
@@ -190,11 +121,11 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 8.0, bottom: 120.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Rose Balance Card
+            // Coin / Earnings Balance Card
             AppCard(
               padding: const EdgeInsets.all(20),
               backgroundColor: colors.primary.withValues(alpha: 0.08),
@@ -205,25 +136,34 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text(
-                        '🌹',
+                        '💰',
                         style: TextStyle(fontSize: 32.0),
                       ),
                       const SizedBox(width: 10),
                       Text(
-                        '$currentRoses',
+                        '$walletBalance',
                         style: typography.titleCard.copyWith(
                           fontWeight: FontWeight.bold,
                           color: colors.primary,
                           fontSize: 36,
                         ),
                       ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Coins',
+                        style: typography.bodyMedium.copyWith(
+                          color: colors.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Current Rose Balance',
+                    'Available Earnings Balance (≈ ₹$walletBalance)',
                     style: typography.bodySmall.copyWith(
                       color: colors.textSecondary,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -235,7 +175,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                       border: Border.all(color: colors.border),
                     ),
                     child: Text(
-                      '1 Rose = ₹1.00 (Flat 1:1 Rate)',
+                      '1 Coin = ₹1.00 INR (Direct UPI / Bank Payout)',
                       style: typography.labelPill.copyWith(
                         color: colors.textPrimary,
                         fontWeight: FontWeight.w600,
@@ -245,6 +185,44 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                 ],
               ),
             ),
+
+            // Scratch Card Earnings summary
+            if (instantState.femaleStatus.totalScratchedCoins > 0 || instantState.femaleStatus.unscratchedCount > 0) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFFFD54F)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.amber.withValues(alpha: 0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.card_giftcard_rounded, color: Color(0xFFD97706), size: 26),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Instant Connect Scratch Cards', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text(
+                            'Earned ${instantState.femaleStatus.totalScratchedCoins} Coins from ${instantState.femaleStatus.totalScratchedCards} Scratch Cards',
+                            style: const TextStyle(color: Colors.black54, fontSize: 11.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
 
             Align(
@@ -337,7 +315,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                   AppPrimaryButton(
                     text: 'Request Withdrawal',
                     isLoading: withdrawState.isLoading,
-                    onPressed: () => _submitWithdrawal(currentRoses),
+                    onPressed: () => _submitWithdrawal(walletBalance),
                   ),
                 ],
               ),

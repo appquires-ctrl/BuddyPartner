@@ -29,16 +29,13 @@ router.post('/withdrawals', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: 'Withdrawals are only available for female users.' });
     }
 
-    if (userRow.is_telecaller !== true) {
-      return res.status(403).json({ error: 'Telecaller mode must be active to submit withdrawal requests.' });
-    }
-
     const { roseAmount } = req.body;
-    if (!roseAmount || typeof roseAmount !== 'number' || roseAmount <= 0) {
-      return res.status(400).json({ error: 'Invalid roseAmount. Must be a positive number.' });
+    const amount = parseInt(roseAmount, 10);
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'Invalid withdrawal amount. Must be a positive number.' });
     }
 
-    const result = await WithdrawalsService.requestWithdrawal(userId, roseAmount);
+    const result = await WithdrawalsService.requestWithdrawal(userId, amount);
 
     if (!result.success) {
       return res.status(400).json({ error: result.error });
