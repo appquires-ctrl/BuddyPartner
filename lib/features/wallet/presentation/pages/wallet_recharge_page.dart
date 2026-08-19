@@ -167,8 +167,6 @@ class _WalletRechargePageState extends ConsumerState<WalletRechargePage> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-    final typography = context.typography;
     final walletBalance = ref.watch(walletBalanceProvider).value ?? 0;
     final authUser = ref.watch(authStateProvider).value;
     final instantState = ref.watch(instantConnectControllerProvider);
@@ -544,7 +542,7 @@ class _WalletRechargePageState extends ConsumerState<WalletRechargePage> {
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                         )
                       : Text(
-                          'Recharge ₹$_calculatedPrice  (${_calculatedCoins} Coins)',
+                          'Recharge ₹$_calculatedPrice  ($_calculatedCoins Coins)',
                           style: const TextStyle(
                             fontSize: 15.5,
                             fontWeight: FontWeight.bold,

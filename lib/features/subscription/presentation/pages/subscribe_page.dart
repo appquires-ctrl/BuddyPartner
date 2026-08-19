@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
-import 'package:buddypartner/app/theme/app_spacing.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/features/subscription/domain/subscription_plan.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
