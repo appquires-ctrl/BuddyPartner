@@ -286,6 +286,21 @@ final userProfileProvider = FutureProvider<UserProfile?>((ref) async {
     if (profile.id != user.id) return null;
     return profile;
   } catch (e) {
+    // Network error — fall back to cached auth user so the home screen
+    // doesn't stay stuck on the skeleton loader forever.
+    if (user.id.isNotEmpty) {
+      return UserProfile(
+        id: user.id,
+        fullName: user.fullName ?? 'User',
+        dob: DateTime.now(),
+        gender: user.gender,
+        language: 'English',
+        avatarSeed: user.avatarSeed,
+        avatarStyle: user.avatarStyle ?? 'avataaars',
+        isTelecaller: user.isTelecaller,
+        hasClaimedIntroOffer: user.hasClaimedIntroOffer,
+      );
+    }
     return null;
   }
 });
