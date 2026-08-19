@@ -84,7 +84,7 @@ class _WalletRechargePageState extends ConsumerState<WalletRechargePage> {
 
     try {
       final apiClient = ref.read(apiClientProvider);
-      final response = await apiClient.post(
+      final response = await apiClient.dio.post(
         '/api/wallet/recharge',
         data: {
           'amount': amount,
