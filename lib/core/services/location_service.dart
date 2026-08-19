@@ -127,11 +127,7 @@ class LocationService {
         }
       }
 
-      // 5. Invalidate profile provider so app reflects updated location immediately
-      try {
-        ref.invalidate(userProfileProvider);
-      } catch (_) {}
-
+      // 5. Location saved silently in background
       return city;
     } catch (e) {
       if (kDebugMode) {

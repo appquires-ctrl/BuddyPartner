@@ -186,8 +186,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     final String initials = getInitials(fullName);
     final bool isMatching = matchmakingState.phase == MatchmakingPhase.queued;
     
-    // Show skeleton if current user profile is still loading
-    final bool showSkeleton = profile == null || ((profileAsync.isLoading || matchedUsersAsync.isLoading) && !matchedUsersAsync.hasValue);
+    // Never block the home screen if the user is already authenticated - render instantly!
+    final bool showSkeleton = authUser == null && profile == null;
 
     Widget content;
     if (showSkeleton) {
