@@ -14,6 +14,7 @@ class InstantConnectSheet extends ConsumerStatefulWidget {
   static Future<void> show(BuildContext context) {
     return showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => const InstantConnectSheet(),
@@ -97,10 +98,10 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
 
     return Container(
       padding: EdgeInsets.only(
-        top: 24,
+        top: 20,
         left: 20,
         right: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
       ),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -113,22 +114,25 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Drag handle
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
+      child: SafeArea(
+        top: false,
+        bottom: true,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Drag handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 18),
+            const SizedBox(height: 18),
 
           // Header
           Row(
@@ -363,6 +367,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
