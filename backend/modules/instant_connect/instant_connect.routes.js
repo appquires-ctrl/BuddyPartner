@@ -61,4 +61,67 @@ router.post('/scratch-cards/:id/scratch', authMiddleware, async (req, res) => {
   }
 });
 
+// ── GET /api/instant/dev/queues ─────────────────────────────────────────────
+// Developer queue monitor: inspect waiting males, available females, and active calls
+router.get('/dev/queues', async (req, res) => {
+  try {
+    const db = require('../../db');
+    // 1. Waiting males
+    const maleQueueIds = await redis.zrevrange('instant:male_queue', 0, -1, 'WITHSCORES');
+    const waitingMales = [];
+    for (let i = 0; i < maleQueueIds.length; i += 2) {
+      const userId = maleQueueIds[i];
+      const sessionStr = await redis.get(`instant:male_session:${userId}`);
+      const sessionData = sessionStr ? JSON.parse(sessionStr) : {};
+      const userRes = await db.query('SELECT full_name, phone_number FROM public.users WHERE id = $1', [userId]);
+      waitingMales.push({
+        position: (i / 2) + 1,
+        userId,
+        fullName: userRes.rows[0]?.full_name || 'Unknown',
+        phoneNumber: userRes.rows[0]?.phone_number || 'N/A',
+        bidAmount: sessionData.bidAmount || 0,
+        sessionId: sessionData.sessionId,
+      });
+    }
+
+    // 2. Active females in Redis
+    const femaleIds = await redis.smembers('instant:female_pool');
+    const activeFemales = [];
+    for (const fId of femaleIds) {
+      const isSnoozed = await redis.get(`instant:snooze:${fId}`);
+      const userRes = await db.query('SELECT full_name, phone_number FROM public.users WHERE id = $1', [fId]);
+      activeFemales.push({
+        userId: fId,
+        fullName: userRes.rows[0]?.full_name || 'Unknown',
+        phoneNumber: userRes.rows[0]?.phone_number || 'N/A',
+        isSnoozed: !!isSnoozed,
+      });
+    }
+
+    // 3. Ongoing active calls
+    const activeCallsRes = await db.query(`
+      SELECT s.id, s.bid_amount, s.status, s.agora_channel_name, s.started_at, s.scratch_card_unlocked,
+             m.full_name as male_name, f.full_name as female_name
+      FROM public.instant_call_sessions s
+      LEFT JOIN public.users m ON m.id = s.male_user_id
+      LEFT JOIN public.users f ON f.id = s.female_user_id
+      WHERE s.status = 'in_call'
+      ORDER BY s.started_at DESC
+    `);
+
+    res.json({
+      timestamp: new Date().toISOString(),
+      waitingMalesCount: waitingMales.length,
+      waitingMales,
+      activeFemalesCount: activeFemales.length,
+      activeFemales,
+      ongoingCallsCount: activeCallsRes.rows.length,
+      ongoingCalls: activeCallsRes.rows,
+    });
+  } catch (err) {
+    console.error('Error fetching dev queues:', err.message);
+    res.status(500).json({ error: 'Failed to inspect queues' });
+  }
+});
+
 module.exports = router;
