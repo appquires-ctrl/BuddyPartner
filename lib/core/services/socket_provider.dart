@@ -76,10 +76,14 @@ class SocketNotifier extends Notifier<sio.Socket?> {
     final socket = sio.io(
       AppConfig.backendUrl,
       sio.OptionBuilder()
-          .setTransports(['websocket'])
+          .setTransports(['websocket', 'polling'])
           .setAuth(authPayload)
           .disableAutoConnect()
           .enableReconnection()
+          .setReconnectionDelay(1000)
+          .setReconnectionDelayMax(5000)
+          .setReconnectionAttempts(99)
+          .setTimeout(20000)
           .build(),
     );
 
