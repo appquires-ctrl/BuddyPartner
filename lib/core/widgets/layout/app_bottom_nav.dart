@@ -78,9 +78,9 @@ class AppBottomNav extends StatelessWidget {
                   label: 'Chat',
                 ),
                 NavigationDestination(
-                  icon: Icon(Icons.account_balance_wallet_outlined),
-                  selectedIcon: Icon(Icons.account_balance_wallet),
-                  label: 'Wallet',
+                  icon: Icon(isFemale ? Icons.payments_outlined : Icons.account_balance_wallet_outlined),
+                  selectedIcon: Icon(isFemale ? Icons.payments : Icons.account_balance_wallet),
+                  label: isFemale ? 'Earnings' : 'Wallet',
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.favorite_border),

@@ -30,6 +30,7 @@ import 'package:buddypartner/features/legal/presentation/pages/legal_document_pa
 import 'package:buddypartner/features/legal/data/legal_document_content.dart';
 import 'package:buddypartner/features/wallet/presentation/pages/transaction_history_page.dart';
 import 'package:buddypartner/features/wallet/presentation/pages/wallet_recharge_page.dart';
+import 'package:buddypartner/features/withdraw/presentation/pages/withdraw_page.dart';
 import 'package:buddypartner/features/auth/presentation/pages/banned_screen.dart';
 import 'package:buddypartner/core/widgets/layout/app_bottom_nav.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
@@ -294,8 +295,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                 if (matchState.phase != MatchmakingPhase.idle) {
                   return const SizedBox.shrink();
                 }
+                final isFemale = ref.watch(authStateProvider).value?.isFemale ?? false;
                 return AppBottomNav(
                   currentIndex: navigationShell.currentIndex,
+                  isFemale: isFemale,
                   onTap: (index) {
                     navigationShell.goBranch(
                       index,
@@ -330,13 +333,23 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
 
-          // Tab 3: Wallet & Recharge
+          // Tab 3: Male -> Wallet Recharge / Female -> Earnings & Withdraw
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: RouteNames.recharge,
-                name: 'WalletRechargePage',
-                builder: (context, state) => const WalletRechargePage(),
+                name: 'WalletTab',
+                builder: (context, state) {
+                  return Consumer(
+                    builder: (context, ref, _) {
+                      final isFemale = ref.watch(authStateProvider).value?.isFemale ?? false;
+                      if (isFemale) {
+                        return const WithdrawPage();
+                      }
+                      return const WalletRechargePage();
+                    },
+                  );
+                },
               ),
             ],
           ),
