@@ -59,11 +59,10 @@ class _DevSubscriptionPageState extends ConsumerState<DevSubscriptionPage> {
     setState(() => _isProcessing = false);
 
     if (success) {
-        AppSnackBar.showInfo(context, 'DEV MODE: Subscription expired immediately!');
-        context.go(RouteNames.home);
-      } else {
-        AppSnackBar.showError(context, 'Failed to expire dev subscription.');
-      }
+      AppSnackBar.showInfo(context, 'DEV MODE: Subscription expired immediately!');
+      context.go(RouteNames.home);
+    } else {
+      AppSnackBar.showError(context, 'Failed to expire dev subscription.');
     }
   }
 
