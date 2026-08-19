@@ -25,9 +25,9 @@ class ApiClient {
     dio = Dio(
       BaseOptions(
         baseUrl: AppConfig.backendUrl,
-        connectTimeout: const Duration(seconds: 35),
-        receiveTimeout: const Duration(seconds: 35),
-        sendTimeout: const Duration(seconds: 35),
+        connectTimeout: const Duration(seconds: 60),
+        receiveTimeout: const Duration(seconds: 60),
+        sendTimeout: const Duration(seconds: 60),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -89,8 +89,12 @@ class ApiClient {
               err.type == DioExceptionType.sendTimeout ||
               err.type == DioExceptionType.connectionError;
 
+          // Never auto-retry non-idempotent OTP endpoints — the server may have
+          // already consumed the OTP, so a retry would get a 400 "invalid code".
+          final isOtpEndpoint = err.requestOptions.path.contains('/otp/');
+
           final retried = err.requestOptions.extra['retried'] == true;
-          if (isTimeoutOrConnErr && !retried) {
+          if (isTimeoutOrConnErr && !retried && !isOtpEndpoint) {
             err.requestOptions.extra['retried'] = true;
             try {
               AppLogger.apiError(
