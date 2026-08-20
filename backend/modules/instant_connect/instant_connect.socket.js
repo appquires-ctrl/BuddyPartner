@@ -105,22 +105,17 @@ async function triggerInstantMatchmaker(io, redis) {
       return;
     }
 
-    // 2. Fetch available females from Redis pool (excluding any in-call or on snooze)
-    let allFemales = await redis.smembers('instant:female_pool');
-    if (!allFemales || allFemales.length === 0) {
-      // Re-hydrate from DB for any female users with toggle ON
-      const dbFemales = await db.query(`
-        SELECT id FROM public.users
-        WHERE incoming_paid_calls_enabled = true
-          AND (LOWER(gender) IN ('female', 'girl', 'woman', 'f'))
-      `);
-      if (dbFemales.rows.length > 0) {
-        for (const f of dbFemales.rows) {
-          await redis.sadd('instant:female_pool', f.id);
-        }
-        allFemales = await redis.smembers('instant:female_pool');
-      }
+    // 2. Fetch available females from DB & Redis pool
+    const dbFemales = await db.query(`
+      SELECT id FROM public.users
+      WHERE incoming_paid_calls_enabled = true
+        AND (LOWER(gender) IN ('female', 'girl', 'woman', 'f'))
+    `);
+    for (const f of dbFemales.rows) {
+      await redis.sadd('instant:female_pool', f.id);
     }
+
+    const allFemales = await redis.smembers('instant:female_pool');
 
     if (!allFemales || allFemales.length === 0) {
       // 0 available females -> trigger 1:10 FCM surge (with 60s cooldown per session)
