@@ -338,10 +338,10 @@ class InstantConnectService {
         return null; // Already unlocked or invalid
       }
 
-      // Calculate reward: between 35% and 65% of bid_amount (min 1 coin)
+      // Calculate reward: between 30% and 50% of bid_amount (min 1 coin)
       const bid = session.bid_amount;
-      const minReward = Math.max(1, Math.floor(bid * 0.35));
-      const maxReward = Math.max(minReward + 1, Math.floor(bid * 0.65));
+      const minReward = Math.max(1, Math.floor(bid * 0.30));
+      const maxReward = Math.max(minReward + 1, Math.floor(bid * 0.50));
       const coinReward = Math.floor(Math.random() * (maxReward - minReward + 1)) + minReward;
 
       // Update session milestone

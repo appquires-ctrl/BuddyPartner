@@ -442,18 +442,25 @@ function registerInstantConnectHandlers(io, socket, redis) {
         console.log(`🎉 [Instant Connect] 10-Minute Milestone reached for session ${sessionId}! Unlocking scratch card.`);
         const scratchCard = await instantConnectService.trigger10MinuteMilestone(sessionId);
         if (scratchCard) {
-          io.to(maleSocketId).emit('instant:milestone_reached', {
-            callId,
-            sessionId,
-            milestoneMinutes: 10,
-          });
-          socket.emit('instant:milestone_reached', {
-            callId,
-            sessionId,
-            milestoneMinutes: 10,
-            scratchCardId: scratchCard.id,
-            coinReward: scratchCard.coin_reward,
-          });
+          const liveMaleSocketId = userSockets.get(maleUserId) || maleSocketId;
+          const liveFemaleSocketId = userSockets.get(userId) || socket.id;
+
+          if (liveMaleSocketId) {
+            io.to(liveMaleSocketId).emit('instant:milestone_reached', {
+              callId,
+              sessionId,
+              milestoneMinutes: 10,
+            });
+          }
+          if (liveFemaleSocketId) {
+            io.to(liveFemaleSocketId).emit('instant:milestone_reached', {
+              callId,
+              sessionId,
+              milestoneMinutes: 10,
+              scratchCardId: scratchCard.id,
+              coinReward: scratchCard.coin_reward,
+            });
+          }
         }
       }, 600 * 1000); // 10 minutes
 

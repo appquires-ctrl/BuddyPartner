@@ -68,9 +68,22 @@ router.post('/scratch-cards/:id/scratch', authMiddleware, async (req, res) => {
   }
 });
 
+// Admin check middleware for dev inspection routes
+function adminOnly(req, res, next) {
+  const adminKey = req.headers['x-admin-key'];
+  const validSecret = process.env.ADMIN_SECRET || 'buddypartner_admin_dev_secret_key';
+  if (adminKey && adminKey === validSecret) {
+    return next();
+  }
+  if (req.user && (req.user.isAdmin || req.user.role === 'admin')) {
+    return next();
+  }
+  return res.status(403).json({ error: 'FORBIDDEN', message: 'Admin privileges required' });
+}
+
 // ── GET /api/instant/dev/queues ─────────────────────────────────────────────
 // Developer queue monitor: inspect waiting males, available females, and active calls
-router.get('/dev/queues', async (req, res) => {
+router.get('/dev/queues', authMiddleware, adminOnly, async (req, res) => {
   try {
     const db = require('../../db');
     const { activeInstantCalls } = require('./instant_connect.socket');
@@ -165,10 +178,24 @@ router.get('/dev/queues', async (req, res) => {
 });
 
 // ── GET/POST /api/instant/dev/cleanup ────────────────────────────────────────
-// Quick admin reset to clear ghost calls and stale Redis state
-router.all('/dev/cleanup', async (req, res) => {
+// Quick admin reset to clear ghost calls, refund queued males, and reset stale Redis state
+router.all('/dev/cleanup', authMiddleware, adminOnly, async (req, res) => {
   try {
     const db = require('../../db');
+
+    // Refund any males currently waiting in queue before wiping
+    const maleQueueIds = await redis.zrevrange('instant:male_queue', 0, -1);
+    let refundedCount = 0;
+    for (const mId of maleQueueIds) {
+      const sessionStr = await redis.get(`instant:male_session:${mId}`);
+      if (sessionStr) {
+        const { sessionId, bidAmount } = JSON.parse(sessionStr);
+        await instantConnectService.refundEscrowedCoins(mId, bidAmount, sessionId);
+        refundedCount++;
+      }
+      await redis.del(`instant:male_session:${mId}`);
+    }
+    await redis.del('instant:male_queue');
 
     // Close any stale active sessions
     const updateRes = await db.query(`
@@ -178,7 +205,7 @@ router.all('/dev/cleanup', async (req, res) => {
       RETURNING id
     `);
 
-    // Clean up Redis keys
+    // Clean up Redis ringing & snooze keys
     const ringingKeys = await redis.keys('instant:ringing:*');
     if (ringingKeys.length > 0) {
       await redis.del(...ringingKeys);
@@ -190,7 +217,8 @@ router.all('/dev/cleanup', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Cleaned up stale queues, active sessions, and snooze locks',
+      message: 'Cleaned up stale queues, refunded queued males, and reset snooze locks',
+      refundedWaitingMalesCount: refundedCount,
       cleanedSessionsCount: updateRes.rowCount,
       cleanedRingingKeysCount: ringingKeys.length,
       cleanedSnoozeKeysCount: snoozeKeys.length,
