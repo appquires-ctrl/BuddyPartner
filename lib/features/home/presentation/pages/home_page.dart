@@ -183,14 +183,12 @@ class _HomePageState extends ConsumerState<HomePage> {
             ? authUser.fullName!.trim()
             : 'User');
     final String initials = getInitials(fullName);
-    final bool isMatching = matchmakingState.phase == MatchmakingPhase.queued;
-    
-    // Never block the home screen if the user is already authenticated - render instantly!
-    final bool showSkeleton = authUser == null && profile == null;
+    // Option B: Show smooth skeleton placeholder on cold start while initial profile is loading
+    final bool showSkeleton = (profileAsync.isLoading && profile == null) || (authUser == null && profile == null);
 
     Widget content;
     if (showSkeleton) {
-      content = const HomeSkeleton();
+      content = const HomeSkeleton(key: ValueKey('home_skeleton'));
     } else {
       content = Scaffold(
         backgroundColor: Colors.transparent,
@@ -1013,9 +1011,10 @@ class _HomePageState extends ConsumerState<HomePage> {
         ),
       ),
     );
-    }
-
-    return content;
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      child: content,
+    );
   }
 }
 

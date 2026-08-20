@@ -21,7 +21,7 @@ class SectionHeader extends StatelessWidget {
     final typography = context.typography;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.space8),
+      padding: const EdgeInsets.symmetric(vertical: 0.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
