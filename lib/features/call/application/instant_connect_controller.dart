@@ -111,6 +111,14 @@ class InstantConnectController extends Notifier<InstantConnectState> {
       }
     });
 
+    ref.listen(authStateProvider, (prev, next) {
+      final user = next.value;
+      if (user != null && user.isFemale) {
+        fetchFemaleStatus();
+        fetchScratchCards();
+      }
+    });
+
     final existingSocket = ref.read(socketProvider);
     if (existingSocket != null && !_listenersRegistered) {
       Future.microtask(() => _setupSocketListeners(existingSocket));

@@ -41,6 +41,18 @@ class _HomePageState extends ConsumerState<HomePage> {
   bool _isRefreshing = false;
   bool _isProcessingPermissions = false;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = ref.read(authStateProvider).value;
+      if (user != null && user.isFemale) {
+        ref.read(instantConnectControllerProvider.notifier).fetchFemaleStatus();
+        ref.read(instantConnectControllerProvider.notifier).fetchScratchCards();
+      }
+    });
+  }
+
   Future<void> _startMatchmaking() async {
     AppLogger.click('Start Matchmaking', screen: 'HomeScreen');
     if (_isProcessingPermissions) return;
