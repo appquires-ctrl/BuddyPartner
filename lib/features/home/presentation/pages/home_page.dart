@@ -183,6 +183,8 @@ class _HomePageState extends ConsumerState<HomePage> {
             ? authUser.fullName!.trim()
             : 'User');
     final String initials = getInitials(fullName);
+    final bool isMatching = matchmakingState.phase == MatchmakingPhase.queued;
+
     // Option B: Show smooth skeleton placeholder on cold start while initial profile is loading
     final bool showSkeleton = (profileAsync.isLoading && profile == null) || (authUser == null && profile == null);
 
@@ -1009,8 +1011,9 @@ class _HomePageState extends ConsumerState<HomePage> {
             ),
           ),
         ),
-      ),
-    );
+      );
+    }
+
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 250),
       child: content,
