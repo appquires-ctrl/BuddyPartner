@@ -78,9 +78,9 @@ class AppBottomNav extends StatelessWidget {
                   label: 'Chat',
                 ),
                 NavigationDestination(
-                  icon: Icon(Icons.workspace_premium_outlined),
-                  selectedIcon: Icon(Icons.workspace_premium),
-                  label: 'VIP',
+                  icon: Icon(Icons.subscriptions_outlined),
+                  selectedIcon: Icon(Icons.subscriptions),
+                  label: 'Plans',
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.favorite_border),
@@ -90,7 +90,7 @@ class AppBottomNav extends StatelessWidget {
                 NavigationDestination(
                   icon: Icon(Icons.settings_outlined),
                   selectedIcon: Icon(Icons.settings),
-                  label: 'Setting',
+                  label: 'Settings',
                 ),
               ],
             ),

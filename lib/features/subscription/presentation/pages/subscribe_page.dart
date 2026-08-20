@@ -25,7 +25,8 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
     final authUser = ref.watch(authStateProvider).value;
     final subState = ref.watch(subscriptionStatusProvider).value;
 
-    final hasClaimedIntroOffer = (authUser?.hasClaimedIntroOffer ?? false) ||
+    final hasClaimedIntroOffer =
+        (authUser?.hasClaimedIntroOffer ?? false) ||
         (subState?.hasClaimedIntroOffer ?? false);
 
     final allPlans = SubscriptionPlan.defaultPlans;
@@ -33,7 +34,9 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
     // Ensure selected plan exists and is available for purchase
     if (!allPlans.any((p) => p.id == _selectedPlanId) ||
         (_selectedPlanId == '1_day' && hasClaimedIntroOffer)) {
-      _selectedPlanId = allPlans.firstWhere((p) => p.id != '1_day', orElse: () => allPlans.first).id;
+      _selectedPlanId = allPlans
+          .firstWhere((p) => p.id != '1_day', orElse: () => allPlans.first)
+          .id;
     }
 
     return Scaffold(
@@ -122,7 +125,8 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
               // Plan Cards List (Includes ₹9 1-Day Pass)
               ...allPlans.map((plan) {
                 final isSelected = plan.id == _selectedPlanId;
-                final isCurrentActivePlan = (subState?.isSubscribed ?? false) &&
+                final isCurrentActivePlan =
+                    (subState?.isSubscribed ?? false) &&
                     (subState?.planDurationDays == plan.durationDays);
                 final isClaimed = (plan.id == '1_day') && hasClaimedIntroOffer;
 
@@ -134,7 +138,9 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
                     isSelected: isSelected,
                     isCurrentActivePlan: isCurrentActivePlan,
                     isClaimed: isClaimed,
-                    activeLabel: isCurrentActivePlan ? subState?.formattedLabel : null,
+                    activeLabel: isCurrentActivePlan
+                        ? subState?.formattedLabel
+                        : null,
                   ),
                 );
               }),
@@ -203,7 +209,10 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: colors.textSecondary.withValues(alpha: 0.25),
                           borderRadius: BorderRadius.circular(10),
@@ -272,10 +281,7 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
         setState(() {
           _selectedPlanId = plan.id;
         });
-        context.push(
-          RouteNames.devSubscription,
-          extra: plan,
-        );
+        context.push(RouteNames.devSubscription, extra: plan);
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -286,7 +292,9 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
           border: border,
           boxShadow: [
             BoxShadow(
-              color: colors.primary.withValues(alpha: isCurrentActivePlan ? 0.15 : 0.06),
+              color: colors.primary.withValues(
+                alpha: isCurrentActivePlan ? 0.15 : 0.06,
+              ),
               blurRadius: isCurrentActivePlan ? 12 : 8,
               offset: const Offset(0, 3),
             ),
@@ -311,7 +319,10 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
                       const SizedBox(width: 8),
                       if (isCurrentActivePlan) ...[
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: colors.primary,
                             borderRadius: BorderRadius.circular(10),
@@ -328,7 +339,10 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
                         ),
                       ] else if (plan.badge != null) ...[
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: colors.primary,
                             borderRadius: BorderRadius.circular(10),
@@ -376,8 +390,12 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
                       : '${plan.durationDays} ${plan.durationDays == 1 ? 'day' : 'days'}',
                   style: typography.bodySmall.copyWith(
                     fontSize: 11.5,
-                    fontWeight: isCurrentActivePlan ? FontWeight.bold : FontWeight.normal,
-                    color: isCurrentActivePlan ? colors.primary : colors.textSecondary,
+                    fontWeight: isCurrentActivePlan
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                    color: isCurrentActivePlan
+                        ? colors.primary
+                        : colors.textSecondary,
                   ),
                 ),
               ],
@@ -426,55 +444,53 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
     final colors = context.colors;
     final typography = context.typography;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: colors.primary.withValues(alpha: 0.12),
-            shape: BoxShape.circle,
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: colors.primary.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: colors.primary, size: 18),
           ),
-          child: Icon(
-            icon,
-            color: colors.primary,
-            size: 18,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                style: typography.bodyMedium.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13.0,
-                  color: colors.textPrimary,
-                  height: 1.25,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: typography.bodyMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.0,
+                    color: colors.textPrimary,
+                    height: 1.25,
+                  ),
+                  maxLines: 2,
+                  softWrap: true,
                 ),
-                maxLines: 2,
-                softWrap: true,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: typography.bodySmall.copyWith(
-                  fontSize: 11.0,
-                  color: colors.textSecondary,
-                  height: 1.2,
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: typography.bodySmall.copyWith(
+                    fontSize: 11.0,
+                    color: colors.textSecondary,
+                    height: 1.2,
+                  ),
+                  maxLines: 2,
+                  softWrap: true,
                 ),
-                maxLines: 2,
-                softWrap: true,
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
-

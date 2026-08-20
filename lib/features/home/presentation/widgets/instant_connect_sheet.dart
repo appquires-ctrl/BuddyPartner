@@ -325,7 +325,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '⚡ Higher bid prioritizes your call at the top of the queue with an online buddy for a 10+ min guaranteed conversation.',
+                    '⚡ Higher bid prioritizes your call at the top of the queue with an online buddy for a guaranteed conversation.',
                     style: typography.bodySmall.copyWith(
                       fontSize: 11.5,
                       color: const Color(0xFF554488),

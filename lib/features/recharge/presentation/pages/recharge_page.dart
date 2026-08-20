@@ -93,13 +93,12 @@ class _RechargePageState extends ConsumerState<RechargePage> {
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.space24,
-          vertical: AppSpacing.space8,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -108,10 +107,10 @@ class _RechargePageState extends ConsumerState<RechargePage> {
             const Center(
               child: Text(
                 'Add coins to your wallet',
-                style: TextStyle(color: Colors.grey, fontSize: 13),
+                style: TextStyle(color: Colors.grey, fontSize: 14,fontWeight: FontWeight.bold),
               ),
             ),
-            const SizedBox(height: AppSpacing.space16),
+            const SizedBox(height: AppSpacing.space8),
 
             WalletCard(
               balance: balance,

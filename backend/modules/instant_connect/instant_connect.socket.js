@@ -190,6 +190,19 @@ function registerInstantConnectHandlers(io, socket, redis) {
   const userId = socket.userId;
   if (userId) {
     userSockets.set(userId, socket.id);
+
+    // Auto-register connected female buddies into instant pool if their toggle is ON
+    db.query(`SELECT incoming_paid_calls_enabled, gender FROM public.users WHERE id = $1`, [userId])
+      .then((res) => {
+        const g = (res.rows[0]?.gender || '').toLowerCase().trim();
+        const isF = g === 'female' || g === 'girl' || g === 'woman' || g === 'f';
+        if (isF && res.rows[0]?.incoming_paid_calls_enabled === true) {
+          redis.sadd('instant:female_pool', userId);
+          console.log(`⚡ [Instant Connect] Female ${userId} verified & added to female pool on connect`);
+          triggerInstantMatchmaker(io, redis);
+        }
+      })
+      .catch((err) => console.error('Error hydrating female pool on socket connect:', err.message));
   }
 
   // ── 1. instant:join_queue (Male Bidding & Joining) ────────────────────────

@@ -575,11 +575,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     activeThumbColor: Colors.white,
                                     activeTrackColor: const Color(0xFF10B981),
                                     onChanged: (val) async {
-                                      final isSub = ref.read(subscriptionStatusProvider).value?.isSubscribed ?? false;
-                                      if (!isSub) {
-                                        context.push(RouteNames.subscribe);
-                                        return;
-                                      }
                                       await ref
                                           .read(instantConnectControllerProvider.notifier)
                                           .toggleIncomingPaidCalls(val);

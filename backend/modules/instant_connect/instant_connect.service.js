@@ -12,19 +12,6 @@ class InstantConnectService {
    */
   async toggleIncomingPaidCalls(userId, enabled, redis) {
     try {
-      if (enabled) {
-        // Enforce active subscription prerequisite
-        const isSub = await subscriptionsService.isSubscribed(userId);
-        if (!isSub) {
-          return {
-            success: false,
-            enabled: false,
-            error: 'SUBSCRIPTION_REQUIRED',
-            message: 'An active subscription is required to receive paid instant calls.',
-          };
-        }
-      }
-
       await db.query(
         `UPDATE public.users SET incoming_paid_calls_enabled = $1 WHERE id = $2`,
         [enabled, userId]
@@ -57,8 +44,7 @@ class InstantConnectService {
         [userId]
       );
 
-      const isSub = await subscriptionsService.isSubscribed(userId);
-      const isEnabled = userRes.rows[0]?.incoming_paid_calls_enabled === true && isSub;
+      const isEnabled = userRes.rows[0]?.incoming_paid_calls_enabled === true;
 
       // Count unscratched cards
       const scratchRes = await db.query(
@@ -78,7 +64,6 @@ class InstantConnectService {
 
       return {
         incomingPaidCallsEnabled: isEnabled,
-        isSubscribed: isSub,
         unscratchedCount: parseInt(scratchRes.rows[0]?.unscratched_count || '0', 10),
         pendingCoins: parseInt(scratchRes.rows[0]?.pending_coins || '0', 10),
         totalScratchedCoins: parseInt(earningsRes.rows[0]?.total_scratched_coins || '0', 10),
