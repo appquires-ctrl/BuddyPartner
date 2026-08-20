@@ -4,7 +4,7 @@ import 'package:buddypartner/core/widgets/cards/app_card.dart';
 import 'package:buddypartner/core/widgets/chips/badge_ribbon.dart';
 import 'package:buddypartner/core/widgets/buttons/app_pill_button.dart';
 import 'package:buddypartner/app/theme/app_spacing.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+
 /// RechargePlanCard is a card rendering a coin recharge plan option.
 /// Wraps AppCard, BadgeRibbon, and AppPillButton in a layout with pricing headers.
 class RechargePlanCard extends StatelessWidget {
@@ -49,10 +49,10 @@ class RechargePlanCard extends StatelessWidget {
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const FaIcon(
-                        FontAwesomeIcons.coins,
+                      const Icon(
+                        Icons.monetization_on_rounded,
                         color: Colors.amber,
-                        size: 24,
+                        size: 28,
                       ),
                       const SizedBox(height: AppSpacing.space4),
                       Text(
