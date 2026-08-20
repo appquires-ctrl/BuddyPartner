@@ -151,21 +151,6 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     });
 
-    ref.listen<InstantConnectState>(instantConnectControllerProvider, (prev, next) {
-      if (next.phase == InstantPhase.incomingRequest && prev?.phase != InstantPhase.incomingRequest) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => const IncomingPaidCallDialog(),
-        );
-      }
-      if (next.errorMessage != null &&
-          next.errorMessage!.isNotEmpty &&
-          (prev == null || prev.errorMessage != next.errorMessage)) {
-        AppSnackBar.showError(context, next.errorMessage!);
-      }
-    });
-
     final authUser = ref.watch(authStateProvider).value;
     final profileAsync = ref.watch(userProfileProvider);
     final matchmakingState = ref.watch(matchmakingControllerProvider);

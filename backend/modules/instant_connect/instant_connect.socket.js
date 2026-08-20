@@ -419,11 +419,13 @@ function registerInstantConnectHandlers(io, socket, redis) {
         }
       }, 600 * 1000); // 10 minutes
 
+      const activeMaleSocketId = userSockets.get(maleUserId) || maleSocketId;
+
       const activeCallObj = {
         callId,
         sessionId,
         maleUserId,
-        maleSocketId,
+        maleSocketId: activeMaleSocketId,
         femaleUserId: userId,
         femaleSocketId: socket.id,
         startedAt: Date.now(),
@@ -433,11 +435,11 @@ function registerInstantConnectHandlers(io, socket, redis) {
       };
 
       activeInstantCalls.set(callId, activeCallObj);
-      socketToInstantCall.set(maleSocketId, callId);
+      socketToInstantCall.set(activeMaleSocketId, callId);
       socketToInstantCall.set(socket.id, callId);
 
       // Notify Male (revealing female profile)
-      io.to(maleSocketId).emit('instant:call_connected', {
+      io.to(activeMaleSocketId).emit('instant:call_connected', {
         callId,
         sessionId,
         agoraChannelName,
