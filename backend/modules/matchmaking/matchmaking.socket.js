@@ -1,7 +1,6 @@
 const { MatchmakingService } = require('./matchmaking.service');
 const { callsService } = require('../calls/calls.service');
 const { WalletService, CALL_RATES } = require('../wallet/wallet.service');
-const { RoseService } = require('../wallet/rose.service');
 const { subscriptionsService } = require('../subscriptions/subscriptions.service');
 const db = require('../../db');
 
@@ -676,26 +675,26 @@ async function handleCallEnd(callId, callsService, io, reason, matchmakingServic
 
   // Boy gets totalCost (coins spent)
   io.to(socketBoyId).emit('call_ended', { callId, reason, totalCost: totalCostBoy });
-  // Girl gets totalRosesEarned
+  // Girl gets totalCoinsEarned
   if (socketGirlId !== socketBoyId) {
-    io.to(socketGirlId).emit('call_ended', { callId, reason, totalRosesEarned: totalRosesGirl });
+    io.to(socketGirlId).emit('call_ended', { callId, reason, totalCoinsEarned: totalRosesGirl });
   }
 
   // Emit final balance updates
   try {
-    const [boyBal, girlRoseBal] = await Promise.all([
+    const [boyBal, girlBal] = await Promise.all([
       WalletService.getBalance(boyInfo.userId),
-      RoseService.getRoseBalance(girlInfo.userId),
+      WalletService.getBalance(girlInfo.userId),
     ]);
     if (socketBoyId) io.to(socketBoyId).emit('balance_update', { balance: boyBal });
     if (socketGirlId && socketGirlId !== socketBoyId) {
-      io.to(socketGirlId).emit('rose_update', { balance: girlRoseBal });
+      io.to(socketGirlId).emit('balance_update', { balance: girlBal });
     }
   } catch (err) {
     console.error(`Error emitting final balance updates for call ${callId}:`, err.message);
   }
 
-  console.log(`📴 Call ${callId} ended (reason: ${reason}) — boy ${boyInfo.userId} spent ${totalCostBoy} coins, girl ${girlInfo.userId} earned ${totalRosesGirl} roses`);
+  console.log(`📴 Call ${callId} ended (reason: ${reason}) — boy ${boyInfo.userId} spent ${totalCostBoy} coins, girl ${girlInfo.userId} earned ${totalRosesGirl} coins`);
 }
 
 /**

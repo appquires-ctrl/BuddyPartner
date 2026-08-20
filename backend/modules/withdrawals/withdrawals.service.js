@@ -1,5 +1,4 @@
 const db = require('../../db');
-const { RoseService } = require('../wallet/rose.service');
 
 class WithdrawalsService {
   /**

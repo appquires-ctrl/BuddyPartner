@@ -8,7 +8,7 @@ import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/core/widgets/buttons/app_primary_button.dart';
 import 'package:buddypartner/core/widgets/cards/app_card.dart';
 import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
-import 'package:buddypartner/features/withdraw/application/rose_providers.dart';
+import 'package:buddypartner/features/withdraw/application/withdraw_providers.dart';
 import 'package:buddypartner/features/withdraw/application/withdraw_controller.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 import 'package:buddypartner/features/call/application/instant_connect_controller.dart';

@@ -1,22 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../../middleware/auth.middleware');
-const { RoseService } = require('./rose.service');
-
-/**
- * GET /api/roses/balance
- * Returns the current rose balance for the authenticated user.
- */
-router.get('/roses/balance', authMiddleware, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const balance = await RoseService.getRoseBalance(userId);
-    res.json({ success: true, balance });
-  } catch (err) {
-    console.error('Error fetching rose balance:', err.message);
-    res.status(500).json({ error: 'Failed to fetch rose balance.' });
-  }
-});
+const { WalletService } = require('./wallet.service');
+const db = require('../../db');
 
 /**
  * GET /api/wallet/balance
@@ -24,7 +10,6 @@ router.get('/roses/balance', authMiddleware, async (req, res) => {
  */
 router.get('/wallet/balance', authMiddleware, async (req, res) => {
   try {
-    const db = require('../../db');
     const result = await db.query(
       'SELECT balance FROM public.wallets WHERE user_id = $1',
       [req.user.id]
@@ -40,11 +25,10 @@ router.get('/wallet/balance', authMiddleware, async (req, res) => {
 
 /**
  * GET /api/wallet/transactions?cursor=&limit=
- * Reads from wallet_transactions for male users, cursor-paginated.
+ * Reads from wallet_transactions for authenticated user, cursor-paginated.
  */
 router.get('/wallet/transactions', authMiddleware, async (req, res) => {
   try {
-    const { WalletService } = require('./wallet.service');
     const { cursor, limit } = req.query;
     const result = await WalletService.getTransactions(req.user.id, cursor || null, limit || 20);
     res.json(result);
@@ -55,27 +39,11 @@ router.get('/wallet/transactions', authMiddleware, async (req, res) => {
 });
 
 /**
- * GET /api/roses/transactions?cursor=&limit=
- * Reads from rose_transactions for female users, cursor-paginated.
- */
-router.get('/roses/transactions', authMiddleware, async (req, res) => {
-  try {
-    const { cursor, limit } = req.query;
-    const result = await RoseService.getTransactions(req.user.id, cursor || null, limit || 20);
-    res.json(result);
-  } catch (err) {
-    console.error('Error fetching rose transactions:', err.message);
-    res.status(500).json({ error: 'Failed to fetch rose transactions' });
-  }
-});
-
-/**
  * POST /api/wallet/recharge
  * Credits coins to user's wallet (e.g. 50, 100, 200, 500 coins).
  */
 router.post('/wallet/recharge', authMiddleware, async (req, res) => {
   try {
-    const db = require('../../db');
     const userId = req.user.id;
     const amount = parseInt(req.body.amount, 10);
     if (!amount || amount <= 0) {

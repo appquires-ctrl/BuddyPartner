@@ -8,7 +8,7 @@ import 'package:buddypartner/features/chat/application/conversations_provider.da
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
 import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
 import 'package:buddypartner/features/call/application/call_summary_provider.dart';
-import 'package:buddypartner/features/withdraw/application/rose_providers.dart';
+import 'package:buddypartner/features/withdraw/application/withdraw_providers.dart';
 import 'package:buddypartner/features/withdraw/application/withdraw_controller.dart';
 import 'package:buddypartner/features/home/presentation/providers/matched_users_provider.dart';
 import 'package:buddypartner/features/history/data/call_history_provider.dart';

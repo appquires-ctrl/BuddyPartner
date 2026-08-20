@@ -2,8 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
-
-
 /// Withdrawal request model
 class WithdrawalRequest {
   final String id;
@@ -12,8 +10,6 @@ class WithdrawalRequest {
   final String status;
   final DateTime requestedAt;
   final DateTime? processedAt;
-
-  int get roseAmount => coinAmount;
 
   WithdrawalRequest({
     required this.id,

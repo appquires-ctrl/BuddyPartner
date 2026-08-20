@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:buddypartner/core/services/api_client.dart';
-import 'package:buddypartner/features/withdraw/application/rose_providers.dart';
+import 'package:buddypartner/features/withdraw/application/withdraw_providers.dart';
 
 class WithdrawState {
   final bool isLoading;

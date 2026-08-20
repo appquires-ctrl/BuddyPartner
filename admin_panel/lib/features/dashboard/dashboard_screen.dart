@@ -131,13 +131,13 @@ class DashboardScreen extends ConsumerWidget {
                         iconBgColor: const Color(0xFFFEF3C7),
                       ),
                       StatCard(
-                        title: 'Roses Paid Out',
-                        value: '🌹 ${formatter.format(rosesPaid)}',
+                        title: 'Coins Paid Out',
+                        value: '🪙 ${formatter.format(rosesPaid)}',
                         trendLabel: 'Approved Payouts',
                         subtitle: 'Creator earnings',
-                        icon: Icons.local_florist_rounded,
-                        iconColor: const Color(0xFFEC4899),
-                        iconBgColor: const Color(0xFFFCE7F3),
+                        icon: Icons.payments_rounded,
+                        iconColor: const Color(0xFF10B981),
+                        iconBgColor: const Color(0xFFD1FAE5),
                       ),
                     ],
                   );

@@ -140,7 +140,7 @@ class WithdrawalsScreen extends ConsumerWidget {
                                         ),
                                         children: [
                                           _buildHeaderCell('USER'),
-                                          _buildHeaderCell('ROSES'),
+                                          _buildHeaderCell('COINS'),
                                           _buildHeaderCell('RUPEE AMOUNT'),
                                           _buildHeaderCell('REQUESTED DATE'),
                                           _buildHeaderCell('STATUS'),
@@ -153,7 +153,7 @@ class WithdrawalsScreen extends ConsumerWidget {
                                         final id = item['id'];
                                         final userName = item['user_name'] ?? 'Unknown Creator';
                                         final userPhone = item['user_phone'] ?? '';
-                                        final roseAmount = item['rose_amount'] ?? 0;
+                                        final coinAmount = item['rose_amount'] ?? item['coin_amount'] ?? 0;
                                         final rupeeAmount = item['rupee_amount'] ?? 0;
                                         final status = (item['status'] ?? 'pending').toString().toLowerCase();
                                         final dateStr = item['requested_at'] != null
@@ -178,10 +178,10 @@ class WithdrawalsScreen extends ConsumerWidget {
                                               ),
                                             ),
 
-                                            // ROSES
+                                            // COINS
                                             Padding(
                                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                              child: Text('🌹 $roseAmount', style: AdminTheme.tabularNumeralStyle.copyWith(color: const Color(0xFFDB2777))),
+                                              child: Text('🪙 $coinAmount', style: AdminTheme.tabularNumeralStyle.copyWith(color: const Color(0xFFD97706))),
                                             ),
 
                                             // RUPEE AMOUNT
