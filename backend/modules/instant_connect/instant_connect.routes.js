@@ -102,32 +102,33 @@ router.get('/dev/queues', async (req, res) => {
       });
     }
 
-    // 3. Active females in Redis (reconcile with DB toggle)
-    const dbFemales = await db.query(`
-      SELECT id, full_name, phone_number, incoming_paid_calls_enabled
-      FROM public.users
-      WHERE incoming_paid_calls_enabled = true
-        AND (LOWER(gender) IN ('female', 'girl', 'woman', 'f'))
-    `);
-
-    for (const f of dbFemales.rows) {
-      await redis.sadd('instant:female_pool', f.id);
-    }
-
+    // 3. Active females in Redis (filter strictly by online socket connection & DB toggle)
+    const io = req.app.get('io');
+    const { userSockets } = require('./instant_connect.socket');
     const femaleIds = await redis.smembers('instant:female_pool');
     const activeFemales = [];
+
     for (const fId of femaleIds) {
+      const socketId = userSockets?.get(fId);
+      const isOnline = io && socketId ? !!io.sockets.sockets.get(socketId)?.connected : false;
+      if (!isOnline) {
+        await redis.srem('instant:female_pool', fId);
+        continue;
+      }
+
       const userRes = await db.query('SELECT full_name, phone_number, incoming_paid_calls_enabled FROM public.users WHERE id = $1', [fId]);
       if (userRes.rows[0]?.incoming_paid_calls_enabled !== true) {
         await redis.srem('instant:female_pool', fId);
         continue;
       }
+
       const isSnoozed = await redis.get(`instant:snooze:${fId}`);
       activeFemales.push({
         userId: fId,
         fullName: userRes.rows[0]?.full_name || 'Unknown',
         phoneNumber: userRes.rows[0]?.phone_number || 'N/A',
         isSnoozed: !!isSnoozed,
+        isOnline: true,
       });
     }
 
