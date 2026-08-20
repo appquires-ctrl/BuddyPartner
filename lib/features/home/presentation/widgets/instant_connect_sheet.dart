@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:buddypartner/app/router/app_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
@@ -31,6 +32,14 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
   bool _isLoading = false;
 
   final List<int> _presets = [10, 20, 50, 100, 200];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(walletBalanceProvider.notifier).fetchBalance();
+    });
+  }
 
   @override
   void dispose() {
@@ -63,7 +72,11 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
       return;
     }
 
-    final currentBalance = ref.read(walletBalanceProvider).value ?? 0;
+    int currentBalance = ref.read(walletBalanceProvider).value ?? 0;
+    if (currentBalance == 0) {
+      currentBalance = await ref.read(walletBalanceProvider.notifier).fetchBalance();
+    }
+
     if (currentBalance < amount) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -71,8 +84,10 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
           action: SnackBarAction(
             label: 'Recharge',
             onPressed: () {
-              Navigator.pop(context);
-              context.push(RouteNames.recharge);
+              final navContext = rootNavigatorKey.currentContext;
+              if (navContext != null && navContext.mounted) {
+                navContext.push(RouteNames.recharge);
+              }
             },
           ),
         ),
