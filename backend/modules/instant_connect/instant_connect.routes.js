@@ -66,16 +66,18 @@ router.post('/scratch-cards/:id/scratch', authMiddleware, async (req, res) => {
 router.get('/dev/queues', async (req, res) => {
   try {
     const db = require('../../db');
+    const { activeInstantCalls } = require('./instant_connect.socket');
 
-    // Auto-reconcile orphaned database calls older than 15 minutes
-    await db.query(`
-      UPDATE public.instant_call_sessions
-      SET status = CASE WHEN started_at < NOW() - INTERVAL '10 minutes' THEN 'completed' ELSE 'dropped' END,
-          ended_at = COALESCE(ended_at, NOW())
-      WHERE status = 'in_call' AND started_at < NOW() - INTERVAL '15 minutes'
-    `);
+    // 1. Reconcile any database in_call sessions that have no matching in-memory active call
+    const activeSessionIds = new Set(Array.from(activeInstantCalls.values()).map((c) => c.sessionId));
+    const staleInCallRes = await db.query(`SELECT id FROM public.instant_call_sessions WHERE status = 'in_call'`);
+    for (const row of staleInCallRes.rows) {
+      if (!activeSessionIds.has(row.id)) {
+        await db.query(`UPDATE public.instant_call_sessions SET status = 'dropped', ended_at = NOW() WHERE id = $1`, [row.id]);
+      }
+    }
 
-    // 1. Waiting males
+    // 2. Waiting males
     const maleQueueIds = await redis.zrevrange('instant:male_queue', 0, -1, 'WITHSCORES');
     const waitingMales = [];
     for (let i = 0; i < maleQueueIds.length; i += 2) {
@@ -93,12 +95,16 @@ router.get('/dev/queues', async (req, res) => {
       });
     }
 
-    // 2. Active females in Redis
+    // 3. Active females in Redis (reconcile with DB toggle)
     const femaleIds = await redis.smembers('instant:female_pool');
     const activeFemales = [];
     for (const fId of femaleIds) {
+      const userRes = await db.query('SELECT full_name, phone_number, incoming_paid_calls_enabled FROM public.users WHERE id = $1', [fId]);
+      if (userRes.rows[0]?.incoming_paid_calls_enabled !== true) {
+        await redis.srem('instant:female_pool', fId);
+        continue;
+      }
       const isSnoozed = await redis.get(`instant:snooze:${fId}`);
-      const userRes = await db.query('SELECT full_name, phone_number FROM public.users WHERE id = $1', [fId]);
       activeFemales.push({
         userId: fId,
         fullName: userRes.rows[0]?.full_name || 'Unknown',
@@ -107,7 +113,7 @@ router.get('/dev/queues', async (req, res) => {
       });
     }
 
-    // 3. Ongoing active calls
+    // 4. Ongoing active calls (only those truly in memory & db)
     const activeCallsRes = await db.query(`
       SELECT s.id, s.bid_amount, s.status, s.agora_channel_name, s.started_at, s.scratch_card_unlocked,
              m.full_name as male_name, f.full_name as female_name

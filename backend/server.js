@@ -278,8 +278,20 @@ setInterval(async () => {
 
 // ── Start server ────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`🚀 BuddyPartner server listening on port ${PORT}`);
+  try {
+    const res = await db.query(`
+      UPDATE public.instant_call_sessions
+      SET status = 'dropped', ended_at = NOW()
+      WHERE status IN ('queued', 'ringing', 'in_call')
+    `);
+    if (res.rowCount > 0) {
+      console.log(`🧹 Reconciled ${res.rowCount} stale instant call sessions on startup.`);
+    }
+  } catch (err) {
+    console.error('Error reconciling instant call sessions on startup:', err.message);
+  }
 });
 
 module.exports = { app, server, io, redis, db };
