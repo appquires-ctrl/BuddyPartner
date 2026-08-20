@@ -89,8 +89,8 @@ class _IncomingPaidCallDialogState extends ConsumerState<IncomingPaidCallDialog>
     ref.listen<InstantConnectState>(instantConnectControllerProvider, (prev, next) {
       if (next.phase != InstantPhase.incomingRequest && mounted) {
         _countdownTimer?.cancel();
-        if (Navigator.of(context, rootNavigator: true).canPop()) {
-          Navigator.of(context, rootNavigator: true).pop();
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
         }
       }
     });
