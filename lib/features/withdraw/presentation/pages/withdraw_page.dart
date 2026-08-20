@@ -93,7 +93,6 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final typography = context.typography;
 
     final historyAsync = ref.watch(withdrawalHistoryProvider);
@@ -647,7 +646,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                         const SizedBox(width: 8),
                         _buildPresetChip('₹500', 500, walletBalance),
                         const SizedBox(width: 8),
-                        _buildPresetChip('MAX (${walletBalance})', walletBalance, walletBalance, isMax: true),
+                        _buildPresetChip('MAX ($walletBalance)', walletBalance, walletBalance, isMax: true),
                       ],
                     ),
                   ),
@@ -826,7 +825,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: const Color(0xFFE8E6F0)),
-                    ],
+                    ),
                     child: Column(
                       children: const [
                         Icon(Icons.receipt_long_rounded, color: Color(0xFFA19EBB), size: 36),
