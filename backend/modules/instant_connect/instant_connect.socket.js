@@ -59,6 +59,28 @@ async function isUserFemale(userId) {
   }
 }
 
+/**
+ * Helper to safely resolve connected socket for a user ID across map and io.sockets
+ */
+function getSocketForUser(io, targetUserId) {
+  if (!io || !targetUserId) return null;
+  const socketId = userSockets.get(targetUserId);
+  if (socketId) {
+    const s = io.sockets?.sockets?.get(socketId);
+    if (s && s.connected) return s;
+  }
+  // Search live connected sockets in Socket.io
+  if (io.sockets?.sockets) {
+    for (const [, s] of io.sockets.sockets) {
+      if (s.userId === targetUserId && s.connected) {
+        userSockets.set(targetUserId, s.id); // Re-sync mapping
+        return s;
+      }
+    }
+  }
+  return null;
+}
+
 let matchmakerIntervalStarted = false;
 function startMatchmakerTicker(io, redis) {
   if (matchmakerIntervalStarted) return;
@@ -91,19 +113,22 @@ async function triggerInstantMatchmaker(io, redis) {
     }
 
     const sessionData = JSON.parse(sessionStr);
-    const { sessionId, bidAmount, socketId: maleSocketId } = sessionData;
+    const { sessionId, bidAmount } = sessionData;
 
-    // Verify male socket is still active (resolve latest socket if reconnected)
-    const activeMaleSocketId = userSockets.get(maleUserId) || maleSocketId;
-    const maleSocket = io.sockets.sockets.get(activeMaleSocketId);
-    if (!maleSocket || !maleSocket.connected) {
-      // If socket is disconnected, clean up queue and refund escrowed coins to prevent deadlocks
-      await redis.zrem('instant:male_queue', maleUserId);
-      await redis.del(`instant:male_session:${maleUserId}`);
-      await instantConnectService.refundEscrowedCoins(maleUserId, bidAmount, sessionId);
-      console.log(`🧹 [Instant Matchmaker] Evicted disconnected male ${maleUserId} from queue and refunded ${bidAmount} coins`);
+    // Verify male socket is still active (resolve latest socket across userSockets & io)
+    const maleSocket = getSocketForUser(io, maleUserId);
+    if (!maleSocket) {
+      const isOnline = await redis.get(`online:${maleUserId}`);
+      if (!isOnline) {
+        await redis.zrem('instant:male_queue', maleUserId);
+        await redis.del(`instant:male_session:${maleUserId}`);
+        await instantConnectService.refundEscrowedCoins(maleUserId, bidAmount, sessionId);
+        console.log(`🧹 [Instant Matchmaker] Evicted offline male ${maleUserId} from queue and refunded ${bidAmount} coins`);
+      }
       return;
     }
+
+    const activeMaleSocketId = maleSocket.id;
 
     // 2. Fetch available females from DB & Redis pool
     const dbFemales = await db.query(`
@@ -140,12 +165,9 @@ async function triggerInstantMatchmaker(io, redis) {
       const isRinging = await redis.get(`instant:ringing:${femaleId}`);
       if (isRinging) continue;
 
-      const fSocketId = userSockets.get(femaleId);
-      if (fSocketId) {
-        const fSocket = io.sockets.sockets.get(fSocketId);
-        if (fSocket && fSocket.connected && !socketToInstantCall.has(fSocketId)) {
-          eligibleFemales.push({ userId: femaleId, socketId: fSocketId, socket: fSocket });
-        }
+      const fSocket = getSocketForUser(io, femaleId);
+      if (fSocket && !socketToInstantCall.has(fSocket.id)) {
+        eligibleFemales.push({ userId: femaleId, socketId: fSocket.id, socket: fSocket });
       }
     }
 
@@ -677,4 +699,5 @@ module.exports = {
   endInstantCallHelper,
   triggerInstantMatchmaker,
   userSockets,
+  getSocketForUser,
 };

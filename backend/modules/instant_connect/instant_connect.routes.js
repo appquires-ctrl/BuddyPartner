@@ -128,7 +128,7 @@ router.get('/dev/queues', async (req, res) => {
     }
 
     const io = req.app.get('io');
-    const { userSockets } = require('./instant_connect.socket');
+    const { getSocketForUser } = require('./instant_connect.socket');
     const femaleIds = await redis.smembers('instant:female_pool');
     const activeFemales = [];
 
@@ -139,10 +139,9 @@ router.get('/dev/queues', async (req, res) => {
         continue;
       }
 
-      const socketId = userSockets?.get(fId);
-      const isSocketConnected = io && socketId ? !!io.sockets.sockets.get(socketId)?.connected : false;
+      const fSocket = getSocketForUser(io, fId);
       const isRedisOnline = !!(await redis.get(`online:${fId}`));
-      const isOnline = isSocketConnected || isRedisOnline;
+      const isOnline = !!fSocket || isRedisOnline;
       const isSnoozed = await redis.get(`instant:snooze:${fId}`);
       activeFemales.push({
         userId: fId,
