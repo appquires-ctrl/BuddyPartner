@@ -76,6 +76,7 @@ async function triggerInstantMatchmaker(io, redis) {
     const maleUserId = topMales[0];
     const sessionStr = await redis.get(`instant:male_session:${maleUserId}`);
     if (!sessionStr) {
+      // Stale queue entry whose session expired/was deleted -> evict
       await redis.zrem('instant:male_queue', maleUserId);
       return;
     }
@@ -87,7 +88,11 @@ async function triggerInstantMatchmaker(io, redis) {
     const activeMaleSocketId = userSockets.get(maleUserId) || maleSocketId;
     const maleSocket = io.sockets.sockets.get(activeMaleSocketId);
     if (!maleSocket || !maleSocket.connected) {
-      // Don't instantly drop, wait for brief reconnect unless key expired
+      // If socket is disconnected, clean up queue and refund escrowed coins to prevent deadlocks
+      await redis.zrem('instant:male_queue', maleUserId);
+      await redis.del(`instant:male_session:${maleUserId}`);
+      await instantConnectService.refundEscrowedCoins(maleUserId, bidAmount, sessionId);
+      console.log(`🧹 [Instant Matchmaker] Evicted disconnected male ${maleUserId} from queue and refunded ${bidAmount} coins`);
       return;
     }
 
@@ -277,7 +282,9 @@ function registerInstantConnectHandlers(io, socket, redis) {
       await redis.zadd('instant:male_queue', score, userId);
       await redis.set(
         `instant:male_session:${userId}`,
-        JSON.stringify({ sessionId: session.id, bidAmount, socketId: socket.id })
+        JSON.stringify({ sessionId: session.id, bidAmount, socketId: socket.id }),
+        'EX',
+        600
       );
 
       // Determine queue rank
@@ -548,6 +555,20 @@ function registerInstantConnectHandlers(io, socket, redis) {
     userSockets.delete(userId);
     // Remove from female pool if disconnected
     await redis.srem('instant:female_pool', userId);
+
+    // Clean up waiting male from queue and refund escrowed coins on disconnect
+    try {
+      const sessionStr = await redis.get(`instant:male_session:${userId}`);
+      if (sessionStr) {
+        const { sessionId, bidAmount } = JSON.parse(sessionStr);
+        await redis.zrem('instant:male_queue', userId);
+        await redis.del(`instant:male_session:${userId}`);
+        await instantConnectService.refundEscrowedCoins(userId, bidAmount, sessionId);
+        console.log(`🧹 [Instant Connect] Cleaned up waiting male ${userId} on disconnect & refunded ${bidAmount} coins`);
+      }
+    } catch (err) {
+      console.error(`Error cleaning up male queue on disconnect for ${userId}:`, err.message);
+    }
 
     try {
       const callId = socketToInstantCall.get(socket.id);
