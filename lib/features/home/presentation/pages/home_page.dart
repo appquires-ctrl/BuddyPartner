@@ -1168,7 +1168,7 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
       });
     }
 
-    final updatedCity = await LocationService.fetchAndSaveUserLocation(ref);
+    final updatedCity = await LocationService.fetchAndSaveUserLocation(ref, force: userInitiated);
 
     if (mounted) {
       setState(() {
