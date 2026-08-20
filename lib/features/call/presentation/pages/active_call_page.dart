@@ -223,7 +223,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                                 );
                               }
 
-                              final remainingTo10m = (600 - instantState.callSecondsElapsed).clamp(0, 600);
+                              final remainingToMilestone = (60 - instantState.callSecondsElapsed).clamp(0, 60);
                               return Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                                 decoration: BoxDecoration(
@@ -237,7 +237,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                                     const Icon(Icons.bolt_rounded, color: Color(0xFFFFD54F), size: 16),
                                     const SizedBox(width: 4),
                                     Text(
-                                      'Reward in ${_formatCountdown(remainingTo10m)}',
+                                      'Reward in ${_formatCountdown(remainingToMilestone)}',
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 12.5,

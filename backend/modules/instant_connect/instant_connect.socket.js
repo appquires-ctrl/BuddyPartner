@@ -446,9 +446,9 @@ function registerInstantConnectHandlers(io, socket, redis) {
 
       const callId = `instant_call_${sessionId}`;
 
-      // Start 600-second (10-minute) server-authoritative milestone timer
+      // Start 60-second (1-minute) server-authoritative milestone timer
       const milestoneTimer = setTimeout(async () => {
-        console.log(`🎉 [Instant Connect] 10-Minute Milestone reached for session ${sessionId}! Unlocking scratch card.`);
+        console.log(`🎉 [Instant Connect] 1-Minute Milestone reached for session ${sessionId}! Unlocking scratch card.`);
         const scratchCard = await instantConnectService.trigger10MinuteMilestone(sessionId);
         if (scratchCard) {
           const liveMaleSocketId = userSockets.get(maleUserId) || maleSocketId;
@@ -458,20 +458,20 @@ function registerInstantConnectHandlers(io, socket, redis) {
             io.to(liveMaleSocketId).emit('instant:milestone_reached', {
               callId,
               sessionId,
-              milestoneMinutes: 10,
+              milestoneMinutes: 1,
             });
           }
           if (liveFemaleSocketId) {
             io.to(liveFemaleSocketId).emit('instant:milestone_reached', {
               callId,
               sessionId,
-              milestoneMinutes: 10,
+              milestoneMinutes: 1,
               scratchCardId: scratchCard.id,
               coinReward: scratchCard.coin_reward,
             });
           }
         }
-      }, 600 * 1000); // 10 minutes
+      }, 60 * 1000); // 1 minute
 
       const activeMaleSocketId = userSockets.get(maleUserId) || maleSocketId;
 
@@ -514,7 +514,7 @@ function registerInstantConnectHandlers(io, socket, redis) {
             avatarStyle: femaleUser.avatar_style || 'avataaars',
             gender: femaleUser.gender || 'Female',
           },
-          durationLimitSeconds: 600,
+          durationLimitSeconds: 60,
         });
       }
 
@@ -537,7 +537,7 @@ function registerInstantConnectHandlers(io, socket, redis) {
           avatarStyle: maleUser.avatar_style || 'avataaars',
           gender: maleUser.gender || 'Male',
         },
-        durationLimitSeconds: 600,
+        durationLimitSeconds: 60,
       });
 
       cb({ success: true, callId, sessionId });
@@ -624,12 +624,12 @@ async function endInstantCallHelper(io, redis, { callId, userId, reason = 'manua
 
   const durationSeconds = Math.floor((Date.now() - callObj.startedAt) / 1000);
 
-  // Cancel 10m timer if call ends early
+  // Cancel milestone timer if call ends early
   if (callObj.milestoneTimer) {
     clearTimeout(callObj.milestoneTimer);
   }
 
-  const finalStatus = durationSeconds >= 600 ? 'completed' : 'dropped';
+  const finalStatus = durationSeconds >= 60 ? 'completed' : 'dropped';
   await instantConnectService.endCallSession(callObj.sessionId, finalStatus, durationSeconds);
 
   const maleSock = userSockets.get(callObj.maleUserId) || callObj.maleSocketId;
