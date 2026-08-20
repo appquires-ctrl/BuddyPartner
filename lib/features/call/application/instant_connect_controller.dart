@@ -89,7 +89,7 @@ class InstantConnectState {
   }
 }
 
-class InstantConnectController extends AutoDisposeNotifier<InstantConnectState> {
+class InstantConnectController extends Notifier<InstantConnectState> {
   Timer? _callTimer;
   bool _listenersRegistered = false;
 
@@ -386,6 +386,6 @@ class InstantConnectController extends AutoDisposeNotifier<InstantConnectState> 
 }
 
 final instantConnectControllerProvider =
-    AutoDisposeNotifierProvider<InstantConnectController, InstantConnectState>(
+    NotifierProvider<InstantConnectController, InstantConnectState>(
   InstantConnectController.new,
 );

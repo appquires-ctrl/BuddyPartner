@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
@@ -11,10 +12,12 @@ class IncomingPaidCallDialog extends ConsumerStatefulWidget {
   ConsumerState<IncomingPaidCallDialog> createState() => _IncomingPaidCallDialogState();
 }
 
-class _IncomingPaidCallDialogState extends ConsumerState<IncomingPaidCallDialog> with SingleTickerProviderStateMixin {
+class _IncomingPaidCallDialogState extends ConsumerState<IncomingPaidCallDialog>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _pulseController;
   Timer? _countdownTimer;
   int _secondsRemaining = 7;
+  bool _actionHandled = false;
 
   @override
   void initState() {
@@ -35,13 +38,35 @@ class _IncomingPaidCallDialogState extends ConsumerState<IncomingPaidCallDialog>
       }
       if (_secondsRemaining <= 1) {
         timer.cancel();
-        ref.read(instantConnectControllerProvider.notifier).declineIncomingCall();
+        _onDecline();
       } else {
         setState(() {
           _secondsRemaining -= 1;
         });
       }
     });
+  }
+
+  void _onAccept() {
+    if (_actionHandled) return;
+    _actionHandled = true;
+    HapticFeedback.mediumImpact();
+    _countdownTimer?.cancel();
+    ref.read(instantConnectControllerProvider.notifier).acceptIncomingCall();
+    if (mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+  }
+
+  void _onDecline() {
+    if (_actionHandled) return;
+    _actionHandled = true;
+    HapticFeedback.lightImpact();
+    _countdownTimer?.cancel();
+    ref.read(instantConnectControllerProvider.notifier).declineIncomingCall();
+    if (mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
   }
 
   @override
@@ -55,6 +80,15 @@ class _IncomingPaidCallDialogState extends ConsumerState<IncomingPaidCallDialog>
   Widget build(BuildContext context) {
     final colors = context.colors;
     final typography = context.typography;
+
+    // Auto-dismiss dialog if phase leaves incomingRequest (e.g. connected or dismissed)
+    ref.listen<InstantConnectState>(instantConnectControllerProvider, (prev, next) {
+      if (next.phase != InstantPhase.incomingRequest && !_actionHandled && mounted) {
+        _actionHandled = true;
+        _countdownTimer?.cancel();
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+    });
 
     return PopScope(
       canPop: false,
@@ -173,9 +207,7 @@ class _IncomingPaidCallDialogState extends ConsumerState<IncomingPaidCallDialog>
                   // Decline
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () {
-                        ref.read(instantConnectControllerProvider.notifier).declineIncomingCall();
-                      },
+                      onPressed: _onDecline,
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         side: BorderSide(color: colors.danger.withValues(alpha: 0.5)),
@@ -195,9 +227,7 @@ class _IncomingPaidCallDialogState extends ConsumerState<IncomingPaidCallDialog>
                   // Accept
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
-                        ref.read(instantConnectControllerProvider.notifier).acceptIncomingCall();
-                      },
+                      onPressed: _onAccept,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         backgroundColor: colors.success,

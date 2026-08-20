@@ -32,13 +32,6 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
 
   @override
   void dispose() {
-    // Safety Net: If the page is disposed while still in an active call,
-    // automatically trigger controller.endCall() to disconnect audio/video and socket.
-    final matchState = ref.read(matchmakingControllerProvider);
-    if (matchState.phase == MatchmakingPhase.inCall ||
-        matchState.phase == MatchmakingPhase.matched) {
-      ref.read(matchmakingControllerProvider.notifier).endCall();
-    }
     super.dispose();
   }
 
