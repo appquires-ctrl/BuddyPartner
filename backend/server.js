@@ -197,6 +197,7 @@ const io = new Server(server, {
   pingTimeout: 30000,
   pingInterval: 10000,
 });
+app.set('io', io);
 
 const { ModerationService } = require('./modules/moderation/moderation.service');
 const { PresenceService } = require('./modules/presence/presence.service');

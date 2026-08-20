@@ -140,7 +140,9 @@ router.get('/dev/queues', async (req, res) => {
       }
 
       const socketId = userSockets?.get(fId);
-      const isOnline = io && socketId ? !!io.sockets.sockets.get(socketId)?.connected : false;
+      const isSocketConnected = io && socketId ? !!io.sockets.sockets.get(socketId)?.connected : false;
+      const isRedisOnline = !!(await redis.get(`online:${fId}`));
+      const isOnline = isSocketConnected || isRedisOnline;
       const isSnoozed = await redis.get(`instant:snooze:${fId}`);
       activeFemales.push({
         userId: fId,
