@@ -14,6 +14,13 @@ router.post('/toggle', authMiddleware, async (req, res) => {
     if (!result.success) {
       return res.status(400).json(result);
     }
+    if (enabled === true) {
+      const io = req.app.get('io');
+      const { triggerInstantMatchmaker } = require('./instant_connect.socket');
+      if (io) {
+        triggerInstantMatchmaker(io, redis);
+      }
+    }
     res.json(result);
   } catch (err) {
     console.error('Error in POST /api/instant/toggle:', err.message);

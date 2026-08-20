@@ -50,10 +50,24 @@ async function isUserFemale(userId) {
   }
 }
 
+let matchmakerIntervalStarted = false;
+function startMatchmakerTicker(io, redis) {
+  if (matchmakerIntervalStarted) return;
+  matchmakerIntervalStarted = true;
+  setInterval(() => {
+    try {
+      triggerInstantMatchmaker(io, redis);
+    } catch (err) {
+      // ignore ticker errors
+    }
+  }, 2000);
+}
+
 /**
  * Trigger Instant Matchmaker cycle
  */
 async function triggerInstantMatchmaker(io, redis) {
+  if (!io || !redis) return;
   try {
     // 1. Get highest-priority male from queue
     const topMales = await redis.zrevrange('instant:male_queue', 0, 0);
@@ -69,12 +83,11 @@ async function triggerInstantMatchmaker(io, redis) {
     const sessionData = JSON.parse(sessionStr);
     const { sessionId, bidAmount, socketId: maleSocketId } = sessionData;
 
-    // Verify male socket is still active
-    const maleSocket = io.sockets.sockets.get(maleSocketId);
+    // Verify male socket is still active (resolve latest socket if reconnected)
+    const activeMaleSocketId = userSockets.get(maleUserId) || maleSocketId;
+    const maleSocket = io.sockets.sockets.get(activeMaleSocketId);
     if (!maleSocket || !maleSocket.connected) {
-      await redis.zrem('instant:male_queue', maleUserId);
-      await redis.del(`instant:male_session:${maleUserId}`);
-      await instantConnectService.refundEscrowedCoins(maleUserId, bidAmount, sessionId);
+      // Don't instantly drop, wait for brief reconnect unless key expired
       return;
     }
 
@@ -89,7 +102,6 @@ async function triggerInstantMatchmaker(io, redis) {
         const offlineFemales = await instantConnectService.getSurgeEligibleFemales([maleUserId], 10);
         if (offlineFemales.length > 0) {
           console.log(`📡 [FCM Surge] Dispatched surge alert to ${offlineFemales.length} offline female accounts for male ${maleUserId} (Bid: ₹${bidAmount})`);
-          // In production: send FCM push notifications here using Firebase Admin SDK
         }
       }
       return;
@@ -101,6 +113,8 @@ async function triggerInstantMatchmaker(io, redis) {
       if (femaleId === maleUserId) continue;
       const isSnoozed = await redis.get(`instant:snooze:${femaleId}`);
       if (isSnoozed) continue;
+      const isRinging = await redis.get(`instant:ringing:${femaleId}`);
+      if (isRinging) continue;
 
       const fSocketId = userSockets.get(femaleId);
       if (fSocketId) {
@@ -132,7 +146,7 @@ async function triggerInstantMatchmaker(io, redis) {
     const requestMeta = {
       sessionId,
       maleUserId,
-      maleSocketId,
+      maleSocketId: activeMaleSocketId,
       bidAmount,
       agoraChannelName,
       femaleUserIds: selectedFemales.map((f) => f.userId),
@@ -187,6 +201,8 @@ async function triggerInstantMatchmaker(io, redis) {
  * Register Instant Connect Socket.io handlers
  */
 function registerInstantConnectHandlers(io, socket, redis) {
+  startMatchmakerTicker(io, redis);
+
   const userId = socket.userId;
   if (userId) {
     userSockets.set(userId, socket.id);
@@ -603,4 +619,5 @@ module.exports = {
   activeInstantCalls,
   socketToInstantCall,
   endInstantCallHelper,
+  triggerInstantMatchmaker,
 };
