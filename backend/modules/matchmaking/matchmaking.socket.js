@@ -2,7 +2,7 @@ const { MatchmakingService } = require('./matchmaking.service');
 const { callsService } = require('../calls/calls.service');
 const { WalletService, CALL_RATES } = require('../wallet/wallet.service');
 const { subscriptionsService } = require('../subscriptions/subscriptions.service');
-const { activeInstantCalls } = require('../instant_connect/instant_connect.socket');
+const { activeInstantCalls, endInstantCallHelper } = require('../instant_connect/instant_connect.socket');
 const db = require('../../db');
 
 // In-memory map of active calls: callId → { userA: { userId, socketId, gender }, userB: { userId, socketId, gender } }
@@ -143,15 +143,25 @@ function registerMatchmakingHandlers(io, socket, redis) {
   socket.on('end_call', async ({ callId }) => {
     try {
       const callInfo = activeCalls.get(callId);
-      if (!callInfo) return;
-
-      // Security Check: Authorize sender participant
-      if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) {
-        console.warn(`⚠️ Unauthorized attempt to end call by ${userId}`);
+      if (callInfo) {
+        // Security Check: Authorize sender participant
+        if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) {
+          console.warn(`⚠️ Unauthorized attempt to end call by ${userId}`);
+          return;
+        }
+        await handleCallEnd(callId, callsService, io, 'manual', matchmakingService);
         return;
       }
 
-      await handleCallEnd(callId, callsService, io, 'manual', matchmakingService);
+      // Check if it's an Instant Connect call
+      const instantEndRes = await endInstantCallHelper(io, redis, {
+        callId,
+        userId,
+        reason: 'manual',
+      });
+      if (instantEndRes) {
+        console.log(`⚡ Instant call ${callId} manually ended by user ${userId}`);
+      }
     } catch (err) {
       console.error('Error in end_call:', err);
     }

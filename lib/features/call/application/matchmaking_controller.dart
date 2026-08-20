@@ -317,6 +317,7 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
     final callId = state.callId;
     if (callId != null) {
       _socket?.emit('end_call', {'callId': callId});
+      _socket?.emit('instant:end_call', {'callId': callId});
     }
 
     await _leaveAgoraChannel();

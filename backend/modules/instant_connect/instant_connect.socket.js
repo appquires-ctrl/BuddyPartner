@@ -497,44 +497,16 @@ function registerInstantConnectHandlers(io, socket, redis) {
   });
 
   // ── 6. instant:end_call ──────────────────────────────────────────────────
-  socket.on('instant:end_call', async () => {
-    const callId = socketToInstantCall.get(socket.id);
-    if (!callId) return;
-
-    const callObj = activeInstantCalls.get(callId);
-    if (!callObj) return;
-
-    const durationSeconds = Math.floor((Date.now() - callObj.startedAt) / 1000);
-
-    // Cancel 10m timer if call ends early
-    if (callObj.milestoneTimer) {
-      clearTimeout(callObj.milestoneTimer);
-    }
-
-    const finalStatus = durationSeconds >= 600 ? 'completed' : 'dropped';
-    await instantConnectService.endCallSession(callObj.sessionId, finalStatus, durationSeconds);
-
-    // Notify both parties
-    io.to(callObj.maleSocketId).emit('instant:call_ended', {
-      callId,
-      durationSeconds,
-      status: finalStatus,
-    });
-    io.to(callObj.femaleSocketId).emit('instant:call_ended', {
-      callId,
-      durationSeconds,
-      status: finalStatus,
-    });
-
-    // Cleanup mappings
-    socketToInstantCall.delete(callObj.maleSocketId);
-    socketToInstantCall.delete(callObj.femaleSocketId);
-    activeInstantCalls.delete(callId);
-
-    // Return female to pool if her toggle is still ON
-    const fStatus = await instantConnectService.getFemaleStatus(callObj.femaleUserId);
-    if (fStatus.incomingPaidCallsEnabled) {
-      await redis.sadd('instant:female_pool', callObj.femaleUserId);
+  socket.on('instant:end_call', async (data) => {
+    try {
+      const callId = data?.callId || socketToInstantCall.get(socket.id);
+      await endInstantCallHelper(io, redis, {
+        callId,
+        userId,
+        reason: 'manual_hangup',
+      });
+    } catch (err) {
+      console.error(`Error ending instant call for ${userId}:`, err.message);
     }
   });
 
@@ -544,33 +516,89 @@ function registerInstantConnectHandlers(io, socket, redis) {
     // Remove from female pool if disconnected
     await redis.srem('instant:female_pool', userId);
 
-    const callId = socketToInstantCall.get(socket.id);
-    if (callId) {
-      const callObj = activeInstantCalls.get(callId);
-      if (callObj) {
-        const durationSeconds = Math.floor((Date.now() - callObj.startedAt) / 1000);
-        if (callObj.milestoneTimer) clearTimeout(callObj.milestoneTimer);
-
-        const finalStatus = durationSeconds >= 600 ? 'completed' : 'dropped';
-        await instantConnectService.endCallSession(callObj.sessionId, finalStatus, durationSeconds);
-
-        const otherSocketId = socket.id === callObj.maleSocketId ? callObj.femaleSocketId : callObj.maleSocketId;
-        io.to(otherSocketId).emit('instant:call_ended', {
-          callId,
-          durationSeconds,
-          reason: 'peer_disconnected',
-        });
-
-        socketToInstantCall.delete(callObj.maleSocketId);
-        socketToInstantCall.delete(callObj.femaleSocketId);
-        activeInstantCalls.delete(callId);
-      }
+    try {
+      const callId = socketToInstantCall.get(socket.id);
+      await endInstantCallHelper(io, redis, {
+        callId,
+        userId,
+        reason: 'peer_disconnected',
+      });
+    } catch (err) {
+      console.error(`Error on instant disconnect for ${userId}:`, err.message);
     }
   });
+}
+
+/**
+ * End an instant connect call session reliably across sockets & database
+ */
+async function endInstantCallHelper(io, redis, { callId, userId, reason = 'manual_hangup' }) {
+  let targetCallId = callId;
+  let callObj = targetCallId ? activeInstantCalls.get(targetCallId) : null;
+
+  if (!callObj && userId) {
+    for (const [cId, c] of activeInstantCalls.entries()) {
+      if (c.maleUserId === userId || c.femaleUserId === userId) {
+        callObj = c;
+        targetCallId = cId;
+        break;
+      }
+    }
+  }
+
+  if (!callObj) return null;
+
+  const durationSeconds = Math.floor((Date.now() - callObj.startedAt) / 1000);
+
+  // Cancel 10m timer if call ends early
+  if (callObj.milestoneTimer) {
+    clearTimeout(callObj.milestoneTimer);
+  }
+
+  const finalStatus = durationSeconds >= 600 ? 'completed' : 'dropped';
+  await instantConnectService.endCallSession(callObj.sessionId, finalStatus, durationSeconds);
+
+  const maleSock = userSockets.get(callObj.maleUserId) || callObj.maleSocketId;
+  const femaleSock = userSockets.get(callObj.femaleUserId) || callObj.femaleSocketId;
+
+  const endPayload = {
+    callId: targetCallId,
+    durationSeconds,
+    status: finalStatus,
+    reason,
+  };
+
+  // Notify both parties on both instant:call_ended and call_ended channels
+  if (maleSock) {
+    io.to(maleSock).emit('instant:call_ended', endPayload);
+    io.to(maleSock).emit('call_ended', endPayload);
+  }
+  if (femaleSock) {
+    io.to(femaleSock).emit('instant:call_ended', endPayload);
+    io.to(femaleSock).emit('call_ended', endPayload);
+  }
+
+  // Cleanup mappings
+  socketToInstantCall.delete(callObj.maleSocketId);
+  socketToInstantCall.delete(callObj.femaleSocketId);
+  if (maleSock) socketToInstantCall.delete(maleSock);
+  if (femaleSock) socketToInstantCall.delete(femaleSock);
+  activeInstantCalls.delete(targetCallId);
+
+  // Return female to pool if her toggle is still ON
+  try {
+    const fStatus = await instantConnectService.getFemaleStatus(callObj.femaleUserId);
+    if (fStatus.incomingPaidCallsEnabled) {
+      await redis.sadd('instant:female_pool', callObj.femaleUserId);
+    }
+  } catch (_) {}
+
+  return endPayload;
 }
 
 module.exports = {
   registerInstantConnectHandlers,
   activeInstantCalls,
   socketToInstantCall,
+  endInstantCallHelper,
 };
