@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:buddypartner/features/auth/application/auth_controller.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
 import 'package:buddypartner/features/call/domain/models/instant_connect_models.dart';
 

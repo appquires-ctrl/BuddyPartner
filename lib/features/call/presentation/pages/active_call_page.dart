@@ -12,6 +12,7 @@ import 'package:buddypartner/features/call/presentation/widgets/spin_wheel_dialo
 import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
 import 'package:buddypartner/features/call/presentation/widgets/scratch_card_dialog.dart';
 
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/core/widgets/app_avatar.dart';
 
 /// ActiveCallPage displays the active voice call interface.

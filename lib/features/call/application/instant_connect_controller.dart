@@ -408,7 +408,7 @@ class InstantConnectController extends Notifier<InstantConnectState> {
                   coinReward: reward,
                   isScratched: true,
                   scratchedAt: DateTime.now(),
-                  createdAt: state.latestUnlockedCard?.createdAt,
+                  createdAt: state.latestUnlockedCard?.createdAt ?? DateTime.now(),
                 )
               : state.latestUnlockedCard,
         );
