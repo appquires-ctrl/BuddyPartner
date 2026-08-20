@@ -2,24 +2,89 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
-import 'package:buddypartner/core/utils/app_snack_bar.dart';
+import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
-import 'package:buddypartner/features/recharge/presentation/providers/recharge_providers.dart';
-import 'package:buddypartner/features/recharge/presentation/widgets/recharge_plan_card.dart';
+import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/core/widgets/cards/wallet_card.dart';
 import 'package:buddypartner/core/widgets/layout/section_header.dart';
-import 'package:buddypartner/app/theme/app_spacing.dart';
-
-
+import 'package:buddypartner/features/recharge/presentation/providers/recharge_providers.dart';
+import 'package:buddypartner/features/recharge/presentation/widgets/recharge_plan_card.dart';
+import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 
 /// RechargePage manages the wallet screen, containing
 /// the WalletCard balance hero, and a 2-column grid of RechargePlanCards.
-class RechargePage extends ConsumerWidget {
+class RechargePage extends ConsumerStatefulWidget {
   const RechargePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    const balance = 0;
+  ConsumerState<RechargePage> createState() => _RechargePageState();
+}
+
+class _RechargePageState extends ConsumerState<RechargePage> {
+  String? _purchasingPlanId;
+
+  Future<void> _handlePurchase(RechargePlanUiModel plan) async {
+    AppLogger.button('Purchase ${plan.coins} Coins', screen: 'RechargePage');
+    setState(() => _purchasingPlanId = plan.id);
+
+    try {
+      final apiClient = ref.read(apiClientProvider);
+      final response = await apiClient.dio.post(
+        '/api/wallet/recharge',
+        data: {
+          'amount': plan.coins,
+          'paymentReference': 'recharge_${plan.id}_${DateTime.now().millisecondsSinceEpoch}',
+        },
+      );
+
+      if (response.data != null && response.data['success'] == true) {
+        ref.invalidate(walletBalanceProvider);
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: const Row(
+                children: [
+                  Text('🪙', style: TextStyle(fontSize: 28)),
+                  SizedBox(width: 10),
+                  Text('Recharge Successful!'),
+                ],
+              ),
+              content: Text(
+                'Successfully added ${plan.coins} Coins to your wallet for ₹${plan.price.toStringAsFixed(0)}.',
+                style: const TextStyle(fontSize: 15),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Awesome', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          AppSnackBar.showError(context, response.data?['error'] ?? 'Recharge failed. Please try again.');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.showError(context, 'Recharge failed. Please try again.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _purchasingPlanId = null);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final balanceAsync = ref.watch(walletBalanceProvider);
+    final balance = balanceAsync.value ?? 0;
     final plans = ref.watch(rechargePlansProvider);
 
     return Scaffold(
@@ -67,35 +132,36 @@ class RechargePage extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.space16),
-            
+
             // Section Header title
             const SectionHeader(
               title: 'RECHARGE PLANS',
             ),
             const SizedBox(height: AppSpacing.space12),
-            
+
             // Dynamic column count responsive Grid of plans
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: plans.length,
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: MediaQuery.of(context).size.width > 800 ? 4 : (MediaQuery.of(context).size.width > 600 ? 3 : 2),
+                crossAxisCount: MediaQuery.of(context).size.width > 800
+                    ? 4
+                    : (MediaQuery.of(context).size.width > 600 ? 3 : 2),
                 crossAxisSpacing: AppSpacing.space16,
                 mainAxisSpacing: AppSpacing.space16,
                 childAspectRatio: 1.0,
               ),
               itemBuilder: (context, index) {
                 final plan = plans[index];
+                final isProcessing = _purchasingPlanId == plan.id;
+
                 return RechargePlanCard(
                   coins: plan.coins,
                   price: plan.price,
                   originalPrice: plan.originalPrice,
                   badgeText: plan.badgeText,
-                  onPurchasePressed: () {
-                    AppLogger.button('Purchase ${plan.coins} Coins', screen: 'RechargePage');
-                    AppSnackBar.showInfo(context, 'Processing purchase for ${plan.coins} coins...');
-                  },
+                  onPurchasePressed: isProcessing ? null : () => _handlePurchase(plan),
                 );
               },
             ),

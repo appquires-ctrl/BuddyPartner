@@ -30,6 +30,7 @@ import 'package:buddypartner/features/legal/presentation/pages/legal_document_pa
 import 'package:buddypartner/features/legal/data/legal_document_content.dart';
 import 'package:buddypartner/features/wallet/presentation/pages/transaction_history_page.dart';
 import 'package:buddypartner/features/wallet/presentation/pages/wallet_recharge_page.dart';
+import 'package:buddypartner/features/recharge/presentation/pages/recharge_page.dart';
 import 'package:buddypartner/features/withdraw/presentation/pages/withdraw_page.dart';
 import 'package:buddypartner/features/auth/presentation/pages/banned_screen.dart';
 import 'package:buddypartner/core/widgets/layout/app_bottom_nav.dart';
@@ -346,7 +347,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                       if (isFemale) {
                         return const WithdrawPage();
                       }
-                      return const WalletRechargePage();
+                      return const RechargePage();
                     },
                   );
                 },
