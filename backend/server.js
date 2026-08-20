@@ -33,6 +33,7 @@ app.use(express.json());
 // Import and mount custom modules REST endpoints
 const authRoutes = require('./modules/auth/auth.routes');
 const callsRoutes = require('./modules/calls/calls.routes');
+const messagingRoutes = require('./modules/messaging/messaging.routes');
 const walletRoutes = require('./modules/wallet/wallet.routes');
 const withdrawalRoutes = require('./modules/withdrawals/withdrawals.routes');
 const adminRoutes = require('./modules/admin/admin.routes');
