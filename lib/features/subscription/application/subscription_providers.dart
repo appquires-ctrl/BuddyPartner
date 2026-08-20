@@ -20,7 +20,7 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
     // Auto-refresh subscription state whenever socket connects
     ref.listen<sio.Socket?>(socketProvider, (prev, next) {
       if (next != null) {
-        refresh();
+        reload();
       }
     });
 
@@ -31,6 +31,11 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
     }
 
     return fetchStatus();
+  }
+
+  Future<void> reload() async {
+    final newState = await fetchStatus();
+    state = AsyncData(newState);
   }
 
   Future<SubscriptionState> fetchStatus() async {
@@ -59,7 +64,7 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
       // In case of initial network drop on launch, auto-retry in 3 seconds
       Timer(const Duration(seconds: 3), () {
         if (state.hasValue && !state.value!.isSubscribed) {
-          refresh();
+          reload();
         }
       });
     }
