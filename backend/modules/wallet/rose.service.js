@@ -16,7 +16,7 @@ class RoseService {
   async getRoseBalance(userId) {
     try {
       const result = await db.query(
-        'SELECT balance FROM public.rose_balances WHERE user_id = $1',
+        'SELECT balance FROM public.wallets WHERE user_id = $1',
         [userId]
       );
       if (result.rows.length === 0) {
@@ -24,13 +24,13 @@ class RoseService {
       }
       return result.rows[0].balance;
     } catch (err) {
-      console.error(`Error fetching rose balance for user ${userId}:`, err.message);
+      console.error(`Error fetching wallet balance for user ${userId}:`, err.message);
       return 0;
     }
   }
 
   /**
-   * Credit roses for a call minute. Atomically increments balance and logs transaction.
+   * Credit coins for a call minute. Atomically increments balance and logs transaction.
    *
    * @param {string} userId
    * @param {string} callId
@@ -41,7 +41,6 @@ class RoseService {
     // Check if female user is an active Telecaller
     const userCheck = await db.query('SELECT is_telecaller FROM public.users WHERE id = $1', [userId]);
     if (userCheck.rows.length === 0 || userCheck.rows[0].is_telecaller !== true) {
-      console.log(`🌹 [Rose] User ${userId} is not an active Telecaller (is_telecaller: ${userCheck.rows[0]?.is_telecaller}) — skipping rose credit.`);
       return { success: false, skipped: true, newBalance: null };
     }
 
@@ -52,18 +51,18 @@ class RoseService {
     try {
       await client.query('BEGIN');
 
-      // Ensure rose_balances row exists (upsert)
+      // Ensure wallets row exists (upsert)
       await client.query(
-        `INSERT INTO public.rose_balances (user_id, balance, updated_at)
-         VALUES ($1, 0, NOW())
+        `INSERT INTO public.wallets (user_id, balance)
+         VALUES ($1, 0)
          ON CONFLICT (user_id) DO NOTHING`,
         [userId]
       );
 
       // Atomically increment balance
       const updateRes = await client.query(
-        `UPDATE public.rose_balances
-         SET balance = balance + $1, updated_at = NOW()
+        `UPDATE public.wallets
+         SET balance = balance + $1
          WHERE user_id = $2
          RETURNING balance`,
         [amount, userId]
@@ -73,17 +72,16 @@ class RoseService {
 
       // Log transaction
       await client.query(
-        `INSERT INTO public.rose_transactions (user_id, type, amount, reason, reference_id)
+        `INSERT INTO public.wallet_transactions (user_id, type, amount, reason, reference_id)
          VALUES ($1, 'credit', $2, $3, $4)`,
         [userId, amount, reason, callId]
       );
 
       await client.query('COMMIT');
-      console.log(`🌹 [Rose] CREDITED ${amount} roses (${callType}) to user ${userId} — newBalance: ${newBalance}`);
       return { success: true, newBalance };
     } catch (err) {
       await client.query('ROLLBACK');
-      console.error(`🌹 [Rose] ERROR crediting for user ${userId}: ${err.message}`);
+      console.error(`Error crediting for user ${userId}: ${err.message}`);
       return { success: false, newBalance: null };
     } finally {
       client.release();
@@ -91,7 +89,7 @@ class RoseService {
   }
 
   /**
-   * Debit roses for a withdrawal request. Atomic, never goes negative.
+   * Debit coins for a withdrawal request. Atomic, never goes negative.
    *
    * @param {string} userId
    * @param {number} amount
@@ -104,8 +102,8 @@ class RoseService {
       await client.query('BEGIN');
 
       const updateRes = await client.query(
-        `UPDATE public.rose_balances
-         SET balance = balance - $1, updated_at = NOW()
+        `UPDATE public.wallets
+         SET balance = balance - $1
          WHERE user_id = $2 AND balance >= $1
          RETURNING balance`,
         [amount, userId]
@@ -120,17 +118,16 @@ class RoseService {
 
       // Log transaction
       await client.query(
-        `INSERT INTO public.rose_transactions (user_id, type, amount, reason, reference_id)
+        `INSERT INTO public.wallet_transactions (user_id, type, amount, reason, reference_id)
          VALUES ($1, 'debit', $2, 'withdrawal_request', $3)`,
         [userId, amount, withdrawalId]
       );
 
       await client.query('COMMIT');
-      console.log(`🌹 [Rose] DEBITED ${amount} roses from user ${userId} for withdrawal ${withdrawalId} — newBalance: ${newBalance}`);
       return { success: true, newBalance };
     } catch (err) {
       await client.query('ROLLBACK');
-      console.error(`🌹 [Rose] ERROR debiting for user ${userId}: ${err.message}`);
+      console.error(`Error debiting for user ${userId}: ${err.message}`);
       return { success: false, newBalance: null };
     } finally {
       client.release();
@@ -138,7 +135,7 @@ class RoseService {
   }
 
   /**
-   * Get paginated rose transactions for a user.
+   * Get paginated wallet transactions for a user.
    * Scoped strictly to the specified userId.
    *
    * @param {string} userId
@@ -155,7 +152,7 @@ class RoseService {
     if (cursor) {
       query = `
         SELECT id, amount, type, reason, reference_id, created_at
-        FROM public.rose_transactions
+        FROM public.wallet_transactions
         WHERE user_id = $1 AND created_at < $2
         ORDER BY created_at DESC
         LIMIT $3
@@ -164,7 +161,7 @@ class RoseService {
     } else {
       query = `
         SELECT id, amount, type, reason, reference_id, created_at
-        FROM public.rose_transactions
+        FROM public.wallet_transactions
         WHERE user_id = $1
         ORDER BY created_at DESC
         LIMIT $2
@@ -178,8 +175,10 @@ class RoseService {
     const reasonLabels = {
       call_minute_voice: 'Voice Call Earnings',
       call_minute_video: 'Video Call Earnings',
+      instant_call_scratch_reward: 'Instant Call Scratch Card Reward',
       withdrawal_request: 'Withdrawal Request',
-      signup_bonus: 'Signup Rose Bonus',
+      wallet_recharge: 'Wallet Recharge',
+      recharge: 'Wallet Recharge',
     };
 
     const transactions = rows.map((row) => ({
