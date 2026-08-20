@@ -19,22 +19,31 @@ const userSockets = new Map();
  * Generate Agora RTC Token for communication
  */
 function generateAgoraToken(channelName, uid) {
-  if (!AGORA_APP_ID || !AGORA_APP_CERTIFICATE) {
+  const appId = process.env.AGORA_APP_ID || AGORA_APP_ID;
+  const appCertificate = process.env.AGORA_APP_CERTIFICATE || AGORA_APP_CERTIFICATE;
+
+  if (!appId || !appCertificate) {
     return 'test_token_' + Date.now();
   }
-  const role = RtcRole.PUBLISHER;
-  const expirationTimeInSeconds = 3600 * 2; // 2 hours
-  const currentTimestamp = Math.floor(Date.now() / 1000);
-  const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
 
-  return RtcTokenBuilder.buildTokenWithUid(
-    AGORA_APP_ID,
-    AGORA_APP_CERTIFICATE,
-    channelName,
-    uid,
-    role,
-    privilegeExpiredTs
-  );
+  try {
+    const role = RtcRole.PUBLISHER;
+    const expirationTimeInSeconds = 3600 * 2; // 2 hours
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+
+    return RtcTokenBuilder.buildTokenWithUid(
+      appId,
+      appCertificate,
+      channelName,
+      uid,
+      role,
+      privilegeExpiredTs
+    );
+  } catch (err) {
+    console.error('Error generating Agora token:', err.message);
+    return 'fallback_token_' + Date.now();
+  }
 }
 
 /**
@@ -394,7 +403,7 @@ function registerInstantConnectHandlers(io, socket, redis) {
       }
 
       // Winner! Clean up other ringing females
-      for (const fId of femaleUserIds) {
+      for (const fId of (femaleUserIds || [])) {
         await redis.del(`instant:ringing:${fId}`);
         if (fId !== userId) {
           const loserSocketId = userSockets.get(fId);
@@ -414,19 +423,24 @@ function registerInstantConnectHandlers(io, socket, redis) {
       await instantConnectService.startCallSession(sessionId, userId, agoraChannelName);
 
       // Fetch user profile details to reveal to each other ONLY upon acceptance
-      const [maleUserRes, femaleUserRes] = await Promise.all([
-        db.query(
-          `SELECT id, full_name, avatar_url, avatar_seed, avatar_style, gender FROM public.users WHERE id = $1`,
-          [maleUserId]
-        ),
-        db.query(
-          `SELECT id, full_name, avatar_url, avatar_seed, avatar_style, gender FROM public.users WHERE id = $1`,
-          [userId]
-        ),
-      ]);
-
-      const maleUser = maleUserRes.rows[0] || {};
-      const femaleUser = femaleUserRes.rows[0] || {};
+      let maleUser = {};
+      let femaleUser = {};
+      try {
+        const [maleUserRes, femaleUserRes] = await Promise.all([
+          db.query(
+            `SELECT id, full_name, avatar_seed, avatar_style, gender FROM public.users WHERE id = $1`,
+            [maleUserId]
+          ),
+          db.query(
+            `SELECT id, full_name, avatar_seed, avatar_style, gender FROM public.users WHERE id = $1`,
+            [userId]
+          ),
+        ]);
+        maleUser = maleUserRes.rows[0] || {};
+        femaleUser = femaleUserRes.rows[0] || {};
+      } catch (userErr) {
+        console.error('Error fetching user profiles for instant call:', userErr.message);
+      }
 
       // Generate Agora Tokens
       const maleUid = Math.floor(Math.random() * 80000) + 10000;
@@ -483,27 +497,31 @@ function registerInstantConnectHandlers(io, socket, redis) {
       socketToInstantCall.set(activeMaleSocketId, callId);
       socketToInstantCall.set(socket.id, callId);
 
+      const liveAppId = process.env.AGORA_APP_ID || AGORA_APP_ID;
+
       // Notify Male (revealing female profile)
-      io.to(activeMaleSocketId).emit('instant:call_connected', {
-        callId,
-        sessionId,
-        agoraChannelName,
-        agoraToken: maleToken,
-        agoraUid: maleUid,
-        remoteUid: femaleUid,
-        agoraAppId: AGORA_APP_ID,
-        bidAmount,
-        otherUserName: femaleUser.full_name || 'VIP Partner',
-        matchedUser: {
-          id: femaleUser.id || userId,
-          fullName: femaleUser.full_name || 'VIP Partner',
-          avatarUrl: femaleUser.avatar_url || null,
-          avatarSeed: femaleUser.avatar_seed || null,
-          avatarStyle: femaleUser.avatar_style || 'avataaars',
-          gender: femaleUser.gender || 'Female',
-        },
-        durationLimitSeconds: 600,
-      });
+      if (activeMaleSocketId) {
+        io.to(activeMaleSocketId).emit('instant:call_connected', {
+          callId,
+          sessionId,
+          agoraChannelName,
+          agoraToken: maleToken,
+          agoraUid: maleUid,
+          remoteUid: femaleUid,
+          agoraAppId: liveAppId,
+          bidAmount,
+          otherUserName: femaleUser.full_name || 'VIP Partner',
+          matchedUser: {
+            id: femaleUser.id || userId,
+            fullName: femaleUser.full_name || 'VIP Partner',
+            avatarUrl: femaleUser.avatar_seed || null,
+            avatarSeed: femaleUser.avatar_seed || null,
+            avatarStyle: femaleUser.avatar_style || 'avataaars',
+            gender: femaleUser.gender || 'Female',
+          },
+          durationLimitSeconds: 600,
+        });
+      }
 
       // Notify Female (revealing male profile)
       socket.emit('instant:call_connected', {
@@ -513,13 +531,13 @@ function registerInstantConnectHandlers(io, socket, redis) {
         agoraToken: femaleToken,
         agoraUid: femaleUid,
         remoteUid: maleUid,
-        agoraAppId: AGORA_APP_ID,
+        agoraAppId: liveAppId,
         bidAmount,
         otherUserName: maleUser.full_name || 'VIP Partner',
         matchedUser: {
           id: maleUser.id || maleUserId,
           fullName: maleUser.full_name || 'VIP Partner',
-          avatarUrl: maleUser.avatar_url || null,
+          avatarUrl: maleUser.avatar_seed || null,
           avatarSeed: maleUser.avatar_seed || null,
           avatarStyle: maleUser.avatar_style || 'avataaars',
           gender: maleUser.gender || 'Male',
@@ -529,8 +547,8 @@ function registerInstantConnectHandlers(io, socket, redis) {
 
       cb({ success: true, callId, sessionId });
     } catch (err) {
-      console.error(`Error accepting instant call by ${userId}:`, err.message);
-      cb({ success: false, error: 'SERVER_ERROR' });
+      console.error(`Error accepting instant call by ${userId}:`, err);
+      cb({ success: false, error: 'SERVER_ERROR', message: err.message });
     }
   });
 

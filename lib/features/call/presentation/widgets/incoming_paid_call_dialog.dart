@@ -85,10 +85,9 @@ class _IncomingPaidCallDialogState extends ConsumerState<IncomingPaidCallDialog>
     final colors = context.colors;
     final typography = context.typography;
 
-    // Auto-dismiss dialog if phase leaves incomingRequest (e.g. connected or dismissed)
+    // Auto-dismiss dialog if phase leaves incomingRequest (e.g. connected, dismissed, or error)
     ref.listen<InstantConnectState>(instantConnectControllerProvider, (prev, next) {
-      if (next.phase != InstantPhase.incomingRequest && !_actionHandled && mounted) {
-        _actionHandled = true;
+      if (next.phase != InstantPhase.incomingRequest && mounted) {
         _countdownTimer?.cancel();
         if (Navigator.of(context, rootNavigator: true).canPop()) {
           Navigator.of(context, rootNavigator: true).pop();
