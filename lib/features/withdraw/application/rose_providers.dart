@@ -7,15 +7,17 @@ import 'package:buddypartner/features/auth/application/auth_state_provider.dart'
 /// Withdrawal request model
 class WithdrawalRequest {
   final String id;
-  final int roseAmount;
+  final int coinAmount;
   final int rupeeAmount;
   final String status;
   final DateTime requestedAt;
   final DateTime? processedAt;
 
+  int get roseAmount => coinAmount;
+
   WithdrawalRequest({
     required this.id,
-    required this.roseAmount,
+    required this.coinAmount,
     required this.rupeeAmount,
     required this.status,
     required this.requestedAt,
@@ -23,11 +25,12 @@ class WithdrawalRequest {
   });
 
   factory WithdrawalRequest.fromJson(Map<String, dynamic> json) {
+    final rawAmount = (json['coin_amount'] ?? json['rose_amount'] ?? json['amount'] ?? 0) as num;
     return WithdrawalRequest(
       id: json['id'] as String,
-      roseAmount: (json['rose_amount'] as num).toInt(),
-      rupeeAmount: (json['rupee_amount'] as num).toInt(),
-      status: json['status'] as String,
+      coinAmount: rawAmount.toInt(),
+      rupeeAmount: (json['rupee_amount'] as num?)?.toInt() ?? rawAmount.toInt(),
+      status: json['status'] as String? ?? 'pending',
       requestedAt: DateTime.parse(json['requested_at'] as String),
       processedAt: json['processed_at'] != null
           ? DateTime.parse(json['processed_at'] as String)

@@ -30,14 +30,14 @@ class WithdrawController extends Notifier<WithdrawState> {
   @override
   WithdrawState build() => const WithdrawState();
 
-  Future<bool> requestWithdrawal(int roseAmount) async {
+  Future<bool> requestWithdrawal(int amount) async {
     state = state.copyWith(isLoading: true, errorMessage: null, successMessage: null);
 
     try {
       final apiClient = ref.read(apiClientProvider);
       final response = await apiClient.dio.post(
         '/api/withdrawals',
-        data: {'roseAmount': roseAmount},
+        data: {'amount': amount, 'coinAmount': amount, 'roseAmount': amount},
       );
 
       if (response.statusCode == 200 && response.data != null && response.data['success'] == true) {

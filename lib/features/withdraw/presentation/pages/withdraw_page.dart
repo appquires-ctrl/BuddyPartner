@@ -22,7 +22,7 @@ class WithdrawPage extends ConsumerStatefulWidget {
 
 class _WithdrawPageState extends ConsumerState<WithdrawPage> {
   final _amountController = TextEditingController();
-  int _enteredRoses = 0;
+  int _enteredCoins = 0;
 
   @override
   void initState() {
@@ -30,9 +30,9 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
     _amountController.addListener(() {
       final text = _amountController.text;
       final parsed = int.tryParse(text) ?? 0;
-      if (parsed != _enteredRoses) {
+      if (parsed != _enteredCoins) {
         setState(() {
-          _enteredRoses = parsed;
+          _enteredCoins = parsed;
         });
       }
     });
@@ -44,16 +44,16 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
     super.dispose();
   }
 
-  void _submitWithdrawal(int maxRoses) {
+  void _submitWithdrawal(int maxCoins) {
     AppLogger.button('Submit Withdrawal Request', screen: 'WithdrawPage');
     final amount = int.tryParse(_amountController.text.trim()) ?? 0;
     if (amount <= 0) {
-      AppSnackBar.showError(context, 'Please enter a valid amount of roses to withdraw.');
+      AppSnackBar.showError(context, 'Please enter a valid amount of coins to withdraw.');
       return;
     }
 
-    if (amount > maxRoses) {
-      AppSnackBar.showError(context, 'You cannot withdraw more than your balance of $maxRoses roses.');
+    if (amount > maxCoins) {
+      AppSnackBar.showError(context, 'You cannot withdraw more than your balance of $maxCoins coins.');
       return;
     }
 
@@ -251,7 +251,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Enter the amount of roses you wish to convert to rupees.',
+                    'Enter the amount of coins you wish to convert to rupees (₹).',
                     style: typography.bodySmall.copyWith(
                       color: colors.textSecondary,
                     ),
@@ -262,12 +262,12 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                     controller: _amountController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      labelText: 'Roses to Withdraw',
+                      labelText: 'Coins to Withdraw',
                       prefixIcon: const Padding(
                         padding: EdgeInsets.all(12.0),
-                        child: Text('🌹', style: TextStyle(fontSize: 20)),
+                        child: Text('🪙', style: TextStyle(fontSize: 20)),
                       ),
-                      suffixText: 'Roses',
+                      suffixText: 'Coins',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -292,7 +292,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                           style: typography.bodySmall.copyWith(color: colors.textSecondary),
                         ),
                         Text(
-                          '₹$_enteredRoses.00',
+                          '₹$_enteredCoins.00',
                           style: typography.bodyMedium.copyWith(
                             fontWeight: FontWeight.bold,
                             color: colors.primary,
@@ -401,7 +401,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
               color: colors.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Text('🌹', style: TextStyle(fontSize: 20)),
+            child: const Text('🪙', style: TextStyle(fontSize: 20)),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -409,7 +409,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${item.roseAmount} Roses  →  ₹${item.rupeeAmount}',
+                  '${item.coinAmount} Coins  →  ₹${item.rupeeAmount}',
                   style: typography.bodySmall.copyWith(
                     fontWeight: FontWeight.bold,
                   ),

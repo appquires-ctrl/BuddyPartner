@@ -19,44 +19,36 @@ class WithdrawalsService {
     try {
       await client.query('BEGIN');
 
-      // Check wallet balance first (where scratch card earnings are stored)
+      // Check wallet balance
       const walletRes = await client.query('SELECT balance FROM public.wallets WHERE user_id = $1', [userId]);
       const currentWallet = walletRes.rows[0]?.balance || 0;
 
-      // Check rose balance as fallback
-      const roseRes = await client.query('SELECT balance FROM public.rose_balances WHERE user_id = $1', [userId]);
-      const currentRoses = roseRes.rows[0]?.balance || 0;
-
-      if (currentWallet < amount && currentRoses < amount) {
+      if (currentWallet < amount) {
         await client.query('ROLLBACK');
-        return { success: false, error: `Insufficient balance. You have ${Math.max(currentWallet, currentRoses)} coins/roses but requested ${amount}.` };
+        return { success: false, error: `Insufficient balance. You have ${currentWallet} coins but requested ${amount}.` };
       }
 
       // Create withdrawal request
-      const rupeeAmount = amount; // 1 Coin / 1 Rose = ₹1
+      const rupeeAmount = amount; // 1 Coin = ₹1 INR
       const insertRes = await client.query(
         `INSERT INTO public.withdrawal_requests (user_id, rose_amount, rupee_amount, status)
          VALUES ($1, $2, $3, 'pending')
-         RETURNING id, rose_amount, rupee_amount, status, requested_at`,
+         RETURNING id, rose_amount as coin_amount, rupee_amount, status, requested_at`,
         [userId, amount, rupeeAmount]
       );
 
       const withdrawalId = insertRes.rows[0].id;
 
-      // Atomically debit from wallets table if wallet has balance
-      if (currentWallet >= amount) {
-        await client.query(
-          `UPDATE public.wallets SET balance = balance - $1 WHERE user_id = $2`,
-          [amount, userId]
-        );
-        await client.query(
-          `INSERT INTO public.wallet_transactions (user_id, amount, type, reason, reference_id)
-           VALUES ($1, $2, 'debit', 'withdrawal_request', $3)`,
-          [userId, amount, withdrawalId]
-        );
-      } else {
-        await RoseService.debitRosesForWithdrawal(userId, amount, withdrawalId);
-      }
+      // Atomically debit from wallets table
+      await client.query(
+        `UPDATE public.wallets SET balance = balance - $1 WHERE user_id = $2`,
+        [amount, userId]
+      );
+      await client.query(
+        `INSERT INTO public.wallet_transactions (user_id, amount, type, reason, reference_id)
+         VALUES ($1, $2, 'debit', 'withdrawal_request', $3)`,
+        [userId, amount, withdrawalId]
+      );
 
       await client.query('COMMIT');
 

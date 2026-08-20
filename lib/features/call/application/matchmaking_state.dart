@@ -75,8 +75,10 @@ class MatchmakingState {
   final bool isVideoRequestIncoming;
   final String? videoRequestSenderName;
 
-  /// Roses earned during this call (for female users)
-  final int rosesEarnedThisCall;
+  /// Coins earned during this call (for female users)
+  final int coinsEarnedThisCall;
+
+  int get rosesEarnedThisCall => coinsEarnedThisCall;
 
   const MatchmakingState({
     this.phase = MatchmakingPhase.idle,
@@ -94,7 +96,7 @@ class MatchmakingState {
     this.isVideoRequestOutgoing = false,
     this.isVideoRequestIncoming = false,
     this.videoRequestSenderName,
-    this.rosesEarnedThisCall = 0,
+    this.coinsEarnedThisCall = 0,
   });
 
   int get remainingSeconds => callDurationSeconds;
@@ -119,6 +121,7 @@ class MatchmakingState {
     bool? isVideoRequestIncoming,
     String? videoRequestSenderName,
     bool clearVideoRequestSenderName = false,
+    int? coinsEarnedThisCall,
     int? rosesEarnedThisCall,
   }) {
     return MatchmakingState(
@@ -139,7 +142,7 @@ class MatchmakingState {
       videoRequestSenderName: clearVideoRequestSenderName
           ? null
           : (videoRequestSenderName ?? this.videoRequestSenderName),
-      rosesEarnedThisCall: rosesEarnedThisCall ?? this.rosesEarnedThisCall,
+      coinsEarnedThisCall: coinsEarnedThisCall ?? rosesEarnedThisCall ?? this.coinsEarnedThisCall,
     );
   }
 

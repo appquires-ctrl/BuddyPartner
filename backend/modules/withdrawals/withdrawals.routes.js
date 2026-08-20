@@ -29,8 +29,8 @@ router.post('/withdrawals', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: 'Withdrawals are only available for female users.' });
     }
 
-    const { roseAmount } = req.body;
-    const amount = parseInt(roseAmount, 10);
+    const rawAmount = req.body.amount || req.body.coinAmount || req.body.roseAmount;
+    const amount = parseInt(rawAmount, 10);
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: 'Invalid withdrawal amount. Must be a positive number.' });
     }
