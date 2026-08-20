@@ -66,6 +66,15 @@ router.post('/scratch-cards/:id/scratch', authMiddleware, async (req, res) => {
 router.get('/dev/queues', async (req, res) => {
   try {
     const db = require('../../db');
+
+    // Auto-reconcile orphaned database calls older than 15 minutes
+    await db.query(`
+      UPDATE public.instant_call_sessions
+      SET status = CASE WHEN started_at < NOW() - INTERVAL '10 minutes' THEN 'completed' ELSE 'dropped' END,
+          ended_at = COALESCE(ended_at, NOW())
+      WHERE status = 'in_call' AND started_at < NOW() - INTERVAL '15 minutes'
+    `);
+
     // 1. Waiting males
     const maleQueueIds = await redis.zrevrange('instant:male_queue', 0, -1, 'WITHSCORES');
     const waitingMales = [];
@@ -121,6 +130,38 @@ router.get('/dev/queues', async (req, res) => {
   } catch (err) {
     console.error('Error fetching dev queues:', err.message);
     res.status(500).json({ error: 'Failed to inspect queues' });
+  }
+});
+
+// ── GET/POST /api/instant/dev/cleanup ────────────────────────────────────────
+// Quick admin reset to clear ghost calls and stale Redis state
+router.all('/dev/cleanup', async (req, res) => {
+  try {
+    const db = require('../../db');
+
+    // Close any stale active sessions
+    const updateRes = await db.query(`
+      UPDATE public.instant_call_sessions
+      SET status = 'dropped', ended_at = NOW()
+      WHERE status IN ('queued', 'ringing', 'in_call')
+      RETURNING id
+    `);
+
+    // Clean up Redis keys
+    const ringingKeys = await redis.keys('instant:ringing:*');
+    if (ringingKeys.length > 0) {
+      await redis.del(...ringingKeys);
+    }
+
+    res.json({
+      success: true,
+      message: 'Cleaned up stale queues and active sessions',
+      cleanedSessionsCount: updateRes.rowCount,
+      cleanedRingingKeysCount: ringingKeys.length,
+    });
+  } catch (err) {
+    console.error('Error in /dev/cleanup:', err.message);
+    res.status(500).json({ error: 'Failed to perform cleanup' });
   }
 });
 
