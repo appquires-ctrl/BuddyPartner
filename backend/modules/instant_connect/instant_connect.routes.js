@@ -103,6 +103,17 @@ router.get('/dev/queues', async (req, res) => {
     }
 
     // 3. Active females in Redis (reconcile with DB toggle)
+    const dbFemales = await db.query(`
+      SELECT id, full_name, phone_number, incoming_paid_calls_enabled
+      FROM public.users
+      WHERE incoming_paid_calls_enabled = true
+        AND (LOWER(gender) IN ('female', 'girl', 'woman', 'f'))
+    `);
+
+    for (const f of dbFemales.rows) {
+      await redis.sadd('instant:female_pool', f.id);
+    }
+
     const femaleIds = await redis.smembers('instant:female_pool');
     const activeFemales = [];
     for (const fId of femaleIds) {
