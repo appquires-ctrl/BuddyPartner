@@ -22,7 +22,7 @@ class WalletCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.space24),
+      padding: const EdgeInsets.all(AppSpacing.space16),
       decoration: BoxDecoration(
         borderRadius: AppRadius.lg,
         gradient: LinearGradient(
@@ -45,8 +45,8 @@ class WalletCard extends StatelessWidget {
             right: -20,
             bottom: -20,
             child: Container(
-              width: 120,
-              height: 120,
+              width: 100,
+              height: 100,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: colors.primary.withOpacity(0.15),
@@ -81,7 +81,7 @@ class WalletCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.space8),
+              // const SizedBox(height: AppSpacing.space8),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.baseline,
                 textBaseline: TextBaseline.alphabetic,
@@ -103,7 +103,7 @@ class WalletCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.space20),
+              // const SizedBox(height: AppSpacing.space20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

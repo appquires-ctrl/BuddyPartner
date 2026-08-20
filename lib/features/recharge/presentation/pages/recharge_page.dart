@@ -117,7 +117,7 @@ class _RechargePageState extends ConsumerState<RechargePage> {
               balance: balance,
               onRechargePressed: null, // already on recharge page
             ),
-            const SizedBox(height: AppSpacing.space12),
+            const SizedBox(height: AppSpacing.space4),
 
             // View Transaction History Link
             Align(
@@ -131,7 +131,7 @@ class _RechargePageState extends ConsumerState<RechargePage> {
                 ),
               ),
             ),
-            const SizedBox(height: AppSpacing.space16),
+            const SizedBox(height: 0.0),
 
             // Section Header title
             const SectionHeader(

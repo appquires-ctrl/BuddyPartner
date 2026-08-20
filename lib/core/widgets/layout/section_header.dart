@@ -20,9 +20,7 @@ class SectionHeader extends StatelessWidget {
     final colors = context.colors;
     final typography = context.typography;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 0.0),
-      child: Row(
+    return Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Expanded(
@@ -51,7 +49,6 @@ class SectionHeader extends StatelessWidget {
               ),
             ),
         ],
-      ),
     );
   }
 }

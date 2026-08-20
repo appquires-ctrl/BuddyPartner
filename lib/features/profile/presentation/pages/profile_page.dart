@@ -173,6 +173,30 @@ class ProfilePage extends ConsumerWidget {
                   children: [
                     _buildSettingsTile(
                       context,
+                      icon: (currentUser?.isFemale ?? false)
+                          ? Icons.payments_outlined
+                          : Icons.account_balance_wallet_outlined,
+                      iconBgColor: (currentUser?.isFemale ?? false)
+                          ? const Color(0xFFE8F8F0)
+                          : const Color(0xFFFFF7EA),
+                      iconColor: (currentUser?.isFemale ?? false)
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFFF59E0B),
+                      title: (currentUser?.isFemale ?? false)
+                          ? 'Earnings & Withdraw'
+                          : 'Wallet & Coins',
+                      subtitle: (currentUser?.isFemale ?? false)
+                          ? 'Withdraw earnings to UPI / Bank'
+                          : 'Recharge coins & view balance',
+                      onTap: () {
+                        context.push((currentUser?.isFemale ?? false)
+                            ? RouteNames.withdraw
+                            : RouteNames.recharge);
+                      },
+                    ),
+                    _buildDivider(context),
+                    _buildSettingsTile(
+                      context,
                       icon: Icons.card_membership_outlined,
                       iconBgColor: const Color(0xFFF5E6FF),
                       iconColor: const Color(0xFF8B5CF6),

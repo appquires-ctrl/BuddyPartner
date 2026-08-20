@@ -261,9 +261,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const BannedScreen(),
       ),
       GoRoute(
-        path: RouteNames.subscribe,
-        name: 'SubscribePage',
-        builder: (context, state) => const SubscribePage(),
+        path: RouteNames.recharge,
+        name: 'RechargePage',
+        builder: (context, state) => const RechargePage(),
+      ),
+      GoRoute(
+        path: RouteNames.withdraw,
+        name: 'WithdrawPage',
+        builder: (context, state) => const WithdrawPage(),
       ),
       GoRoute(
         path: RouteNames.devSubscription,
@@ -334,23 +339,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
 
-          // Tab 3: Male -> Wallet Recharge / Female -> Earnings & Withdraw
+          // Tab 3: Subscription (VIP / Premium)
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: RouteNames.recharge,
-                name: 'WalletTab',
-                builder: (context, state) {
-                  return Consumer(
-                    builder: (context, ref, _) {
-                      final isFemale = ref.watch(authStateProvider).value?.isFemale ?? false;
-                      if (isFemale) {
-                        return const WithdrawPage();
-                      }
-                      return const RechargePage();
-                    },
-                  );
-                },
+                path: RouteNames.subscribe,
+                name: 'SubscriptionTab',
+                builder: (context, state) => const SubscribePage(),
               ),
             ],
           ),

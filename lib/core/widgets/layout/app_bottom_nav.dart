@@ -57,7 +57,7 @@ class AppBottomNav extends StatelessWidget {
             child: NavigationBar(
               selectedIndex: navSelectedIndex,
               onDestinationSelected: (index) {
-                final tabNames = ['Home', 'Chat', 'Wallet', 'Favorite', 'Setting'];
+                final tabNames = ['Home', 'Chat', 'VIP', 'Favorite', 'Setting'];
                 final tabName = index >= 0 && index < tabNames.length ? tabNames[index] : 'Tab $index';
                 AppLogger.click('Bottom Nav Tab: $tabName');
                 onTap(index);
@@ -66,28 +66,28 @@ class AppBottomNav extends StatelessWidget {
               indicatorColor: colors.primary.withValues(alpha: 0.12),
               elevation: 0,
               height: 64,
-              destinations: [
-                const NavigationDestination(
+              destinations: const [
+                NavigationDestination(
                   icon: Icon(Icons.home_outlined),
                   selectedIcon: Icon(Icons.home),
                   label: 'Home',
                 ),
-                const NavigationDestination(
+                NavigationDestination(
                   icon: Icon(Icons.chat_bubble_outline),
                   selectedIcon: Icon(Icons.chat_bubble),
                   label: 'Chat',
                 ),
                 NavigationDestination(
-                  icon: Icon(isFemale ? Icons.payments_outlined : Icons.account_balance_wallet_outlined),
-                  selectedIcon: Icon(isFemale ? Icons.payments : Icons.account_balance_wallet),
-                  label: isFemale ? 'Earnings' : 'Wallet',
+                  icon: Icon(Icons.workspace_premium_outlined),
+                  selectedIcon: Icon(Icons.workspace_premium),
+                  label: 'VIP',
                 ),
-                const NavigationDestination(
+                NavigationDestination(
                   icon: Icon(Icons.favorite_border),
                   selectedIcon: Icon(Icons.favorite),
                   label: 'Favorite',
                 ),
-                const NavigationDestination(
+                NavigationDestination(
                   icon: Icon(Icons.settings_outlined),
                   selectedIcon: Icon(Icons.settings),
                   label: 'Setting',
