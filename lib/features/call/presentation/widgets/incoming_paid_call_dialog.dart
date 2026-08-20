@@ -52,10 +52,10 @@ class _IncomingPaidCallDialogState extends ConsumerState<IncomingPaidCallDialog>
     _actionHandled = true;
     HapticFeedback.mediumImpact();
     _countdownTimer?.cancel();
-    ref.read(instantConnectControllerProvider.notifier).acceptIncomingCall();
-    if (mounted) {
+    if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
       Navigator.of(context, rootNavigator: true).pop();
     }
+    ref.read(instantConnectControllerProvider.notifier).acceptIncomingCall();
   }
 
   void _onDecline() {
@@ -63,10 +63,10 @@ class _IncomingPaidCallDialogState extends ConsumerState<IncomingPaidCallDialog>
     _actionHandled = true;
     HapticFeedback.lightImpact();
     _countdownTimer?.cancel();
-    ref.read(instantConnectControllerProvider.notifier).declineIncomingCall();
-    if (mounted) {
+    if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
       Navigator.of(context, rootNavigator: true).pop();
     }
+    ref.read(instantConnectControllerProvider.notifier).declineIncomingCall();
   }
 
   @override
@@ -86,7 +86,9 @@ class _IncomingPaidCallDialogState extends ConsumerState<IncomingPaidCallDialog>
       if (next.phase != InstantPhase.incomingRequest && !_actionHandled && mounted) {
         _actionHandled = true;
         _countdownTimer?.cancel();
-        Navigator.of(context, rootNavigator: true).pop();
+        if (Navigator.of(context, rootNavigator: true).canPop()) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
       }
     });
 
