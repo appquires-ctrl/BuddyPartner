@@ -271,6 +271,7 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
     required int agoraUid,
     int? remoteUid,
     required String otherUserName,
+    MatchedUserInfo? matchedUser,
     String? agoraAppId,
   }) async {
     try {
@@ -284,7 +285,7 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
         agoraToken: agoraToken,
         agoraUid: agoraUid,
         remoteUid: remoteUid,
-        matchedUser: MatchedUserInfo(
+        matchedUser: matchedUser ?? MatchedUserInfo(
           id: 'instant_partner',
           fullName: otherUserName,
         ),

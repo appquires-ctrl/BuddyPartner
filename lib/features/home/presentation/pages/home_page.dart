@@ -592,13 +592,12 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 ),
                               ),
                               // Unclaimed scratch cards banner
-                              if (instantConnectState.femaleStatus.unscratchedCount > 0 &&
-                                  instantConnectState.scratchCards.isNotEmpty) ...[
+                              if (instantConnectState.scratchCards.any((c) => !c.isScratched)) ...[
                                 const SizedBox(height: 12),
                                 GestureDetector(
                                   onTap: () {
                                     final unscratched = instantConnectState.scratchCards
-                                        .firstWhere((c) => !c.isScratched, orElse: () => instantConnectState.scratchCards.first);
+                                        .firstWhere((c) => !c.isScratched);
                                     ScratchCardDialog.show(context, unscratched);
                                   },
                                   child: Container(
@@ -613,7 +612,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                         const Icon(Icons.card_giftcard_rounded, color: Color(0xFF5D4037), size: 18),
                                         const SizedBox(width: 6),
                                         Text(
-                                          '🎁 ${instantConnectState.femaleStatus.unscratchedCount} Scratch Cards Waiting! (Tap to Reveal)',
+                                          '🎁 ${instantConnectState.scratchCards.where((c) => !c.isScratched).length} Scratch Card(s) Waiting! (Tap to Reveal)',
                                           style: const TextStyle(
                                             color: Color(0xFF5D4037),
                                             fontWeight: FontWeight.bold,

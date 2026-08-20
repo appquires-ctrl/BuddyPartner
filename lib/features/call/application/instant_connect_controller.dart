@@ -7,6 +7,7 @@ import 'package:buddypartner/core/services/socket_provider.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/features/call/domain/models/instant_connect_models.dart';
 import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
+import 'package:buddypartner/features/call/application/matchmaking_state.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 
 enum InstantPhase {
@@ -191,6 +192,11 @@ class InstantConnectController extends Notifier<InstantConnectState> {
         _startCallTimer();
 
         // Connect Agora RTC Engine
+        final matchedUserRaw = data['matchedUser'];
+        final matchedUser = (matchedUserRaw is Map)
+            ? MatchedUserInfo.fromJson(Map<String, dynamic>.from(matchedUserRaw))
+            : null;
+
         if (chan.isNotEmpty && tok.isNotEmpty) {
           await ref.read(matchmakingControllerProvider.notifier).startInstantCall(
             callId: cId,
@@ -199,6 +205,7 @@ class InstantConnectController extends Notifier<InstantConnectState> {
             agoraUid: uid,
             remoteUid: rUid,
             otherUserName: otherName,
+            matchedUser: matchedUser,
             agoraAppId: appId,
           );
         }
@@ -374,6 +381,38 @@ class InstantConnectController extends Notifier<InstantConnectState> {
         if (newBal != null) {
           ref.read(walletBalanceProvider.notifier).setBalance(newBal);
         }
+
+        // Optimistically update card list & female status
+        final updatedCards = state.scratchCards.map((c) {
+          if (c.id == cardId) {
+            return ScratchCardModel(
+              id: c.id,
+              sessionId: c.sessionId,
+              coinReward: reward,
+              isScratched: true,
+              scratchedAt: DateTime.now(),
+              createdAt: c.createdAt,
+            );
+          }
+          return c;
+        }).toList();
+
+        final newUnscratched = (state.femaleStatus.unscratchedCount - 1).clamp(0, 999);
+        state = state.copyWith(
+          scratchCards: updatedCards,
+          femaleStatus: state.femaleStatus.copyWith(unscratchedCount: newUnscratched),
+          latestUnlockedCard: state.latestUnlockedCard?.id == cardId
+              ? ScratchCardModel(
+                  id: cardId,
+                  sessionId: state.latestUnlockedCard?.sessionId,
+                  coinReward: reward,
+                  isScratched: true,
+                  scratchedAt: DateTime.now(),
+                  createdAt: state.latestUnlockedCard?.createdAt,
+                )
+              : state.latestUnlockedCard,
+        );
+
         await fetchFemaleStatus();
         await fetchScratchCards();
         return reward;

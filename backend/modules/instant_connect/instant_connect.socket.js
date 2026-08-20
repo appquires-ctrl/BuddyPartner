@@ -375,6 +375,21 @@ function registerInstantConnectHandlers(io, socket, redis) {
       // Start call in DB
       await instantConnectService.startCallSession(sessionId, userId, agoraChannelName);
 
+      // Fetch user profile details to reveal to each other ONLY upon acceptance
+      const [maleUserRes, femaleUserRes] = await Promise.all([
+        db.query(
+          `SELECT id, full_name, avatar_url, avatar_seed, avatar_style, gender FROM public.users WHERE id = $1`,
+          [maleUserId]
+        ),
+        db.query(
+          `SELECT id, full_name, avatar_url, avatar_seed, avatar_style, gender FROM public.users WHERE id = $1`,
+          [userId]
+        ),
+      ]);
+
+      const maleUser = maleUserRes.rows[0] || {};
+      const femaleUser = femaleUserRes.rows[0] || {};
+
       // Generate Agora Tokens
       const maleUid = Math.floor(Math.random() * 80000) + 10000;
       const femaleUid = Math.floor(Math.random() * 80000) + 10000;
@@ -421,7 +436,7 @@ function registerInstantConnectHandlers(io, socket, redis) {
       socketToInstantCall.set(maleSocketId, callId);
       socketToInstantCall.set(socket.id, callId);
 
-      // Notify Male
+      // Notify Male (revealing female profile)
       io.to(maleSocketId).emit('instant:call_connected', {
         callId,
         sessionId,
@@ -431,11 +446,19 @@ function registerInstantConnectHandlers(io, socket, redis) {
         remoteUid: femaleUid,
         agoraAppId: AGORA_APP_ID,
         bidAmount,
-        otherUserName: 'VIP Partner',
+        otherUserName: femaleUser.full_name || 'VIP Partner',
+        matchedUser: {
+          id: femaleUser.id || userId,
+          fullName: femaleUser.full_name || 'VIP Partner',
+          avatarUrl: femaleUser.avatar_url || null,
+          avatarSeed: femaleUser.avatar_seed || null,
+          avatarStyle: femaleUser.avatar_style || 'avataaars',
+          gender: femaleUser.gender || 'Female',
+        },
         durationLimitSeconds: 600,
       });
 
-      // Notify Female
+      // Notify Female (revealing male profile)
       socket.emit('instant:call_connected', {
         callId,
         sessionId,
@@ -445,7 +468,15 @@ function registerInstantConnectHandlers(io, socket, redis) {
         remoteUid: maleUid,
         agoraAppId: AGORA_APP_ID,
         bidAmount,
-        otherUserName: 'VIP Partner',
+        otherUserName: maleUser.full_name || 'VIP Partner',
+        matchedUser: {
+          id: maleUser.id || maleUserId,
+          fullName: maleUser.full_name || 'VIP Partner',
+          avatarUrl: maleUser.avatar_url || null,
+          avatarSeed: maleUser.avatar_seed || null,
+          avatarStyle: maleUser.avatar_style || 'avataaars',
+          gender: maleUser.gender || 'Male',
+        },
         durationLimitSeconds: 600,
       });
 
@@ -540,4 +571,6 @@ function registerInstantConnectHandlers(io, socket, redis) {
 
 module.exports = {
   registerInstantConnectHandlers,
+  activeInstantCalls,
+  socketToInstantCall,
 };

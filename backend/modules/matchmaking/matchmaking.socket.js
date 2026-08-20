@@ -2,6 +2,7 @@ const { MatchmakingService } = require('./matchmaking.service');
 const { callsService } = require('../calls/calls.service');
 const { WalletService, CALL_RATES } = require('../wallet/wallet.service');
 const { subscriptionsService } = require('../subscriptions/subscriptions.service');
+const { activeInstantCalls } = require('../instant_connect/instant_connect.socket');
 const db = require('../../db');
 
 // In-memory map of active calls: callId → { userA: { userId, socketId, gender }, userB: { userId, socketId, gender } }
@@ -159,21 +160,32 @@ function registerMatchmakingHandlers(io, socket, redis) {
   // ── upgrade_to_video ──────────────────────────────────────────────────
   socket.on('upgrade_to_video', async ({ callId }) => {
     try {
-      const callInfo = activeCalls.get(callId);
-      if (!callInfo) return;
+      let otherSocketId = null;
 
-      // Security Check: Authorize sender participant
-      if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) {
-        console.warn(`⚠️ Unauthorized attempt to upgrade call to video by ${userId}`);
+      const callInfo = activeCalls.get(callId);
+      if (callInfo) {
+        if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) {
+          console.warn(`⚠️ Unauthorized attempt to upgrade call to video by ${userId}`);
+          return;
+        }
+        otherSocketId = callInfo.userA.userId === userId ? callInfo.userB.socketId : callInfo.userA.socketId;
+      } else {
+        const instantCall = activeInstantCalls?.get(callId);
+        if (instantCall) {
+          if (instantCall.maleUserId !== userId && instantCall.femaleUserId !== userId) {
+            console.warn(`⚠️ Unauthorized attempt to upgrade instant call to video by ${userId}`);
+            return;
+          }
+          otherSocketId = instantCall.maleUserId === userId ? instantCall.femaleSocketId : instantCall.maleSocketId;
+        }
+      }
+
+      if (!otherSocketId) {
+        console.warn(`⚠️ No active call session found for video upgrade request (callId: ${callId})`);
         return;
       }
 
       const requesterProfile = await fetchPublicProfile(userId);
-
-      // Determine the other user's socket and relay the upgrade request
-      const otherSocketId = callInfo.userA.userId === userId
-        ? callInfo.userB.socketId
-        : callInfo.userA.socketId;
 
       io.to(otherSocketId).emit('video_upgrade_request', {
         callId,
@@ -189,21 +201,28 @@ function registerMatchmakingHandlers(io, socket, redis) {
   // ── video_upgrade_accepted ────────────────────────────────────────────
   socket.on('video_upgrade_accepted', async ({ callId }) => {
     try {
-      const callInfo = activeCalls.get(callId);
-      if (!callInfo) return;
+      let otherSocketId = null;
 
-      // Security Check: Authorize sender participant
-      if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) {
-        console.warn(`⚠️ Unauthorized attempt to accept video upgrade by ${userId}`);
-        return;
+      const callInfo = activeCalls.get(callId);
+      if (callInfo) {
+        if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) {
+          console.warn(`⚠️ Unauthorized attempt to accept video upgrade by ${userId}`);
+          return;
+        }
+        await callsService.upgradeToVideo(callId);
+        otherSocketId = callInfo.userA.userId === userId ? callInfo.userB.socketId : callInfo.userA.socketId;
+      } else {
+        const instantCall = activeInstantCalls?.get(callId);
+        if (instantCall) {
+          if (instantCall.maleUserId !== userId && instantCall.femaleUserId !== userId) {
+            console.warn(`⚠️ Unauthorized attempt to accept instant video upgrade by ${userId}`);
+            return;
+          }
+          otherSocketId = instantCall.maleUserId === userId ? instantCall.femaleSocketId : instantCall.maleSocketId;
+        }
       }
 
-      await callsService.upgradeToVideo(callId);
-
-      // Relay acceptance to the other party
-      const otherSocketId = callInfo.userA.userId === userId
-        ? callInfo.userB.socketId
-        : callInfo.userA.socketId;
+      if (!otherSocketId) return;
 
       io.to(otherSocketId).emit('video_upgrade_accepted', { callId });
       console.log(`✅ User ${userId} accepted video upgrade for call ${callId}`);
@@ -215,19 +234,27 @@ function registerMatchmakingHandlers(io, socket, redis) {
   // ── video_upgrade_declined ────────────────────────────────────────────
   socket.on('video_upgrade_declined', ({ callId }) => {
     try {
-      const callInfo = activeCalls.get(callId);
-      if (!callInfo) return;
+      let otherSocketId = null;
 
-      // Security Check: Authorize sender participant
-      if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) {
-        console.warn(`⚠️ Unauthorized attempt to decline video upgrade by ${userId}`);
-        return;
+      const callInfo = activeCalls.get(callId);
+      if (callInfo) {
+        if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) {
+          console.warn(`⚠️ Unauthorized attempt to decline video upgrade by ${userId}`);
+          return;
+        }
+        otherSocketId = callInfo.userA.userId === userId ? callInfo.userB.socketId : callInfo.userA.socketId;
+      } else {
+        const instantCall = activeInstantCalls?.get(callId);
+        if (instantCall) {
+          if (instantCall.maleUserId !== userId && instantCall.femaleUserId !== userId) {
+            console.warn(`⚠️ Unauthorized attempt to decline instant video upgrade by ${userId}`);
+            return;
+          }
+          otherSocketId = instantCall.maleUserId === userId ? instantCall.femaleSocketId : instantCall.maleSocketId;
+        }
       }
 
-      // Relay declination to the other party
-      const otherSocketId = callInfo.userA.userId === userId
-        ? callInfo.userB.socketId
-        : callInfo.userA.socketId;
+      if (!otherSocketId) return;
 
       io.to(otherSocketId).emit('video_upgrade_declined', { callId });
       console.log(`❌ User ${userId} declined video upgrade for call ${callId}`);

@@ -176,73 +176,105 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                         builder: (context) {
                           final instantState = ref.watch(instantConnectControllerProvider);
                           final isInstantCall = instantState.phase == InstantPhase.inCall;
+                          final currentUser = ref.watch(authStateProvider).value;
+                          final isFemale = currentUser?.isFemale ?? false;
 
                           if (isInstantCall) {
-                            if (instantState.is10mReached) {
-                              return GestureDetector(
-                                onTap: () {
-                                  if (instantState.latestUnlockedCard != null) {
-                                    ScratchCardDialog.show(context, instantState.latestUnlockedCard!);
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [Color(0xFFFFD54F), Color(0xFFFFB300)],
-                                    ),
-                                    borderRadius: BorderRadius.circular(20),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xFFFFB300).withValues(alpha: 0.5),
-                                        blurRadius: 10,
-                                        spreadRadius: 1,
+                            if (isFemale) {
+                              if (instantState.is10mReached) {
+                                return GestureDetector(
+                                  onTap: () {
+                                    if (instantState.latestUnlockedCard != null) {
+                                      ScratchCardDialog.show(context, instantState.latestUnlockedCard!);
+                                    }
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [Color(0xFFFFD54F), Color(0xFFFFB300)],
                                       ),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: const [
-                                      Icon(Icons.card_giftcard_rounded, color: Color(0xFF5D4037), size: 16),
-                                      SizedBox(width: 6),
-                                      Text(
-                                        '🎁 Scratch Card Unlocked!',
-                                        style: TextStyle(
-                                          color: Color(0xFF5D4037),
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
+                                      borderRadius: BorderRadius.circular(20),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFFFFB300).withValues(alpha: 0.5),
+                                          blurRadius: 10,
+                                          spreadRadius: 1,
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: const [
+                                        Icon(Icons.card_giftcard_rounded, color: Color(0xFF5D4037), size: 16),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          '🎁 Scratch Card Unlocked!',
+                                          style: TextStyle(
+                                            color: Color(0xFF5D4037),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
+                                );
+                              }
+
+                              final remainingTo10m = (600 - instantState.callSecondsElapsed).clamp(0, 600);
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF7C6AEF).withValues(alpha: 0.35),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: const Color(0xFF7C6AEF).withValues(alpha: 0.6)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.bolt_rounded, color: Color(0xFFFFD54F), size: 16),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Reward in ${_formatCountdown(remainingTo10m)}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            } else {
+                              // Male User Screen: Normal instant call timer without reward text
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF7C6AEF).withValues(alpha: 0.35),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: const Color(0xFF7C6AEF).withValues(alpha: 0.6)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.bolt_rounded, color: Color(0xFFFFD54F), size: 16),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      _formatCountdown(instantState.callSecondsElapsed > 0
+                                          ? instantState.callSecondsElapsed
+                                          : matchState.callDurationSeconds),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               );
                             }
-
-                            final remainingTo10m = (600 - instantState.callSecondsElapsed).clamp(0, 600);
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF7C6AEF).withValues(alpha: 0.35),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: const Color(0xFF7C6AEF).withValues(alpha: 0.6)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.bolt_rounded, color: Color(0xFFFFD54F), size: 16),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Reward in ${_formatCountdown(remainingTo10m)}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
                           }
 
                           return Container(
@@ -338,6 +370,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                         ],
                       ),
                       child: AppAvatar(
+                        userAvatar: matchedUser?.avatarUrl,
                         avatarSeed: matchedUser?.avatarSeed,
                         avatarStyle: matchedUser?.avatarStyle,
                         gender: matchedUser?.gender,

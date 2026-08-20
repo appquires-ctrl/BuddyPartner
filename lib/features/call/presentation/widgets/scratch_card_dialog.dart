@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
@@ -46,10 +47,20 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog> {
       _scratchPoints.add(localPos);
 
       // Reveal automatically when user has made enough scratches
-      if (_scratchPoints.length > 28) {
-        _isRevealed = true;
+      if (_scratchPoints.length > 20) {
+        _revealAndClaim();
       }
     });
+  }
+
+  Future<void> _revealAndClaim() async {
+    if (_isRevealed) return;
+    HapticFeedback.mediumImpact();
+    setState(() => _isRevealed = true);
+
+    if (!_isClaimed && !widget.card.isScratched) {
+      _handleClaim();
+    }
   }
 
   Future<void> _handleClaim() async {
@@ -60,13 +71,13 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog> {
         .read(instantConnectControllerProvider.notifier)
         .claimScratchCard(widget.card.id);
 
-    setState(() {
-      _isClaiming = false;
-      if (reward != null) {
+    if (mounted) {
+      setState(() {
+        _isClaiming = false;
         _isClaimed = true;
-        _claimedCoins = reward;
-      }
-    });
+        _claimedCoins = reward ?? widget.card.coinReward;
+      });
+    }
   }
 
   @override
@@ -142,10 +153,8 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog> {
 
             // Scratch Surface Box
             GestureDetector(
-              onPanUpdate: (details) => _onPanUpdate(details, const Size(220, 160)),
-              onTap: () {
-                setState(() => _isRevealed = true);
-              },
+              onPanUpdate: (details) => _onPanUpdate(details, const Size(220, 150)),
+              onTap: _revealAndClaim,
               child: Container(
                 width: 220,
                 height: 150,
@@ -191,9 +200,9 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '≈ ₹$reward Real Value',
+                            _isClaimed ? 'Added to your Wallet' : '≈ ₹$reward Real Value',
                             style: TextStyle(
-                              color: Colors.grey.shade700,
+                              color: _isClaimed ? const Color(0xFF2E7D32) : Colors.grey.shade700,
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
@@ -229,10 +238,10 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog> {
               height: 48,
               child: ElevatedButton(
                 onPressed: !_isRevealed
-                    ? () => setState(() => _isRevealed = true)
-                    : (_isClaimed ? () => Navigator.pop(context) : _handleClaim),
+                    ? _revealAndClaim
+                    : () => Navigator.of(context, rootNavigator: true).pop(),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _isClaimed ? colors.success : const Color(0xFF7C6AEF),
+                  backgroundColor: _isRevealed ? colors.success : const Color(0xFF7C6AEF),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
@@ -245,7 +254,7 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog> {
                     : Text(
                         !_isRevealed
                             ? 'Tap to Reveal'
-                            : (_isClaimed ? 'Done (Claimed to Wallet)' : 'Claim $reward Coins to Wallet'),
+                            : 'Done (Added to Wallet)',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                       ),
               ),
