@@ -136,13 +136,7 @@ async function triggerInstantMatchmaker(io, redis) {
         const fSocket = io.sockets.sockets.get(fSocketId);
         if (fSocket && fSocket.connected && !socketToInstantCall.has(fSocketId)) {
           eligibleFemales.push({ userId: femaleId, socketId: fSocketId, socket: fSocket });
-        } else {
-          // Socket disconnected, remove from pool
-          await redis.srem('instant:female_pool', femaleId);
         }
-      } else {
-        // No socket recorded, remove from pool
-        await redis.srem('instant:female_pool', femaleId);
       }
     }
 
