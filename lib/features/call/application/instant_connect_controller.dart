@@ -334,7 +334,23 @@ class InstantConnectController extends Notifier<InstantConnectState> {
   void acceptIncomingCall() {
     final req = state.incomingRequest;
     if (req == null) return;
-    _socket?.emit('instant:accept_call', {'callRequestId': req.callRequestId});
+    final socket = _socket;
+    if (socket != null && socket.connected) {
+      socket.emitWithAck(
+        'instant:accept_call',
+        {'callRequestId': req.callRequestId},
+        ack: (response) {
+          debugPrint('[Instant Connect] accept_call response: $response');
+          if (response is Map && response['success'] == false) {
+            state = state.copyWith(
+              phase: InstantPhase.idle,
+              clearIncomingRequest: true,
+              errorMessage: response['message'] as String? ?? 'Call request is no longer available.',
+            );
+          }
+        },
+      );
+    }
   }
 
   /// Female: Decline incoming paid call

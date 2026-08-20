@@ -16,12 +16,18 @@ class _IncomingPaidCallDialogState extends ConsumerState<IncomingPaidCallDialog>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulseController;
   Timer? _countdownTimer;
-  int _secondsRemaining = 7;
+  int _secondsRemaining = 15;
   bool _actionHandled = false;
+  bool _isAccepting = false;
 
   @override
   void initState() {
     super.initState();
+    final req = ref.read(instantConnectControllerProvider).incomingRequest;
+    if (req != null && req.timeoutSeconds > 0) {
+      _secondsRemaining = req.timeoutSeconds;
+    }
+
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
@@ -50,6 +56,7 @@ class _IncomingPaidCallDialogState extends ConsumerState<IncomingPaidCallDialog>
   void _onAccept() {
     if (_actionHandled) return;
     _actionHandled = true;
+    setState(() => _isAccepting = true);
     HapticFeedback.mediumImpact();
     _countdownTimer?.cancel();
     ref.read(instantConnectControllerProvider.notifier).acceptIncomingCall();
@@ -226,7 +233,7 @@ class _IncomingPaidCallDialogState extends ConsumerState<IncomingPaidCallDialog>
                   // Accept
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _onAccept,
+                      onPressed: _isAccepting ? null : _onAccept,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         backgroundColor: colors.success,
@@ -234,20 +241,42 @@ class _IncomingPaidCallDialogState extends ConsumerState<IncomingPaidCallDialog>
                         elevation: 4,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.call, size: 18),
-                          SizedBox(width: 6),
-                          Text(
-                            'Accept',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
+                      child: _isAccepting
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Connecting...',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.call, size: 18),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Accept',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
                     ),
                   ),
                 ],

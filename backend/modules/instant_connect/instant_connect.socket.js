@@ -151,9 +151,9 @@ async function triggerInstantMatchmaker(io, redis) {
     const callRequestId = `req_${sessionId}_${Date.now()}`;
     const agoraChannelName = `instant_${sessionId}_${Date.now()}`;
 
-    // Mark females in temporary ringing lock (expires in 10s)
+    // Mark females in temporary ringing lock (expires in 18s)
     for (const f of selectedFemales) {
-      await redis.set(`instant:ringing:${f.userId}`, callRequestId, 'EX', 10);
+      await redis.set(`instant:ringing:${f.userId}`, callRequestId, 'EX', 18);
       await redis.srem('instant:female_pool', f.userId);
     }
 
@@ -166,9 +166,9 @@ async function triggerInstantMatchmaker(io, redis) {
       agoraChannelName,
       femaleUserIds: selectedFemales.map((f) => f.userId),
     };
-    await redis.set(`instant:request:${callRequestId}`, JSON.stringify(requestMeta), 'EX', 20);
+    await redis.set(`instant:request:${callRequestId}`, JSON.stringify(requestMeta), 'EX', 30);
 
-    console.log(`⚡ [Instant Connect] Ringing 1:2 pair (${selectedFemales.map((f) => f.userId).join(', ')}) for male ${maleUserId}`);
+    console.log(`⚡ [Instant Connect] Ringing 1:2 pair (${selectedFemales.map((f) => f.userId).join(', ')}) for male ${maleUserId} (15s timeout)`);
 
     // Emit incoming call to both female sockets
     for (const f of selectedFemales) {
@@ -180,11 +180,11 @@ async function triggerInstantMatchmaker(io, redis) {
         agoraChannelName,
         agoraToken: fToken,
         agoraUid: fAgoraUid,
-        timeoutSeconds: 7,
+        timeoutSeconds: 15,
       });
     }
 
-    // 4. Set 7-second cascade timer
+    // 4. Set 15-second cascade timer
     const cascadeTimer = setTimeout(async () => {
       ringingTimers.delete(callRequestId);
 
@@ -192,7 +192,7 @@ async function triggerInstantMatchmaker(io, redis) {
       const claimed = await redis.get(`instant:claim:${callRequestId}`);
       if (claimed) return;
 
-      console.log(`⏰ [Instant Connect] 7s timeout reached for ${callRequestId}. Cascading to next pair...`);
+      console.log(`⏰ [Instant Connect] 15s timeout reached for ${callRequestId}. Cascading to next pair...`);
 
       // Dismiss ringing on both female sockets and put on 30s temporary snooze
       for (const f of selectedFemales) {
@@ -204,7 +204,7 @@ async function triggerInstantMatchmaker(io, redis) {
 
       // Re-trigger matchmaker to cascade to next available girls
       triggerInstantMatchmaker(io, redis);
-    }, 7500);
+    }, 15500);
 
     ringingTimers.set(callRequestId, cascadeTimer);
   } catch (err) {
