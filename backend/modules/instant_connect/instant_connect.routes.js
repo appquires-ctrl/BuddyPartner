@@ -152,12 +152,17 @@ router.all('/dev/cleanup', async (req, res) => {
     if (ringingKeys.length > 0) {
       await redis.del(...ringingKeys);
     }
+    const snoozeKeys = await redis.keys('instant:snooze:*');
+    if (snoozeKeys.length > 0) {
+      await redis.del(...snoozeKeys);
+    }
 
     res.json({
       success: true,
-      message: 'Cleaned up stale queues and active sessions',
+      message: 'Cleaned up stale queues, active sessions, and snooze locks',
       cleanedSessionsCount: updateRes.rowCount,
       cleanedRingingKeysCount: ringingKeys.length,
+      cleanedSnoozeKeysCount: snoozeKeys.length,
     });
   } catch (err) {
     console.error('Error in /dev/cleanup:', err.message);

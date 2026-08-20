@@ -20,6 +20,7 @@ class InstantConnectService {
       if (redis) {
         if (enabled) {
           await redis.sadd('instant:female_pool', userId);
+          await redis.del(`instant:snooze:${userId}`);
         } else {
           await redis.srem('instant:female_pool', userId);
         }

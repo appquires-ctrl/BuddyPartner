@@ -165,10 +165,10 @@ async function triggerInstantMatchmaker(io, redis) {
 
       console.log(`⏰ [Instant Connect] 7s timeout reached for ${callRequestId}. Cascading to next pair...`);
 
-      // Dismiss ringing on both female sockets and put on 2-min snooze
+      // Dismiss ringing on both female sockets and put on 30s temporary snooze
       for (const f of selectedFemales) {
         await redis.del(`instant:ringing:${f.userId}`);
-        await redis.set(`instant:snooze:${f.userId}`, '1', 'EX', 120); // 2-min AFK snooze
+        await redis.set(`instant:snooze:${f.userId}`, '1', 'EX', 30); // 30s AFK snooze
         f.socket.emit('instant_call_dismissed', { callRequestId, reason: 'timeout' });
         // Return to pool after snooze
       }
