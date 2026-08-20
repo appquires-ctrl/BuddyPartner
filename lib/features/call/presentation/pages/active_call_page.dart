@@ -63,6 +63,15 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
       }
     });
 
+    // Auto-popup Scratch Card dialog as soon as the reward milestone is reached during the call
+    ref.listen<InstantConnectState>(instantConnectControllerProvider, (prev, next) {
+      if (next.is10mReached && prev?.is10mReached != true && next.latestUnlockedCard != null) {
+        if (mounted) {
+          ScratchCardDialog.show(context, next.latestUnlockedCard!);
+        }
+      }
+    });
+
     final matchedUser = matchState.matchedUser;
     final displayName = matchedUser?.fullName ?? 'User';
     final initials = _getInitials(displayName);

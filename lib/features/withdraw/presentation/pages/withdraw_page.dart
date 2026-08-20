@@ -12,6 +12,7 @@ import 'package:buddypartner/features/withdraw/application/withdraw_providers.da
 import 'package:buddypartner/features/withdraw/application/withdraw_controller.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
+import 'package:buddypartner/features/call/presentation/widgets/scratch_card_dialog.dart';
 
 class WithdrawPage extends ConsumerStatefulWidget {
   const WithdrawPage({super.key});
@@ -27,6 +28,10 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(instantConnectControllerProvider.notifier).fetchFemaleStatus();
+      ref.read(instantConnectControllerProvider.notifier).fetchScratchCards();
+    });
     _amountController.addListener(() {
       final text = _amountController.text;
       final parsed = int.tryParse(text) ?? 0;
@@ -184,6 +189,62 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                 ],
               ),
             ),
+
+            // Unscratched Cards direct action banner
+            if (instantState.scratchCards.any((c) => !c.isScratched)) ...[
+              const SizedBox(height: 14),
+              GestureDetector(
+                onTap: () {
+                  final unscratched = instantState.scratchCards.firstWhere((c) => !c.isScratched);
+                  ScratchCardDialog.show(context, unscratched);
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFD54F), Color(0xFFFFB300)],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.amber.withValues(alpha: 0.35),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.card_giftcard_rounded, color: Color(0xFF5D4037), size: 28),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '🎁 ${instantState.scratchCards.where((c) => !c.isScratched).length} Scratch Card(s) Available!',
+                              style: const TextStyle(
+                                color: Color(0xFF5D4037),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13.5,
+                              ),
+                            ),
+                            const Text(
+                              'Tap to scratch & add earned coins to your wallet balance!',
+                              style: TextStyle(
+                                color: Color(0xFF5D4037),
+                                fontSize: 11.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF5D4037), size: 16),
+                    ],
+                  ),
+                ),
+              ),
+            ],
 
             // Scratch Card Earnings summary
             if (instantState.femaleStatus.totalScratchedCoins > 0 || instantState.femaleStatus.unscratchedCount > 0) ...[

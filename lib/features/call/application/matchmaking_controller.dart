@@ -293,6 +293,7 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
 
       await _initAgora(agoraChannelName, agoraToken, agoraUid);
       state = state.copyWith(phase: MatchmakingPhase.inCall);
+      _startCountdown();
     } catch (e) {
       debugPrint('Failed to initialize Agora for Instant Call: $e');
       state = state.copyWith(
