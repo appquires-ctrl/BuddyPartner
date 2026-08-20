@@ -749,7 +749,12 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
     int uid,
   ) async {
     try {
-      // Mic permission is already granted in joinQueue() — no need to re-request here
+      // Ensure microphone permission is granted
+      bool micGranted = await Permission.microphone.isGranted;
+      if (!micGranted) {
+        final status = await Permission.microphone.request();
+        micGranted = status.isGranted;
+      }
 
       // Use Agora App ID from server payload, fall back to compile-time config
       final appId = _agoraAppId ?? AppConfig.agoraAppId;

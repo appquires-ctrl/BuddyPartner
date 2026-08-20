@@ -52,9 +52,6 @@ class _IncomingPaidCallDialogState extends ConsumerState<IncomingPaidCallDialog>
     _actionHandled = true;
     HapticFeedback.mediumImpact();
     _countdownTimer?.cancel();
-    if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
-      Navigator.of(context, rootNavigator: true).pop();
-    }
     ref.read(instantConnectControllerProvider.notifier).acceptIncomingCall();
   }
 

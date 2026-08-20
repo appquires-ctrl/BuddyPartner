@@ -47,6 +47,9 @@ class BuddyPartnerApp extends ConsumerWidget {
       if (navContext == null || !navContext.mounted) return;
 
       if (next.phase == InstantPhase.inCall && prev?.phase != InstantPhase.inCall) {
+        if (Navigator.of(navContext, rootNavigator: true).canPop()) {
+          Navigator.of(navContext, rootNavigator: true).pop();
+        }
         navContext.go(RouteNames.activeCall);
       } else if (next.phase == InstantPhase.incomingRequest && prev?.phase != InstantPhase.incomingRequest) {
         showDialog(
