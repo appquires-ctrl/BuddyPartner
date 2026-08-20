@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:socket_io_client/socket_io_client.dart' as sio;
 import 'package:buddypartner/core/services/api_client.dart';
+import 'package:buddypartner/core/services/socket_provider.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/features/subscription/application/subscription_state.dart';
 import 'package:buddypartner/features/subscription/domain/subscription_plan.dart';
@@ -13,6 +15,13 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
   Future<SubscriptionState> build() async {
     ref.onDispose(() {
       _countdownTimer?.cancel();
+    });
+
+    // Auto-refresh subscription state whenever socket connects
+    ref.listen<sio.Socket?>(socketProvider, (prev, next) {
+      if (next != null) {
+        refresh();
+      }
     });
 
     final authUser = ref.watch(authStateProvider).value;
@@ -47,7 +56,12 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
         return statePayload;
       }
     } catch (e) {
-      // In case of error (e.g. unauthenticated or network offline), fallback gracefully
+      // In case of initial network drop on launch, auto-retry in 3 seconds
+      Timer(const Duration(seconds: 3), () {
+        if (state.hasValue && !state.value!.isSubscribed) {
+          refresh();
+        }
+      });
     }
 
     return const SubscriptionState(isSubscribed: false, formattedLabel: 'Not Subscribed');
