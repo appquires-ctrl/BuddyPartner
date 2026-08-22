@@ -25,8 +25,7 @@ import 'package:buddypartner/features/subscription/application/subscription_prov
 import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
 import 'package:buddypartner/features/home/presentation/widgets/instant_connect_sheet.dart';
-import 'package:buddypartner/features/call/presentation/widgets/incoming_paid_call_dialog.dart';
-import 'package:buddypartner/features/call/presentation/widgets/scratch_card_dialog.dart';
+import 'package:buddypartner/features/home/presentation/widgets/incoming_paid_calls_banner.dart';
 
 /// HomePage renders the primary "stranger search" radar screen.
 /// Matches screenshots/home.jpeg exactly.
@@ -506,125 +505,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                       const SizedBox(height: 16),
 
                       // Female User: Incoming Paid Calls Toggle Card
-                      if (authUser?.isFemale == true) ...[
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(22),
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF8B5CF6), Color(0xFFC084FC)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
-                                blurRadius: 16,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.2),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 22),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Incoming Paid Calls',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          instantConnectState.femaleStatus.incomingPaidCallsEnabled
-                                              ? '● Active & Ready to Earn'
-                                              : '○ Offline (Toggle ON to Earn)',
-                                          style: TextStyle(
-                                            color: instantConnectState.femaleStatus.incomingPaidCallsEnabled
-                                                ? const Color(0xFFB7F4D8)
-                                                : Colors.white70,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Switch(
-                                    value: instantConnectState.femaleStatus.incomingPaidCallsEnabled,
-                                    activeThumbColor: Colors.white,
-                                    activeTrackColor: const Color(0xFF10B981),
-                                    onChanged: (val) async {
-                                      await ref
-                                          .read(instantConnectControllerProvider.notifier)
-                                          .toggleIncomingPaidCalls(val);
-                                    },
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                'Receive instant paid calls from male buddies. Talk for 10 minutes to unlock Scratch Cards and earn real coins!',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.9),
-                                  fontSize: 12,
-                                  height: 1.3,
-                                ),
-                              ),
-                              // Unclaimed scratch cards banner
-                              if (instantConnectState.scratchCards.any((c) => !c.isScratched)) ...[
-                                const SizedBox(height: 12),
-                                GestureDetector(
-                                  onTap: () {
-                                    final unscratched = instantConnectState.scratchCards
-                                        .firstWhere((c) => !c.isScratched);
-                                    ScratchCardDialog.show(context, unscratched);
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFFD54F),
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const Icon(Icons.card_giftcard_rounded, color: Color(0xFF5D4037), size: 18),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          '🎁 ${instantConnectState.scratchCards.where((c) => !c.isScratched).length} Scratch Card(s) Waiting! (Tap to Reveal)',
-                                          style: const TextStyle(
-                                            color: Color(0xFF5D4037),
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
                       // Matchmaking Banner Card
                       GestureDetector(
                         onTap: _startMatchmaking,
@@ -765,11 +645,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                     ),
                   ),
                 ),
+                 if (authUser?.isFemale == true)
+                        const IncomingPaidCallsBanner(),
  // Male User: VIP Instant Connect Queue or Entry Card
                       if (authUser?.isMale == true) ...[
                         if (instantConnectState.phase == InstantPhase.queued)
                           Container(
-                            margin: const EdgeInsets.only(bottom: 16),
+                            margin: const EdgeInsets.only(top: 16),
                             padding: const EdgeInsets.all(18),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(22),
@@ -848,7 +730,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                               InstantConnectSheet.show(context);
                             },
                             child: Container(
-                              margin: const EdgeInsets.only(bottom: 16),
+                              margin: const EdgeInsets.only(top: 16),
                               height: 100,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(22),

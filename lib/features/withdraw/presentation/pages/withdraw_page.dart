@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
@@ -126,7 +125,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
           IconButton(
             icon: const Icon(Icons.history_rounded, color: Color(0xFF7C6AEF), size: 24),
             tooltip: 'Transaction History',
-            onPressed: () => context.push(RouteNames.transactionHistory),
+            onPressed: () {}
           ),
           const SizedBox(width: 8),
         ],
@@ -212,38 +211,38 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                                 ),
                               ],
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2DCE89).withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: const Color(0xFF2DCE89).withValues(alpha: 0.4),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFF2DCE89),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  const Text(
-                                    '100% Guaranteed',
-                                    style: TextStyle(
-                                      color: Color(0xFF2DCE89),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                            // Container(
+                            //   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            //   decoration: BoxDecoration(
+                            //     color: const Color(0xFF2DCE89).withValues(alpha: 0.15),
+                            //     borderRadius: BorderRadius.circular(20),
+                            //     border: Border.all(
+                            //       color: const Color(0xFF2DCE89).withValues(alpha: 0.4),
+                            //     ),
+                            //   ),
+                            //   child: Row(
+                            //     mainAxisSize: MainAxisSize.min,
+                            //     children: [
+                                  // Container(
+                                  //   width: 6,
+                                  //   height: 6,
+                                  //   decoration: const BoxDecoration(
+                                  //     color: Color(0xFF2DCE89),
+                                  //     shape: BoxShape.circle,
+                                  //   ),
+                                  // ),
+                                  // const SizedBox(width: 6),
+                            //       const Text(
+                            //         '100% Guaranteed',
+                            //         style: TextStyle(
+                            //           color: Color(0xFF2DCE89),
+                            //           fontSize: 11,
+                            //           fontWeight: FontWeight.bold,
+                            //         ),
+                            //       ),
+                            //     ],
+                            //   ),
+                            // ),
                           ],
                         ),
 
@@ -272,29 +271,29 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                               ),
                             ),
                             const SizedBox(width: 12),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text('🪙', style: TextStyle(fontSize: 12)),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '$walletBalance Coins',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                            // Container(
+                            //   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            //   decoration: BoxDecoration(
+                            //     color: Colors.white.withValues(alpha: 0.12),
+                            //     borderRadius: BorderRadius.circular(14),
+                            //     border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                            //   ),
+                            //   child: Row(
+                            //     mainAxisSize: MainAxisSize.min,
+                            //     children: [
+                            //       const Text('🪙', style: TextStyle(fontSize: 12)),
+                            //       const SizedBox(width: 4),
+                            //       Text(
+                            //         '$walletBalance Coins',
+                            //         style: const TextStyle(
+                            //           color: Colors.white,
+                            //           fontSize: 12,
+                            //           fontWeight: FontWeight.w600,
+                            //         ),
+                            //       ),
+                            //     ],
+                            //   ),
+                            // ),
                           ],
                         ),
 
@@ -311,8 +310,8 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: const [
-                              Icon(Icons.bolt_rounded, color: Color(0xFFFFD54F), size: 16),
-                              SizedBox(width: 6),
+                              // Icon(Icons.bolt_rounded, color: Color(0xFFFFD54F), size: 16),
+                              // SizedBox(width: 6),
                               Text(
                                 '1 Coin = ₹1.00 INR (Direct UPI / Bank Payout)',
                                 style: TextStyle(
@@ -374,7 +373,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                                   Text(
                                     '₹${instantState.femaleStatus.totalScratchedCoins}',
                                     style: const TextStyle(
-                                      color: Color(0xFFFFD54F),
+                                      color: Colors.white,
                                       fontSize: 14,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -398,7 +397,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                                   ),
                                   const SizedBox(height: 2),
                                   const Text(
-                                    'Fast (24h)',
+                                    'Min 24h',
                                     style: TextStyle(
                                       color: Color(0xFF2DCE89),
                                       fontSize: 14,
@@ -632,26 +631,26 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
 
                   const SizedBox(height: 12),
 
-                  // Preset Amount Selection Chips
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    child: Row(
-                      children: [
-                        _buildPresetChip('₹50', 50, walletBalance),
-                        const SizedBox(width: 8),
-                        _buildPresetChip('₹100', 100, walletBalance),
-                        const SizedBox(width: 8),
-                        _buildPresetChip('₹200', 200, walletBalance),
-                        const SizedBox(width: 8),
-                        _buildPresetChip('₹500', 500, walletBalance),
-                        const SizedBox(width: 8),
-                        _buildPresetChip('MAX ($walletBalance)', walletBalance, walletBalance, isMax: true),
-                      ],
-                    ),
-                  ),
+                  // // Preset Amount Selection Chips
+                  // SingleChildScrollView(
+                  //   scrollDirection: Axis.horizontal,
+                  //   physics: const BouncingScrollPhysics(),
+                  //   child: Row(
+                  //     children: [
+                  //       _buildPresetChip('₹50', 50, walletBalance),
+                  //       const SizedBox(width: 8),
+                  //       _buildPresetChip('₹100', 100, walletBalance),
+                  //       const SizedBox(width: 8),
+                  //       _buildPresetChip('₹200', 200, walletBalance),
+                  //       const SizedBox(width: 8),
+                  //       _buildPresetChip('₹500', 500, walletBalance),
+                  //       const SizedBox(width: 8),
+                  //       _buildPresetChip('MAX ($walletBalance)', walletBalance, walletBalance, isMax: true),
+                  //     ],
+                  //   ),
+                  // ),
 
-                  const SizedBox(height: 16),
+                  // const SizedBox(height: 16),
 
                   // Real-time Conversion Payout Preview Box
                   Container(
@@ -790,7 +789,9 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => context.push(RouteNames.transactionHistory),
+                  onPressed: ()  {} 
+                  // context.push(RouteNames.transactionHistory)
+                  ,
                   child: const Text(
                     'Full Statement ➜',
                     style: TextStyle(
@@ -865,45 +866,6 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
               },
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPresetChip(String label, int amount, int maxBalance, {bool isMax = false}) {
-    final isSelected = _enteredCoins == amount && amount > 0;
-    final isDisabled = amount > maxBalance && !isMax;
-
-    return GestureDetector(
-      onTap: isDisabled ? null : () => _setPresetAmount(amount, maxBalance),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xFF7C6AEF)
-              : (isMax
-                  ? const Color(0xFF7C6AEF).withValues(alpha: 0.1)
-                  : const Color(0xFFF5F4FA)),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected
-                ? const Color(0xFF7C6AEF)
-                : (isMax
-                    ? const Color(0xFF7C6AEF).withValues(alpha: 0.4)
-                    : const Color(0xFFE8E6F0)),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected
-                ? Colors.white
-                : (isMax
-                    ? const Color(0xFF7C6AEF)
-                    : (isDisabled ? const Color(0xFFB0AFC0) : const Color(0xFF1E1B38))),
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-          ),
         ),
       ),
     );

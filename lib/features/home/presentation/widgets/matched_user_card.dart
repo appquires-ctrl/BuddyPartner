@@ -64,7 +64,7 @@ class _MatchedUserCardState extends ConsumerState<MatchedUserCard> {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
             // Avatar with initials
             GradientAvatar(
@@ -72,7 +72,7 @@ class _MatchedUserCardState extends ConsumerState<MatchedUserCard> {
               avatarSeed: widget.user.avatarSeed,
               avatarStyle: widget.user.avatarStyle,
               gender: widget.user.gender,
-              radius: avatarSize / 2,
+              radius: avatarSize / 1.60,
               showStatus: true,
               isOnline: widget.user.isOnline,
               statusIndicatorSize: widget.isGrid ? 14 : 16,
@@ -90,7 +90,7 @@ class _MatchedUserCardState extends ConsumerState<MatchedUserCard> {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 3),
 
             // Online/Offline status row
             Row(
@@ -115,7 +115,7 @@ class _MatchedUserCardState extends ConsumerState<MatchedUserCard> {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 15),
 
             // Action Buttons Row
             Row(

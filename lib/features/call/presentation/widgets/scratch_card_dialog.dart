@@ -282,8 +282,7 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 15),
-                      const SizedBox(width: 6),
+              
                       Text(
                         _isRevealed ? '🎉 REWARD UNLOCKED' : '🎁 10-MIN CALL REWARD',
                         style: const TextStyle(
@@ -472,9 +471,7 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
                 // Bottom Action Button
                 SizedBox(
                   width: double.infinity,

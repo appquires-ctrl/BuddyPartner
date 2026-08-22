@@ -62,12 +62,17 @@ class PresenceNotifier extends StateNotifier<Map<String, bool>> {
 
       final map = (response.data['presence'] as Map<String, dynamic>?) ?? {};
       final updated = <String, bool>{...state};
+      bool hasChanges = false;
 
       map.forEach((key, val) {
-        updated[key] = val == true;
+        final bool isOnline = val == true;
+        if (state[key] != isOnline) {
+          hasChanges = true;
+        }
+        updated[key] = isOnline;
       });
 
-      if (mounted) {
+      if (hasChanges && mounted) {
         state = updated;
       }
     } catch (err) {

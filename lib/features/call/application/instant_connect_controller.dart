@@ -309,25 +309,40 @@ class InstantConnectController extends Notifier<InstantConnectState> {
     ref.invalidate(walletBalanceProvider);
   }
 
-  /// Female: Toggle "Incoming Paid Calls"
+  /// Female: Toggle "Incoming Paid Calls" with 0ms Optimistic UI updates
   Future<bool> toggleIncomingPaidCalls(bool enabled) async {
+    final previous = state.femaleStatus.incomingPaidCallsEnabled;
+    
+    // 1. Optimistic instant state update (0ms latency for UI Switch)
+    state = state.copyWith(
+      femaleStatus: state.femaleStatus.copyWith(incomingPaidCallsEnabled: enabled),
+    );
+    
+    final socket = _socket;
+    if (socket != null && socket.connected) {
+      socket.emit('instant:toggle_incoming', {'enabled': enabled});
+    }
+
     try {
       final apiClient = ref.read(apiClientProvider);
       final res = await apiClient.dio.post('/api/instant/toggle', data: {'enabled': enabled});
       if (res.statusCode == 200 && res.data['success'] == true) {
-        state = state.copyWith(
-          femaleStatus: state.femaleStatus.copyWith(incomingPaidCallsEnabled: enabled),
-        );
-        final socket = _socket;
-        if (socket != null && socket.connected) {
-          socket.emit('instant:toggle_incoming', {'enabled': enabled});
-        }
         return true;
+      } else {
+        // Rollback state if server returns failure
+        state = state.copyWith(
+          femaleStatus: state.femaleStatus.copyWith(incomingPaidCallsEnabled: previous),
+        );
+        return false;
       }
     } catch (e) {
       debugPrint('Error toggling incoming paid calls: $e');
+      // Rollback state on network error
+      state = state.copyWith(
+        femaleStatus: state.femaleStatus.copyWith(incomingPaidCallsEnabled: previous),
+      );
+      return false;
     }
-    return false;
   }
 
   /// Female: Accept incoming paid call

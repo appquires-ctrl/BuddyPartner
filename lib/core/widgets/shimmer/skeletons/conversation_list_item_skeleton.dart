@@ -70,11 +70,11 @@ class ConversationListItemSkeleton extends StatelessWidget {
     }
 
     return Container(
-      height: 88,
+      height: 76,
       decoration: BoxDecoration(
         color: cardBg,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: borderColor, width: 1.2),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: borderColor, width: 1.0),
         boxShadow: [
           if (!isDark)
             BoxShadow(
@@ -86,7 +86,7 @@ class ConversationListItemSkeleton extends StatelessWidget {
       ),
       child: AppShimmer(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 14.0),
           child: Row(
             children: [
               // 1. Circular Avatar Skeleton (52px diameter) with status dot placeholder

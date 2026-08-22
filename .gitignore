@@ -49,3 +49,6 @@ app.*.map.json
 **/node_modules
 backend/.env
 /android/key.properties
+.kotlin/
+android/.kotlin/
+
