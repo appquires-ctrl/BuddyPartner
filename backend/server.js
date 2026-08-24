@@ -266,6 +266,9 @@ const { registerInstantConnectHandlers } = require('./modules/instant_connect/in
 io.on('connection', (socket) => {
   console.log(`🔌 User connected: ${socket.userId} (socket: ${socket.id})`);
   
+  // Join the user's personal room for direct targeting and room broadcasts
+  socket.join(socket.userId);
+
   // Set user online in Redis and broadcast presence
   PresenceService.setPresence(redis, io, socket.userId, true);
 
@@ -277,6 +280,14 @@ io.on('connection', (socket) => {
     console.log(`🔌 User disconnected: ${socket.userId} — ${reason}`);
     // Set user offline in Redis and broadcast presence
     PresenceService.setPresence(redis, io, socket.userId, false);
+    
+    // Clean up in-memory socket mapping
+    try {
+      const { userSockets } = require('./modules/matchmaking/matchmaking.socket');
+      if (userSockets.get(socket.userId) === socket.id) {
+        userSockets.delete(socket.userId);
+      }
+    } catch (_) {}
   });
 });
 

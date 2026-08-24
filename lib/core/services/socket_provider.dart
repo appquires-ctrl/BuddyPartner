@@ -20,6 +20,7 @@ import 'package:buddypartner/core/utils/app_snack_bar.dart';
 /// the user logs out (authState becomes null).
 class SocketNotifier extends Notifier<sio.Socket?> {
   String? _connectedUserId;
+  sio.Socket? _socket;
 
   @override
   sio.Socket? build() {
@@ -56,11 +57,12 @@ class SocketNotifier extends Notifier<sio.Socket?> {
     if (currentUser == null) return;
 
     // If socket exists for a different user, destroy it first
-    if (state != null && _connectedUserId != null && _connectedUserId != currentUser.id) {
+    if ((state != null || _socket != null) && _connectedUserId != null && _connectedUserId != currentUser.id) {
       _dispose();
     }
 
-    if (state != null && state!.connected && _connectedUserId == currentUser.id) {
+    if (_socket != null && _socket!.connected && _connectedUserId == currentUser.id) {
+      state = _socket;
       return;
     }
 
@@ -82,13 +84,14 @@ class SocketNotifier extends Notifier<sio.Socket?> {
       'platform': platform,
     };
 
-    if (state != null && _connectedUserId == currentUser.id) {
-      if (state!.io.options != null) {
-        state!.io.options!['auth'] = authPayload;
+    if (_socket != null && _connectedUserId == currentUser.id) {
+      if (_socket!.io.options != null) {
+        _socket!.io.options!['auth'] = authPayload;
       }
-      if (!state!.connected) {
-        state!.connect();
+      if (!_socket!.connected) {
+        _socket!.connect();
       }
+      state = _socket;
       return;
     }
 
@@ -101,6 +104,8 @@ class SocketNotifier extends Notifier<sio.Socket?> {
       AppConfig.backendUrl,
       sio.OptionBuilder()
           .setTransports(['websocket'])
+          .enableForceNew()
+          .disableMultiplex()
           .setAuth(authPayload)
           .enableAutoConnect()
           .enableReconnection()
@@ -109,6 +114,8 @@ class SocketNotifier extends Notifier<sio.Socket?> {
           .setTimeout(10000)
           .build(),
     );
+
+    _socket = socket;
 
     socket.onConnect((_) {
       debugPrint('[SocketProvider] Connected to backend as user: $_connectedUserId');
@@ -182,13 +189,16 @@ class SocketNotifier extends Notifier<sio.Socket?> {
 
   void _dispose() {
     _connectedUserId = null;
-    if (state != null) {
+    final sock = _socket ?? state;
+    _socket = null;
+    if (sock != null) {
       try {
-        state!.clearListeners();
-        if (state!.connected) {
-          state!.disconnect();
+        sock.clearListeners();
+        if (sock.connected) {
+          sock.disconnect();
         }
-        state!.dispose();
+        sock.dispose();
+        sock.destroy();
       } catch (err) {
         debugPrint('[SocketProvider] Error disposing socket: $err');
       }
