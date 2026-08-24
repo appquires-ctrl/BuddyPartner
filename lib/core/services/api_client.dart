@@ -12,17 +12,20 @@ import 'package:buddypartner/core/config/app_config.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 
-final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
+
+final apiClientProvider = Provider<ApiClient>((ref) => ApiClient(ref));
 
 class ApiClient {
   late final Dio dio;
+  final Ref? _ref;
   final _secureStorage = const FlutterSecureStorage();
   static const _tokenKey = 'auth_token';
   static const _refreshTokenKey = 'refresh_token';
   static const _userSessionKey = 'cached_user_session';
   bool _isRefreshing = false;
 
-  ApiClient() {
+  ApiClient([this._ref]) {
     dio = Dio(
       BaseOptions(
         baseUrl: AppConfig.backendUrl,
@@ -112,7 +115,29 @@ class ApiClient {
             }
           }
 
-          // Handle 401 Unauthorized with silent token refresh attempt
+          // Handle 401 Session Terminated (Single device login policy) FIRST before silent refresh
+          if (err.response?.statusCode == 401) {
+            final data = err.response?.data;
+            if (data is Map<String, dynamic> && data['error'] == 'SESSION_TERMINATED') {
+              await clearTokens();
+              if (_ref != null) {
+                try {
+                  await _ref.read(authStateProvider.notifier).clearSession();
+                } catch (_) {}
+              }
+              final context = rootNavigatorKey.currentContext;
+              if (context != null && context.mounted) {
+                AppSnackBar.showError(
+                  context,
+                  data['message']?.toString() ?? 'Your account was logged in from another device. Please log in again.',
+                );
+                context.go(RouteNames.login);
+              }
+              return handler.next(err);
+            }
+          }
+
+          // Handle 401 Unauthorized with silent token refresh attempt (only if not SESSION_TERMINATED)
           if (err.response?.statusCode == 401 && 
               !err.requestOptions.path.contains('/api/auth/otp/verify') &&
               !err.requestOptions.path.contains('/api/auth/refresh')) {
@@ -131,22 +156,6 @@ class ApiClient {
                 }
               } catch (_) {
                 _isRefreshing = false;
-              }
-            }
-          }
-
-          // Handle 401 Session Terminated (Single device login policy)
-          if (err.response?.statusCode == 401) {
-            final data = err.response?.data;
-            if (data is Map<String, dynamic> && data['error'] == 'SESSION_TERMINATED') {
-              await clearTokens();
-              final context = rootNavigatorKey.currentContext;
-              if (context != null && context.mounted) {
-                AppSnackBar.showError(
-                  context,
-                  data['message']?.toString() ?? 'Your account was logged in from another device. Please log in again.',
-                );
-                context.go(RouteNames.login);
               }
             }
           }

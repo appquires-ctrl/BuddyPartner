@@ -179,15 +179,28 @@ router.post('/otp/verify', async (req, res) => {
       }
     }
 
-    // 6. Enforce Single-Device Policy: Generate new Session ID & terminate previous sessions
+    // 6. Enforce Single-Device Policy: Invalidate previous sessions & generate new Session ID
     const sessionId = crypto.randomUUID();
     const io = req.app.get('io');
     if (io) {
       io.to(user.id).emit('session_terminated', {
         reason: 'Your account was logged in from another device.',
       });
-      io.in(user.id).disconnectSockets(true);
+      setTimeout(() => {
+        try {
+          io.in(user.id).disconnectSockets(true);
+        } catch (_) {}
+      }, 500);
     }
+
+    // Invalidate all previous refresh tokens for this user in Redis
+    try {
+      const oldRefreshKeys = await redis.keys(`refresh:${user.id}:*`);
+      if (oldRefreshKeys && oldRefreshKeys.length > 0) {
+        await redis.del(...oldRefreshKeys);
+      }
+    } catch (_) {}
+
     // Store active session in Redis (no TTL or long TTL, valid until overwritten/logged out)
     await redis.set(`user_active_session:${user.id}`, sessionId);
 
@@ -257,7 +270,7 @@ router.post('/refresh', async (req, res) => {
 
   try {
     const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
-    const { id, jti } = decoded;
+    const { id, jti, sessionId } = decoded;
 
     if (!id || !jti) {
       return res.status(401).json({ error: 'Invalid refresh token structure.' });
@@ -268,7 +281,20 @@ router.post('/refresh', async (req, res) => {
     const exists = await redis.get(redisKey);
 
     if (!exists) {
-      return res.status(401).json({ error: 'Invalid or revoked refresh token.' });
+      return res.status(401).json({
+        error: 'SESSION_TERMINATED',
+        message: 'Your session has been terminated because your account was logged in on another device.',
+      });
+    }
+
+    // Check active session ID in Redis to ensure this refresh token belongs to current active device
+    const activeSessionId = await redis.get(`user_active_session:${id}`);
+    if (activeSessionId && (!sessionId || activeSessionId !== sessionId)) {
+      await redis.del(redisKey);
+      return res.status(401).json({
+        error: 'SESSION_TERMINATED',
+        message: 'Your account has been logged in on another device. Please log in again.',
+      });
     }
 
     // Invalidate old refresh token key (rotation)
@@ -286,11 +312,9 @@ router.post('/refresh', async (req, res) => {
 
     const user = userRes.rows[0];
 
-    // Check active session ID in Redis
-    let activeSessionId = await redis.get(`user_active_session:${id}`);
+    const currentSessionId = activeSessionId || sessionId || crypto.randomUUID();
     if (!activeSessionId) {
-      activeSessionId = crypto.randomUUID();
-      await redis.set(`user_active_session:${id}`, activeSessionId);
+      await redis.set(`user_active_session:${id}`, currentSessionId);
     }
 
     // Issue new tokens
@@ -300,11 +324,11 @@ router.post('/refresh', async (req, res) => {
       phone: user.phone_number || `+${user.country_code}${user.mobile}`,
       countryCode: user.country_code,
       mobile: user.mobile,
-      sessionId: activeSessionId,
+      sessionId: currentSessionId,
     };
 
     const newAccessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
-    const newRefreshToken = jwt.sign({ id: user.id, jti: newJti, sessionId: activeSessionId }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
+    const newRefreshToken = jwt.sign({ id: user.id, jti: newJti, sessionId: currentSessionId }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
 
     // Store new refresh token in Redis
     await redis.set(`refresh:${user.id}:${newJti}`, '1', 'EX', 30 * 24 * 60 * 60);

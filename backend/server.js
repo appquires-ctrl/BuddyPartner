@@ -241,11 +241,9 @@ io.use(async (socket, next) => {
     }
 
     // Enforce single-device active session for socket connections
-    if (decoded.sessionId) {
-      const activeSession = await redis.get(`user_active_session:${decoded.id}`);
-      if (activeSession && activeSession !== decoded.sessionId) {
-        return next(new Error('SESSION_TERMINATED'));
-      }
+    const activeSession = await redis.get(`user_active_session:${decoded.id}`);
+    if (activeSession && (!decoded.sessionId || activeSession !== decoded.sessionId)) {
+      return next(new Error('SESSION_TERMINATED'));
     }
 
     socket.userId = decoded.id;
