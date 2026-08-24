@@ -19,6 +19,20 @@ class AppErrorState extends StatelessWidget {
     final colors = context.colors;
     final typography = context.typography;
 
+    final lower = errorMessage.toLowerCase();
+    final isOffline = lower.contains('socketexception') ||
+        lower.contains('no internet') ||
+        lower.contains('network error') ||
+        lower.contains('failed host lookup') ||
+        lower.contains('connection timeout') ||
+        lower.contains('connection error');
+
+    final title = isOffline ? 'No Internet Connection' : 'Something went wrong';
+    final displayMsg = isOffline
+        ? 'Please check your Wi-Fi or cellular network settings and try again.'
+        : errorMessage;
+    final iconData = isOffline ? Icons.wifi_off_rounded : Icons.warning_amber_rounded;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.space24),
@@ -32,25 +46,29 @@ class AppErrorState extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                Icons.warning_amber_rounded,
+                iconData,
                 color: colors.danger,
-                size: 48,
+                size: 44,
               ),
             ),
-            const SizedBox(height: AppSpacing.space24),
+            const SizedBox(height: AppSpacing.space20),
             Text(
-              'Something went wrong',
+              title,
               style: typography.titleCard.copyWith(
                 color: colors.textPrimary,
                 fontWeight: FontWeight.bold,
+                fontSize: 18,
               ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.space8),
             Text(
-              errorMessage,
+              displayMsg,
               textAlign: TextAlign.center,
               style: typography.bodySmall.copyWith(
                 color: colors.textSecondary,
+                fontSize: 13,
+                height: 1.4,
               ),
             ),
             if (onRetry != null) ...[

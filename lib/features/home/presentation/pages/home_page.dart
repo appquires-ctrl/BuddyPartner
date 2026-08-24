@@ -186,7 +186,10 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     Widget content;
     if (showSkeleton) {
-      content = const HomeSkeleton(key: ValueKey('home_skeleton'));
+      content = HomeSkeleton(
+        key: const ValueKey('home_skeleton'),
+        isFemale: authUser?.isFemale,
+      );
     } else {
       content = Scaffold(
         backgroundColor: Colors.transparent,
@@ -964,6 +967,7 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
   bool _isPermissionGranted = false;
   bool _isChecking = true;
   bool _isFetchingLocation = false;
+  String? _localCity;
 
   @override
   void initState() {
@@ -1048,6 +1052,9 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
     if (mounted) {
       setState(() {
         _isFetchingLocation = false;
+        if (updatedCity != null && updatedCity.trim().isNotEmpty) {
+          _localCity = updatedCity.trim();
+        }
       });
 
       if (userInitiated) {
@@ -1067,6 +1074,7 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
     final profile = ref.watch(userProfileProvider).value;
 
     if (_isChecking) {
+
       return const SizedBox.shrink();
     }
 
@@ -1112,23 +1120,25 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
       );
     }
 
-    // Granted state: display city name (e.g. Lucknow)
-    final String? city = profile?.city;
+    // Granted state: display city name (e.g. Jhansi)
+    final String? city = _localCity ?? profile?.city;
     final String? state = profile?.state;
     final String? country = profile?.country;
 
+
     String displayCity;
-    if (_isFetchingLocation) {
+    if (_isFetchingLocation && _localCity == null && (city == null || city.trim().isEmpty)) {
       displayCity = 'Fetching...';
     } else if (city != null && city.trim().isNotEmpty) {
-      displayCity = city;
+      displayCity = city.trim();
     } else if (state != null && state.trim().isNotEmpty) {
-      displayCity = state;
+      displayCity = state.trim();
     } else if (country != null && country.trim().isNotEmpty) {
-      displayCity = country;
+      displayCity = country.trim();
     } else {
       displayCity = 'Detecting...';
     }
+
 
     return GestureDetector(
       onTap: () => _handleLocationTap(userInitiated: true),

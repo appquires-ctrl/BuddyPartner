@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
+import 'package:buddypartner/core/widgets/coins/app_coin_icon.dart';
+import 'package:buddypartner/core/widgets/coins/app_coin_badge.dart';
 import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
 import 'package:buddypartner/features/withdraw/application/withdraw_providers.dart';
 import 'package:buddypartner/features/withdraw/application/withdraw_controller.dart';
@@ -27,9 +29,12 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(walletBalanceProvider);
+      ref.invalidate(withdrawalHistoryProvider);
       ref.read(instantConnectControllerProvider.notifier).fetchFemaleStatus();
       ref.read(instantConnectControllerProvider.notifier).fetchScratchCards();
     });
+
     _amountController.addListener(() {
       final text = _amountController.text.trim();
       final parsed = int.tryParse(text) ?? 0;
@@ -45,15 +50,6 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
   void dispose() {
     _amountController.dispose();
     super.dispose();
-  }
-
-  void _setPresetAmount(int amount, int maxBalance) {
-    HapticFeedback.selectionClick();
-    final target = amount.clamp(0, maxBalance);
-    _amountController.text = target > 0 ? target.toString() : '';
-    _amountController.selection = TextSelection.fromPosition(
-      TextPosition(offset: _amountController.text.length),
-    );
   }
 
   void _submitWithdrawal(int maxCoins) {
@@ -270,30 +266,13 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            // Container(
-                            //   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            //   decoration: BoxDecoration(
-                            //     color: Colors.white.withValues(alpha: 0.12),
-                            //     borderRadius: BorderRadius.circular(14),
-                            //     border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-                            //   ),
-                            //   child: Row(
-                            //     mainAxisSize: MainAxisSize.min,
-                            //     children: [
-                            //       const Text('🪙', style: TextStyle(fontSize: 12)),
-                            //       const SizedBox(width: 4),
-                            //       Text(
-                            //         '$walletBalance Coins',
-                            //         style: const TextStyle(
-                            //           color: Colors.white,
-                            //           fontSize: 12,
-                            //           fontWeight: FontWeight.w600,
-                            //         ),
-                            //       ),
-                            //     ],
-                            //   ),
-                            // ),
+                            const Spacer(),
+                            AppCoinBadge(
+                              coins: '$walletBalance',
+                              suffix: 'Coins',
+                              variant: AppCoinBadgeVariant.glass,
+                              iconSize: 16,
+                            ),
                           ],
                         ),
 
@@ -596,7 +575,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                     child: Row(
                       children: [
-                        const Text('🪙', style: TextStyle(fontSize: 22)),
+                        const AppCoinIcon(size: 24, withGlow: true),
                         const SizedBox(width: 10),
                         Expanded(
                           child: TextField(

@@ -10,6 +10,7 @@ import 'package:buddypartner/app/router/app_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/config/app_config.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
+import 'package:buddypartner/core/utils/app_snack_bar.dart';
 
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
 
@@ -134,6 +135,22 @@ class ApiClient {
             }
           }
 
+          // Handle 401 Session Terminated (Single device login policy)
+          if (err.response?.statusCode == 401) {
+            final data = err.response?.data;
+            if (data is Map<String, dynamic> && data['error'] == 'SESSION_TERMINATED') {
+              await clearTokens();
+              final context = rootNavigatorKey.currentContext;
+              if (context != null && context.mounted) {
+                AppSnackBar.showError(
+                  context,
+                  data['message']?.toString() ?? 'Your account was logged in from another device. Please log in again.',
+                );
+                context.go(RouteNames.login);
+              }
+            }
+          }
+
           // Handle 403 Account Ban/Suspension redirect
           if (err.response?.statusCode == 403) {
             final data = err.response?.data;
@@ -208,6 +225,11 @@ class ApiClient {
 
   /// Alias for deleteTokens
   Future<void> deleteToken() async {
+    await deleteTokens();
+  }
+
+  /// Alias for deleteTokens
+  Future<void> clearTokens() async {
     await deleteTokens();
   }
 

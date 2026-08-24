@@ -11,6 +11,12 @@ class WalletBalanceNotifier extends AsyncNotifier<int> {
   }
 
   Future<int> fetchBalance() async {
+    final authUser = ref.read(authStateProvider).value;
+    if (authUser == null) {
+      state = const AsyncData(0);
+      return 0;
+    }
+
     try {
       final apiClient = ref.read(apiClientProvider);
       final response = await apiClient.dio.get('/api/wallet/balance');
@@ -22,6 +28,7 @@ class WalletBalanceNotifier extends AsyncNotifier<int> {
     } catch (_) {}
     return state.value ?? 0;
   }
+
 
   void setBalance(int newBalance) {
     state = AsyncData(newBalance);

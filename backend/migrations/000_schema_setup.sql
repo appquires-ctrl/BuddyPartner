@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.users (
 -- 2. Wallets Table
 CREATE TABLE IF NOT EXISTS public.wallets (
   user_id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
-  balance INTEGER DEFAULT 100 NOT NULL
+  balance INTEGER DEFAULT 0 NOT NULL
 );
 
 -- 3. Calls Table
@@ -48,7 +48,7 @@ CREATE OR REPLACE FUNCTION public.create_wallet_for_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
   INSERT INTO public.wallets (user_id, balance)
-  VALUES (NEW.id, 100)
+  VALUES (NEW.id, 0)
   ON CONFLICT (user_id) DO NOTHING;
   RETURN NEW;
 END;

@@ -1,5 +1,5 @@
 const { MessagingService } = require('./messaging.service');
-const { userSockets } = require('../matchmaking/matchmaking.socket');
+const { userSockets, getSocketForUser } = require('../matchmaking/matchmaking.socket');
 const { subscriptionsService } = require('../subscriptions/subscriptions.service');
 
 const messagingService = new MessagingService();
@@ -78,9 +78,9 @@ function registerMessagingHandlers(io, socket, redis) {
         const conv = convResult.rows[0];
         const otherUserId = conv.user_a_id === userId ? conv.user_b_id : conv.user_a_id;
 
-        // Check if recipient socket is active
-        const recipientSocketId = userSockets.get(otherUserId);
-        if (recipientSocketId) {
+        // Check if recipient socket is active and validated
+        const recipientSocket = getSocketForUser(io, otherUserId);
+        if (recipientSocket && recipientSocket.connected) {
           // Delivered! Update status in DB and emit to both parties
           message.status = 'delivered';
           await require('../../db').query(
@@ -88,7 +88,7 @@ function registerMessagingHandlers(io, socket, redis) {
             [message.id]
           );
 
-          io.to(recipientSocketId).emit('message:new', { message });
+          io.to(recipientSocket.id).emit('message:new', { message });
           socket.emit('message:status_update', {
             conversationId,
             messageId: message.id,
@@ -125,10 +125,10 @@ function registerMessagingHandlers(io, socket, redis) {
       if (conv.user_a_id !== userId && conv.user_b_id !== userId) return;
 
       const otherUserId = conv.user_a_id === userId ? conv.user_b_id : conv.user_a_id;
-      const recipientSocketId = userSockets.get(otherUserId);
+      const recipientSocket = getSocketForUser(io, otherUserId);
 
-      if (recipientSocketId) {
-        io.to(recipientSocketId).emit('typing', {
+      if (recipientSocket && recipientSocket.connected) {
+        io.to(recipientSocket.id).emit('typing', {
           conversationId,
           userId,
         });
@@ -161,15 +161,15 @@ function registerMessagingHandlers(io, socket, redis) {
       if (convResult.rows.length > 0) {
         const conv = convResult.rows[0];
         const otherUserId = conv.user_a_id === userId ? conv.user_b_id : conv.user_a_id;
-        const senderSocketId = userSockets.get(otherUserId);
+        const senderSocket = getSocketForUser(io, otherUserId);
 
-        if (senderSocketId) {
-          io.to(senderSocketId).emit('message:read', {
+        if (senderSocket && senderSocket.connected) {
+          io.to(senderSocket.id).emit('message:read', {
             conversationId,
             userId,
             messageId,
           });
-          io.to(senderSocketId).emit('message:status_update', {
+          io.to(senderSocket.id).emit('message:status_update', {
             conversationId,
             messageId,
             status: 'read',
@@ -183,6 +183,7 @@ function registerMessagingHandlers(io, socket, redis) {
       cb({ error: err.message });
     }
   });
+
 }
 
 module.exports = { registerMessagingHandlers };

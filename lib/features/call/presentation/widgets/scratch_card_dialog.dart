@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:buddypartner/core/widgets/coins/app_coin_icon.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
 import 'package:buddypartner/features/call/domain/models/instant_connect_models.dart';
@@ -159,6 +160,8 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
 
     setState(() {
       _isRevealed = true;
+      _isClaimed = true;
+      _claimedCoins = widget.card.coinReward;
     });
 
     // Intense celebratory haptic sequence
@@ -170,25 +173,29 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
     _cardPopController.forward(from: 0.0);
     _burstController.forward(from: 0.0);
 
-    if (!_isClaimed && !widget.card.isScratched) {
+    if (!widget.card.isScratched) {
       _handleClaim();
     }
   }
 
   Future<void> _handleClaim() async {
-    if (_isClaiming || _isClaimed) return;
-    setState(() => _isClaiming = true);
+    if (_isClaiming) return;
+    _isClaiming = true;
 
-    final reward = await ref
-        .read(instantConnectControllerProvider.notifier)
-        .claimScratchCard(widget.card.id);
+    try {
+      final reward = await ref
+          .read(instantConnectControllerProvider.notifier)
+          .claimScratchCard(widget.card.id);
 
-    if (mounted) {
-      setState(() {
-        _isClaiming = false;
-        _isClaimed = true;
-        _claimedCoins = reward ?? widget.card.coinReward;
-      });
+      if (mounted && reward != null) {
+        setState(() {
+          _claimedCoins = reward;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isClaiming = false);
+      }
     }
   }
 
@@ -284,7 +291,7 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
                     children: [
               
                       Text(
-                        _isRevealed ? '🎉 REWARD UNLOCKED' : '🎁 10-MIN CALL REWARD',
+                        _isRevealed ? 'REWARD UNLOCKED' : '🎁 10-MIN CALL REWARD',
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w900,
@@ -299,7 +306,7 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
 
                 // Title
                 Text(
-                  _isRevealed ? 'Woohoo! You Won!' : 'Scratch Your Card! ✨',
+                  _isRevealed ? 'Woohoo! You Won!' : 'Scratch Your Card!',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
@@ -393,28 +400,7 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
                                 Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Container(
-                                      width: 52,
-                                      height: 52,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        gradient: const LinearGradient(
-                                          colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: const Color(0xFFFF8F00).withValues(alpha: 0.4),
-                                            blurRadius: 10,
-                                            offset: const Offset(0, 3),
-                                          ),
-                                        ],
-                                      ),
-                                      child: const Icon(
-                                        Icons.monetization_on_rounded,
-                                        color: Colors.white,
-                                        size: 34,
-                                      ),
-                                    ),
+                                    const AppCoinIcon(size: 52, withGlow: true),
                                     const SizedBox(height: 6),
                                     Text(
                                       '+$reward COINS',
@@ -488,35 +474,26 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
                           .withValues(alpha: 0.4),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
-                    child: _isClaiming
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2.5,
-                            ),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                _isRevealed ? Icons.check_circle_rounded : Icons.auto_awesome_rounded,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                _isRevealed
-                                    ? 'Done (Claimed to Wallet)'
-                                    : 'Tap to Reveal Instantly',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
-                            ],
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          _isRevealed ? Icons.check_circle_rounded : Icons.auto_awesome_rounded,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _isRevealed
+                              ? 'Done (Claimed to Wallet)'
+                              : 'Tap to Reveal Instantly',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            letterSpacing: 0.3,
                           ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],

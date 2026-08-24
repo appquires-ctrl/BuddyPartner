@@ -55,8 +55,9 @@ function sanitizePhoneInputs(countryCode, mobile) {
 async function sendWhatsAppOtp(countryCode, mobile, otp) {
   const { cleanCountryCode, cleanMobile } = sanitizePhoneInputs(countryCode, mobile);
   const authKey = process.env.MSG91_AUTHKEY || process.env.AUTHKEY_API_KEY;
-  const integratedNumber = process.env.MSG91_INTEGRATED_NUMBER || '916006329803';
-  const templateName = process.env.MSG91_TEMPLATE_NAME || 'otp';
+  const integratedNumber = process.env.MSG91_INTEGRATED_NUMBER || '919795038296';
+  const templateName = process.env.MSG91_TEMPLATE_NAME || 'login_otp';
+  const namespace = process.env.MSG91_NAMESPACE || null;
 
   if (!authKey) {
     console.warn('⚠️ MSG91_AUTHKEY / AUTHKEY_API_KEY missing from environment variables.');
@@ -81,11 +82,6 @@ async function sendWhatsAppOtp(countryCode, mobile, otp) {
       type: 'text',
       value: otp,
     },
-    button_1: {
-      subtype: 'url',
-      type: 'text',
-      value: otp,
-    },
   };
 
   const payloadData = {
@@ -100,7 +96,7 @@ async function sendWhatsAppOtp(countryCode, mobile, otp) {
           code: 'en',
           policy: 'deterministic',
         },
-        namespace: null,
+        namespace: namespace,
         to_and_components: [
           {
             to: [fullRecipientNumber],
@@ -128,7 +124,8 @@ async function sendWhatsAppOtp(countryCode, mobile, otp) {
     const hasNoErrorFlag = response.data?.hasError === false || response.data?.status === 'success' || response.data?.type === 'success';
 
     if (isSuccessStatus && (hasNoErrorFlag || !response.data?.hasError)) {
-      console.log(`✅ MSG91 WhatsApp OTP response received for ${maskedMobile}. Status: ${response.status}`);
+      const reqId = response.data?.request_id || response.data?.requestId || 'N/A';
+      console.log(`✅ MSG91 WhatsApp OTP queued for ${maskedMobile}. Request ID: ${reqId}, Status: ${response.status}`);
       return { success: true };
     } else {
       const errMsg = response.data?.message || response.data?.Message || response.data?.error || `MSG91 API HTTP ${response.status}`;

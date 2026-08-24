@@ -11,9 +11,9 @@ class AppConfig {
   );
 
   /// Agora App ID (safe to embed client-side — used for RTC engine init).
-  /// The App Certificate stays server-side only.ike 
+  /// The App Certificate stays server-side only.
   static const String agoraAppId = String.fromEnvironment(
     'AGORA_APP_ID',
-    defaultValue: '',
+    defaultValue: 'c1ad9e31c3ea4fb094ce515add9fe61b',
   );
 }

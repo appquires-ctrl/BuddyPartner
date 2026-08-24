@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
 class CallSummaryInfo {
   final String matchedUserId;
@@ -18,7 +19,14 @@ class CallSummaryInfo {
 
 class LastCallSummaryNotifier extends Notifier<CallSummaryInfo?> {
   @override
-  CallSummaryInfo? build() => null;
+  CallSummaryInfo? build() {
+    ref.listen(authStateProvider, (prev, next) {
+      if (next.value == null || (prev?.value != null && prev?.value?.id != next.value?.id)) {
+        state = null;
+      }
+    });
+    return null;
+  }
 
   void setSummary(CallSummaryInfo? summary) {
     state = summary;
@@ -28,3 +36,4 @@ class LastCallSummaryNotifier extends Notifier<CallSummaryInfo?> {
 final lastCallSummaryProvider = NotifierProvider<LastCallSummaryNotifier, CallSummaryInfo?>(
   LastCallSummaryNotifier.new,
 );
+

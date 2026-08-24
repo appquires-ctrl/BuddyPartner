@@ -1,8 +1,9 @@
 const jwt = require('jsonwebtoken');
+const redis = require('../redis');
 const { ModerationService } = require('../modules/moderation/moderation.service');
 
 /**
- * Middleware to authenticate requests using JWT tokens and enforce ban status.
+ * Middleware to authenticate requests using JWT tokens, enforce single-device policy, and check ban status.
  * Expects header: "Authorization: Bearer <token>"
  */
 async function authMiddleware(req, res, next) {
@@ -19,7 +20,18 @@ async function authMiddleware(req, res, next) {
   try {
     const secret = process.env.JWT_SECRET || 'buddypartner_fallback_jwt_secret_key_change_me_in_prod';
     const decoded = jwt.verify(token, secret);
-    req.user = decoded; // Decoded payload contains { id, phone }
+    req.user = decoded; // Decoded payload contains { id, phone, sessionId }
+
+    // Single-device active session check in Redis (In-Memory ~0.5ms lookup)
+    if (decoded.sessionId) {
+      const activeSessionId = await redis.get(`user_active_session:${decoded.id}`);
+      if (activeSessionId && activeSessionId !== decoded.sessionId) {
+        return res.status(401).json({
+          error: 'SESSION_TERMINATED',
+          message: 'Your account has been logged in on another device. Please log in again.',
+        });
+      }
+    }
 
     // Moderation status check — check ONLY isBanned
     const status = await ModerationService.isUserBlocked(decoded.id);

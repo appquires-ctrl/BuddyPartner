@@ -8,8 +8,6 @@ import 'package:buddypartner/features/call/application/instant_connect_controlle
 import 'package:buddypartner/features/call/presentation/widgets/incoming_paid_call_dialog.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
-// ignore: unused_import
-import 'package:buddypartner/core/services/screen_protection_service.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 
@@ -53,12 +51,18 @@ class BuddyPartnerApp extends ConsumerWidget {
         }
         navContext.go(RouteNames.activeCall);
       } else if (next.phase == InstantPhase.incomingRequest && prev?.phase != InstantPhase.incomingRequest) {
-        showDialog(
-          context: navContext,
-          barrierDismissible: false,
-          builder: (ctx) => const IncomingPaidCallDialog(),
-        );
+        final mmPhase = ref.read(matchmakingControllerProvider).phase;
+        if (mmPhase == MatchmakingPhase.idle) {
+          showDialog(
+            context: navContext,
+            barrierDismissible: false,
+            builder: (ctx) => const IncomingPaidCallDialog(),
+          );
+        }
+      } else if (prev?.phase == InstantPhase.inCall && (next.phase == InstantPhase.idle || next.phase == InstantPhase.ended)) {
+        navContext.go(RouteNames.home);
       }
+
 
       if (next.errorMessage != null && next.errorMessage != prev?.errorMessage) {
         AppSnackBar.showError(navContext, next.errorMessage!);

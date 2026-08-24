@@ -6,6 +6,8 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:buddypartner/core/services/api_client.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
+
 
 class LocationService {
   static const _storage = FlutterSecureStorage();
@@ -143,7 +145,10 @@ class LocationService {
         };
         await apiClient.dio.post('/api/auth/location', data: payload);
         await _markLocationSynced();
+        ref.invalidate(userProfileProvider);
+        ref.invalidate(authStateProvider);
       } catch (_) {}
+
 
       return city;
     } catch (_) {

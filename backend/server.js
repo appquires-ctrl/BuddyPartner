@@ -91,8 +91,19 @@ db.query(`
   console.error('❌ Failed to initialize subscriptions table:', err.message);
 });
 
-// ── Auto-ensure wallet_transactions table exists ────────────────────────────
+// ── Auto-ensure wallet_transactions and wallet defaults ────────────────────
 db.query(`
+  ALTER TABLE public.wallets ALTER COLUMN balance SET DEFAULT 0;
+  CREATE OR REPLACE FUNCTION public.create_wallet_for_new_user()
+  RETURNS TRIGGER AS $$
+  BEGIN
+    INSERT INTO public.wallets (user_id, balance)
+    VALUES (NEW.id, 0)
+    ON CONFLICT (user_id) DO NOTHING;
+    RETURN NEW;
+  END;
+  $$ LANGUAGE plpgsql;
+
   CREATE TABLE IF NOT EXISTS public.wallet_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
@@ -104,7 +115,7 @@ db.query(`
   );
   CREATE INDEX IF NOT EXISTS idx_wallet_tx_user ON public.wallet_transactions(user_id);
 `).then(() => {
-  console.log('✅ wallet_transactions table checked/initialized.');
+  console.log('✅ Wallets default (0) and wallet_transactions table checked/initialized.');
 }).catch((err) => {
   console.error('❌ Failed to initialize wallet_transactions table:', err.message);
 });
@@ -229,8 +240,17 @@ io.use(async (socket, next) => {
       }
     }
 
+    // Enforce single-device active session for socket connections
+    if (decoded.sessionId) {
+      const activeSession = await redis.get(`user_active_session:${decoded.id}`);
+      if (activeSession && activeSession !== decoded.sessionId) {
+        return next(new Error('SESSION_TERMINATED'));
+      }
+    }
+
     socket.userId = decoded.id;
     socket.userPhone = decoded.phone;
+    socket.sessionId = decoded.sessionId;
     next();
   } catch (err) {
     console.error('Socket auth failed:', err.message);

@@ -9,6 +9,8 @@ import 'package:buddypartner/app/theme/app_spacing.dart';
 import 'package:buddypartner/app/theme/app_radius.dart';
 import 'package:buddypartner/core/widgets/cards/app_card.dart';
 import 'package:buddypartner/core/widgets/gradient_avatar.dart';
+import 'package:buddypartner/core/widgets/coins/app_coin_badge.dart';
+import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 
 /// ProfilePage renders the Settings screen dashboard matching the screenshot layout exactly.
 /// Displays user info card, general settings categories, support links, and logout.
@@ -188,6 +190,7 @@ class ProfilePage extends ConsumerWidget {
                       subtitle: (currentUser?.isFemale ?? false)
                           ? 'Withdraw earnings to UPI / Bank'
                           : 'Recharge coins & view balance',
+                    
                       onTap: () {
                         context.push((currentUser?.isFemale ?? false)
                             ? RouteNames.withdraw
@@ -458,10 +461,11 @@ class ProfilePage extends ConsumerWidget {
                         ),
                         elevation: 0,
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         Navigator.pop(context);
-                        ref.read(authControllerProvider.notifier).signOut();
+                        await ref.read(authControllerProvider.notifier).signOut();
                       },
+
                       child: const Text(
                         'Log Out',
                         style: TextStyle(
@@ -497,6 +501,7 @@ class ProfilePage extends ConsumerWidget {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
+    Widget? trailing,
   }) {
     final colors = context.colors;
     return Material(
@@ -528,11 +533,12 @@ class ProfilePage extends ConsumerWidget {
             fontSize: 12,
           ),
         ),
-        trailing: Icon(
-          Icons.chevron_right,
-          color: colors.textSecondary.withValues(alpha: 0.5),
-          size: 18,
-        ),
+        trailing: trailing ??
+            Icon(
+              Icons.chevron_right,
+              color: colors.textSecondary.withValues(alpha: 0.5),
+              size: 18,
+            ),
         onTap: onTap,
       ),
     );

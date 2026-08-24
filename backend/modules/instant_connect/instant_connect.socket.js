@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { RtcTokenBuilder, RtcRole } = require('agora-access-token');
 const { instantConnectService } = require('./instant_connect.service');
 const { subscriptionsService } = require('../subscriptions/subscriptions.service');
@@ -6,7 +7,16 @@ const db = require('../../db');
 const AGORA_APP_ID = process.env.AGORA_APP_ID || '';
 const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE || '';
 
+/**
+ * Convert UUID string to 31-bit positive integer Agora UID
+ */
+function uuidToAgoraUid(uuid) {
+  const hash = crypto.createHash('md5').update(uuid || String(Date.now())).digest();
+  return hash.readUInt32BE(0) & 0x7fffffff;
+}
+
 // In-memory active instant calls map: callId -> { sessionId, maleUserId, maleSocketId, femaleUserId, femaleSocketId, timer10m, startedAt }
+
 const activeInstantCalls = new Map();
 // Reverse mapping: socketId -> callId
 const socketToInstantCall = new Map();
@@ -156,7 +166,7 @@ async function triggerInstantMatchmaker(io, redis) {
       return;
     }
 
-    // Filter females who are currently connected, have toggle ON in DB, and are not in a call
+    // Filter females who are currently connected, have toggle ON in DB, and are not in any call
     const eligibleFemales = [];
     for (const femaleId of allFemales) {
       if (femaleId === maleUserId) continue;
@@ -164,12 +174,26 @@ async function triggerInstantMatchmaker(io, redis) {
       if (isSnoozed) continue;
       const isRinging = await redis.get(`instant:ringing:${femaleId}`);
       if (isRinging) continue;
+      const inInstantCall = await redis.get(`instant:in_call:${femaleId}`);
+      if (inInstantCall) continue;
+      const matchLock = await redis.get(`call_lock:${femaleId}`);
+      if (matchLock) continue;
+
+      let isBusy = false;
+      for (const call of activeInstantCalls.values()) {
+        if (call.femaleUserId === femaleId || call.maleUserId === femaleId) {
+          isBusy = true;
+          break;
+        }
+      }
+      if (isBusy) continue;
 
       const fSocket = getSocketForUser(io, femaleId);
       if (fSocket && !socketToInstantCall.has(fSocket.id)) {
         eligibleFemales.push({ userId: femaleId, socketId: fSocket.id, socket: fSocket });
       }
     }
+
 
     if (eligibleFemales.length === 0) {
       return;
@@ -180,7 +204,7 @@ async function triggerInstantMatchmaker(io, redis) {
     const selectedFemales = shuffled.slice(0, 2);
 
     const callRequestId = `req_${sessionId}_${Date.now()}`;
-    const agoraChannelName = `instant_${sessionId}_${Date.now()}`;
+    const agoraChannelName = `instant_${crypto.randomBytes(8).toString('hex')}`;
 
     // Mark females in temporary ringing lock (expires in 18s)
     for (const f of selectedFemales) {
@@ -203,7 +227,7 @@ async function triggerInstantMatchmaker(io, redis) {
 
     // Emit incoming call to both female sockets
     for (const f of selectedFemales) {
-      const fAgoraUid = Math.floor(Math.random() * 90000) + 10000;
+      const fAgoraUid = uuidToAgoraUid(f.userId);
       const fToken = generateAgoraToken(agoraChannelName, fAgoraUid);
 
       f.socket.emit('incoming_instant_call', {
@@ -214,6 +238,7 @@ async function triggerInstantMatchmaker(io, redis) {
         timeoutSeconds: 15,
       });
     }
+
 
     // 4. Set 15-second cascade timer
     const cascadeTimer = setTimeout(async () => {
@@ -460,11 +485,12 @@ function registerInstantConnectHandlers(io, socket, redis) {
       }
 
       // Generate Agora Tokens
-      const maleUid = Math.floor(Math.random() * 80000) + 10000;
-      const femaleUid = Math.floor(Math.random() * 80000) + 10000;
+      const maleUid = uuidToAgoraUid(maleUserId);
+      const femaleUid = uuidToAgoraUid(userId);
 
       const maleToken = generateAgoraToken(agoraChannelName, maleUid);
       const femaleToken = generateAgoraToken(agoraChannelName, femaleUid);
+
 
       const callId = `instant_call_${sessionId}`;
 
@@ -514,7 +540,15 @@ function registerInstantConnectHandlers(io, socket, redis) {
       socketToInstantCall.set(activeMaleSocketId, callId);
       socketToInstantCall.set(socket.id, callId);
 
+      // Explicitly lock both users in Redis so neither can be called or matched during the call
+      await redis.srem('instant:female_pool', userId);
+      await redis.set(`instant:in_call:${userId}`, callId, 'EX', 7200);
+      await redis.set(`instant:in_call:${maleUserId}`, callId, 'EX', 7200);
+      await redis.set(`call_lock:${userId}`, '1', 'EX', 7200);
+      await redis.set(`call_lock:${maleUserId}`, '1', 'EX', 7200);
+
       const liveAppId = process.env.AGORA_APP_ID || AGORA_APP_ID;
+
 
       // Notify Male (revealing female profile)
       if (activeMaleSocketId) {
@@ -664,22 +698,35 @@ async function endInstantCallHelper(io, redis, { callId, userId, reason = 'manua
     reason,
   };
 
-  // Notify both parties on both instant:call_ended and call_ended channels
-  if (maleSock) {
+  // Notify both parties on both instant:call_ended and call_ended channels (via rooms and direct sockets)
+  if (callObj.maleUserId) {
+    io.to(callObj.maleUserId).emit('instant:call_ended', endPayload);
+    io.to(callObj.maleUserId).emit('call_ended', endPayload);
+  }
+  if (callObj.femaleUserId) {
+    io.to(callObj.femaleUserId).emit('instant:call_ended', endPayload);
+    io.to(callObj.femaleUserId).emit('call_ended', endPayload);
+  }
+  if (maleSock && maleSock !== callObj.maleUserId) {
     io.to(maleSock).emit('instant:call_ended', endPayload);
     io.to(maleSock).emit('call_ended', endPayload);
   }
-  if (femaleSock) {
+  if (femaleSock && femaleSock !== callObj.femaleUserId) {
     io.to(femaleSock).emit('instant:call_ended', endPayload);
     io.to(femaleSock).emit('call_ended', endPayload);
   }
 
-  // Cleanup mappings
+  // Cleanup mappings and in-call locks
   socketToInstantCall.delete(callObj.maleSocketId);
   socketToInstantCall.delete(callObj.femaleSocketId);
   if (maleSock) socketToInstantCall.delete(maleSock);
   if (femaleSock) socketToInstantCall.delete(femaleSock);
   activeInstantCalls.delete(targetCallId);
+
+  await redis.del(`instant:in_call:${callObj.femaleUserId}`);
+  await redis.del(`instant:in_call:${callObj.maleUserId}`);
+  await redis.del(`call_lock:${callObj.femaleUserId}`);
+  await redis.del(`call_lock:${callObj.maleUserId}`);
 
   // Return female to pool if her toggle is still ON
   try {
@@ -692,6 +739,52 @@ async function endInstantCallHelper(io, redis, { callId, userId, reason = 'manua
   return endPayload;
 }
 
+/**
+ * Forcefully cleanup a user's instant connect queues, female pool, active calls, and refund male escrow upon logout.
+ */
+async function cleanupUserInstantConnect(io, redis, userId) {
+  if (!userId) return;
+  try {
+    // 1. Remove from female pool and clear locks
+    await redis.srem('instant:female_pool', userId);
+    await redis.del(`instant:ringing:${userId}`);
+    await redis.del(`instant:in_call:${userId}`);
+    await redis.del(`call_lock:${userId}`);
+
+
+    // 2. Clean up waiting male from queue and refund escrowed coins
+    const sessionStr = await redis.get(`instant:male_session:${userId}`);
+    if (sessionStr) {
+      try {
+        const { sessionId, bidAmount } = JSON.parse(sessionStr);
+        await redis.zrem('instant:male_queue', userId);
+        await redis.del(`instant:male_session:${userId}`);
+        await instantConnectService.refundEscrowedCoins(userId, bidAmount, sessionId);
+        console.log(`🧹 [Instant Connect] Refunded escrow & removed male ${userId} on logout`);
+      } catch (err) {
+        console.error(`Error refunding male on logout for ${userId}:`, err.message);
+      }
+    }
+
+    // 3. End any active instant call involving this user
+    for (const [callId, c] of activeInstantCalls.entries()) {
+      if (c.maleUserId === userId || c.femaleUserId === userId) {
+        await endInstantCallHelper(io, redis, {
+          callId,
+          userId,
+          reason: 'logged_out',
+        });
+      }
+    }
+
+    // 4. Remove socket mapping
+    userSockets.delete(userId);
+    console.log(`🧹 [Instant Connect] Cleaned up instant connect state for user ${userId}`);
+  } catch (err) {
+    console.error(`Error cleaning up instant connect state for ${userId}:`, err.message);
+  }
+}
+
 module.exports = {
   registerInstantConnectHandlers,
   activeInstantCalls,
@@ -700,4 +793,6 @@ module.exports = {
   triggerInstantMatchmaker,
   userSockets,
   getSocketForUser,
+  cleanupUserInstantConnect,
 };
+

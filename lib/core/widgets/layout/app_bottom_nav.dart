@@ -9,6 +9,7 @@ class AppBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
   final bool isFemale;
+  final bool isSubscribed;
   final bool isTelecallerActive;
 
   const AppBottomNav({
@@ -16,6 +17,7 @@ class AppBottomNav extends StatelessWidget {
     required this.currentIndex,
     required this.onTap,
     this.isFemale = false,
+    this.isSubscribed = false,
     this.isTelecallerActive = false,
   });
 
@@ -57,7 +59,8 @@ class AppBottomNav extends StatelessWidget {
             child: NavigationBar(
               selectedIndex: navSelectedIndex,
               onDestinationSelected: (index) {
-                final tabNames = ['Home', 'Chat', 'VIP', 'Favorite', 'Setting'];
+                final middleTab = isSubscribed ? (isFemale ? 'Withdraw' : 'Coins') : 'Plans';
+                final tabNames = ['Home', 'Chat', middleTab, 'Favorite', 'Setting'];
                 final tabName = index >= 0 && index < tabNames.length ? tabNames[index] : 'Tab $index';
                 AppLogger.click('Bottom Nav Tab: $tabName');
                 onTap(index);
@@ -66,28 +69,38 @@ class AppBottomNav extends StatelessWidget {
               indicatorColor: colors.primary.withValues(alpha: 0.12),
               elevation: 0,
               height: 64,
-              destinations: const [
-                NavigationDestination(
+              destinations: [
+                const NavigationDestination(
                   icon: Icon(Icons.home_outlined),
                   selectedIcon: Icon(Icons.home),
                   label: 'Home',
                 ),
-                NavigationDestination(
+                const NavigationDestination(
                   icon: Icon(Icons.chat_bubble_outline),
                   selectedIcon: Icon(Icons.chat_bubble),
                   label: 'Chat',
                 ),
                 NavigationDestination(
-                  icon: Icon(Icons.subscriptions_outlined),
-                  selectedIcon: Icon(Icons.subscriptions),
-                  label: 'Plans',
+                  icon: Icon(
+                    isSubscribed
+                        ? (isFemale ? Icons.account_balance_wallet_outlined : Icons.monetization_on_outlined)
+                        : Icons.subscriptions_outlined,
+                  ),
+                  selectedIcon: Icon(
+                    isSubscribed
+                        ? (isFemale ? Icons.account_balance_wallet : Icons.monetization_on)
+                        : Icons.subscriptions,
+                  ),
+                  label: isSubscribed
+                      ? (isFemale ? 'Withdraw' : 'Coins')
+                      : 'Plans',
                 ),
-                NavigationDestination(
+                const NavigationDestination(
                   icon: Icon(Icons.favorite_border),
                   selectedIcon: Icon(Icons.favorite),
                   label: 'Favorite',
                 ),
-                NavigationDestination(
+                const NavigationDestination(
                   icon: Icon(Icons.settings_outlined),
                   selectedIcon: Icon(Icons.settings),
                   label: 'Settings',

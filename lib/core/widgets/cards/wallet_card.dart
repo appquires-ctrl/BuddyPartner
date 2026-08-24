@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/app/theme/app_radius.dart';
 import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/core/widgets/coins/app_coin_icon.dart';
 
 /// WalletCard renders a premium credit-card style balance summary card.
 /// Features a dark, rich gradient, gold accents, and coin representations.
@@ -67,18 +68,7 @@ class WalletCard extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.1),
-                    ),
-                    child: const Icon(
-                      Icons.monetization_on,
-                      color: Color(0xFFF2A93B), // Gold/Amber accent
-                      size: 24,
-                    ),
-                  ),
+                  const AppCoinIcon(size: 28, withGlow: true),
                 ],
               ),
               // const SizedBox(height: AppSpacing.space8),

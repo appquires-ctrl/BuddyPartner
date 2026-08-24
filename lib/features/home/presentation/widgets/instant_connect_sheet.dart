@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/app_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/core/widgets/coins/app_coin_icon.dart';
 import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
@@ -324,7 +325,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text('🪙', style: TextStyle(fontSize: 13)),
+                            const AppCoinIcon(size: 16),
                             const SizedBox(width: 6),
                             Text(
                               '$walletBalance',
@@ -526,7 +527,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Text('🪙', style: TextStyle(fontSize: 12)),
+                                AppCoinIcon(size: 15, withGlow: isSelected),
                                 const SizedBox(width: 3),
                                 Text(
                                   '${item.coins}',
@@ -579,7 +580,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
                     child: Row(
                       children: [
                         // Coin Icon Badge
-                        const Text('🪙', style: TextStyle(fontSize: 18)),
+                        const AppCoinIcon(size: 22),
                         const SizedBox(width: 12),
 
                         // Custom Input Field

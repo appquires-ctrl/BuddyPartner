@@ -9,6 +9,7 @@ import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/app/router/app_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/core/utils/app_snack_bar.dart';
 
 /// Shared Socket.io connection provider.
 ///
@@ -18,14 +19,22 @@ import 'package:buddypartner/app/router/route_names.dart';
 /// The socket is lazily created on first access and disposed when
 /// the user logs out (authState becomes null).
 class SocketNotifier extends Notifier<sio.Socket?> {
+  String? _connectedUserId;
+
   @override
   sio.Socket? build() {
     ref.onDispose(_dispose);
 
-    // Auto-connect when user authenticates, disconnect on logout
+    // Auto-connect when user authenticates, disconnect on logout or account switch
     ref.listen<AsyncValue<CustomUser?>>(authStateProvider, (prev, next) {
-      final user = next.value;
-      if (user != null) {
+      final prevUser = prev?.value;
+      final nextUser = next.value;
+
+      if (nextUser != null) {
+        if (prevUser != null && prevUser.id != nextUser.id) {
+          // Account switched: explicitly tear down previous socket connection
+          _dispose();
+        }
         _ensureConnected();
       } else {
         _dispose();
@@ -43,10 +52,20 @@ class SocketNotifier extends Notifier<sio.Socket?> {
 
   /// Ensure the socket is created and connected.
   Future<void> _ensureConnected() async {
-    if (state != null && state!.connected) return;
+    final currentUser = ref.read(authStateProvider).value;
+    if (currentUser == null) return;
+
+    // If socket exists for a different user, destroy it first
+    if (state != null && _connectedUserId != null && _connectedUserId != currentUser.id) {
+      _dispose();
+    }
+
+    if (state != null && state!.connected && _connectedUserId == currentUser.id) {
+      return;
+    }
 
     final accessToken = await ref.read(apiClientProvider).getToken();
-    if (accessToken == null) return;
+    if (accessToken == null || accessToken.isEmpty) return;
 
     String appVersion = '1.0.0';
     try {
@@ -63,7 +82,7 @@ class SocketNotifier extends Notifier<sio.Socket?> {
       'platform': platform,
     };
 
-    if (state != null) {
+    if (state != null && _connectedUserId == currentUser.id) {
       if (state!.io.options != null) {
         state!.io.options!['auth'] = authPayload;
       }
@@ -72,6 +91,11 @@ class SocketNotifier extends Notifier<sio.Socket?> {
       }
       return;
     }
+
+    // Completely destroy any existing socket before instantiating a fresh one
+    _dispose();
+
+    _connectedUserId = currentUser.id;
 
     final socket = sio.io(
       AppConfig.backendUrl,
@@ -87,27 +111,59 @@ class SocketNotifier extends Notifier<sio.Socket?> {
     );
 
     socket.onConnect((_) {
-      debugPrint('[SocketProvider] Connected to backend');
+      debugPrint('[SocketProvider] Connected to backend as user: $_connectedUserId');
       state = socket;
+    });
+
+    socket.on('force_disconnect', (data) {
+      debugPrint('[SocketProvider] Received force_disconnect from server: $data');
+      _dispose();
+    });
+
+    socket.on('session_terminated', (data) async {
+      debugPrint('[SocketProvider] Received session_terminated from server: $data');
+      _dispose();
+      await ref.read(apiClientProvider).clearTokens();
+      await ref.read(authStateProvider.notifier).clearSession();
+      final context = rootNavigatorKey.currentContext;
+      if (context != null && context.mounted) {
+        final message = (data is Map && data['reason'] != null)
+            ? data['reason'].toString()
+            : 'Your account was logged in on another device. Please log in again.';
+        AppSnackBar.showError(context, message);
+        context.go(RouteNames.login);
+      }
     });
 
     socket.onDisconnect((_) async {
       debugPrint('[SocketProvider] Disconnected');
-      // Refresh token for reconnection
-      final token = await ref.read(apiClientProvider).getToken();
-      if (token != null && socket.io.options != null) {
-        socket.io.options!['auth'] = {
-          'token': token,
-          'appVersion': appVersion,
-          'platform': platform,
-        };
+      // Refresh token for reconnection if still authenticated
+      final activeUser = ref.read(authStateProvider).value;
+      if (activeUser != null && activeUser.id == _connectedUserId) {
+        final token = await ref.read(apiClientProvider).getToken();
+        if (token != null && socket.io.options != null) {
+          socket.io.options!['auth'] = {
+            'token': token,
+            'appVersion': appVersion,
+            'platform': platform,
+          };
+        }
       }
     });
 
     socket.onConnectError((err) {
       debugPrint('[SocketProvider] Connection error: $err');
       final errStr = err.toString();
-      if (errStr.contains('ACCOUNT_UPGRADE_REQUIRED')) {
+      if (errStr.contains('SESSION_TERMINATED')) {
+        _dispose();
+        ref.read(apiClientProvider).clearTokens();
+        ref.read(authStateProvider.notifier).clearSession();
+        final context = rootNavigatorKey.currentContext;
+        if (context != null && context.mounted) {
+          AppSnackBar.showError(context, 'Your account was logged in on another device. Please log in again.');
+          context.go(RouteNames.login);
+        }
+      } else if (errStr.contains('ACCOUNT_UPGRADE_REQUIRED')) {
         final context = rootNavigatorKey.currentContext;
         if (context != null) {
           context.go(RouteNames.updateRequired);
@@ -125,8 +181,10 @@ class SocketNotifier extends Notifier<sio.Socket?> {
   }
 
   void _dispose() {
+    _connectedUserId = null;
     if (state != null) {
       try {
+        state!.clearListeners();
         if (state!.connected) {
           state!.disconnect();
         }
@@ -142,3 +200,4 @@ class SocketNotifier extends Notifier<sio.Socket?> {
 final socketProvider = NotifierProvider<SocketNotifier, sio.Socket?>(
   SocketNotifier.new,
 );
+

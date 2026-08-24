@@ -30,14 +30,48 @@ class AppSnackBar {
     ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
-  /// Displays an Error SnackBar with red background and logs to AppLogger.
+  /// Displays an Error SnackBar with clean formatting and logs to AppLogger.
   static void showError(BuildContext context, String message) {
-    AppLogger.snackbar(message, type: 'Error');
+    String cleanMessage = message;
+    final lower = message.toLowerCase();
+
+    if (lower.contains('socketexception') ||
+        lower.contains('failed host lookup') ||
+        lower.contains('connection refused') ||
+        lower.contains('connection timeout') ||
+        lower.contains('connection error') ||
+        lower.contains('network error') ||
+        lower.contains('clientexception') ||
+        lower.contains('handshakeexception') ||
+        lower.contains('os error: no address associated with hostname')) {
+      cleanMessage = 'No internet connection. Please check your network settings and try again.';
+    }
+
+    AppLogger.snackbar(cleanMessage, type: 'Error');
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
+        content: Row(
+          children: [
+            const Icon(Icons.wifi_off_rounded, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                cleanMessage,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFFEF4444),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        duration: const Duration(seconds: 3),
       ),
     );
   }

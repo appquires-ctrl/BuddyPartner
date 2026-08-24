@@ -1,4 +1,5 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const axios = require('axios');
 const db = require('./db');
 const redis = require('./redis');
@@ -53,8 +54,8 @@ async function testAuthkeyOtpFlow() {
     if (capturedHeaders['Content-Type'] !== 'application/json') {
       throw new Error(`Content-Type header mismatch: ${capturedHeaders['Content-Type']}`);
     }
-    if (capturedPayload.integrated_number !== (process.env.MSG91_INTEGRATED_NUMBER || '916006329803')) {
-      throw new Error('Payload integrated_number mismatch');
+    if (capturedPayload.integrated_number !== (process.env.MSG91_INTEGRATED_NUMBER || '919795038296')) {
+      throw new Error(`Integrated number mismatch: ${capturedPayload.integrated_number}`);
     }
     if (capturedPayload.content_type !== 'template' || capturedPayload.payload.type !== 'template') {
       throw new Error('Payload content_type or type mismatch');
@@ -62,7 +63,7 @@ async function testAuthkeyOtpFlow() {
     if (capturedPayload.payload.messaging_product !== 'whatsapp') {
       throw new Error('Payload messaging_product mismatch');
     }
-    if (capturedPayload.payload.template.name !== (process.env.MSG91_TEMPLATE_NAME || 'otp')) {
+    if (capturedPayload.payload.template.name !== (process.env.MSG91_TEMPLATE_NAME || 'login_otp')) {
       throw new Error('Payload template name mismatch');
     }
     if (capturedPayload.payload.template.to_and_components[0].to[0] !== '919876543210') {
@@ -70,9 +71,6 @@ async function testAuthkeyOtpFlow() {
     }
     if (capturedPayload.payload.template.to_and_components[0].components.body_1.value !== '654321') {
       throw new Error('OTP parameter body_1 value mismatch');
-    }
-    if (capturedPayload.payload.template.to_and_components[0].components.button_1.value !== '654321') {
-      throw new Error('OTP parameter button_1 value mismatch');
     }
     console.log('✅ Outgoing MSG91 POST payload shape, headers, and phone formatting verified!');
 
@@ -157,7 +155,7 @@ async function testAuthkeyOtpFlow() {
     if (consumedKey) throw new Error('Redis OTP key was not deleted on success!');
     console.log('✅ Redis OTP key deleted immediately on verification success.');
 
-    // Verify DB user + wallet + welcome bonus 100 created
+    // Verify DB user + wallet created with initial 0 balance
     const userDbRes = await db.query(
       `SELECT u.id, u.country_code, u.mobile, w.balance, count(wt.id) as tx_count 
        FROM public.users u
@@ -170,8 +168,8 @@ async function testAuthkeyOtpFlow() {
 
     if (userDbRes.rows.length === 0) throw new Error('User was not created in PostgreSQL!');
     const userRow = userDbRes.rows[0];
-    console.log(`✅ Database verified! User ID: ${userRow.id}, Wallet Balance: ${userRow.balance}, Welcome Tx: ${userRow.tx_count}`);
-    if (parseInt(userRow.balance, 10) !== 100) throw new Error('Wallet balance is not 100!');
+    console.log(`✅ Database verified! User ID: ${userRow.id}, Wallet Balance: ${userRow.balance}, Tx count: ${userRow.tx_count}`);
+    if (parseInt(userRow.balance, 10) !== 0) throw new Error('Wallet balance is not 0!');
 
     // ────────────────────────────────────────────────────────────────────────
     // TEST 4: Token Rotation (/api/auth/refresh)
@@ -226,8 +224,9 @@ async function testAuthkeyOtpFlow() {
     console.error('❌ Test Failed:', err.response?.data || err.message);
     process.exit(1);
   } finally {
-    server.close();
-    db.pool.end();
+    try { server.close(); } catch (_) {}
+    try { await db.pool.end(); } catch (_) {}
+    process.exit(0);
   }
 }
 

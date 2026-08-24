@@ -75,7 +75,7 @@ router.post('/otp/send', async (req, res) => {
  * Endpoint: POST /api/auth/otp/verify
  * Verifies submitted OTP against bcrypt hash in Redis.
  * On success:
- * - Provisions user + wallet + wallet_transactions (welcome bonus 100) atomically if new
+ * - Provisions user + wallet (0 initial balance) atomically if new
  * - Issues Access JWT (1d expiry) and rotating Refresh Token (stored in Redis with 30d TTL)
  * - Deletes Redis OTP key immediately
  */
@@ -124,7 +124,7 @@ router.post('/otp/verify', async (req, res) => {
     // Form legacy phone format e.g. "+919876543210"
     const fullPhoneNumber = `+${cleanCountryCode}${cleanMobile}`;
 
-    // 5. Query user or run atomic transaction to create user + wallet + welcome bonus
+    // 5. Query user or run atomic transaction to create user + wallet
     let userResult = await db.query(
       `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.dob, u.gender, u.language, 
               u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, 
@@ -138,7 +138,7 @@ router.post('/otp/verify', async (req, res) => {
     let user;
 
     if (userResult.rows.length === 0) {
-      // Atomic Transaction: Create user + wallet + welcome bonus 100
+      // Atomic Transaction: Create user + wallet (0 balance)
       const client = await db.pool.connect();
       try {
         await client.query('BEGIN');
@@ -151,18 +151,11 @@ router.post('/otp/verify', async (req, res) => {
         );
         user = insertUserRes.rows[0];
 
-        // Provision wallet with 100 balance
+        // Provision wallet with 0 balance
         await client.query(
           `INSERT INTO public.wallets (user_id, balance) 
-           VALUES ($1, 100) 
+           VALUES ($1, 0) 
            ON CONFLICT (user_id) DO NOTHING`,
-          [user.id]
-        );
-
-        // Record welcome bonus transaction
-        await client.query(
-          `INSERT INTO public.wallet_transactions (user_id, amount, type, reason) 
-           VALUES ($1, 100, 'credit', 'Welcome Bonus')`,
           [user.id]
         );
 
@@ -186,20 +179,33 @@ router.post('/otp/verify', async (req, res) => {
       }
     }
 
-    // 6. Generate Tokens
+    // 6. Enforce Single-Device Policy: Generate new Session ID & terminate previous sessions
+    const sessionId = crypto.randomUUID();
+    const io = req.app.get('io');
+    if (io) {
+      io.to(user.id).emit('session_terminated', {
+        reason: 'Your account was logged in from another device.',
+      });
+      io.in(user.id).disconnectSockets(true);
+    }
+    // Store active session in Redis (no TTL or long TTL, valid until overwritten/logged out)
+    await redis.set(`user_active_session:${user.id}`, sessionId);
+
+    // 7. Generate Tokens
     const jti = crypto.randomUUID();
     const payload = {
       id: user.id,
       phone: fullPhoneNumber,
       countryCode: cleanCountryCode,
       mobile: cleanMobile,
+      sessionId,
     };
 
     // Short-lived Access Token (1 day)
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
 
     // Refresh Token (30 days) with jti
-    const refreshToken = jwt.sign({ id: user.id, jti }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
+    const refreshToken = jwt.sign({ id: user.id, jti, sessionId }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
 
     // Store Refresh Token status in Redis: refresh:{userId}:{jti} -> TTL 30 days (2,592,000s)
     await redis.set(`refresh:${user.id}:${jti}`, '1', 'EX', 30 * 24 * 60 * 60);
@@ -280,6 +286,13 @@ router.post('/refresh', async (req, res) => {
 
     const user = userRes.rows[0];
 
+    // Check active session ID in Redis
+    let activeSessionId = await redis.get(`user_active_session:${id}`);
+    if (!activeSessionId) {
+      activeSessionId = crypto.randomUUID();
+      await redis.set(`user_active_session:${id}`, activeSessionId);
+    }
+
     // Issue new tokens
     const newJti = crypto.randomUUID();
     const payload = {
@@ -287,10 +300,11 @@ router.post('/refresh', async (req, res) => {
       phone: user.phone_number || `+${user.country_code}${user.mobile}`,
       countryCode: user.country_code,
       mobile: user.mobile,
+      sessionId: activeSessionId,
     };
 
     const newAccessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
-    const newRefreshToken = jwt.sign({ id: user.id, jti: newJti }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
+    const newRefreshToken = jwt.sign({ id: user.id, jti: newJti, sessionId: activeSessionId }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
 
     // Store new refresh token in Redis
     await redis.set(`refresh:${user.id}:${newJti}`, '1', 'EX', 30 * 24 * 60 * 60);
@@ -308,24 +322,65 @@ router.post('/refresh', async (req, res) => {
 
 /**
  * Endpoint: POST /api/auth/logout
- * Invalidates the session by deleting the refresh token from Redis.
+ * Invalidates the session by deleting the refresh token from Redis,
+ * deleting the active session key, evicting all queues, terminating active calls,
+ * marking presence offline, and disconnecting any live sockets for this user.
  */
 router.post('/logout', async (req, res) => {
   const { refreshToken } = req.body;
+  const io = req.app.get('io');
+  let userId = null;
 
   if (refreshToken && typeof refreshToken === 'string') {
     try {
       const decoded = jwt.decode(refreshToken);
-      if (decoded && decoded.id && decoded.jti) {
-        await redis.del(`refresh:${decoded.id}:${decoded.jti}`);
+      if (decoded && decoded.id) {
+        userId = decoded.id;
+        if (decoded.jti) {
+          await redis.del(`refresh:${decoded.id}:${decoded.jti}`);
+        }
       }
     } catch (_) {
       // Ignore decode failures on logout
     }
   }
 
+  if (!userId && req.headers.authorization) {
+    try {
+      const authHeader = req.headers.authorization;
+      if (authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        const decoded = jwt.decode(token);
+        if (decoded && decoded.id) {
+          userId = decoded.id;
+        }
+      }
+    } catch (_) {}
+  }
+
+  if (userId) {
+    try {
+      // Delete active session key from Redis
+      await redis.del(`user_active_session:${userId}`);
+
+      const { cleanupUserMatchmaking } = require('../matchmaking/matchmaking.socket');
+      const { cleanupUserInstantConnect } = require('../instant_connect/instant_connect.socket');
+      const { PresenceService } = require('../presence/presence.service');
+
+      await Promise.all([
+        cleanupUserMatchmaking(io, redis, userId),
+        cleanupUserInstantConnect(io, redis, userId),
+        PresenceService.setPresence(redis, io, userId, false),
+      ]);
+      console.log(`🔒 [Auth] Complete server-side logout & socket purge performed for user ${userId}`);
+    } catch (cleanupErr) {
+      console.error(`Error during server logout cleanup for user ${userId}:`, cleanupErr.message);
+    }
+  }
+
   res.json({ success: true, message: 'Logged out successfully.' });
 });
+
 
 /**
  * Endpoint: POST /api/auth/profile

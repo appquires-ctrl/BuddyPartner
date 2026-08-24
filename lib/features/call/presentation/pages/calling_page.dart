@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
 import 'package:buddypartner/features/call/application/matchmaking_state.dart';
+
+import 'package:buddypartner/core/widgets/app_avatar.dart';
 
 /// CallingPage renders a brief "connecting" or "ringing" screen
 /// shown before the Agora channel is fully joined.
@@ -71,16 +74,13 @@ class CallingPage extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    child: CircleAvatar(
-                      backgroundColor: const Color(0xFFE5DFFF), // Light lavender background
-                      child: Text(
-                        initials,
-                        style: const TextStyle(
-                          color: Color(0xFF6B4EFF),
-                          fontSize: 36,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    child: AppAvatar(
+                      userAvatar: matchState.matchedUser?.avatarUrl ?? (imageUrl.isNotEmpty ? imageUrl : null),
+                      avatarSeed: matchState.matchedUser?.avatarSeed,
+                      avatarStyle: matchState.matchedUser?.avatarStyle,
+                      gender: matchState.matchedUser?.gender,
+                      initials: initials,
+                      radius: 70,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -92,6 +92,7 @@ class CallingPage extends ConsumerWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+
                   const SizedBox(height: 8),
                   Text(
                     matchState.phase == MatchmakingPhase.outgoingRequest
@@ -119,10 +120,14 @@ class CallingPage extends ConsumerWidget {
                 // End Call / Cancel button
                 GestureDetector(
                   onTap: () {
+                    HapticFeedback.mediumImpact();
                     if (matchState.phase == MatchmakingPhase.outgoingRequest) {
                       ref.read(matchmakingControllerProvider.notifier).cancelCallRequest();
                     } else {
                       ref.read(matchmakingControllerProvider.notifier).endCall();
+                    }
+                    if (context.mounted) {
+                      context.go(RouteNames.home);
                     }
                   },
                   child: Container(

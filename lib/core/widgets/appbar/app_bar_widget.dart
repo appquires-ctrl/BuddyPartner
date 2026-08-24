@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
-import 'package:buddypartner/app/theme/app_radius.dart';
 import 'package:buddypartner/app/theme/app_spacing.dart';
 import 'package:buddypartner/core/widgets/app_avatar.dart';
+import 'package:buddypartner/core/widgets/coins/app_coin_badge.dart';
 
 /// AppBarWidget provides the custom greeting top bar of the application.
 /// Displays the profile avatar, welcome text, and top-right coin balance pill.
@@ -30,7 +30,6 @@ class AppBarWidget extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final typography = context.typography;
 
     return SafeArea(
@@ -84,40 +83,13 @@ class AppBarWidget extends StatelessWidget implements PreferredSizeWidget {
             ),
             const SizedBox(width: 8),
 
-            // Right Side: Coin Balance Chip
-            InkWell(
+            // Right Side: Unified Coin Balance Chip
+            AppCoinBadge(
+              coins: coins,
+              variant: AppCoinBadgeVariant.pill,
+              iconSize: 18,
+              fontSize: 13.5,
               onTap: onCoinsPressed,
-              borderRadius: AppRadius.pill,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.space12,
-                  vertical: AppSpacing.space4,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.chipLavender,
-                  borderRadius: AppRadius.pill,
-                  border: Border.all(color: colors.primary.withOpacity(0.2)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.monetization_on,
-                      color: Color(0xFFF2A93B), // warningAmber Gold Color
-                      size: 18,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$coins',
-                      style: typography.labelPill.copyWith(
-                        color: colors.primary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ),
           ],
         ),

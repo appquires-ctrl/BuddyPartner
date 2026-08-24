@@ -100,6 +100,7 @@ class InstantConnectController extends Notifier<InstantConnectState> {
   InstantConnectState build() {
     ref.onDispose(() {
       _callTimer?.cancel();
+      _listenersRegistered = false;
     });
 
     ref.listen<sio.Socket?>(socketProvider, (prev, next) {
@@ -112,8 +113,15 @@ class InstantConnectController extends Notifier<InstantConnectState> {
     });
 
     ref.listen(authStateProvider, (prev, next) {
-      final user = next.value;
-      if (user != null && user.isFemale) {
+      final prevUser = prev?.value;
+      final nextUser = next.value;
+
+      if (nextUser == null || (prevUser != null && prevUser.id != nextUser.id)) {
+        _callTimer?.cancel();
+        state = const InstantConnectState();
+      }
+
+      if (nextUser != null && nextUser.isFemale) {
         fetchFemaleStatus();
         fetchScratchCards();
       }
@@ -135,6 +143,7 @@ class InstantConnectController extends Notifier<InstantConnectState> {
     return const InstantConnectState();
   }
 
+
   void _setupSocketListeners(sio.Socket socket) {
     if (_listenersRegistered) return;
     _listenersRegistered = true;
@@ -142,6 +151,15 @@ class InstantConnectController extends Notifier<InstantConnectState> {
     // Incoming 1:2 parallel ring for female
     socket.on('incoming_instant_call', (data) {
       if (data is Map) {
+        // Guard: Drop incoming paid call if already in any active call or handling another incoming request
+        final matchmakingPhase = ref.read(matchmakingControllerProvider).phase;
+        if (state.phase == InstantPhase.inCall ||
+            state.phase == InstantPhase.incomingRequest ||
+            matchmakingPhase != MatchmakingPhase.idle) {
+          debugPrint('[InstantConnect] Dropped incoming_instant_call: User is busy (instantPhase: ${state.phase}, mmPhase: $matchmakingPhase)');
+          return;
+        }
+
         final req = IncomingPaidCallRequest.fromJson(Map<String, dynamic>.from(data));
         state = state.copyWith(
           phase: InstantPhase.incomingRequest,
@@ -149,6 +167,7 @@ class InstantConnectController extends Notifier<InstantConnectState> {
         );
       }
     });
+
 
     // Dismissal when other female answers or 7s timeout
     socket.on('instant_call_dismissed', (data) {
@@ -299,6 +318,21 @@ class InstantConnectController extends Notifier<InstantConnectState> {
     return completer.future;
   }
 
+  /// End active instant connect call and reset state
+  void endCall() {
+    final socket = _socket;
+    final callId = state.callId;
+    if (socket != null && socket.connected) {
+      socket.emit('instant:end_call', {'callId': callId});
+      socket.emit('end_call', {'callId': callId});
+    }
+    _callTimer?.cancel();
+    state = state.reset();
+    fetchFemaleStatus();
+    fetchScratchCards();
+    ref.invalidate(walletBalanceProvider);
+  }
+
   /// Male: Cancel Queue and get 100% instant coin refund
   Future<void> leaveQueue() async {
     final socket = _socket;
@@ -377,13 +411,6 @@ class InstantConnectController extends Notifier<InstantConnectState> {
     state = state.copyWith(phase: InstantPhase.idle, clearIncomingRequest: true);
   }
 
-  /// End active instant call
-  void endCall() {
-    _callTimer?.cancel();
-    _socket?.emit('instant:end_call');
-    state = state.reset();
-  }
-
   /// Fetch female status from REST
   Future<void> fetchFemaleStatus() async {
     try {
@@ -452,8 +479,11 @@ class InstantConnectController extends Notifier<InstantConnectState> {
               : state.latestUnlockedCard,
         );
 
-        await fetchFemaleStatus();
-        await fetchScratchCards();
+        // Refresh full status in background without blocking UI response
+        unawaited(Future.wait([
+          fetchFemaleStatus(),
+          fetchScratchCards(),
+        ]));
         return reward;
       }
     } catch (e) {

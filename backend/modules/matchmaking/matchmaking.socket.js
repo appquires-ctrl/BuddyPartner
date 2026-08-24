@@ -61,6 +61,28 @@ function isMale(gender) {
 }
 
 /**
+ * Helper to safely resolve connected socket for a user ID across map and io.sockets
+ */
+function getSocketForUser(io, targetUserId) {
+  if (!io || !targetUserId) return null;
+  const socketId = userSockets.get(targetUserId);
+  if (socketId) {
+    const s = io.sockets?.sockets?.get(socketId);
+    if (s && s.connected && s.userId === targetUserId) return s;
+  }
+  // Search live connected sockets in Socket.io
+  if (io.sockets?.sockets) {
+    for (const [, s] of io.sockets.sockets) {
+      if (s.userId === targetUserId && s.connected) {
+        userSockets.set(targetUserId, s.id); // Re-sync mapping
+        return s;
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Register all matchmaking-related Socket.io event handlers for a connected socket.
  *
  * @param {import('socket.io').Server} io
@@ -68,6 +90,7 @@ function isMale(gender) {
  * @param {import('ioredis').Redis} redis
  */
 function registerMatchmakingHandlers(io, socket, redis) {
+
   const matchmakingService = new MatchmakingService(redis);
   const userId = socket.userId;
 
@@ -315,6 +338,10 @@ function registerMatchmakingHandlers(io, socket, redis) {
       socketToCall.set(request.callerSocketId, callId);
       socketToCall.set(socket.id, callId);
 
+      await redis.set(`call_lock:${request.callerId}`, '1', 'EX', 7200);
+      await redis.set(`call_lock:${request.targetUserId}`, '1', 'EX', 7200);
+
+
       io.to(request.callerSocketId).emit('match_found', {
         callId,
         agoraAppId: process.env.AGORA_APP_ID,
@@ -419,13 +446,33 @@ function registerMatchmakingHandlers(io, socket, redis) {
       return;
     }
 
-    const targetSocketId = userSockets.get(targetUserId);
-    if (!targetSocketId) {
-      socket.emit('call_response', { status: 'offline' });
+    const callerInInstant = await redis.get(`instant:in_call:${userId}`);
+    if (callerInInstant) {
+      socket.emit('match_error', { error: 'Already in an active call' });
       return;
     }
 
+    const targetSocket = getSocketForUser(io, targetUserId);
+    if (!targetSocket || !targetSocket.connected) {
+      socket.emit('call_response', { status: 'offline' });
+      return;
+    }
+    const targetSocketId = targetSocket.id;
+
     let isBusy = socketToCall.has(targetSocketId);
+    if (!isBusy) {
+      const inInstant = await redis.get(`instant:in_call:${targetUserId}`);
+      if (inInstant) isBusy = true;
+    }
+    if (!isBusy && activeInstantCalls) {
+      for (const call of activeInstantCalls.values()) {
+        if (call.femaleUserId === targetUserId || call.maleUserId === targetUserId) {
+          isBusy = true;
+          break;
+        }
+      }
+    }
+
     if (!isBusy) {
       for (const reqVal of pendingCallRequests.values()) {
         if (reqVal.callerId === targetUserId || reqVal.targetUserId === targetUserId) {
@@ -438,6 +485,7 @@ function registerMatchmakingHandlers(io, socket, redis) {
       socket.emit('call_response', { status: 'busy' });
       return;
     }
+
 
     const lockKeyA = `call_lock:${userId}`;
     const lockKeyB = `call_lock:${targetUserId}`;
@@ -599,6 +647,10 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
     socketToCall.set(socketAId, callId);
     socketToCall.set(socketBId, callId);
 
+    await redis.set(`call_lock:${userA.userId}`, '1', 'EX', 7200);
+    await redis.set(`call_lock:${userB.userId}`, '1', 'EX', 7200);
+
+
     // Emit match_found to both users
     io.to(socketAId).emit('match_found', {
       callId,
@@ -664,13 +716,17 @@ async function handleCallEnd(callId, callsService, io, reason, matchmakingServic
   if (currentSocketA) socketToCall.delete(currentSocketA);
   if (currentSocketB) socketToCall.delete(currentSocketB);
 
-  // ALWAYS PURGE BOTH USERS FROM ALL MATCHMAKING QUEUES ON CALL END
+  // ALWAYS PURGE BOTH USERS FROM ALL MATCHMAKING QUEUES AND LOCKS ON CALL END
   if (matchmakingService) {
     await Promise.all([
       matchmakingService.leaveQueue(callInfo.userA.userId),
       matchmakingService.leaveQueue(callInfo.userB.userId),
     ]);
   }
+
+  await redis.del(`call_lock:${callInfo.userA.userId}`);
+  await redis.del(`call_lock:${callInfo.userB.userId}`);
+
 
   // End call in DB
   await callsService.endCall(callId);
@@ -765,4 +821,73 @@ async function fetchPublicProfile(userId) {
   }
 }
 
-module.exports = { registerMatchmakingHandlers, userSockets };
+/**
+ * Forcefully cleanup a user's matchmaking queues, pending calls, active calls, and sockets upon logout.
+ */
+async function cleanupUserMatchmaking(io, redis, userId) {
+  if (!userId) return;
+  try {
+    const { MatchmakingService } = require('./matchmaking.service');
+    const matchmakingService = new MatchmakingService(redis);
+    
+    // 1. Leave Redis queues
+    await matchmakingService.leaveQueue(userId).catch(() => {});
+
+    // 2. Clear any pending direct call requests involving this user
+    for (const [callRequestId, reqVal] of pendingCallRequests.entries()) {
+      if (reqVal.callerId === userId) {
+        if (io && reqVal.targetSocketId) {
+          io.to(reqVal.targetSocketId).emit('call_response', { callRequestId, status: 'cancelled' });
+        }
+        clearTimeout(reqVal.timer);
+        pendingCallRequests.delete(callRequestId);
+      } else if (reqVal.targetUserId === userId) {
+        if (io && reqVal.callerSocketId) {
+          io.to(reqVal.callerSocketId).emit('call_response', { callRequestId, status: 'offline' });
+        }
+        clearTimeout(reqVal.timer);
+        pendingCallRequests.delete(callRequestId);
+      }
+    }
+
+    // 3. End any active calls involving this user
+    for (const [callId, callObj] of activeCalls.entries()) {
+      if (callObj.userA?.userId === userId || callObj.userB?.userId === userId) {
+        console.log(`🛑 Ending active call ${callId} due to user ${userId} logout`);
+        await handleCallEnd(callId, callsService, io, 'logout', matchmakingService).catch(() => {});
+      }
+    }
+
+    // 4. Disconnect and remove any sockets registered for this user
+    const socketId = userSockets.get(userId);
+    if (socketId) {
+      socketToCall.delete(socketId);
+      userSockets.delete(userId);
+      if (io && io.sockets?.sockets?.has(socketId)) {
+        const s = io.sockets.sockets.get(socketId);
+        if (s) {
+          s.emit('force_disconnect', { reason: 'logged_out' });
+          s.disconnect(true);
+        }
+      }
+    }
+
+    // Scan all live sockets to ensure none retain this userId
+    if (io && io.sockets?.sockets) {
+      for (const [, s] of io.sockets.sockets) {
+        if (s.userId === userId) {
+          s.emit('force_disconnect', { reason: 'logged_out' });
+          s.disconnect(true);
+        }
+      }
+    }
+
+    console.log(`🧹 [Matchmaking] Cleaned up session and sockets for user ${userId}`);
+  } catch (err) {
+    console.error(`Error cleaning up matchmaking session for user ${userId}:`, err.message);
+  }
+}
+
+module.exports = { registerMatchmakingHandlers, userSockets, cleanupUserMatchmaking, getSocketForUser };
+
+

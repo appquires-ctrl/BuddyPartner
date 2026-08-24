@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
@@ -63,8 +64,13 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
       }
     });
 
-    // Auto-popup Scratch Card dialog as soon as the reward milestone is reached during the call
+    // Auto-popup Scratch Card dialog & auto-navigate home on instant call finish
     ref.listen<InstantConnectState>(instantConnectControllerProvider, (prev, next) {
+      if (prev?.phase == InstantPhase.inCall && (next.phase == InstantPhase.idle || next.phase == InstantPhase.ended)) {
+        if (mounted) {
+          context.go(RouteNames.home);
+        }
+      }
       if (next.is10mReached && prev?.is10mReached != true && next.latestUnlockedCard != null) {
         if (mounted) {
           ScratchCardDialog.show(context, next.latestUnlockedCard!);
@@ -573,7 +579,12 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                       // End Call button
                       GestureDetector(
                         onTap: () {
+                          HapticFeedback.mediumImpact();
                           controller.endCall();
+                          ref.read(instantConnectControllerProvider.notifier).endCall();
+                          if (mounted) {
+                            context.go(RouteNames.home);
+                          }
                         },
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -857,6 +868,10 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
     AppLogger.dialogClose(result == true ? 'End Call & Exit' : 'Stay on Call', screen: 'ActiveCallPage');
     if (result == true) {
       await controller.endCall();
+      ref.read(instantConnectControllerProvider.notifier).endCall();
+      if (mounted) {
+        context.go(RouteNames.home);
+      }
     }
   }
 

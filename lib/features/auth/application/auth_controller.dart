@@ -228,21 +228,29 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
     return true;
   }
 
-  /// Log out of the current session.
+  /// Log out of the current session with 0ms optimistic UI transition.
   Future<void> signOut() async {
-    state = const AsyncLoading();
     final apiClient = ref.read(apiClientProvider);
 
     try {
       final refreshToken = await apiClient.getRefreshToken();
       if (refreshToken != null && refreshToken.isNotEmpty) {
-        await apiClient.dio.post('/api/auth/logout', data: {'refreshToken': refreshToken});
+        // Notify backend concurrently in background without blocking UI navigation
+        unawaited(() async {
+          try {
+            await apiClient.dio.post('/api/auth/logout', data: {'refreshToken': refreshToken});
+          } catch (_) {}
+        }());
       }
     } catch (_) {}
 
+    // Immediately clear local session, socket, and tokens
     await ref.read(authStateProvider.notifier).clearSession();
+    state = const AsyncData(null);
   }
+
 }
+
 
 /// Provider definition for AuthController.
 final authControllerProvider =

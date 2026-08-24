@@ -23,13 +23,13 @@ import 'package:buddypartner/features/profile/presentation/pages/account_page.da
 import 'package:buddypartner/features/profile/presentation/pages/help_page.dart';
 import 'package:buddypartner/features/subscription/presentation/pages/subscribe_page.dart';
 import 'package:buddypartner/features/subscription/presentation/pages/dev_subscription_page.dart';
+import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
 import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
 import 'package:buddypartner/features/call/application/matchmaking_state.dart';
 import 'package:buddypartner/features/subscription/domain/subscription_plan.dart';
 import 'package:buddypartner/features/legal/presentation/pages/legal_document_page.dart';
 import 'package:buddypartner/features/legal/data/legal_document_content.dart';
 import 'package:buddypartner/features/wallet/presentation/pages/transaction_history_page.dart';
-import 'package:buddypartner/features/wallet/presentation/pages/wallet_recharge_page.dart';
 import 'package:buddypartner/features/recharge/presentation/pages/recharge_page.dart';
 import 'package:buddypartner/features/withdraw/presentation/pages/withdraw_page.dart';
 import 'package:buddypartner/features/auth/presentation/pages/banned_screen.dart';
@@ -302,9 +302,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                   return const SizedBox.shrink();
                 }
                 final isFemale = ref.watch(authStateProvider).value?.isFemale ?? false;
+                final isSubscribed = ref.watch(subscriptionStatusProvider).value?.isSubscribed ?? false;
                 return AppBottomNav(
                   currentIndex: navigationShell.currentIndex,
                   isFemale: isFemale,
+                  isSubscribed: isSubscribed,
                   onTap: (index) {
                     navigationShell.goBranch(
                       index,
@@ -339,13 +341,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
 
-          // Tab 3: Subscription (VIP / Premium)
+          // Tab 3: Dynamic Subscription / Coins / Withdraw
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: RouteNames.subscribe,
                 name: 'SubscriptionTab',
-                builder: (context, state) => const SubscribePage(),
+                builder: (context, state) => const DynamicPlansOrWalletTab(),
               ),
             ],
           ),
@@ -376,3 +378,31 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+/// Dynamic Tab 3 router widget:
+/// If the user has an active subscription:
+///   - Female: Withdraw Page
+///   - Male: Coin / Recharge Page
+/// Else:
+///   - Subscription Plans Page
+class DynamicPlansOrWalletTab extends ConsumerWidget {
+  const DynamicPlansOrWalletTab({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final subState = ref.watch(subscriptionStatusProvider).value;
+    final isSubscribed = subState?.isSubscribed ?? false;
+    final currentUser = ref.watch(authStateProvider).value;
+    final isFemale = currentUser?.isFemale ?? false;
+
+    if (isSubscribed) {
+      if (isFemale) {
+        return const WithdrawPage();
+      } else {
+        return const RechargePage();
+      }
+    }
+
+    return const SubscribePage();
+  }
+}

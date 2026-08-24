@@ -14,6 +14,8 @@ import 'package:buddypartner/features/home/presentation/providers/matched_users_
 import 'package:buddypartner/features/history/data/call_history_provider.dart';
 
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
+
 
 /// MatchmakingController manages the full matchmaking lifecycle:
 ///   idle → queued → matched → inCall → ended → idle
@@ -321,7 +323,6 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
       _socket?.emit('instant:end_call', {'callId': callId});
     }
 
-    await _leaveAgoraChannel();
     _stopCountdown();
 
     if (state.matchedUser != null) {
@@ -341,8 +342,11 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
     ref.invalidate(matchedUsersProvider);
     ref.invalidate(callHistoryProvider);
 
-    // Immediately reset state to idle without 300ms intermediate delay
+    // 0ms Optimistic UI transition: Reset state instantly!
     state = state.reset();
+
+    // Clean up Agora hardware channel asynchronously in background without blocking UI
+    unawaited(_leaveAgoraChannel());
   }
 
   /// Toggle local microphone mute.
@@ -569,7 +573,6 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
       ));
     }
 
-    await _leaveAgoraChannel();
     _stopCountdown();
 
     // Refresh subscription status and matched users from server
@@ -577,8 +580,11 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
     ref.invalidate(matchedUsersProvider);
     ref.invalidate(callHistoryProvider);
 
-    // Immediately reset state to idle without 300ms intermediate delay
+    // Immediately reset state to idle
     state = state.reset().copyWith(errorMessage: errorMessage);
+
+    // Clean up Agora channel asynchronously in background
+    unawaited(_leaveAgoraChannel());
   }
 
   void _onVideoUpgradeRequest(dynamic data) {
@@ -651,6 +657,13 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
 
   Future<void> _onIncomingCallRequest(dynamic data) async {
     try {
+      // Guard: Drop incoming call request if user is already busy in a call or instant connect request
+      final instantPhase = ref.read(instantConnectControllerProvider).phase;
+      if (state.phase != MatchmakingPhase.idle || instantPhase != InstantPhase.idle) {
+        debugPrint('[Matchmaking] Dropped incoming_call_request: User is busy (mmPhase: ${state.phase}, instantPhase: $instantPhase)');
+        return;
+      }
+
       final map = Map<String, dynamic>.from(data as Map);
       final callRequestId = map['callRequestId'] as String;
       final caller = MatchedUserInfo.fromJson(
@@ -662,6 +675,7 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
         callId: callRequestId,
         matchedUser: caller,
       );
+
 
       _callingTimeoutTimer?.cancel();
       _callingTimeoutTimer = Timer(const Duration(seconds: 32), () {
@@ -763,44 +777,58 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
         throw Exception('Agora App ID is not configured');
       }
 
-      _agoraEngine = createAgoraRtcEngine();
-      await _agoraEngine!.initialize(RtcEngineContext(
+      // Tear down any previous engine instance cleanly before initializing
+      final oldEngine = _agoraEngine;
+      _agoraEngine = null;
+      if (oldEngine != null) {
+        try {
+          await oldEngine.leaveChannel();
+          await oldEngine.release();
+        } catch (_) {}
+      }
+
+      final engine = createAgoraRtcEngine();
+      _agoraEngine = engine;
+
+      await engine.initialize(RtcEngineContext(
         appId: appId,
-        channelProfile: ChannelProfileType.channelProfileCommunication,
+        channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
       ));
 
+      await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+
       // Register event handlers
-      _agoraEngine!.registerEventHandler(RtcEngineEventHandler(
+      engine.registerEventHandler(RtcEngineEventHandler(
         onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
-          // Successfully joined the Agora channel
+          debugPrint('[Agora] Successfully joined channel $channelName as UID $uid');
         },
         onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
-          // The matched user has joined
+          debugPrint('[Agora] Remote user joined with UID $remoteUid');
           state = state.copyWith(remoteUid: remoteUid);
         },
         onUserOffline: (RtcConnection connection, int remoteUid,
             UserOfflineReasonType reason) {
-          // Remote user left
+          debugPrint('[Agora] Remote user offline with UID $remoteUid, reason: $reason');
           if (state.remoteUid == remoteUid) {
             state = state.copyWith(clearRemoteUid: true);
           }
         },
         onError: (ErrorCodeType code, String msg) {
-          // Agora engine error
+          debugPrint('[Agora] Error $code: $msg');
         },
       ));
 
       // Enable audio, disable video initially
       try {
-        await _agoraEngine!.enableAudio();
-        await _agoraEngine!.setEnableSpeakerphone(false);
+        await engine.enableAudio();
+        await engine.setEnableSpeakerphone(false);
       } catch (e) {
         // Log and ignore to prevent failing the call setup on emulators
         debugPrint('Warning: Failed to configure audio/speakerphone properties: $e');
       }
 
       // Join channel in audio-only mode
-      await _agoraEngine!.joinChannel(
+      await engine.joinChannel(
         token: token,
         channelId: channelName,
         uid: uid,
@@ -818,14 +846,16 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
     }
   }
 
-  Future<void> _enableVideo() async {
-    if (_agoraEngine == null || state.isVideoEnabled) return;
 
-    await _agoraEngine!.enableVideo();
-    await _agoraEngine!.startPreview();
+  Future<void> _enableVideo() async {
+    final engine = _agoraEngine;
+    if (engine == null || state.isVideoEnabled) return;
+
+    await engine.enableVideo();
+    await engine.startPreview();
 
     // Update channel media options to publish video
-    await _agoraEngine!.updateChannelMediaOptions(const ChannelMediaOptions(
+    await engine.updateChannelMediaOptions(const ChannelMediaOptions(
       publishCameraTrack: true,
       autoSubscribeVideo: true,
     ));
@@ -834,12 +864,15 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
   }
 
   Future<void> _leaveAgoraChannel() async {
-    try {
-      await _agoraEngine?.leaveChannel();
-      await _agoraEngine?.release();
-      _agoraEngine = null;
-    } catch (_) {
-      // Ignore cleanup errors
+    final engine = _agoraEngine;
+    _agoraEngine = null; // Detach reference immediately to prevent race conditions
+    if (engine != null) {
+      try {
+        await engine.leaveChannel();
+        await engine.release();
+      } catch (_) {
+        // Ignore cleanup errors
+      }
     }
   }
 

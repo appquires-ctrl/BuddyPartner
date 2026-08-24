@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:buddypartner/core/widgets/coins/app_coin_icon.dart';
 import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
 import 'package:buddypartner/features/call/presentation/widgets/scratch_card_dialog.dart';
 
@@ -298,18 +299,7 @@ class _IncomingPaidCallsBannerState extends ConsumerState<IncomingPaidCallsBanne
                         Expanded(
                           child: Row(
                             children: [
-                              // Container(
-                              //   padding: const EdgeInsets.all(5),
-                              //   decoration: BoxDecoration(
-                              //     color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                              //     shape: BoxShape.circle,
-                              //   ),
-                              //   child: const Icon(
-                              //     Icons.monetization_on_rounded,
-                              //     color: Color(0xFFFBBF24),
-                              //     size: 15,
-                              //   ),
-                              // ),
+                              const AppCoinIcon(size: 22, withGlow: true),
                               const SizedBox(width: 8),
                               const Expanded(
                                 child: Column(
@@ -369,7 +359,7 @@ class _IncomingPaidCallsBannerState extends ConsumerState<IncomingPaidCallsBanne
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '10m Bonus Card',
+                                      '10 min Bonus Card',
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w600,

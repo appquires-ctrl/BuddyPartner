@@ -12,8 +12,11 @@ import 'package:buddypartner/features/withdraw/application/withdraw_providers.da
 import 'package:buddypartner/features/withdraw/application/withdraw_controller.dart';
 import 'package:buddypartner/features/home/presentation/providers/matched_users_provider.dart';
 import 'package:buddypartner/features/history/data/call_history_provider.dart';
+import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
+import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 
 class CustomUser {
+
   final String id;
   final String phoneNumber;
   final bool isProfileComplete;
@@ -171,6 +174,13 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
         ref.invalidate(matchedUsersProvider);
         ref.invalidate(favoriteUsersProvider);
         ref.invalidate(callHistoryProvider);
+        ref.invalidate(userProfileProvider);
+        ref.invalidate(subscriptionStatusProvider);
+        ref.invalidate(walletBalanceProvider);
+        ref.invalidate(instantConnectControllerProvider);
+        ref.invalidate(lastCallSummaryProvider);
+        ref.invalidate(withdrawalHistoryProvider);
+        ref.invalidate(withdrawControllerProvider);
       });
     }
   }
@@ -178,23 +188,26 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
   /// Clears the session and disconnects real-time socket & presence states
   Future<void> clearSession() async {
     try {
-      // Explicitly disconnect and dispose real-time Socket.io connection on backend
-      ref.read(socketProvider.notifier).disconnectAndDispose();
-
-      // Clear local auth tokens and cached user session
-      await ref.read(apiClientProvider).deleteTokens();
-
-      // Clear session state to notify GoRouter and state listeners
+      // 1. Immediately set session state to null so GoRouter navigates instantly (0ms latency)
       state = const AsyncData(null);
 
-      // Invalidate all user-specific provider caches safely in microtask
+      // 2. Explicitly disconnect and dispose real-time Socket.io connection on backend
+      ref.read(socketProvider.notifier).disconnectAndDispose();
+
+      // 3. Clear local auth tokens and cached user session
+      await ref.read(apiClientProvider).deleteTokens();
+
+      // 4. Invalidate all user-specific provider caches safely in microtask
       Future.microtask(() {
+
         ref.invalidate(presenceProvider);
         ref.invalidate(conversationsProvider);
         ref.invalidate(userProfileProvider);
         ref.invalidate(subscriptionStatusProvider);
         ref.invalidate(matchmakingControllerProvider);
         ref.invalidate(lastCallSummaryProvider);
+        ref.invalidate(instantConnectControllerProvider);
+        ref.invalidate(walletBalanceProvider);
         ref.invalidate(withdrawalHistoryProvider);
         ref.invalidate(withdrawControllerProvider);
         ref.invalidate(matchedUsersProvider);
@@ -206,6 +219,7 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
     }
   }
 }
+
 
 final authStateProvider = AsyncNotifierProvider<AuthNotifier, CustomUser?>(AuthNotifier.new);
 

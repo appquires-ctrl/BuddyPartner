@@ -44,10 +44,12 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: colors.textPrimary),
-          onPressed: () => context.pop(),
-        ),
+        leading: context.canPop()
+            ? IconButton(
+                icon: Icon(Icons.arrow_back, color: colors.textPrimary),
+                onPressed: () => context.pop(),
+              )
+            : null,
         centerTitle: true,
         title: Column(
           children: [
