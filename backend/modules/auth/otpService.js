@@ -57,7 +57,7 @@ async function sendWhatsAppOtp(countryCode, mobile, otp) {
   const authKey = process.env.MSG91_AUTHKEY || process.env.AUTHKEY_API_KEY;
   const integratedNumber = process.env.MSG91_INTEGRATED_NUMBER || '919795038296';
   const templateName = process.env.MSG91_TEMPLATE_NAME || 'login_otp';
-  const namespace = process.env.MSG91_NAMESPACE || null;
+  const namespace = process.env.MSG91_NAMESPACE || 'a9966637_659b_4a6e_8e8b_fd5d9179b5db';
 
   if (!authKey) {
     console.warn('⚠️ MSG91_AUTHKEY / AUTHKEY_API_KEY missing from environment variables.');
@@ -79,6 +79,11 @@ async function sendWhatsAppOtp(countryCode, mobile, otp) {
 
   const components = {
     body_1: {
+      type: 'text',
+      value: otp,
+    },
+    button_1: {
+      subtype: 'url',
       type: 'text',
       value: otp,
     },
