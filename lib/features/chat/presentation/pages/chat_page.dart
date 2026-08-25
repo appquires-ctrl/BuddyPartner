@@ -12,6 +12,8 @@ import 'package:buddypartner/features/call/application/matchmaking_controller.da
 import 'package:buddypartner/features/call/application/matchmaking_state.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/features/chat/application/chat_controller.dart';
+import 'package:buddypartner/features/chat/application/conversations_provider.dart';
+import 'package:buddypartner/features/chat/data/chat_repository.dart';
 import 'package:buddypartner/features/chat/application/presence_provider.dart';
 import 'package:buddypartner/core/widgets/gradient_avatar.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';

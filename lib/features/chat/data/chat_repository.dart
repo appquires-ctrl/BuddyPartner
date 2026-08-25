@@ -37,7 +37,7 @@ class ChatRepository {
   Future<Map<String, dynamic>> fetchMessages(String conversationId, {String? cursor, int limit = 30}) async {
     final queryParams = {
       'limit': limit.toString(),
-      if (cursor != null) 'cursor': cursor,
+      ?'cursor': cursor,
     };
     final response = await _apiClient.dio.get(
       '/api/conversations/$conversationId/messages',
