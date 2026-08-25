@@ -400,16 +400,17 @@ class InstantConnectService {
       const params = [count, ...excludeUserIds];
 
       const res = await db.query(
-        `SELECT DISTINCT u.id, u.fcm_token, u.full_name
+        `SELECT u.id, u.fcm_token, u.full_name
          FROM public.users u
          WHERE (LOWER(u.gender) IN ('female', 'girl', 'woman', 'f'))
            AND u.incoming_paid_calls_enabled = true
            AND u.fcm_token IS NOT NULL
            ${excludeClause}
-         ORDER BY u.last_active_at DESC NULLS LAST, RANDOM()
+         ORDER BY RANDOM()
          LIMIT $1`,
         params
       );
+      console.log(`🔍 [Surge Check] Found ${res.rows.length} surge-eligible females with FCM tokens`);
       return res.rows;
     } catch (err) {
       console.error('Error finding surge eligible females:', err.message);
