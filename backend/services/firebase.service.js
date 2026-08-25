@@ -58,7 +58,7 @@ initFirebase();
 /**
  * Sends a single FCM Push Notification to a device token
  */
-async function sendPushNotification({ token, title, body, data = {} }) {
+async function sendPushNotification({ token, title, body, tag, data = {} }) {
   if (!token) return null;
   if (!isInitialized) {
     console.log(`[FCM Mock] Single push to ${token.substring(0, 10)}... | ${title}: ${body}`);
@@ -70,6 +70,8 @@ async function sendPushNotification({ token, title, body, data = {} }) {
     for (const [k, v] of Object.entries(data)) {
       stringData[k] = String(v ?? '');
     }
+
+    const notifTag = tag || (stringData.conversationId ? `chat_${stringData.conversationId}` : (stringData.senderId ? `chat_${stringData.senderId}` : undefined));
 
     const response = await admin.messaging().send({
       token,
@@ -83,13 +85,14 @@ async function sendPushNotification({ token, title, body, data = {} }) {
         notification: {
           channelId: 'buddypartner_notifications',
           priority: 'max',
+          tag: notifTag,
           defaultSound: true,
           defaultVibrateTimings: true,
         },
       },
     });
 
-    console.log(`🔔 [FCM Push] Sent successfully to ${token.substring(0, 10)}... (ID: ${response})`);
+    console.log(`🔔 [FCM Push] Sent successfully to ${token.substring(0, 10)}... (tag: ${notifTag}, ID: ${response})`);
     return response;
   } catch (err) {
     console.error(`❌ [FCM Push Error] Failed to send push to ${token.substring(0, 10)}...:`, err.message);
