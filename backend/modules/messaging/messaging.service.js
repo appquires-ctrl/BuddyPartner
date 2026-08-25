@@ -113,7 +113,7 @@ class MessagingService {
       [conversationId]
     );
 
-    // 5. Dispatch FCM Push Notification to recipient
+    // 5. Dispatch FCM Push Notification to recipient (WhatsApp-style stacked summary)
     try {
       const userRes = await db.query(
         `SELECT u.id, u.fcm_token, 
@@ -121,18 +121,44 @@ class MessagingService {
          FROM public.users u WHERE u.id = $2`,
         [senderId, otherUserId]
       );
+
       if (userRes.rows.length > 0 && userRes.rows[0].fcm_token) {
         const recipient = userRes.rows[0];
         const senderName = recipient.sender_name || 'Someone';
+
+        // Fetch recent unread messages from this sender to build multi-line stack
+        const unreadRes = await db.query(
+          `SELECT content, type FROM public.messages
+           WHERE conversation_id = $1 
+             AND sender_id = $2 
+             AND status != 'read'
+           ORDER BY created_at ASC
+           LIMIT 5`,
+          [conversationId, senderId]
+        );
+
+        let notifTitle = senderName;
+        let notifBody = type === 'text' ? content : 'Sent you an attachment';
+
+        const unreadMessages = unreadRes.rows;
+        if (unreadMessages.length > 1) {
+          notifTitle = `${senderName} (${unreadMessages.length} new messages)`;
+          notifBody = unreadMessages
+            .map((m) => (m.type === 'text' ? `• ${m.content}` : '• Sent an attachment'))
+            .join('\n');
+        }
+
         sendPushNotification({
           token: recipient.fcm_token,
-          title: `New message from ${senderName}`,
-          body: type === 'text' ? content : 'Sent you an attachment',
+          title: notifTitle,
+          body: notifBody,
+          tag: `chat_${conversationId}`,
           data: {
             type: 'chat_message',
             senderId: String(senderId),
             senderName: String(senderName),
             conversationId: String(conversationId),
+            messageCount: String(unreadMessages.length),
           },
         }).catch((err) => console.error('FCM send error:', err.message));
       }
