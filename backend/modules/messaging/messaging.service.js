@@ -1,4 +1,5 @@
 const db = require('../../db');
+const { sendPushNotification } = require('../../services/firebase.service');
 
 class MessagingService {
   /**
@@ -111,6 +112,33 @@ class MessagingService {
       `UPDATE public.conversations SET last_message_at = NOW() WHERE id = $1`,
       [conversationId]
     );
+
+    // 5. Dispatch FCM Push Notification to recipient
+    try {
+      const userRes = await db.query(
+        `SELECT u.id, u.fcm_token, 
+                (SELECT full_name FROM public.users WHERE id = $1) as sender_name
+         FROM public.users u WHERE u.id = $2`,
+        [senderId, otherUserId]
+      );
+      if (userRes.rows.length > 0 && userRes.rows[0].fcm_token) {
+        const recipient = userRes.rows[0];
+        const senderName = recipient.sender_name || 'Someone';
+        sendPushNotification({
+          token: recipient.fcm_token,
+          title: `New message from ${senderName}`,
+          body: type === 'text' ? content : 'Sent you an attachment',
+          data: {
+            type: 'chat_message',
+            senderId: String(senderId),
+            senderName: String(senderName),
+            conversationId: String(conversationId),
+          },
+        }).catch((err) => console.error('FCM send error:', err.message));
+      }
+    } catch (pushErr) {
+      console.error('Error sending message push notification:', pushErr.message);
+    }
 
     return msgResult.rows[0];
   }

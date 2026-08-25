@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { RtcTokenBuilder, RtcRole } = require('agora-access-token');
 const { instantConnectService } = require('./instant_connect.service');
 const { subscriptionsService } = require('../subscriptions/subscriptions.service');
+const { sendMulticastPushNotification } = require('../../services/firebase.service');
 const db = require('../../db');
 
 const AGORA_APP_ID = process.env.AGORA_APP_ID || '';
@@ -152,23 +153,9 @@ async function triggerInstantMatchmaker(io, redis) {
 
     const allFemales = await redis.smembers('instant:female_pool');
 
-    if (!allFemales || allFemales.length === 0) {
-      // 0 available females -> trigger 1:10 FCM surge (with 60s cooldown per session)
-      const surgeCooldownKey = `instant:surge_cooldown:${sessionId}`;
-      const hasSurged = await redis.get(surgeCooldownKey);
-      if (!hasSurged) {
-        await redis.set(surgeCooldownKey, '1', 'EX', 60);
-        const offlineFemales = await instantConnectService.getSurgeEligibleFemales([maleUserId], 10);
-        if (offlineFemales.length > 0) {
-          console.log(`📡 [FCM Surge] Dispatched surge alert to ${offlineFemales.length} offline female accounts for male ${maleUserId} (Bid: ₹${bidAmount})`);
-        }
-      }
-      return;
-    }
-
     // Filter females who are currently connected, have toggle ON in DB, and are not in any call
     const eligibleFemales = [];
-    for (const femaleId of allFemales) {
+    for (const femaleId of (allFemales || [])) {
       if (femaleId === maleUserId) continue;
       const isSnoozed = await redis.get(`instant:snooze:${femaleId}`);
       if (isSnoozed) continue;
@@ -194,8 +181,30 @@ async function triggerInstantMatchmaker(io, redis) {
       }
     }
 
-
     if (eligibleFemales.length === 0) {
+      // 0 available females on active sockets -> trigger 1:10 FCM surge (with 30s cooldown per session)
+      const surgeCooldownKey = `instant:surge_cooldown:${sessionId}`;
+      const hasSurged = await redis.get(surgeCooldownKey);
+      if (!hasSurged) {
+        await redis.set(surgeCooldownKey, '1', 'EX', 30);
+        const offlineFemales = await instantConnectService.getSurgeEligibleFemales([maleUserId], 10);
+        if (offlineFemales.length > 0) {
+          const tokens = offlineFemales.map((f) => f.fcm_token).filter(Boolean);
+          console.log(`📡 [FCM Surge] Dispatching surge alert to ${tokens.length} offline female devices for male ${maleUserId} (Bid: ₹${bidAmount})`);
+          if (tokens.length > 0) {
+            await sendMulticastPushNotification({
+              tokens,
+              title: '📞 Incoming VIP Call!',
+              body: `A VIP user wants to connect with you. Tap to accept and earn coins!`,
+              data: {
+                type: 'instant_call',
+                sessionId: String(sessionId),
+                bidAmount: String(bidAmount),
+              },
+            });
+          }
+        }
+      }
       return;
     }
 

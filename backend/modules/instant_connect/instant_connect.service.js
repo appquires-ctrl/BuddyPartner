@@ -387,7 +387,7 @@ class InstantConnectService {
   }
 
   /**
-   * Find a batch of subscribed female users for 1:10 FCM surge when available pool is empty
+   * Find a batch of eligible female users for 1:10 FCM surge when available socket pool is empty
    * @param {string[]} excludeUserIds
    * @param {number} count
    * @returns {Promise<Array<{ id: string, fcm_token: string|null, full_name: string }>>}
@@ -402,10 +402,11 @@ class InstantConnectService {
       const res = await db.query(
         `SELECT DISTINCT u.id, u.fcm_token, u.full_name
          FROM public.users u
-         INNER JOIN public.subscriptions s ON s.user_id = u.id AND s.expires_at > NOW()
          WHERE (LOWER(u.gender) IN ('female', 'girl', 'woman', 'f'))
-         ${excludeClause}
-         ORDER BY RANDOM()
+           AND u.incoming_paid_calls_enabled = true
+           AND u.fcm_token IS NOT NULL
+           ${excludeClause}
+         ORDER BY u.last_active_at DESC NULLS LAST, RANDOM()
          LIMIT $1`,
         params
       );
