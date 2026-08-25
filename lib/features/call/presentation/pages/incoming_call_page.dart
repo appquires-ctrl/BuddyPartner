@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
@@ -106,6 +107,7 @@ class IncomingCallPage extends ConsumerWidget {
                   children: [
                     GestureDetector(
                       onTap: () {
+                        HapticFeedback.mediumImpact();
                         controller.declineCall();
                       },
                       child: Container(
@@ -140,6 +142,7 @@ class IncomingCallPage extends ConsumerWidget {
                   children: [
                     GestureDetector(
                       onTap: () {
+                        HapticFeedback.heavyImpact();
                         controller.acceptCall();
                       },
                       child: Container(

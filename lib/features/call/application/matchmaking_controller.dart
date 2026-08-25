@@ -219,27 +219,16 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
     if (state.phase != MatchmakingPhase.incomingRequest || state.callId == null) return;
 
     try {
-      bool micGranted = await Permission.microphone.isGranted;
-      bool cameraGranted = await Permission.camera.isGranted;
-
-      if (!micGranted || !cameraGranted) {
-        final statuses = await [
-          Permission.microphone,
-          Permission.camera,
-        ].request();
-        micGranted = statuses[Permission.microphone]?.isGranted ?? false;
-        cameraGranted = statuses[Permission.camera]?.isGranted ?? false;
-      }
-
-      if (!micGranted || !cameraGranted) {
-        declineCall();
-        state = state.copyWith(
-          errorMessage: 'Permissions are required to accept the call.',
-        );
-        return;
-      }
-
+      // 1. Emit accept immediately to eliminate any permission checking latency
       _socket?.emit('accept_call_request', {'callRequestId': state.callId});
+
+      // 2. Parallel permission verification
+      final micGranted = await Permission.microphone.isGranted;
+      final cameraGranted = await Permission.camera.isGranted;
+
+      if (!micGranted || !cameraGranted) {
+        await [Permission.microphone, Permission.camera].request();
+      }
     } catch (e) {
       debugPrint('Error accepting call request: $e');
       state = state.copyWith(errorMessage: 'Failed to accept call request.');
