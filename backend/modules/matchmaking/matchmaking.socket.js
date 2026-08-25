@@ -500,6 +500,7 @@ function registerMatchmakingHandlers(io, socket, redis) {
 
       const callRequestId = matchmakingService.generateChannelName();
       const callerProfile = await fetchPublicProfile(userId);
+      const callerGender = callerProfile.gender || (await getUserGender(userId));
       const targetGender = await getUserGender(targetUserId);
 
       // Check if target is offline and has FCM token
