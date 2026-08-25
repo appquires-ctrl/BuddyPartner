@@ -3,6 +3,7 @@ const { callsService } = require('../calls/calls.service');
 const { WalletService, CALL_RATES } = require('../wallet/wallet.service');
 const { subscriptionsService } = require('../subscriptions/subscriptions.service');
 const { activeInstantCalls, endInstantCallHelper } = require('../instant_connect/instant_connect.socket');
+const { sendPushNotification } = require('../../services/firebase.service');
 const db = require('../../db');
 
 // In-memory map of active calls: callId → { userA: { userId, socketId, gender }, userB: { userId, socketId, gender } }
@@ -453,13 +454,9 @@ function registerMatchmakingHandlers(io, socket, redis) {
     }
 
     const targetSocket = getSocketForUser(io, targetUserId);
-    if (!targetSocket || !targetSocket.connected) {
-      socket.emit('call_response', { status: 'offline' });
-      return;
-    }
-    const targetSocketId = targetSocket.id;
+    const targetSocketId = targetSocket?.id || null;
 
-    let isBusy = socketToCall.has(targetSocketId);
+    let isBusy = targetSocketId ? socketToCall.has(targetSocketId) : false;
     if (!isBusy) {
       const inInstant = await redis.get(`instant:in_call:${targetUserId}`);
       if (inInstant) isBusy = true;
@@ -486,11 +483,10 @@ function registerMatchmakingHandlers(io, socket, redis) {
       return;
     }
 
-
-    const lockKeyA = `call_lock:${userId}`;
-    const lockKeyB = `call_lock:${targetUserId}`;
-    const lockedA = await redis.set(lockKeyA, '1', 'NX', 'EX', 10);
-    const lockedB = await redis.set(lockKeyB, '1', 'NX', 'EX', 10);
+    const lockKeyA = `direct_mutex:${userId}`;
+    const lockKeyB = `direct_mutex:${targetUserId}`;
+    const lockedA = await redis.set(lockKeyA, '1', 'NX', 'EX', 5);
+    const lockedB = await redis.set(lockKeyB, '1', 'NX', 'EX', 5);
     if (!lockedA || !lockedB) {
       if (lockedA) await redis.del(lockKeyA);
       if (lockedB) await redis.del(lockKeyB);
@@ -506,11 +502,41 @@ function registerMatchmakingHandlers(io, socket, redis) {
       const callerProfile = await fetchPublicProfile(userId);
       const targetGender = await getUserGender(targetUserId);
 
+      // Check if target is offline and has FCM token
+      const isTargetOnline = targetSocket && targetSocket.connected;
+      if (!isTargetOnline) {
+        const targetUserRow = await db.query(
+          `SELECT fcm_token, full_name FROM public.users WHERE id = $1`,
+          [targetUserId]
+        );
+        const targetFcm = targetUserRow.rows[0]?.fcm_token;
+        if (!targetFcm) {
+          socket.emit('call_response', { status: 'offline' });
+          return;
+        }
+
+        console.log(`📡 [FCM Direct Call] Target is offline. Dispatching call push to ${targetUserId}`);
+        sendPushNotification({
+          token: targetFcm,
+          title: `📞 Incoming Call from ${callerProfile.fullName}`,
+          body: `Tap to open the app and answer the call.`,
+          tag: `direct_call_${callRequestId}`,
+          data: {
+            type: 'incoming_call',
+            callRequestId,
+            callerId: String(userId),
+            callerName: String(callerProfile.fullName),
+          },
+        }).catch((err) => console.error('FCM Direct Call error:', err.message));
+      }
+
       const timer = setTimeout(() => {
         if (pendingCallRequests.has(callRequestId)) {
           console.log(`⏰ Call request ${callRequestId} timed out (no answer)`);
           io.to(socket.id).emit('call_response', { callRequestId, status: 'no_answer' });
-          io.to(targetSocketId).emit('call_response', { callRequestId, status: 'no_answer' });
+          if (targetSocketId) {
+            io.to(targetSocketId).emit('call_response', { callRequestId, status: 'no_answer' });
+          }
           pendingCallRequests.delete(callRequestId);
         }
       }, 30000);
@@ -525,17 +551,19 @@ function registerMatchmakingHandlers(io, socket, redis) {
         timer,
       });
 
-      io.to(targetSocketId).emit('incoming_call_request', {
-        callRequestId,
-        caller: callerProfile,
-      });
+      if (isTargetOnline && targetSocketId) {
+        io.to(targetSocketId).emit('incoming_call_request', {
+          callRequestId,
+          caller: callerProfile,
+        });
+      }
 
       socket.emit('outgoing_call_ringing', {
         callRequestId,
         targetUser: { id: targetUserId },
       });
 
-      console.log(`🔔 Call request initiated: ${userId} (${callerGender}) → ${targetUserId} (${targetGender}) (req: ${callRequestId})`);
+      console.log(`🔔 Call request initiated: ${userId} (${callerGender}) → ${targetUserId} (${targetGender}) (req: ${callRequestId}, targetOnline: ${isTargetOnline})`);
     } catch (err) {
       console.error('Error in direct_call:', err);
       socket.emit('match_error', { error: 'Failed to initiate call request' });
