@@ -182,19 +182,12 @@ class _RechargePageState extends ConsumerState<RechargePage> {
     );
   }
 
-  void _addQuickAmount(int amount) {
-    HapticFeedback.selectionClick();
-    final current = int.tryParse(_customController.text.trim()) ?? 0;
-    final next = current + amount;
-    _customController.text = next.toString();
-    setState(() => _selectedPlanId = null);
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final balanceAsync = ref.watch(walletBalanceProvider);
+    final isBalanceLoading = balanceAsync.isLoading && balanceAsync.value == null;
     final balance = balanceAsync.value ?? 0;
     final plans = ref.watch(rechargePlansProvider);
 
@@ -211,8 +204,8 @@ class _RechargePageState extends ConsumerState<RechargePage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.history_rounded),
-            tooltip: 'Transaction History',
-            onPressed: () => context.push(RouteNames.transactionHistory),
+            tooltip: 'Wallet History',
+            onPressed: () => context.push(RouteNames.walletHistory),
           ),
           const SizedBox(width: 4),
         ],
@@ -233,9 +226,10 @@ class _RechargePageState extends ConsumerState<RechargePage> {
                     // ── 1. Unified Live Wallet Balance Hero Card ────────────────
                     AppCoinBalanceCard(
                       balance: balance,
+                      isLoading: isBalanceLoading,
                       title: 'Available Balance',
                       subtitle: '1 Coin = ₹1 INR • Instant Delivery • 100% Secure',
-                      onHistoryPressed: () => context.push(RouteNames.transactionHistory),
+                      onHistoryPressed: () => context.push(RouteNames.walletHistory),
                     ),
 
                     const SizedBox(height: 24),
@@ -534,22 +528,6 @@ class _RechargePageState extends ConsumerState<RechargePage> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildQuickChip(int amount) {
-    return ActionChip(
-      label: Text('+₹$amount'),
-      labelStyle: const TextStyle(
-        fontSize: 11.5,
-        fontWeight: FontWeight.bold,
-        color: Color(0xFFB45309),
-      ),
-      backgroundColor: const Color(0xFFFEF3C7),
-      side: BorderSide.none,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      onPressed: () => _addQuickAmount(amount),
     );
   }
 }

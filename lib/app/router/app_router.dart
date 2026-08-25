@@ -30,6 +30,7 @@ import 'package:buddypartner/features/subscription/domain/subscription_plan.dart
 import 'package:buddypartner/features/legal/presentation/pages/legal_document_page.dart';
 import 'package:buddypartner/features/legal/data/legal_document_content.dart';
 import 'package:buddypartner/features/wallet/presentation/pages/transaction_history_page.dart';
+import 'package:buddypartner/features/wallet/presentation/pages/wallet_history_page.dart';
 import 'package:buddypartner/features/recharge/presentation/pages/recharge_page.dart';
 import 'package:buddypartner/features/withdraw/presentation/pages/withdraw_page.dart';
 import 'package:buddypartner/features/auth/presentation/pages/banned_screen.dart';
@@ -251,6 +252,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const TransactionHistoryPage(),
       ),
       GoRoute(
+        path: RouteNames.walletHistory,
+        name: 'WalletHistoryPage',
+        builder: (context, state) => const WalletHistoryPage(),
+      ),
+      GoRoute(
+        path: RouteNames.subscriptionHistory,
+        name: 'SubscriptionHistoryPage',
+        builder: (context, state) => const TransactionHistoryPage(),
+      ),
+      GoRoute(
         path: RouteNames.suspended,
         name: 'SuspendedScreen',
         builder: (context, state) => const BannedScreen(),
@@ -269,6 +280,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RouteNames.withdraw,
         name: 'WithdrawPage',
         builder: (context, state) => const WithdrawPage(),
+      ),
+      GoRoute(
+        path: RouteNames.subscribe,
+        name: 'SubscribePage',
+        builder: (context, state) => const SubscribePage(),
       ),
       GoRoute(
         path: RouteNames.devSubscription,
@@ -298,7 +314,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             bottomNavigationBar: Consumer(
               builder: (context, ref, child) {
                 final matchState = ref.watch(matchmakingControllerProvider);
-                if (matchState.phase != MatchmakingPhase.idle) {
+                if (matchState.phase != MatchmakingPhase.idle && !matchState.isCallMinimized) {
                   return const SizedBox.shrink();
                 }
                 final isFemale = ref.watch(authStateProvider).value?.isFemale ?? false;
@@ -345,7 +361,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: RouteNames.subscribe,
+                path: RouteNames.plans,
                 name: 'SubscriptionTab',
                 builder: (context, state) => const DynamicPlansOrWalletTab(),
               ),

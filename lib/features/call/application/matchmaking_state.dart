@@ -68,6 +68,7 @@ class MatchmakingState {
   final bool isVideoEnabled;
   final bool isMuted;
   final bool isSpeakerOn;
+  final bool isCallMinimized;
   final String? errorMessage;
 
   /// Video upgrade request state flags
@@ -92,6 +93,7 @@ class MatchmakingState {
     this.isVideoEnabled = false,
     this.isMuted = false,
     this.isSpeakerOn = false,
+    this.isCallMinimized = false,
     this.errorMessage,
     this.isVideoRequestOutgoing = false,
     this.isVideoRequestIncoming = false,
@@ -116,6 +118,7 @@ class MatchmakingState {
     bool? isVideoEnabled,
     bool? isMuted,
     bool? isSpeakerOn,
+    bool? isCallMinimized,
     String? errorMessage,
     bool? isVideoRequestOutgoing,
     bool? isVideoRequestIncoming,
@@ -136,6 +139,7 @@ class MatchmakingState {
       isVideoEnabled: isVideoEnabled ?? this.isVideoEnabled,
       isMuted: isMuted ?? this.isMuted,
       isSpeakerOn: isSpeakerOn ?? this.isSpeakerOn,
+      isCallMinimized: isCallMinimized ?? this.isCallMinimized,
       errorMessage: errorMessage,
       isVideoRequestOutgoing: isVideoRequestOutgoing ?? this.isVideoRequestOutgoing,
       isVideoRequestIncoming: isVideoRequestIncoming ?? this.isVideoRequestIncoming,

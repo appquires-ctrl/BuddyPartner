@@ -19,6 +19,12 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
   String _selectedPlanId = '1_day';
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    precacheImage(const AssetImage('assets/images/subscription_banner.jpg'), context);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final typography = context.typography;
@@ -161,12 +167,34 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
   }
 
   Widget _buildTopBanner(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
-      child: Image.asset(
-        'assets/images/subscription_banner.jpg',
-        width: double.infinity,
-        fit: BoxFit.fitWidth,
+    return AspectRatio(
+      aspectRatio: 3076 / 1376,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF4A34A6), Color(0xFFC74384)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Image.asset(
+            'assets/images/subscription_banner.jpg',
+            width: double.infinity,
+            fit: BoxFit.cover,
+            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+              if (wasSynchronouslyLoaded) return child;
+              return AnimatedOpacity(
+                opacity: frame == null ? 0 : 1,
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOut,
+                child: child,
+              );
+            },
+          ),
+        ),
       ),
     );
   }

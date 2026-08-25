@@ -82,20 +82,25 @@ class FavoritesNotifier extends AutoDisposeNotifier<void> {
   @override
   void build() {}
 
-  Future<void> toggleFavorite(String targetUserId, bool isCurrentlyFavorite) async {
+  Future<void> toggleFavorite(String targetUserId, bool newFavoriteState) async {
     final apiClient = ref.read(apiClientProvider);
-    if (isCurrentlyFavorite) {
-      // Remove from favorites
-      await apiClient.dio.delete('/api/calls/favorites/$targetUserId');
-    } else {
-      // Add to favorites
-      await apiClient.dio.post('/api/calls/favorites', data: {
-        'favoriteUserId': targetUserId,
-      });
+    try {
+      if (!newFavoriteState) {
+        // Remove from favorites
+        await apiClient.dio.delete('/api/calls/favorites/$targetUserId');
+      } else {
+        // Add to favorites
+        await apiClient.dio.post('/api/calls/favorites', data: {
+          'favoriteUserId': targetUserId,
+        });
+      }
+      // Silently refresh favorite list provider in background
+      ref.invalidate(favoriteUsersProvider);
+    } catch (_) {
+      // Revert providers on network error
+      ref.invalidate(matchedUsersProvider);
+      ref.invalidate(favoriteUsersProvider);
     }
-    // Invalidate matched users & favorites providers to refresh the lists
-    ref.invalidate(matchedUsersProvider);
-    ref.invalidate(favoriteUsersProvider);
   }
 }
 

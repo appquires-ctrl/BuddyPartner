@@ -92,7 +92,7 @@ class AppBottomNav extends StatelessWidget {
                         : Icons.subscriptions,
                   ),
                   label: isSubscribed
-                      ? (isFemale ? 'Withdraw' : 'Coins')
+                      ? (isFemale ? 'Withdraw' : 'Wallet')
                       : 'Plans',
                 ),
                 const NavigationDestination(

@@ -11,6 +11,7 @@ import 'package:buddypartner/core/widgets/gradient_avatar.dart';
 import 'package:buddypartner/core/constants/avatar_catalog.dart';
 import 'package:buddypartner/core/widgets/avatar_grid_picker.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
+import 'package:buddypartner/features/profile/presentation/widgets/delete_account_dialog.dart';
 
 /// AccountPage renders the profile details page.
 /// Displays user information dynamically loaded from Supabase profile state.
@@ -224,6 +225,92 @@ class AccountPage extends ConsumerWidget {
                       value: language,
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.space24),
+
+              // Danger Zone Header
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 8),
+                  child: Text(
+                    'DANGER ZONE',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.8,
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.8),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Delete Account Card
+              Container(
+                decoration: BoxDecoration(
+                  color: colors.cardBackground,
+                  borderRadius: AppRadius.lg,
+                  border: Border.all(
+                    color: const Color(0xFFFCA5A5).withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: AppRadius.lg,
+                    onTap: () => showDeleteAccountBottomSheet(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEE2E2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.delete_outline_rounded,
+                              color: Color(0xFFDC2626),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Delete Account',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    color: Color(0xFFDC2626),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Permanently wipe your profile and data',
+                                  style: TextStyle(
+                                    color: colors.textSecondary,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: Color(0xFFDC2626),
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.space24),

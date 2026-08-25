@@ -9,8 +9,7 @@ import 'package:buddypartner/app/theme/app_spacing.dart';
 import 'package:buddypartner/app/theme/app_radius.dart';
 import 'package:buddypartner/core/widgets/cards/app_card.dart';
 import 'package:buddypartner/core/widgets/gradient_avatar.dart';
-import 'package:buddypartner/core/widgets/coins/app_coin_badge.dart';
-import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
+import 'package:buddypartner/features/profile/presentation/widgets/delete_account_dialog.dart';
 
 /// ProfilePage renders the Settings screen dashboard matching the screenshot layout exactly.
 /// Displays user info card, general settings categories, support links, and logout.
@@ -237,13 +236,25 @@ class ProfilePage extends ConsumerWidget {
                     _buildDivider(context),
                     _buildSettingsTile(
                       context,
+                      icon: Icons.account_balance_wallet_outlined,
+                      iconBgColor: const Color(0xFFFFF7ED),
+                      iconColor: const Color(0xFFF97316),
+                      title: 'Wallet History',
+                      subtitle: 'View coin recharges & usage',
+                      onTap: () {
+                        context.push(RouteNames.walletHistory);
+                      },
+                    ),
+                    _buildDivider(context),
+                    _buildSettingsTile(
+                      context,
                       icon: Icons.receipt_long_outlined,
                       iconBgColor: const Color(0xFFEAF5FF),
                       iconColor: const Color(0xFF3B82F6),
-                      title: 'Transaction History',
-                      subtitle: 'View your payments',
+                      title: 'Subscription History',
+                      subtitle: 'View your subscription payments',
                       onTap: () {
-                        context.push(RouteNames.transactionHistory);
+                        context.push(RouteNames.subscriptionHistory);
                       },
                     ),
                   ],
@@ -337,23 +348,39 @@ class ProfilePage extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.space20),
 
-              // Logout Option card
+              // Logout & Delete Account Option card
               Container(
                 decoration: BoxDecoration(
                   color: colors.cardBackground,
                   borderRadius: AppRadius.lg,
                   border: Border.all(color: colors.cardBorder),
                 ),
-                child: _buildSettingsTile(
-                  context,
-                  icon: Icons.logout,
-                  iconBgColor: const Color(0xFFFFEAEA),
-                  iconColor: const Color(0xFFEF4444),
-                  title: 'Log out',
-                  subtitle: 'Sign out of your account',
-                  onTap: () {
-                    _showLogoutBottomSheet(context, ref);
-                  },
+                child: Column(
+                  children: [
+                    _buildSettingsTile(
+                      context,
+                      icon: Icons.logout,
+                      iconBgColor: const Color(0xFFFFEAEA),
+                      iconColor: const Color(0xFFEF4444),
+                      title: 'Log out',
+                      subtitle: 'Sign out of your account',
+                      onTap: () {
+                        _showLogoutBottomSheet(context, ref);
+                      },
+                    ),
+                    _buildDivider(context),
+                    _buildSettingsTile(
+                      context,
+                      icon: Icons.delete_outline_rounded,
+                      iconBgColor: const Color(0xFFFEE2E2),
+                      iconColor: const Color(0xFFDC2626),
+                      title: 'Delete Account',
+                      subtitle: 'Permanently remove your account & data',
+                      onTap: () {
+                        showDeleteAccountBottomSheet(context);
+                      },
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: AppSpacing.space24),

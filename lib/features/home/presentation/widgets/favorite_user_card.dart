@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
@@ -24,6 +25,23 @@ class FavoriteUserCard extends ConsumerStatefulWidget {
 }
 
 class _FavoriteUserCardState extends ConsumerState<FavoriteUserCard> {
+  late bool _isFavorite;
+  double _heartScale = 1.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _isFavorite = widget.user.isFavorite;
+  }
+
+  @override
+  void didUpdateWidget(covariant FavoriteUserCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.user.isFavorite != widget.user.isFavorite) {
+      _isFavorite = widget.user.isFavorite;
+    }
+  }
+
   void _handleOpenChat() {
     if (!AppThrottler.canProcess(actionId: 'open_chat_${widget.user.id}')) return;
     context.push(
@@ -37,6 +55,25 @@ class _FavoriteUserCardState extends ConsumerState<FavoriteUserCard> {
         'gender': widget.user.gender,
       },
     );
+  }
+
+  void _toggleFavorite() {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _isFavorite = !_isFavorite;
+      _heartScale = 1.35;
+    });
+
+    Future.delayed(const Duration(milliseconds: 160), () {
+      if (mounted) {
+        setState(() => _heartScale = 1.0);
+      }
+    });
+
+    ref.read(favoritesNotifierProvider.notifier).toggleFavorite(
+          widget.user.id,
+          _isFavorite,
+        );
   }
 
   @override
@@ -62,28 +99,29 @@ class _FavoriteUserCardState extends ConsumerState<FavoriteUserCard> {
               BoxShadow(
                 color: cardShadow,
                 blurRadius: 16,
-                offset: const Offset(0, 8),
+                offset: const Offset(0, 4),
               ),
             ],
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Avatar with initials
+                // Avatar with Status
                 GradientAvatar(
                   initials: initials,
                   avatarSeed: widget.user.avatarSeed,
                   avatarStyle: widget.user.avatarStyle,
                   gender: widget.user.gender,
-                  radius: 26,
+                  radius: 28,
                   showStatus: true,
                   isOnline: widget.user.isOnline,
                   statusIndicatorSize: 14,
                 ),
                 const SizedBox(width: 14),
 
-                // Name & status details column (Expanded)
+                // Name & Gender/Details
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -93,8 +131,8 @@ class _FavoriteUserCardState extends ConsumerState<FavoriteUserCard> {
                         widget.user.fullName,
                         style: typography.bodyMedium.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: colors.textPrimary,
                           fontSize: 16,
+                          color: colors.textPrimary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -103,14 +141,14 @@ class _FavoriteUserCardState extends ConsumerState<FavoriteUserCard> {
                       Row(
                         children: [
                           Container(
-                            width: 7,
-                            height: 7,
+                            width: 6,
+                            height: 6,
                             decoration: BoxDecoration(
                               color: widget.user.isOnline ? colors.success : colors.textSecondary.withValues(alpha: 0.4),
                               shape: BoxShape.circle,
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 4),
                           Text(
                             widget.user.isOnline ? 'Online' : 'Offline',
                             style: typography.bodySmall.copyWith(
@@ -119,6 +157,24 @@ class _FavoriteUserCardState extends ConsumerState<FavoriteUserCard> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
+                          if (widget.user.gender != null) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              '•',
+                              style: TextStyle(
+                                color: colors.textSecondary.withValues(alpha: 0.5),
+                                fontSize: 10,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              widget.user.gender!,
+                              style: typography.bodySmall.copyWith(
+                                color: colors.textSecondary,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ],
@@ -146,20 +202,19 @@ class _FavoriteUserCardState extends ConsumerState<FavoriteUserCard> {
                         if (currentState.phase != MatchmakingPhase.idle) return;
 
                         ref.read(matchmakingControllerProvider.notifier).callUser(
-                          targetUserId: widget.user.id,
-                          targetUserName: widget.user.fullName,
-                        );
+                              targetUserId: widget.user.id,
+                              targetUserName: widget.user.fullName,
+                            );
                       },
                     ),
                     const SizedBox(width: 8),
 
-                    // Unfavorite Heart toggle
+                    // Favorite Heart toggle (Instant 0ms update + micro bounce animation)
                     _ActionButton(
-                      icon: Icons.favorite,
-                      color: const Color(0xFFFF4E64), // Solid pink/red heart
-                      onTap: () {
-                        ref.read(favoritesNotifierProvider.notifier).toggleFavorite(widget.user.id, widget.user.isFavorite);
-                      },
+                      icon: _isFavorite ? Icons.favorite : Icons.favorite_border_rounded,
+                      color: const Color(0xFFFF4E64),
+                      scale: _heartScale,
+                      onTap: _toggleFavorite,
                     ),
                   ],
                 ),
@@ -176,28 +231,35 @@ class _ActionButton extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
+  final double scale;
 
   const _ActionButton({
     required this.icon,
     required this.color,
     required this.onTap,
+    this.scale = 1.0,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: AppThrottler.wrap(onTap),
-      child: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          icon,
-          color: color,
-          size: 19,
+      child: AnimatedScale(
+        scale: scale,
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutBack,
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: color,
+            size: 19,
+          ),
         ),
       ),
     );

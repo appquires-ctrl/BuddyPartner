@@ -22,8 +22,11 @@ class RouteNames {
   static const String withdraw = '/withdraw';
   static const String femaleHome = '/female-home';
   static const String transactionHistory = '/transaction-history';
+  static const String walletHistory = '/wallet-history';
+  static const String subscriptionHistory = '/subscription-history';
   static const String suspended = '/suspended';
   static const String banned = '/banned';
+  static const String plans = '/plans';
   static const String subscribe = '/subscribe';
   static const String devSubscription = '/dev-subscription';
   static const String updateRequired = '/update-required';

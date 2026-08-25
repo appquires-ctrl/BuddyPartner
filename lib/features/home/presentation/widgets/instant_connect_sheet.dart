@@ -84,7 +84,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
     if (amount < 10) {
       return (
         title: 'Minimum 10 Coins Required',
-        waitTime: 'Set bid ≥ 10',
+        waitTime: 'Select coins ≥ 10',
         progress: 0.0,
         color: const Color(0xFFE11D48),
         icon: Icons.info_outline_rounded,
@@ -147,7 +147,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
             children: [
               Icon(Icons.info_outline_rounded, color: Color(0xFFFFB74D), size: 20),
               SizedBox(width: 10),
-              Text('Minimum bid amount is 10 coins.', style: TextStyle(color: Colors.white)),
+              Text('Minimum coin amount is 10 coins.', style: TextStyle(color: Colors.white)),
             ],
           ),
         ),
@@ -414,12 +414,12 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
                   ),
                 ),
 
-              // ── Preset Bids Section ─────────────────────────────────
+              // ── Preset Coins Section ─────────────────────────────────
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'SELECT BID AMOUNT',
+                    'SELECT COIN AMOUNT',
                     style: typography.bodySmall.copyWith(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
@@ -779,7 +779,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'You need ${amount - walletBalance} more coins for this bid.',
+                          'You need ${amount - walletBalance} more coins to connect.',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,

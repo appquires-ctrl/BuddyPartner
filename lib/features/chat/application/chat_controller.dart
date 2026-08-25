@@ -176,11 +176,23 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
     }
   }
 
-  void sendMessage(String content) {
+  Future<void> sendMessage(String content) async {
     if (content.trim().isEmpty || state.isBlocked) return;
+    final repo = ref.read(chatRepositoryProvider);
     final socket = ref.read(socketProvider);
-    final convId = effectiveConversationId;
-    if (convId.startsWith('user:')) return;
+    
+    String convId = effectiveConversationId;
+    if (convId.startsWith('user:')) {
+      try {
+        final targetUserId = convId.substring(5);
+        final conv = await repo.findOrCreateConversation(targetUserId);
+        convId = conv.id;
+        _resolvedConvId = conv.id;
+      } catch (e) {
+        debugPrint('Error finding conversation for sendMessage: $e');
+        return;
+      }
+    }
     
     final authState = ref.read(authStateProvider).value;
     final currentUserId = authState?.id ?? 'me';
@@ -233,7 +245,6 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
       });
     } else {
       // Fallback to REST
-      final repo = ref.read(chatRepositoryProvider);
       repo.sendMessage(convId, content.trim()).then((realMsg) {
         _replaceTempMessage(tempId, realMsg);
       }).catchError((err) {

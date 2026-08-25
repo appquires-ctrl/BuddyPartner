@@ -51,4 +51,5 @@ backend/.env
 /android/key.properties
 .kotlin/
 android/.kotlin/
+*-firebase-adminsdk-*.json
 

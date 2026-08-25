@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:buddypartner/core/widgets/coins/app_coin_icon.dart';
+import 'package:buddypartner/core/widgets/shimmer/app_shimmer.dart';
 
 /// AppCoinBalanceCard provides a modern, unified Hero Wallet Balance card
 /// used consistently across Home, Recharge, Withdraw, and Profile pages.
@@ -10,6 +11,7 @@ class AppCoinBalanceCard extends StatelessWidget {
   final VoidCallback? onTopUpPressed;
   final VoidCallback? onHistoryPressed;
   final List<Color>? gradientColors;
+  final bool isLoading;
 
   const AppCoinBalanceCard({
     super.key,
@@ -19,6 +21,7 @@ class AppCoinBalanceCard extends StatelessWidget {
     this.onTopUpPressed,
     this.onHistoryPressed,
     this.gradientColors,
+    this.isLoading = false,
   });
 
   @override
@@ -129,47 +132,71 @@ class AppCoinBalanceCard extends StatelessWidget {
 
               const SizedBox(height: 0),
 
-              // 2. Large Coin Balance & Rupee Equivalent
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    '$balance',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 36,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Coins',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  // const Spacer(),
-                  // Container(
-                  //   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  //   decoration: BoxDecoration(
-                  //     color: const Color(0xFFFFD54F).withValues(alpha: 0.2),
-                  //     borderRadius: BorderRadius.circular(10),
-                  //     border: Border.all(color: const Color(0xFFFFD54F).withValues(alpha: 0.4)),
-                  //   ),
-                  //   child: Text(
-                  //     '≈ ₹$balance',
-                  //     style: const TextStyle(
-                  //       color: Color(0xFFFFD54F),
-                  //       fontSize: 14,
-                  //       fontWeight: FontWeight.w900,
-                  //     ),
-                  //   ),
-                  // ),
-                ],
+              // 2. Large Coin Balance with Smooth Shimmer Loading Transition
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: isLoading
+                    ? Padding(
+                        key: const ValueKey('coin_balance_loading'),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            AppShimmer(
+                              baseColor: Colors.white.withValues(alpha: 0.12),
+                              highlightColor: Colors.white.withValues(alpha: 0.30),
+                              child: Container(
+                                width: 96,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            AppShimmer(
+                              baseColor: Colors.white.withValues(alpha: 0.12),
+                              highlightColor: Colors.white.withValues(alpha: 0.30),
+                              child: Container(
+                                width: 44,
+                                height: 16,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Row(
+                        key: ValueKey('coin_balance_$balance'),
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            '$balance',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 36,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Coins',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
               ),
 
               // if (subtitle != null) ...[

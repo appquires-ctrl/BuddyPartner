@@ -67,19 +67,22 @@ class LocationService {
   /// Captures current GPS coordinates, reverse geocodes to Country, State, City,
   /// and saves the result to the user's profile database silently in the background.
   ///
-  /// Rate-limited to at most 1 time per day unless [force] is set to true (e.g. user taps to refresh).
+  /// Rate-limited to at most 1 time per day unless [force] is set to true or user has no location set yet.
   static Future<String?> fetchAndSaveUserLocation(WidgetRef ref, {bool force = false}) async {
-    if (!force) {
+    final profile = ref.read(userProfileProvider).value;
+    final hasExistingLocation = profile?.city != null && profile!.city!.trim().isNotEmpty;
+
+    if (!force && hasExistingLocation) {
       final alreadyFetchedToday = await hasFetchedLocationToday();
       if (alreadyFetchedToday) {
         if (kDebugMode) {
           debugPrint('📍 [LocationService] Location already fetched within the last 24 hours. Skipping.');
         }
-        return null;
+        return profile.city;
       }
     }
 
-    if (_isCurrentlyFetching) return null;
+    if (_isCurrentlyFetching) return profile?.city;
     _isCurrentlyFetching = true;
 
     try {
@@ -88,11 +91,11 @@ class LocationService {
         final serviceEnabled = await Geolocator.isLocationServiceEnabled();
         if (!serviceEnabled) {
           _isCurrentlyFetching = false;
-          return null;
+          return profile?.city;
         }
       } catch (_) {}
 
-      // 2. Fetch last known position first for instant response, or quick 2s current position
+      // 2. Fetch last known position first for instant response, or accurate current position
       Position? position;
       try {
         position = await Geolocator.getLastKnownPosition();
@@ -102,8 +105,8 @@ class LocationService {
         try {
           position = await Geolocator.getCurrentPosition(
             locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.low,
-              timeLimit: Duration(seconds: 2),
+              accuracy: LocationAccuracy.medium,
+              timeLimit: Duration(seconds: 5),
             ),
           );
         } catch (_) {}
@@ -111,19 +114,19 @@ class LocationService {
 
       if (position == null) {
         _isCurrentlyFetching = false;
-        return null;
+        return profile?.city;
       }
 
       String? country;
       String? state;
       String? city;
 
-      // 3. Reverse geocode with 2-second timeout so it never hangs
+      // 3. Reverse geocode with 5-second timeout so it has ample time on mobile networks
       try {
         final placemarks = await placemarkFromCoordinates(
           position.latitude,
           position.longitude,
-        ).timeout(const Duration(seconds: 2));
+        ).timeout(const Duration(seconds: 5));
 
         if (placemarks.isNotEmpty) {
           final place = placemarks.first;
@@ -131,28 +134,31 @@ class LocationService {
           state = place.administrativeArea;
           city = place.locality ?? place.subAdministrativeArea ?? place.name;
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Geocoding error: $e');
+      }
 
-      // 4. Save to User Profile on Backend silently
-      try {
-        final apiClient = ref.read(apiClientProvider);
-        final payload = {
-          'country': country,
-          'state': state,
-          'city': city,
-          'latitude': position.latitude,
-          'longitude': position.longitude,
-        };
-        await apiClient.dio.post('/api/auth/location', data: payload);
-        await _markLocationSynced();
-        ref.invalidate(userProfileProvider);
-        ref.invalidate(authStateProvider);
-      } catch (_) {}
+      // 4. Save to User Profile on Backend silently if location info was resolved
+      if (city != null || state != null || country != null) {
+        try {
+          final apiClient = ref.read(apiClientProvider);
+          final payload = {
+            'country': country,
+            'state': state,
+            'city': city,
+            'latitude': position.latitude,
+            'longitude': position.longitude,
+          };
+          await apiClient.dio.post('/api/auth/location', data: payload);
+          await _markLocationSynced();
+          ref.invalidate(userProfileProvider);
+          ref.invalidate(authStateProvider);
+        } catch (_) {}
+      }
 
-
-      return city;
+      return city ?? profile?.city;
     } catch (_) {
-      return null;
+      return profile?.city;
     } finally {
       _isCurrentlyFetching = false;
     }

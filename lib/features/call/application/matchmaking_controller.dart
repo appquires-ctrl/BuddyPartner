@@ -318,10 +318,11 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
     }
 
     final callId = state.callId;
-    if (callId != null) {
-      _socket?.emit('end_call', {'callId': callId});
-      _socket?.emit('instant:end_call', {'callId': callId});
-    }
+    final payload = callId != null ? {'callId': callId} : <String, dynamic>{};
+    _socket?.emit('end_call', payload);
+    _socket?.emit('instant:end_call', payload);
+    _socket?.emit('call:end', payload);
+    _socket?.emit('call:ended', payload);
 
     _stopCountdown();
 
@@ -359,6 +360,20 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
       state = state.copyWith(isMuted: newMuted);
     } catch (e) {
       debugPrint('Warning: Failed to toggle mute: $e');
+    }
+  }
+
+  /// Minimize the call to a floating background overlay
+  void minimizeCall() {
+    if (state.phase == MatchmakingPhase.inCall) {
+      state = state.copyWith(isCallMinimized: true);
+    }
+  }
+
+  /// Restore the full screen active call interface
+  void restoreCall() {
+    if (state.phase == MatchmakingPhase.inCall) {
+      state = state.copyWith(isCallMinimized: false);
     }
   }
 
@@ -474,6 +489,11 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
     socket.on('outgoing_call_ringing', _onOutgoingCallRinging);
     socket.on('call_response', _onCallResponse);
     socket.on('call_ended', _onCallEnded);
+    socket.on('call:ended', _onCallEnded);
+    socket.on('instant:call_ended', _onCallEnded);
+    socket.on('call_terminated', _onCallEnded);
+    socket.on('call:terminated', _onCallEnded);
+    socket.on('end_call', _onCallEnded);
     socket.on('video_upgrade_request', _onVideoUpgradeRequest);
     socket.on('video_upgrade_accepted', _onVideoUpgradeAccepted);
     socket.on('video_upgrade_declined', _onVideoUpgradeDeclined);
@@ -809,8 +829,8 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
         onUserOffline: (RtcConnection connection, int remoteUid,
             UserOfflineReasonType reason) {
           debugPrint('[Agora] Remote user offline with UID $remoteUid, reason: $reason');
-          if (state.remoteUid == remoteUid) {
-            state = state.copyWith(clearRemoteUid: true);
+          if (state.phase == MatchmakingPhase.inCall || state.phase == MatchmakingPhase.matched) {
+            _onCallEnded({'reason': 'peer_disconnected'});
           }
         },
         onError: (ErrorCodeType code, String msg) {

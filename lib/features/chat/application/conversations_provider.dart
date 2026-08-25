@@ -5,6 +5,7 @@ import 'package:buddypartner/core/services/socket_provider.dart';
 import 'package:buddypartner/features/chat/data/chat_repository.dart';
 import 'package:buddypartner/features/chat/domain/conversation.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/core/widgets/feedback/in_app_notification_banner.dart';
 
 class ConversationsNotifier extends AutoDisposeAsyncNotifier<List<Conversation>> {
   @override
@@ -104,6 +105,42 @@ class ConversationsNotifier extends AutoDisposeAsyncNotifier<List<Conversation>>
         }).catchError((e) {
           debugPrint('Error fetching conversations on new message: $e');
         });
+      }
+
+      // If message is from another user, show in-app notification banner
+      if (!isMe && senderId != null && senderId.isNotEmpty) {
+        String senderName = 'User';
+        String? senderAvatar;
+        String? avatarSeed;
+        String? avatarStyle;
+        String? gender;
+
+        if (index >= 0) {
+          final conv = currentList[index];
+          senderName = conv.otherUserName;
+          senderAvatar = conv.otherUserAvatar;
+          avatarSeed = conv.otherUserAvatarSeed;
+          avatarStyle = conv.otherUserAvatarStyle;
+          gender = conv.otherUserGender;
+        } else if (msgMap['sender'] is Map) {
+          final senderMap = msgMap['sender'] as Map;
+          senderName = senderMap['fullName']?.toString() ?? senderMap['name']?.toString() ?? 'User';
+          senderAvatar = senderMap['avatar']?.toString();
+          avatarSeed = senderMap['avatarSeed']?.toString();
+          avatarStyle = senderMap['avatarStyle']?.toString();
+          gender = senderMap['gender']?.toString();
+        }
+
+        InAppNotificationManager.show(InAppMessageNotification(
+          senderId: senderId,
+          senderName: senderName,
+          senderAvatar: senderAvatar,
+          avatarSeed: avatarSeed,
+          avatarStyle: avatarStyle,
+          gender: gender,
+          message: content.isNotEmpty ? content : 'Sent you a new message',
+          conversationId: conversationId,
+        ));
       }
     } catch (e, st) {
       debugPrint('Error in _handleIncomingMessage: $e\n$st');

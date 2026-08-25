@@ -6,7 +6,6 @@ import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
-import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
 import 'package:buddypartner/features/call/application/matchmaking_state.dart';
 import 'package:buddypartner/features/call/presentation/widgets/spin_wheel_dialog.dart';
@@ -30,6 +29,11 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
   @override
   void initState() {
     super.initState();
+    Future.microtask(() {
+      if (mounted) {
+        ref.read(matchmakingControllerProvider.notifier).restoreCall();
+      }
+    });
   }
 
   @override
@@ -82,11 +86,21 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
     final displayName = matchedUser?.fullName ?? 'User';
     final initials = _getInitials(displayName);
 
+    void minimizeCall() {
+      HapticFeedback.lightImpact();
+      controller.minimizeCall();
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go(RouteNames.home);
+      }
+    }
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        _showLeaveCallConfirmationDialog(context, controller);
+        minimizeCall();
       },
       child: Scaffold(
         backgroundColor: const Color(0xFF0F0C22), // Solid dark purple-blue background
@@ -183,9 +197,8 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                     children: [
                       IconButton(
                         icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 28),
-                        onPressed: () {
-                          _showLeaveCallConfirmationDialog(context, controller);
-                        },
+                        tooltip: 'Minimize Call',
+                        onPressed: minimizeCall,
                       ),
                       // Countdown timer badge pill
                       Builder(
@@ -765,115 +778,6 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
 ),
 );
 }
-
-  Future<void> _showLeaveCallConfirmationDialog(
-    BuildContext context,
-    MatchmakingController controller,
-  ) async {
-    AppLogger.dialogOpen('Leave Call Confirmation', screen: 'ActiveCallPage');
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1E1A3A),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-            side: BorderSide(
-              color: Colors.white.withValues(alpha: 0.12),
-              width: 1,
-            ),
-          ),
-          icon: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEF5350).withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.warning_amber_rounded,
-              color: Color(0xFFEF5350),
-              size: 32,
-            ),
-          ),
-          title: const Text(
-            'Leave Call?',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: const Text(
-            'Are you sure you want to leave this screen? Leaving will automatically end your call.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Color(0xFFA19EBB),
-              fontSize: 14.5,
-              height: 1.4,
-            ),
-          ),
-          actionsAlignment: MainAxisAlignment.spaceEvenly,
-          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-          actions: [
-            // Button 1: Stay on Call (Cancel)
-            OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              onPressed: () {
-                Navigator.of(dialogContext).pop(false);
-              },
-              child: const Text(
-                'Stay on Call',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            // Button 2: End Call & Exit (Confirm)
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFEF5350),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              onPressed: () {
-                Navigator.of(dialogContext).pop(true);
-              },
-              child: const Text(
-                'End Call & Exit',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    AppLogger.dialogClose(result == true ? 'End Call & Exit' : 'Stay on Call', screen: 'ActiveCallPage');
-    if (result == true) {
-      await controller.endCall();
-      ref.read(instantConnectControllerProvider.notifier).endCall();
-      if (mounted) {
-        context.go(RouteNames.home);
-      }
-    }
-  }
 
   String _getInitials(String name) {
     if (name.trim().isEmpty) return 'U';

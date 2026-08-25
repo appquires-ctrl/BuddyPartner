@@ -286,7 +286,7 @@ class InstantConnectController extends Notifier<InstantConnectState> {
 
   // ── Public API Methods ──────────────────────────────────────────────────
 
-  /// Male: Join Instant Connect Priority Queue with bid
+  /// Male: Join Instant Connect Priority Queue with coins
   Future<bool> joinQueue(int bidAmount) async {
     final socket = _socket;
     if (socket == null || !socket.connected) {

@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/core/widgets/coins/app_coin_icon.dart';
 import 'package:buddypartner/core/widgets/coins/app_coin_badge.dart';
 import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
+import 'package:buddypartner/core/widgets/shimmer/app_shimmer.dart';
 import 'package:buddypartner/features/withdraw/application/withdraw_providers.dart';
 import 'package:buddypartner/features/withdraw/application/withdraw_controller.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
@@ -92,7 +94,9 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
 
     final historyAsync = ref.watch(withdrawalHistoryProvider);
     final withdrawState = ref.watch(withdrawControllerProvider);
-    final walletBalance = ref.watch(walletBalanceProvider).value ?? 0;
+    final walletBalanceAsync = ref.watch(walletBalanceProvider);
+    final isBalanceLoading = walletBalanceAsync.isLoading && walletBalanceAsync.value == null;
+    final walletBalance = walletBalanceAsync.value ?? 0;
     final instantState = ref.watch(instantConnectControllerProvider);
     final unscratchedCards = instantState.scratchCards.where((c) => !c.isScratched).toList();
 
@@ -120,8 +124,8 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.history_rounded, color: Color(0xFF7C6AEF), size: 24),
-            tooltip: 'Transaction History',
-            onPressed: () {}
+            tooltip: 'Wallet History',
+            onPressed: () => context.push(RouteNames.walletHistory),
           ),
           const SizedBox(width: 8),
         ],
@@ -235,45 +239,82 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                             //           fontSize: 11,
                             //           fontWeight: FontWeight.bold,
                             //         ),
-                            //       ),
-                            //     ],
-                            //   ),
-                            // ),
                           ],
                         ),
 
                         const SizedBox(height: 16),
 
                         // Large Rupee Amount & Coin Equivalent
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(
-                              '₹$walletBalance',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 38,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                            const Text(
-                              '.00',
-                              style: TextStyle(
-                                color: Colors.white60,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const Spacer(),
-                            AppCoinBadge(
-                              coins: '$walletBalance',
-                              suffix: 'Coins',
-                              variant: AppCoinBadgeVariant.glass,
-                              iconSize: 16,
-                            ),
-                          ],
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          child: isBalanceLoading
+                              ? Padding(
+                                  key: const ValueKey('withdraw_balance_loading'),
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      AppShimmer(
+                                        baseColor: Colors.white.withValues(alpha: 0.12),
+                                        highlightColor: Colors.white.withValues(alpha: 0.30),
+                                        child: Container(
+                                          width: 110,
+                                          height: 38,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      AppShimmer(
+                                        baseColor: Colors.white.withValues(alpha: 0.12),
+                                        highlightColor: Colors.white.withValues(alpha: 0.30),
+                                        child: Container(
+                                          width: 80,
+                                          height: 28,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(20),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : Row(
+                                  key: ValueKey('withdraw_balance_$walletBalance'),
+                                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                                  textBaseline: TextBaseline.alphabetic,
+                                  children: [
+                                    Text(
+                                      '₹$walletBalance',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 38,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: -0.5,
+                                      ),
+                                    ),
+                                    const Text(
+                                      '.00',
+                                      style: TextStyle(
+                                        color: Colors.white60,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    AppCoinBadge(
+                                      coins: '$walletBalance',
+                                      suffix: 'Coins',
+                                      variant: AppCoinBadgeVariant.glass,
+                                      iconSize: 16,
+                                    ),
+                                  ],
+                                ),
                         ),
 
                         const SizedBox(height: 12),

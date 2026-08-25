@@ -690,7 +690,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                             ),
                                           ),
                                           Text(
-                                            'Position #${instantConnectState.queuePosition} • Bid: ${instantConnectState.bidAmount} Coins',
+                                            'Position #${instantConnectState.queuePosition} • Coins: ${instantConnectState.bidAmount}',
                                             style: const TextStyle(
                                               color: Colors.white70,
                                               fontSize: 12,
@@ -1127,8 +1127,8 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
 
 
     String displayCity;
-    if (_isFetchingLocation && _localCity == null && (city == null || city.trim().isEmpty)) {
-      displayCity = 'Fetching...';
+    if (_isFetchingLocation) {
+      displayCity = 'Detecting...';
     } else if (city != null && city.trim().isNotEmpty) {
       displayCity = city.trim();
     } else if (state != null && state.trim().isNotEmpty) {
@@ -1136,7 +1136,7 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
     } else if (country != null && country.trim().isNotEmpty) {
       displayCity = country.trim();
     } else {
-      displayCity = 'Detecting...';
+      displayCity = 'Set Location';
     }
 
 

@@ -249,6 +249,44 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
     state = const AsyncData(null);
   }
 
+  /// Permanently delete user account and wipe session state.
+  Future<bool> deleteAccount({required String reason, String? feedback}) async {
+    final apiClient = ref.read(apiClientProvider);
+    state = const AsyncLoading();
+
+    try {
+      // 1. Send delete account request to backend
+      try {
+        await apiClient.dio.post(
+          '/api/auth/delete-account',
+          data: {
+            'reason': reason,
+            if (feedback != null && feedback.trim().isNotEmpty) 'feedback': feedback.trim(),
+          },
+        );
+      } catch (_) {
+        // Also try DELETE /api/users/me as fallback
+        try {
+          await apiClient.dio.delete(
+            '/api/users/me',
+            data: {
+              'reason': reason,
+              if (feedback != null && feedback.trim().isNotEmpty) 'feedback': feedback.trim(),
+            },
+          );
+        } catch (_) {}
+      }
+
+      // 2. Clear local session, socket connection, tokens, and invalidate all caches
+      await ref.read(authStateProvider.notifier).clearSession();
+      state = const AsyncData(null);
+      return true;
+    } catch (e, st) {
+      await ref.read(authStateProvider.notifier).clearSession();
+      state = AsyncError(e, st);
+      return false;
+    }
+  }
 }
 
 

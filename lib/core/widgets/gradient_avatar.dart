@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/core/widgets/app_avatar.dart';
 
 class GradientAvatar extends StatelessWidget {
@@ -28,8 +27,6 @@ class GradientAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-
     final hasAvatarSeed = avatarSeed != null && avatarSeed!.trim().isNotEmpty;
     final hasUserAvatar = userAvatar != null && userAvatar!.trim().isNotEmpty;
 
@@ -78,8 +75,8 @@ class GradientAvatar extends StatelessWidget {
         children: [
           avatarCore,
           
-          // Online/Offline Status Indicator
-          if (showStatus)
+          // Online Status Indicator (Only display when user is active online)
+          if (showStatus && isOnline == true)
             Positioned(
               bottom: 0,
               right: 0,
@@ -87,12 +84,19 @@ class GradientAvatar extends StatelessWidget {
                 width: statusIndicatorSize,
                 height: statusIndicatorSize,
                 decoration: BoxDecoration(
-                  color: isOnline == true ? colors.success : colors.textSecondary.withValues(alpha: 0.5),
+                  color: const Color(0xFF10B981), // Emerald green
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: colors.surface,
-                    width: statusIndicatorSize * 0.15,
+                    color: Colors.white,
+                    width: 2.0,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
                 ),
               ),
             ),
