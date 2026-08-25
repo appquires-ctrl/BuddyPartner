@@ -306,7 +306,9 @@ class MessagingService {
    * @param {string} userId - The reader's Firebase UID
    * @param {string} messageId - The latest message ID that was read
    */
-  async markAsRead(conversationId, userId, messageId) {
+  async markAsRead(conversationId, userId, messageId = null) {
+    if (!this._isValidUUID(conversationId)) return;
+
     // Verify participant
     const convResult = await db.query(
       `SELECT * FROM public.conversations WHERE id = $1`,
@@ -322,13 +324,24 @@ class MessagingService {
       throw new Error('Not a participant of this conversation');
     }
 
-    await db.query(
-      `INSERT INTO public.message_reads (conversation_id, user_id, last_read_message_id)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (conversation_id, user_id)
-       DO UPDATE SET last_read_message_id = $3`,
-      [conversationId, userId, messageId]
-    );
+    let targetMsgId = messageId;
+    if (!targetMsgId) {
+      const latestRes = await db.query(
+        `SELECT id FROM public.messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [conversationId]
+      );
+      targetMsgId = latestRes.rows[0]?.id || null;
+    }
+
+    if (targetMsgId) {
+      await db.query(
+        `INSERT INTO public.message_reads (conversation_id, user_id, last_read_message_id)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (conversation_id, user_id)
+         DO UPDATE SET last_read_message_id = $3`,
+        [conversationId, userId, targetMsgId]
+      );
+    }
 
     // Update status of all unread messages from the other user in this conversation to 'read'
     await db.query(

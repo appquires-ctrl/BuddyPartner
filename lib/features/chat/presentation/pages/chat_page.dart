@@ -57,6 +57,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     InAppNotificationManager.activeConversationId = _effectiveConversationId;
     _scrollController.addListener(_onScroll);
     Future.microtask(() {
+      ref.read(conversationsProvider.notifier).markConversationAsRead(_effectiveConversationId);
+      ref.read(chatRepositoryProvider).markConversationAsRead(_effectiveConversationId);
       ref.read(presenceProvider.notifier).fetchPresence([widget.userId]);
     });
   }
@@ -67,6 +69,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         InAppNotificationManager.activeConversationId == widget.userId) {
       InAppNotificationManager.activeConversationId = null;
     }
+    ref.read(conversationsProvider.notifier).markConversationAsRead(_effectiveConversationId);
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();

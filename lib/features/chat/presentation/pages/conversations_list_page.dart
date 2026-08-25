@@ -1041,6 +1041,7 @@ class _ConversationTile extends ConsumerWidget {
         onTap: () async {
           if (!AppThrottler.canProcess(actionId: 'open_chat_${conversation.id}')) return;
           HapticFeedback.lightImpact();
+          ref.read(conversationsProvider.notifier).markConversationAsRead(conversation.id);
           await context.push(RouteNames.chat, extra: {
             'conversationId': conversation.id,
             'userId': conversation.otherUserId,
@@ -1051,7 +1052,7 @@ class _ConversationTile extends ConsumerWidget {
             'gender': conversation.otherUserGender,
           });
           if (context.mounted) {
-            ref.invalidate(conversationsProvider);
+            ref.read(conversationsProvider.notifier).refresh();
           }
         },
         child: Padding(

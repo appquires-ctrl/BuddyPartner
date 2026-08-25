@@ -152,11 +152,26 @@ class ConversationsNotifier extends AutoDisposeAsyncNotifier<List<Conversation>>
       state = AsyncData(newList);
     }).catchError((_) {});
   }
+
+  /// Instantly marks a conversation as read and resets its unread badge to 0
+  void markConversationAsRead(String conversationId) {
+    final currentList = state.value;
+    if (currentList == null || currentList.isEmpty) return;
+
+    final targetId = conversationId.startsWith('user:') ? conversationId.substring(5) : conversationId;
+    final index = currentList.indexWhere((c) => c.id == targetId || c.otherUserId == targetId || c.id == conversationId);
+
+    if (index >= 0 && currentList[index].unreadCount > 0) {
+      final updatedList = List<Conversation>.from(currentList);
+      updatedList[index] = updatedList[index].copyWith(unreadCount: 0);
+      state = AsyncData(updatedList);
+    }
+  }
   
   /// Refreshes the list manually (e.g. for pull-to-refresh)
   Future<void> refresh() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(_fetchConversations);
+    final freshList = await _fetchConversations();
+    state = AsyncData(freshList);
   }
 }
 

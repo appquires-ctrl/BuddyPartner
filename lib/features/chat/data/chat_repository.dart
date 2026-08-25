@@ -65,6 +65,13 @@ class ChatRepository {
     return Message.fromJson(response.data['message'] as Map<String, dynamic>);
   }
 
+  Future<void> markConversationAsRead(String conversationId) async {
+    if (conversationId.startsWith('user:') || conversationId.isEmpty) return;
+    try {
+      await _apiClient.dio.post('/api/conversations/$conversationId/read');
+    } catch (_) {}
+  }
+
   Future<void> blockUser(String userId) async {
     await _apiClient.dio.post('/api/block', data: {'userId': userId});
   }

@@ -62,6 +62,11 @@ router.get('/conversations/:id/messages', authMiddleware, async (req, res) => {
       parseInt(limit) || 30
     );
 
+    // Automatically mark all messages as read for this participant
+    messagingService.markAsRead(id, req.user.id).catch((err) => {
+      console.error('Error marking messages as read on fetch:', err.message);
+    });
+
     res.json(result);
   } catch (err) {
     console.error('Error fetching messages:', err.message);
@@ -75,6 +80,20 @@ router.get('/conversations/:id/messages', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: err.message });
     }
     res.status(500).json({ error: err.message || 'Failed to fetch messages' });
+  }
+});
+
+// ── POST /api/conversations/:id/read ──────────────────────────────────────
+// Explicitly mark all messages in a conversation as read
+router.post('/conversations/:id/read', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { messageId } = req.body;
+    await messagingService.markAsRead(id, req.user.id, messageId || null);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error in /conversations/:id/read:', err.message);
+    res.status(500).json({ error: 'Failed to mark as read' });
   }
 });
 
