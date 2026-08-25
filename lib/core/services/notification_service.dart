@@ -188,6 +188,13 @@ class NotificationService {
 
   void _handleNotificationClick(RemoteMessage message) {
     final data = message.data;
+    final type = data['type']?.toString();
+
+    if (type == 'instant_call' || type == 'incoming_call') {
+      debugPrint('🔔 [FCM Click] Opened app for live call alert: $type');
+      return;
+    }
+
     final senderId = data['senderId']?.toString() ?? data['userId']?.toString() ?? '';
     final senderName = data['senderName']?.toString() ?? data['userName']?.toString() ?? 'User';
     final conversationId = data['conversationId']?.toString() ?? (senderId.isNotEmpty ? 'user:$senderId' : '');

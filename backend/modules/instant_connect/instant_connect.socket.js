@@ -80,6 +80,18 @@ function getSocketForUser(io, targetUserId) {
     const s = io.sockets?.sockets?.get(socketId);
     if (s && s.connected) return s;
   }
+  // Try Socket.io room lookup (users join their userId room on connection)
+  const room = io.sockets?.adapter?.rooms?.get(targetUserId);
+  if (room && room.size > 0) {
+    const firstSocketId = room.values().next().value;
+    if (firstSocketId) {
+      const s = io.sockets?.sockets?.get(firstSocketId);
+      if (s && s.connected) {
+        userSockets.set(targetUserId, s.id);
+        return s;
+      }
+    }
+  }
   // Search live connected sockets in Socket.io
   if (io.sockets?.sockets) {
     for (const [, s] of io.sockets.sockets) {
@@ -157,28 +169,27 @@ async function triggerInstantMatchmaker(io, redis) {
     const eligibleFemales = [];
     for (const femaleId of (allFemales || [])) {
       if (femaleId === maleUserId) continue;
-      const isSnoozed = await redis.get(`instant:snooze:${femaleId}`);
-      if (isSnoozed) continue;
+
+      const fSocket = getSocketForUser(io, femaleId);
+      if (!fSocket || !fSocket.connected) continue;
+
       const isRinging = await redis.get(`instant:ringing:${femaleId}`);
       if (isRinging) continue;
       const inInstantCall = await redis.get(`instant:in_call:${femaleId}`);
       if (inInstantCall) continue;
-      const matchLock = await redis.get(`call_lock:${femaleId}`);
-      if (matchLock) continue;
 
-      let isBusy = false;
-      for (const call of activeInstantCalls.values()) {
-        if (call.femaleUserId === femaleId || call.maleUserId === femaleId) {
-          isBusy = true;
-          break;
+      let isBusy = socketToInstantCall.has(fSocket.id);
+      if (!isBusy) {
+        for (const call of activeInstantCalls.values()) {
+          if (call.femaleUserId === femaleId || call.maleUserId === femaleId) {
+            isBusy = true;
+            break;
+          }
         }
       }
       if (isBusy) continue;
 
-      const fSocket = getSocketForUser(io, femaleId);
-      if (fSocket && !socketToInstantCall.has(fSocket.id)) {
-        eligibleFemales.push({ userId: femaleId, socketId: fSocket.id, socket: fSocket });
-      }
+      eligibleFemales.push({ userId: femaleId, socketId: fSocket.id, socket: fSocket });
     }
 
     if (eligibleFemales.length === 0) {
@@ -286,6 +297,8 @@ function registerInstantConnectHandlers(io, socket, redis) {
   const userId = socket.userId;
   if (userId) {
     userSockets.set(userId, socket.id);
+    redis.del(`instant:snooze:${userId}`).catch(() => {});
+    redis.del(`instant:ringing:${userId}`).catch(() => {});
 
     // Auto-register connected female buddies into instant pool if their toggle is ON
     db.query(`SELECT incoming_paid_calls_enabled, gender FROM public.users WHERE id = $1`, [userId])
