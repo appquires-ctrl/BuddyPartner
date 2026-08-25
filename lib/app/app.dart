@@ -57,8 +57,8 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
   Widget build(BuildContext context) {
     // Listen to Auth State to keep FCM Token registered upon login
     ref.listen<AsyncValue<CustomUser?>>(authStateProvider, (prev, next) {
-      if (next.value != null && prev?.value?.id != next.value?.id) {
-        NotificationService.instance.initialize(ref);
+      if (next.value != null && next.value?.id.isNotEmpty == true) {
+        NotificationService.instance.syncTokenWithBackend(ref);
       }
     });
 

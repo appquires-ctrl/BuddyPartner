@@ -116,21 +116,31 @@ class NotificationService {
     }
   }
 
+  String? get fcmToken => _fcmToken;
+
   /// Sends device FCM token to backend for push notification routing
-  Future<void> syncTokenWithBackend(WidgetRef ref, String token) async {
+  Future<void> syncTokenWithBackend(WidgetRef ref, [String? token]) async {
+    final tokenToSync = token ?? _fcmToken;
+    if (tokenToSync == null || tokenToSync.isEmpty) return;
+
     try {
       final authUser = ref.read(authStateProvider).value;
-      if (authUser == null || authUser.id.isEmpty) return;
+      if (authUser == null || authUser.id.isEmpty) {
+        if (kDebugMode) {
+          debugPrint('🔔 [FCM] User not yet authenticated, token cached: ${tokenToSync.substring(0, 15)}...');
+        }
+        return;
+      }
 
       final apiClient = ref.read(apiClientProvider);
       await apiClient.dio.post(
         '/api/notifications/fcm-token',
-        data: {'fcmToken': token},
+        data: {'fcmToken': tokenToSync},
       ).catchError((_) async {
         // Fallback endpoint
         return await apiClient.dio.post(
           '/api/auth/fcm-token',
-          data: {'fcmToken': token},
+          data: {'fcmToken': tokenToSync},
         );
       });
 
