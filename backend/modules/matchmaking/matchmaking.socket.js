@@ -99,6 +99,20 @@ function registerMatchmakingHandlers(io, socket, redis) {
   userSockets.set(userId, socket.id);
   matchmakingService.leaveQueue(userId).catch(() => {});
 
+  // Check if there is a pending direct call request waiting for this user (e.g. user tapped FCM call notification)
+  for (const [callRequestId, reqVal] of pendingCallRequests.entries()) {
+    if (reqVal.targetUserId === userId) {
+      reqVal.targetSocketId = socket.id;
+      fetchPublicProfile(reqVal.callerId).then((callerProfile) => {
+        socket.emit('incoming_call_request', {
+          callRequestId,
+          caller: callerProfile,
+        });
+        console.log(`🔔 [FCM Connect] Delivered pending direct call ${callRequestId} from ${reqVal.callerId} to newly connected user ${userId}`);
+      }).catch((err) => console.error('Error delivering pending direct call to connected user:', err.message));
+    }
+  }
+
   // ── join_queue ────────────────────────────────────────────────────────
   socket.on('join_queue', async (callback) => {
     try {
