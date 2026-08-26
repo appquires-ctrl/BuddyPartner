@@ -49,36 +49,36 @@ class ConversationsNotifier extends AutoDisposeAsyncNotifier<List<Conversation>>
     if (data == null) return;
     
     try {
-      Map<String, dynamic>? msgMap;
-      if (data is Map<String, dynamic>) {
-        if (data.containsKey('message') && data['message'] is Map<String, dynamic>) {
-          msgMap = data['message'] as Map<String, dynamic>;
+      Map<dynamic, dynamic>? rawMap;
+      if (data is Map) {
+        if (data.containsKey('message') && data['message'] is Map) {
+          rawMap = data['message'] as Map;
         } else {
-          msgMap = data;
+          rawMap = data;
         }
       }
 
-      if (msgMap == null) return;
+      if (rawMap == null) return;
+      final msgMap = Map<String, dynamic>.from(rawMap);
 
-      final conversationId = (msgMap['conversationId'] ?? msgMap['conversation_id']) as String?;
-      if (conversationId == null || conversationId.isEmpty) return;
-
-      final content = (msgMap['content'] ?? msgMap['text'] ?? '') as String;
-      final senderId = (msgMap['senderId'] ?? msgMap['sender_id'] ?? msgMap['userId']) as String?;
-      final type = (msgMap['type'] ?? 'text') as String;
+      final conversationId = (msgMap['conversationId'] ?? msgMap['conversation_id'])?.toString();
+      final content = (msgMap['content'] ?? msgMap['text'] ?? msgMap['message'] ?? '').toString();
+      final senderId = (msgMap['senderId'] ?? msgMap['sender_id'] ?? msgMap['userId'])?.toString();
+      final type = (msgMap['type'] ?? 'text').toString();
       final createdAtRaw = msgMap['createdAt'] ?? msgMap['created_at'];
       final createdAt = createdAtRaw != null
-          ? DateTime.tryParse(createdAtRaw.toString()) ?? DateTime.now()
+          ? (DateTime.tryParse(createdAtRaw.toString()) ?? DateTime.now())
           : DateTime.now();
 
-      final currentList = state.value;
-      if (currentList == null) return;
+      final currentList = state.value ?? [];
 
       final authState = ref.read(authStateProvider).value;
       final currentUserId = authState?.id;
       final isMe = senderId != null && senderId == currentUserId;
 
-      final index = currentList.indexWhere((c) => c.id == conversationId);
+      final index = currentList.indexWhere((c) =>
+          (conversationId != null && c.id == conversationId) ||
+          (senderId != null && c.otherUserId == senderId));
 
       if (index >= 0) {
         // Conversation exists -> Update item & reorder to top immediately (0ms delay)
@@ -139,7 +139,7 @@ class ConversationsNotifier extends AutoDisposeAsyncNotifier<List<Conversation>>
           avatarStyle: avatarStyle,
           gender: gender,
           message: content.isNotEmpty ? content : 'Sent you a new message',
-          conversationId: conversationId,
+          conversationId: conversationId ?? 'user:$senderId',
         ));
       }
     } catch (e, st) {

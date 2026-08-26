@@ -324,10 +324,24 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
   void _onNewMessage(dynamic data) {
     if (data == null) return;
     try {
-      final msgMap = data['message'] as Map<String, dynamic>;
-      final msg = Message.fromJson(msgMap);
-      
-      if (msg.conversationId == effectiveConversationId) {
+      Map<dynamic, dynamic>? rawMap;
+      if (data is Map) {
+        if (data.containsKey('message') && data['message'] is Map) {
+          rawMap = data['message'] as Map;
+        } else {
+          rawMap = data;
+        }
+      }
+
+      if (rawMap == null) return;
+      final msg = Message.fromJson(Map<String, dynamic>.from(rawMap));
+
+      final currentConvId = effectiveConversationId;
+      final matchesConv = msg.conversationId == currentConvId ||
+          (_resolvedConvId != null && msg.conversationId == _resolvedConvId) ||
+          (currentConvId.startsWith('user:') && msg.senderId == currentConvId.substring(5));
+
+      if (matchesConv) {
         // Avoid duplicates
         if (!state.messages.any((m) => m.id == msg.id)) {
           state = state.copyWith(
@@ -337,7 +351,9 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
           _markAsRead(msg.id);
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error in _onNewMessage: $e');
+    }
   }
 
   void _onTyping(dynamic data) {
