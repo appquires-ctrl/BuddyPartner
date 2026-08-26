@@ -16,4 +16,19 @@ class AppConfig {
     'AGORA_APP_ID',
     defaultValue: 'c1ad9e31c3ea4fb094ce515add9fe61b',
   );
+
+  /// Apptrove MMP SDK Key.
+  /// Pass via: --dart-define=APPTROVE_SDK_KEY=your_key
+  static const String apptroveSdkKey = String.fromEnvironment(
+    'APPTROVE_SDK_KEY',
+    defaultValue: 'cba8eac4-c835-40bd-a16f-2cf6a21470eb',
+  );
+
+  /// Apptrove Environment ('development', 'production', or 'testing').
+  /// Pass via: --dart-define=APPTROVE_ENV=development
+  static const String apptroveEnv = String.fromEnvironment(
+    'APPTROVE_ENV',
+    defaultValue: '',
+  );
 }
+

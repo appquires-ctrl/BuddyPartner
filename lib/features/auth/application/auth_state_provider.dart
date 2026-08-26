@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:buddypartner/core/services/api_client.dart';
+import 'package:buddypartner/core/services/apptrove_service.dart';
 import 'package:buddypartner/core/services/socket_provider.dart';
 import 'package:buddypartner/features/chat/application/presence_provider.dart';
 import 'package:buddypartner/features/chat/application/conversations_provider.dart';
@@ -146,6 +147,17 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
 
         await apiClient.saveUserSessionJson(freshUser.toJson());
         state = AsyncData(freshUser);
+
+        // Bind user attribution to Apptrove SDK
+        AppTroveService.setUser(
+          userId: freshUser.id,
+          userPhone: freshUser.phoneNumber,
+          userName: freshUser.fullName,
+          gender: freshUser.gender,
+          additionalDetails: {
+            'isProfileComplete': freshUser.isProfileComplete,
+          },
+        );
       }
     } on DioException catch (e) {
       if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
@@ -163,6 +175,17 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
     final apiClient = ref.read(apiClientProvider);
     if (user != null) {
       await apiClient.saveUserSessionJson(user.toJson());
+
+      // Bind user attribution to Apptrove SDK
+      AppTroveService.setUser(
+        userId: user.id,
+        userPhone: user.phoneNumber,
+        userName: user.fullName,
+        gender: user.gender,
+        additionalDetails: {
+          'isProfileComplete': user.isProfileComplete,
+        },
+      );
     } else {
       await apiClient.deleteUserSessionJson();
     }
