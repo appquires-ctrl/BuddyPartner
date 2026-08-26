@@ -156,6 +156,14 @@ class NotificationService {
 
   void _handleForegroundMessage(RemoteMessage message) {
     final data = message.data;
+    final type = data['type']?.toString();
+
+    // Do NOT show in-app chat banner for call notifications!
+    if (type == 'instant_call' || type == 'incoming_call') {
+      debugPrint('🔔 [FCM Foreground] Received call alert ($type). Suppressing chat banner.');
+      return;
+    }
+
     final notification = message.notification;
 
     final senderId = data['senderId']?.toString() ?? data['userId']?.toString() ?? '';
@@ -173,17 +181,19 @@ class NotificationService {
     final avatarStyle = data['avatarStyle']?.toString();
     final gender = data['gender']?.toString();
 
-    // Trigger in-app notification banner
-    InAppNotificationManager.show(InAppMessageNotification(
-      senderId: senderId,
-      senderName: senderName,
-      senderAvatar: avatar,
-      avatarSeed: avatarSeed,
-      avatarStyle: avatarStyle,
-      gender: gender,
-      message: messageBody,
-      conversationId: conversationId,
-    ));
+    // Trigger in-app notification banner only for actual chat messages
+    if (senderId.isNotEmpty || conversationId.isNotEmpty) {
+      InAppNotificationManager.show(InAppMessageNotification(
+        senderId: senderId,
+        senderName: senderName,
+        senderAvatar: avatar,
+        avatarSeed: avatarSeed,
+        avatarStyle: avatarStyle,
+        gender: gender,
+        message: messageBody,
+        conversationId: conversationId,
+      ));
+    }
   }
 
   void _handleNotificationClick(RemoteMessage message) {
