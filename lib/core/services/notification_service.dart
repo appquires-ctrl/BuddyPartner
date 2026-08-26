@@ -111,9 +111,7 @@ class NotificationService {
         if (kDebugMode) {
           debugPrint('🔔 [FCM Terminated Open] App launched via notification: ${initialMessage.data}');
         }
-        Future.delayed(const Duration(milliseconds: 800), () {
-          _handleNotificationClick(initialMessage);
-        });
+        _handleNotificationClick(initialMessage);
       }
     } catch (e) {
       if (kDebugMode) {

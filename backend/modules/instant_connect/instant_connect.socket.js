@@ -234,8 +234,8 @@ async function triggerInstantMatchmaker(io, redis) {
         const excludeIds = [maleUserId, ...connectedUserIds];
         const offlineFemales = await instantConnectService.getSurgeEligibleFemales(excludeIds, 10);
         if (offlineFemales.length > 0) {
-          const tokens = offlineFemales.map((f) => f.fcm_token).filter(Boolean);
-          console.log(`📡 [FCM Surge] Dispatching surge alert to ${tokens.length} offline female devices for male ${maleUserId} (Bid: ₹${bidAmount})`);
+          const tokens = Array.from(new Set(offlineFemales.map((f) => f.fcm_token).filter(Boolean)));
+          console.log(`📡 [FCM Surge] Dispatching surge alert to ${tokens.length} unique offline female devices for male ${maleUserId} (Bid: ₹${bidAmount})`);
           if (tokens.length > 0) {
             await sendMulticastPushNotification({
               tokens,

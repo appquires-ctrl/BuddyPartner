@@ -152,16 +152,20 @@ class InstantConnectController extends Notifier<InstantConnectState> {
     if (_listenersRegistered) return;
     _listenersRegistered = true;
 
-    // Check if user launched app by clicking an FCM VIP surge notification
-    if (_pendingSurgeSessionId != null && _pendingSurgeSessionId!.isNotEmpty) {
-      final sessId = _pendingSurgeSessionId!;
-      final bid = _pendingSurgeBidAmount ?? 10;
-      _pendingSurgeSessionId = null;
-      _pendingSurgeBidAmount = null;
-      Future.delayed(const Duration(milliseconds: 300), () {
+    void checkAndEmitPendingSurge() {
+      if (_pendingSurgeSessionId != null && _pendingSurgeSessionId!.isNotEmpty) {
+        final sessId = _pendingSurgeSessionId!;
+        final bid = _pendingSurgeBidAmount ?? 10;
+        _pendingSurgeSessionId = null;
+        _pendingSurgeBidAmount = null;
         debugPrint('🚀 [InstantConnect] Emitting instant:claim_surge_call for session: $sessId');
         socket.emit('instant:claim_surge_call', {'sessionId': sessId, 'bidAmount': bid});
-      });
+      }
+    }
+
+    socket.on('connect', (_) => checkAndEmitPendingSurge());
+    if (socket.connected) {
+      checkAndEmitPendingSurge();
     }
 
     // Incoming 1:2 parallel ring for female
@@ -449,6 +453,19 @@ class InstantConnectController extends Notifier<InstantConnectState> {
       debugPrint('⏳ [InstantConnect] Caching pending surge session: $sessionId until socket connects');
       _pendingSurgeSessionId = sessionId;
       _pendingSurgeBidAmount = bidAmount;
+
+      if (socket != null) {
+        socket.once('connect', (_) {
+          if (_pendingSurgeSessionId != null && _pendingSurgeSessionId!.isNotEmpty) {
+            final sId = _pendingSurgeSessionId!;
+            final bAmt = _pendingSurgeBidAmount ?? 10;
+            _pendingSurgeSessionId = null;
+            _pendingSurgeBidAmount = null;
+            debugPrint('🚀 [InstantConnect] Socket connected! Emitting cached instant:claim_surge_call: $sId');
+            socket.emit('instant:claim_surge_call', {'sessionId': sId, 'bidAmount': bAmt});
+          }
+        });
+      }
     }
   }
 

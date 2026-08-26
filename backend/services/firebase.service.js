@@ -104,7 +104,7 @@ async function sendPushNotification({ token, title, body, tag, data = {} }) {
  * Sends Multicast FCM Push Notifications to multiple device tokens (e.g. 1:10 instant call surge)
  */
 async function sendMulticastPushNotification({ tokens = [], title, body, tag, data = {} }) {
-  const validTokens = tokens.filter((t) => typeof t === 'string' && t.trim().length > 0);
+  const validTokens = Array.from(new Set(tokens.filter((t) => typeof t === 'string' && t.trim().length > 0)));
   if (validTokens.length === 0) return null;
 
   if (!isInitialized) {
