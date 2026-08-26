@@ -117,6 +117,8 @@ class FemaleInstantStatus {
 
 class IncomingPaidCallRequest {
   final String callRequestId;
+  final String? sessionId;
+  final int bidAmount;
   final String agoraChannelName;
   final String agoraToken;
   final int agoraUid;
@@ -124,19 +126,23 @@ class IncomingPaidCallRequest {
 
   const IncomingPaidCallRequest({
     required this.callRequestId,
-    required this.agoraChannelName,
-    required this.agoraToken,
-    required this.agoraUid,
-    this.timeoutSeconds = 7,
+    this.sessionId,
+    this.bidAmount = 10,
+    this.agoraChannelName = '',
+    this.agoraToken = '',
+    this.agoraUid = 0,
+    this.timeoutSeconds = 15,
   });
 
   factory IncomingPaidCallRequest.fromJson(Map<String, dynamic> json) {
     return IncomingPaidCallRequest(
       callRequestId: json['callRequestId'] as String? ?? '',
+      sessionId: json['sessionId'] as String?,
+      bidAmount: (json['bidAmount'] as num?)?.toInt() ?? 10,
       agoraChannelName: json['agoraChannelName'] as String? ?? '',
       agoraToken: json['agoraToken'] as String? ?? '',
       agoraUid: (json['agoraUid'] as num?)?.toInt() ?? 0,
-      timeoutSeconds: (json['timeoutSeconds'] as num?)?.toInt() ?? 7,
+      timeoutSeconds: (json['timeoutSeconds'] as num?)?.toInt() ?? 15,
     );
   }
 }

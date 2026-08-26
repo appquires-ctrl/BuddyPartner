@@ -93,6 +93,7 @@ class InstantConnectState {
 class InstantConnectController extends Notifier<InstantConnectState> {
   Timer? _callTimer;
   bool _listenersRegistered = false;
+  final Set<String> _declinedRequestIds = {};
 
   sio.Socket? get _socket => ref.read(socketProvider);
 
@@ -118,6 +119,7 @@ class InstantConnectController extends Notifier<InstantConnectState> {
 
       if (nextUser == null || (prevUser != null && prevUser.id != nextUser.id)) {
         _callTimer?.cancel();
+        _declinedRequestIds.clear();
         state = const InstantConnectState();
       }
 
@@ -151,6 +153,14 @@ class InstantConnectController extends Notifier<InstantConnectState> {
     // Incoming 1:2 parallel ring for female
     socket.on('incoming_instant_call', (data) {
       if (data is Map) {
+        final req = IncomingPaidCallRequest.fromJson(Map<String, dynamic>.from(data));
+
+        // Drop if user previously declined this request
+        if (_declinedRequestIds.contains(req.callRequestId)) {
+          debugPrint('[InstantConnect] Dropped already declined request: ${req.callRequestId}');
+          return;
+        }
+
         // Guard: Drop incoming paid call if already in any active call or handling another incoming request
         final matchmakingPhase = ref.read(matchmakingControllerProvider).phase;
         if (state.phase == InstantPhase.inCall ||
@@ -160,7 +170,6 @@ class InstantConnectController extends Notifier<InstantConnectState> {
           return;
         }
 
-        final req = IncomingPaidCallRequest.fromJson(Map<String, dynamic>.from(data));
         state = state.copyWith(
           phase: InstantPhase.incomingRequest,
           incomingRequest: req,
@@ -168,9 +177,11 @@ class InstantConnectController extends Notifier<InstantConnectState> {
       }
     });
 
-
-    // Dismissal when other female answers or 7s timeout
+    // Dismissal when other female answers or 15s timeout
     socket.on('instant_call_dismissed', (data) {
+      if (state.phase == InstantPhase.inCall) {
+        ref.read(matchmakingControllerProvider.notifier).endCall();
+      }
       state = state.copyWith(
         phase: InstantPhase.idle,
         clearIncomingRequest: true,
@@ -406,6 +417,7 @@ class InstantConnectController extends Notifier<InstantConnectState> {
   void declineIncomingCall() {
     final req = state.incomingRequest;
     if (req != null) {
+      _declinedRequestIds.add(req.callRequestId);
       _socket?.emit('instant:decline_call', {'callRequestId': req.callRequestId});
     }
     state = state.copyWith(phase: InstantPhase.idle, clearIncomingRequest: true);

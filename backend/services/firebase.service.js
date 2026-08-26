@@ -103,7 +103,7 @@ async function sendPushNotification({ token, title, body, tag, data = {} }) {
 /**
  * Sends Multicast FCM Push Notifications to multiple device tokens (e.g. 1:10 instant call surge)
  */
-async function sendMulticastPushNotification({ tokens = [], title, body, data = {} }) {
+async function sendMulticastPushNotification({ tokens = [], title, body, tag, data = {} }) {
   const validTokens = tokens.filter((t) => typeof t === 'string' && t.trim().length > 0);
   if (validTokens.length === 0) return null;
 
@@ -118,6 +118,8 @@ async function sendMulticastPushNotification({ tokens = [], title, body, data = 
       stringData[k] = String(v ?? '');
     }
 
+    const notifTag = tag || (stringData.sessionId ? `instant_${stringData.sessionId}` : 'instant_call');
+
     const response = await admin.messaging().sendEachForMulticast({
       tokens: validTokens,
       notification: {
@@ -130,13 +132,14 @@ async function sendMulticastPushNotification({ tokens = [], title, body, data = 
         notification: {
           channelId: 'buddypartner_notifications',
           priority: 'max',
+          tag: notifTag,
           defaultSound: true,
           defaultVibrateTimings: true,
         },
       },
     });
 
-    console.log(`🔔 [FCM Multicast] Dispatched to ${validTokens.length} devices (${response.successCount} succeeded, ${response.failureCount} failed)`);
+    console.log(`🔔 [FCM Multicast] Dispatched to ${validTokens.length} devices (tag: ${notifTag}, ${response.successCount} succeeded, ${response.failureCount} failed)`);
     return response;
   } catch (err) {
     console.error('❌ [FCM Multicast Error]:', err.message);
