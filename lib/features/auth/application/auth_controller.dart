@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:buddypartner/core/services/api_client.dart';
+import 'package:buddypartner/core/services/apptrove_service.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
 /// AuthController coordinates client-side authentication triggers
@@ -103,6 +104,12 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
           ),
         );
 
+        // Track Login event in Apptrove
+        AppTroveService.trackLogin(
+          phoneNumber: phoneNumber,
+          userId: userId,
+        );
+
         state = const AsyncData(null);
         return {
           'success': true,
@@ -158,10 +165,11 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
       if (userProfileResponse.statusCode == 200 && userProfileResponse.data != null) {
         final userMap = userProfileResponse.data['user'];
         final updatedName = (userMap['fullName'] as String? ?? fullName).trim();
+        final userPhone = userMap['phoneNumber'] as String?;
         await ref.read(authStateProvider.notifier).setSession(
           CustomUser(
             id: userMap['id'] as String,
-            phoneNumber: userMap['phoneNumber'] as String,
+            phoneNumber: userPhone ?? '',
             isProfileComplete: true,
             gender: userMap['gender'] as String? ?? gender,
             fullName: updatedName.isNotEmpty ? updatedName : fullName.trim(),
@@ -172,6 +180,28 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
           ),
         );
       }
+
+      final currentUser = ref.read(authStateProvider).value;
+      final phone = currentUser?.phoneNumber;
+      final userId = currentUser?.id;
+
+      // Calculate user age from DOB
+      final now = DateTime.now();
+      int age = now.year - dob.year;
+      if (now.month < dob.month || (now.month == dob.month && now.day < dob.day)) {
+        age--;
+      }
+
+      // Track Sign-Up / Registration completion event in Apptrove
+      AppTroveService.trackSignUp(
+        userId: userId,
+        phoneNumber: phone,
+        gender: gender,
+        language: language,
+        fullName: fullName.trim(),
+        dob: dob,
+        age: age,
+      );
 
       // Refresh userProfileProvider to notify profile widget listeners
       Future.microtask(() => ref.invalidate(userProfileProvider));

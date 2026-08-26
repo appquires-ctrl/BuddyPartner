@@ -405,11 +405,69 @@ router.post('/logout', async (req, res) => {
   res.json({ success: true, message: 'Logged out successfully.' });
 });
 
-
 /**
- * Endpoint: POST /api/auth/profile
- * Updates authenticated user profile details.
+ * Endpoint: POST /api/auth/delete-account & DELETE /api/users/me
+ * Permanently deletes user account, cascades DB records, and purges all socket/Redis state.
  */
+router.all(['/delete-account', '/delete', '/me'], authMiddleware, async (req, res, next) => {
+  // If GET or PUT on /me, let other handlers handle it
+  if (req.method === 'GET' || req.method === 'PUT' || req.method === 'PATCH') {
+    return next();
+  }
+
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { reason, feedback } = req.body || {};
+
+  try {
+    console.log(`⚠️ [Auth] Permanent account deletion requested for user ${userId}. Reason: ${reason || 'N/A'}`);
+
+    // 1. Purge Redis session and live presence
+    const redis = req.app.get('redis');
+    const io = req.app.get('io');
+
+    if (redis) {
+      await redis.del(`user_active_session:${userId}`);
+      await redis.del(`online:${userId}`);
+      await redis.srem('instant:female_pool', userId);
+      await redis.zrem('instant:male_queue', userId);
+      await redis.del(`instant:male_session:${userId}`);
+      await redis.del(`instant:in_call:${userId}`);
+      await redis.del(`call_lock:${userId}`);
+    }
+
+    if (io) {
+      try {
+        const { cleanupUserMatchmaking } = require('../matchmaking/matchmaking.socket');
+        const { cleanupUserInstantConnect } = require('../instant_connect/instant_connect.socket');
+        const { PresenceService } = require('../presence/presence.service');
+
+        await Promise.all([
+          cleanupUserMatchmaking(io, redis, userId),
+          cleanupUserInstantConnect(io, redis, userId),
+          PresenceService.setPresence(redis, io, userId, false),
+        ]);
+
+        // Force disconnect any active socket connections for this user
+        io.in(userId).disconnectSockets(true);
+      } catch (e) {
+        console.error('Error during socket cleanup on account deletion:', e.message);
+      }
+    }
+
+    // 2. Cascade delete user record from database
+    await db.query(`DELETE FROM public.users WHERE id = $1`, [userId]);
+
+    console.log(`✅ [Auth] Account and all associated data permanently deleted for user ${userId}`);
+    return res.json({ success: true, message: 'Account permanently deleted.' });
+  } catch (err) {
+    console.error(`❌ [Auth] Error deleting account for user ${userId}:`, err.message);
+    return res.status(500).json({ error: 'Failed to delete account.', message: err.message });
+  }
+});
 router.post('/profile', authMiddleware, async (req, res) => {
   const userId = req.user.id;
   const { fullName, dob, gender, language, avatarSeed, avatarStyle, isTelecaller, country, state, city, latitude, longitude } = req.body;
