@@ -50,6 +50,16 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
           );
         }
       };
+
+      notifService.onInstantCallNotification = ({
+        required String sessionId,
+        required int bidAmount,
+      }) {
+        ref.read(instantConnectControllerProvider.notifier).handleNotificationLaunch(
+          sessionId: sessionId,
+          bidAmount: bidAmount,
+        );
+      };
     });
   }
 

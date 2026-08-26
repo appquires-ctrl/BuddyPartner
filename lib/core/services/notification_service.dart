@@ -35,6 +35,12 @@ class NotificationService {
     String? userAvatar,
   })? onOpenChat;
 
+  /// Callback when a female taps an Instant VIP call push notification
+  void Function({
+    required String sessionId,
+    required int bidAmount,
+  })? onInstantCallNotification;
+
   /// Initializes Firebase and Firebase Messaging safely
   Future<void> initialize(WidgetRef? ref) async {
     if (_initialized) return;
@@ -200,8 +206,16 @@ class NotificationService {
     final data = message.data;
     final type = data['type']?.toString();
 
-    if (type == 'instant_call' || type == 'incoming_call') {
-      debugPrint('🔔 [FCM Click] Opened app for live call alert: $type');
+    if (type == 'instant_call') {
+      final sessionId = data['sessionId']?.toString() ?? '';
+      final bidAmount = int.tryParse(data['bidAmount']?.toString() ?? '10') ?? 10;
+      debugPrint('🔔 [FCM Click] Female clicked instant call alert: session=$sessionId, bid=$bidAmount');
+      onInstantCallNotification?.call(sessionId: sessionId, bidAmount: bidAmount);
+      return;
+    }
+
+    if (type == 'incoming_call') {
+      debugPrint('🔔 [FCM Click] Opened app for live standard call alert');
       return;
     }
 

@@ -94,6 +94,8 @@ class InstantConnectController extends Notifier<InstantConnectState> {
   Timer? _callTimer;
   bool _listenersRegistered = false;
   final Set<String> _declinedRequestIds = {};
+  String? _pendingSurgeSessionId;
+  int? _pendingSurgeBidAmount;
 
   sio.Socket? get _socket => ref.read(socketProvider);
 
@@ -149,6 +151,18 @@ class InstantConnectController extends Notifier<InstantConnectState> {
   void _setupSocketListeners(sio.Socket socket) {
     if (_listenersRegistered) return;
     _listenersRegistered = true;
+
+    // Check if user launched app by clicking an FCM VIP surge notification
+    if (_pendingSurgeSessionId != null && _pendingSurgeSessionId!.isNotEmpty) {
+      final sessId = _pendingSurgeSessionId!;
+      final bid = _pendingSurgeBidAmount ?? 10;
+      _pendingSurgeSessionId = null;
+      _pendingSurgeBidAmount = null;
+      Future.delayed(const Duration(milliseconds: 300), () {
+        debugPrint('🚀 [InstantConnect] Emitting instant:claim_surge_call for session: $sessId');
+        socket.emit('instant:claim_surge_call', {'sessionId': sessId, 'bidAmount': bid});
+      });
+    }
 
     // Incoming 1:2 parallel ring for female
     socket.on('incoming_instant_call', (data) {
@@ -421,6 +435,21 @@ class InstantConnectController extends Notifier<InstantConnectState> {
       _socket?.emit('instant:decline_call', {'callRequestId': req.callRequestId});
     }
     state = state.copyWith(phase: InstantPhase.idle, clearIncomingRequest: true);
+  }
+
+  /// Female: Handle app launch from an Instant VIP push notification click
+  void handleNotificationLaunch({required String sessionId, required int bidAmount}) {
+    if (state.phase == InstantPhase.inCall) return;
+
+    final socket = _socket;
+    if (socket != null && socket.connected) {
+      debugPrint('🚀 [InstantConnect] Emitting instant:claim_surge_call directly for session: $sessionId');
+      socket.emit('instant:claim_surge_call', {'sessionId': sessionId, 'bidAmount': bidAmount});
+    } else {
+      debugPrint('⏳ [InstantConnect] Caching pending surge session: $sessionId until socket connects');
+      _pendingSurgeSessionId = sessionId;
+      _pendingSurgeBidAmount = bidAmount;
+    }
   }
 
   /// Fetch female status from REST
