@@ -32,7 +32,6 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => ref.invalidate(conversationsProvider));
   }
 
   @override
@@ -494,22 +493,91 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                     ),
                   ),
                 )
+              else if (conversationsAsync.hasError && conversations.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 30.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                          ),
+                          child: const Icon(
+                            Icons.error_outline_rounded,
+                            size: 40,
+                            color: Color(0xFFEF4444),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Text(
+                          'Could Not Load Chats',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 18,
+                            color: colors.textPrimary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Something went wrong while fetching your messages. Please tap below to retry.',
+                          style: TextStyle(
+                            color: colors.textSecondary,
+                            fontSize: 13.5,
+                            height: 1.4,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
+                          onPressed: _handleRefresh,
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: const Text('Retry'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
               else
                 SliverFillRemaining(
                   hasScrollBody: false,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 0.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 20.0),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Center(
-                          child: MatchingIllustration(
-                            primaryColor: colors.primary,
-                            centerCircleColor: colors.primary.withValues(alpha: 0.1),
-                            icon: _searchQuery.isNotEmpty
+                        Container(
+                          width: 86,
+                          height: 86,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [
+                                colors.primary.withValues(alpha: 0.18),
+                                const Color(0xFFE879F9).withValues(alpha: 0.12),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
+                          child: Icon(
+                            _searchQuery.isNotEmpty
                                 ? Icons.search_off_rounded
                                 : Icons.chat_bubble_outline_rounded,
-                            iconColor: colors.primary,
+                            size: 42,
+                            color: colors.primary,
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -520,8 +588,8 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                                   ? 'No $_selectedFilter chats'
                                   : 'No Conversations Yet'),
                           style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 18,
                             color: colors.textPrimary,
                           ),
                           textAlign: TextAlign.center,
@@ -533,23 +601,23 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                               : 'Start connecting with people on Discover to build your chats here!',
                           style: TextStyle(
                             color: colors.textSecondary,
-                            fontSize: 13,
+                            fontSize: 13.5,
                             height: 1.4,
                           ),
                           textAlign: TextAlign.center,
                         ),
                         if (_searchQuery.isNotEmpty) ...[
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 18),
                           OutlinedButton(
                             style: OutlinedButton.styleFrom(
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                             ),
                             onPressed: () {
                               _searchController.clear();
                               setState(() => _searchQuery = '');
                             },
-                            child: const Text('Clear Search', style: TextStyle(fontSize: 13)),
+                            child: const Text('Clear Search', style: TextStyle(fontSize: 13.5)),
                           ),
                         ],
                       ],

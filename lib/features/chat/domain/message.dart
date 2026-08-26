@@ -20,17 +20,21 @@ class Message {
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
+    DateTime parseDate(dynamic val) {
+      if (val == null) return DateTime.now();
+      if (val is DateTime) return val;
+      return DateTime.tryParse(val.toString()) ?? DateTime.now();
+    }
+
     return Message(
-      id: json['id'] as String? ?? '',
-      conversationId: json['conversation_id'] as String? ?? '',
-      senderId: json['sender_id'] as String? ?? '',
-      content: json['content'] as String? ?? '',
-      mediaUrl: json['media_url'] as String?,
-      type: json['type'] as String? ?? 'text',
-      status: json['status'] as String? ?? 'sent',
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
-          : DateTime.now(),
+      id: (json['id'] ?? json['_id'] ?? '').toString(),
+      conversationId: (json['conversation_id'] ?? json['conversationId'] ?? '').toString(),
+      senderId: (json['sender_id'] ?? json['senderId'] ?? json['userId'] ?? '').toString(),
+      content: (json['content'] ?? json['text'] ?? json['message'] ?? '').toString(),
+      mediaUrl: (json['media_url'] ?? json['mediaUrl'] ?? json['imageUrl'])?.toString(),
+      type: (json['type'] ?? 'text').toString(),
+      status: (json['status'] ?? 'sent').toString(),
+      createdAt: parseDate(json['created_at'] ?? json['createdAt']),
     );
   }
 

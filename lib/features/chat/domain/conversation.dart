@@ -30,24 +30,32 @@ class Conversation {
   });
 
   factory Conversation.fromJson(Map<String, dynamic> json) {
+    DateTime parseDate(dynamic val) {
+      if (val == null) return DateTime.now();
+      if (val is DateTime) return val;
+      return DateTime.tryParse(val.toString()) ?? DateTime.now();
+    }
+
+    int parseUnreadCount(dynamic val) {
+      if (val == null) return 0;
+      if (val is num) return val.toInt();
+      return int.tryParse(val.toString()) ?? 0;
+    }
+
     return Conversation(
-      id: json['id'] as String,
-      otherUserId: json['otherUserId'] as String,
-      otherUserName: json['otherUserName'] as String? ?? 'User',
-      otherUserAvatarSeed: json['otherUserAvatarSeed'] as String?,
-      otherUserAvatarStyle: json['otherUserAvatarStyle'] as String? ?? 'avataaars',
-      otherUserGender: json['otherUserGender'] as String?,
-      otherUserAvatar: (json['otherUserAvatar'] ?? json['other_user_avatar_url']) as String?,
-      lastMessage: json['lastMessage'] as String?,
-      lastMessageType: json['lastMessageType'] as String?,
-      lastMessageSenderId: json['lastMessageSenderId'] as String?,
-      lastMessageAt: json['lastMessageAt'] != null
-          ? DateTime.parse(json['lastMessageAt'] as String)
-          : DateTime.now(),
-      unreadCount: json['unreadCount'] as int? ?? 0,
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'] as String)
-          : DateTime.now(),
+      id: (json['id'] ?? json['_id'] ?? json['conversation_id'] ?? '').toString(),
+      otherUserId: (json['otherUserId'] ?? json['other_user_id'] ?? json['userId'] ?? '').toString(),
+      otherUserName: (json['otherUserName'] ?? json['other_user_name'] ?? json['name'] ?? 'User').toString(),
+      otherUserAvatarSeed: json['otherUserAvatarSeed']?.toString() ?? json['other_user_avatar_seed']?.toString(),
+      otherUserAvatarStyle: json['otherUserAvatarStyle']?.toString() ?? json['other_user_avatar_style']?.toString() ?? 'avataaars',
+      otherUserGender: json['otherUserGender']?.toString() ?? json['other_user_gender']?.toString() ?? json['gender']?.toString(),
+      otherUserAvatar: json['otherUserAvatar']?.toString() ?? json['other_user_avatar_url']?.toString(),
+      lastMessage: json['lastMessage']?.toString() ?? json['last_message_content']?.toString(),
+      lastMessageType: json['lastMessageType']?.toString() ?? json['last_message_type']?.toString(),
+      lastMessageSenderId: json['lastMessageSenderId']?.toString() ?? json['last_message_sender_id']?.toString(),
+      lastMessageAt: parseDate(json['lastMessageAt'] ?? json['last_message_at']),
+      unreadCount: parseUnreadCount(json['unreadCount'] ?? json['unread_count']),
+      createdAt: parseDate(json['createdAt'] ?? json['created_at']),
     );
   }
 
