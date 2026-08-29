@@ -81,6 +81,13 @@ const inMemoryClient = {
     const set = memSets.get(key);
     return set ? Array.from(set) : [];
   },
+  async scard(key) {
+    const set = memSets.get(key);
+    return set ? set.size : 0;
+  },
+  async expire(key, seconds) {
+    return 1;
+  },
   async zadd(key, score, member) {
     if (!memSortedSets.has(key)) memSortedSets.set(key, new Map());
     const zset = memSortedSets.get(key);
@@ -126,6 +133,52 @@ const inMemoryClient = {
         operations.push(() => [null, getKv(k)]);
         return this;
       },
+      set(k, v, ...args) {
+        operations.push(() => [null, setKv(k, v)]);
+        return this;
+      },
+      del(k) {
+        operations.push(() => [null, delKey(k)]);
+        return this;
+      },
+      sadd(k, ...members) {
+        operations.push(() => {
+          if (!memSets.has(k)) memSets.set(k, new Set());
+          const set = memSets.get(k);
+          let added = 0;
+          for (const m of members) {
+            if (!set.has(String(m))) {
+              set.add(String(m));
+              added++;
+            }
+          }
+          return [null, added];
+        });
+        return this;
+      },
+      srem(k, ...members) {
+        operations.push(() => {
+          const set = memSets.get(k);
+          if (!set) return [null, 0];
+          let removed = 0;
+          for (const m of members) {
+            if (set.delete(String(m))) removed++;
+          }
+          return [null, removed];
+        });
+        return this;
+      },
+      scard(k) {
+        operations.push(() => {
+          const set = memSets.get(k);
+          return [null, set ? set.size : 0];
+        });
+        return this;
+      },
+      expire(k, sec) {
+        operations.push(() => [null, 1]);
+        return this;
+      },
       async exec() {
         return operations.map((fn) => fn());
       },
@@ -162,6 +215,19 @@ const redisProxy = new Proxy(realRedis, {
   get(target, prop) {
     if (prop === 'isInMemory') {
       return !isConnected;
+    }
+    if (prop === 'pipeline') {
+      return function (...args) {
+        if (isConnected) {
+          try {
+            return target.pipeline(...args);
+          } catch (err) {
+            isConnected = false;
+            return inMemoryClient.pipeline(...args);
+          }
+        }
+        return inMemoryClient.pipeline(...args);
+      };
     }
     if (typeof inMemoryClient[prop] === 'function') {
       return async function (...args) {

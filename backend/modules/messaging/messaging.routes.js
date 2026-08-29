@@ -199,7 +199,7 @@ router.get('/presence', authMiddleware, async (req, res) => {
 
     const ids = Array.isArray(userIds) ? userIds : userIds.split(',').map((id) => id.trim()).filter(Boolean);
     const { PresenceService } = require('../presence/presence.service');
-    const { redis } = require('../../server');
+    const redis = req.app.get('redis') || require('../../redis');
 
     const presenceMap = await PresenceService.getPresenceBatch(redis, ids);
     res.json({ presence: presenceMap });
