@@ -287,7 +287,12 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
       _startCountdown();
     } catch (e) {
       debugPrint('Failed to initialize Agora for Instant Call: $e');
-      state = state.copyWith(
+      final socket = ref.read(socketProvider);
+      if (socket != null && socket.connected) {
+        socket.emit('instant:end_call', {'callId': callId, 'reason': 'agora_init_failed'});
+        socket.emit('end_call', {'callId': callId, 'reason': 'agora_init_failed'});
+      }
+      state = state.reset().copyWith(
         phase: MatchmakingPhase.idle,
         errorMessage: 'Failed to join instant call: $e',
       );

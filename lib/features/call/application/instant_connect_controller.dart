@@ -92,8 +92,11 @@ class InstantConnectState {
 
 class InstantConnectController extends Notifier<InstantConnectState> {
   Timer? _callTimer;
+  Timer? _coldStartConnectTimer;
   bool _listenersRegistered = false;
   final Set<String> _declinedRequestIds = {};
+  final Set<String> _inFlightClaimSessionIds = <String>{};
+  final Map<String, Timer> _inFlightClaimTimers = <String, Timer>{};
   String? _pendingSurgeSessionId;
   int? _pendingSurgeBidAmount;
 
@@ -103,6 +106,12 @@ class InstantConnectController extends Notifier<InstantConnectState> {
   InstantConnectState build() {
     ref.onDispose(() {
       _callTimer?.cancel();
+      _coldStartConnectTimer?.cancel();
+      for (final timer in _inFlightClaimTimers.values) {
+        timer.cancel();
+      }
+      _inFlightClaimTimers.clear();
+      _inFlightClaimSessionIds.clear();
       _listenersRegistered = false;
     });
 
@@ -244,6 +253,11 @@ class InstantConnectController extends Notifier<InstantConnectState> {
           is10mReached: false,
           callSecondsElapsed: 0,
         );
+
+        if (sessId != null && sessId.isNotEmpty) {
+          _inFlightClaimTimers.remove(sessId)?.cancel();
+          _inFlightClaimSessionIds.remove(sessId);
+        }
 
         _startCallTimer();
 
@@ -441,28 +455,104 @@ class InstantConnectController extends Notifier<InstantConnectState> {
     state = state.copyWith(phase: InstantPhase.idle, clearIncomingRequest: true);
   }
 
-  /// Female: Handle app launch from an Instant VIP push notification click
+  /// Female: Handle app launch from an Instant VIP push notification click (One-tap direct join)
   void handleNotificationLaunch({required String sessionId, required int bidAmount}) {
-    if (state.phase == InstantPhase.inCall) return;
+    if (sessionId.isEmpty) return;
+
+    // 1. Guard against duplicate launches if already in an active call for this session
+    if (state.phase == InstantPhase.inCall && state.sessionId == sessionId) {
+      debugPrint('ℹ️ [InstantConnect] Already in active call for session: $sessionId. Ignoring duplicate launch.');
+      return;
+    }
+
+    // 2. Guard against duplicate in-flight claims (warm socket path)
+    if (_inFlightClaimSessionIds.contains(sessionId)) {
+      debugPrint('⏳ [InstantConnect] Claim for session $sessionId is already in flight. Ignoring duplicate launch.');
+      return;
+    }
+
+    // 3. Guard against duplicate cold-start queueing (cold-start path)
+    if (_pendingSurgeSessionId == sessionId) {
+      debugPrint('⏳ [InstantConnect] Surge claim for session $sessionId is already queued for socket connect. Ignoring duplicate launch.');
+      return;
+    }
+
+    // Register in-flight claim with 10-second safety timeout
+    _inFlightClaimSessionIds.add(sessionId);
+    _inFlightClaimTimers[sessionId]?.cancel();
+    _inFlightClaimTimers[sessionId] = Timer(const Duration(seconds: 10), () {
+      _inFlightClaimTimers.remove(sessionId);
+      _inFlightClaimSessionIds.remove(sessionId);
+    });
+
+    void emitClaimAndJoin(sio.Socket socket, String sId, int bAmt) {
+      debugPrint('🚀 [InstantConnect] Emitting instant:claim_and_join for session: $sId');
+      socket.emitWithAck(
+        'instant:claim_and_join',
+        {'sessionId': sId, 'bidAmount': bAmt},
+        ack: (response) {
+          debugPrint('📡 [InstantConnect] instant:claim_and_join response: $response');
+          _inFlightClaimTimers.remove(sId)?.cancel();
+          _inFlightClaimSessionIds.remove(sId);
+
+          if (response is Map && response['success'] == false) {
+            // Guard: If the call already connected (e.g. instant:call_connected arrived before ack), do NOT revert to idle!
+            if (state.phase == InstantPhase.inCall && state.sessionId == sId) {
+              debugPrint('ℹ️ [InstantConnect] Received failure ack for $sId after call was already established. Preserving active call.');
+              return;
+            }
+
+            final errMsg = response['message'] as String? ?? 'Another buddy already answered this VIP call.';
+            state = state.copyWith(
+              phase: InstantPhase.idle,
+              clearIncomingRequest: true,
+              errorMessage: errMsg,
+            );
+          }
+        },
+      );
+    }
 
     final socket = _socket;
     if (socket != null && socket.connected) {
-      debugPrint('🚀 [InstantConnect] Emitting instant:claim_surge_call directly for session: $sessionId');
-      socket.emit('instant:claim_surge_call', {'sessionId': sessionId, 'bidAmount': bidAmount});
+      _coldStartConnectTimer?.cancel();
+      _coldStartConnectTimer = null;
+      emitClaimAndJoin(socket, sessionId, bidAmount);
     } else {
       debugPrint('⏳ [InstantConnect] Caching pending surge session: $sessionId until socket connects');
       _pendingSurgeSessionId = sessionId;
       _pendingSurgeBidAmount = bidAmount;
 
+      _coldStartConnectTimer?.cancel();
+      _coldStartConnectTimer = Timer(const Duration(seconds: 8), () {
+        if (_pendingSurgeSessionId == sessionId) {
+          debugPrint('⏱️ [InstantConnect] Cold-start socket connect timed out for session: $sessionId');
+          final timedOutSessionId = _pendingSurgeSessionId!;
+          _pendingSurgeSessionId = null;
+          _pendingSurgeBidAmount = null;
+          _inFlightClaimTimers.remove(timedOutSessionId)?.cancel();
+          _inFlightClaimSessionIds.remove(timedOutSessionId);
+
+          if (state.phase != InstantPhase.inCall) {
+            state = state.copyWith(
+              phase: InstantPhase.idle,
+              errorMessage: 'Connection timed out. Please check your network and try again.',
+            );
+          }
+        }
+      });
+
       if (socket != null) {
         socket.once('connect', (_) {
+          _coldStartConnectTimer?.cancel();
+          _coldStartConnectTimer = null;
           if (_pendingSurgeSessionId != null && _pendingSurgeSessionId!.isNotEmpty) {
             final sId = _pendingSurgeSessionId!;
             final bAmt = _pendingSurgeBidAmount ?? 10;
             _pendingSurgeSessionId = null;
             _pendingSurgeBidAmount = null;
-            debugPrint('🚀 [InstantConnect] Socket connected! Emitting cached instant:claim_surge_call: $sId');
-            socket.emit('instant:claim_surge_call', {'sessionId': sId, 'bidAmount': bAmt});
+            debugPrint('🚀 [InstantConnect] Socket connected! Emitting cached instant:claim_and_join: $sId');
+            emitClaimAndJoin(socket, sId, bAmt);
           }
         });
       }

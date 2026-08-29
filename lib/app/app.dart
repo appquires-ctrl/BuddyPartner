@@ -56,6 +56,12 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
         required String sessionId,
         required int bidAmount,
       }) {
+        final mmInCall = ref.read(matchmakingControllerProvider).phase == MatchmakingPhase.inCall;
+        final instantInCall = ref.read(instantConnectControllerProvider).phase == InstantPhase.inCall;
+        if (mmInCall || instantInCall) {
+          debugPrint('🔔 [FCM Click] User is currently in active call. Ignoring instant call notification.');
+          return;
+        }
         ref.read(instantConnectControllerProvider.notifier).handleNotificationLaunch(
           sessionId: sessionId,
           bidAmount: bidAmount,
