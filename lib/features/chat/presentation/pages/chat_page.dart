@@ -61,7 +61,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     Future.microtask(() {
       ref.read(conversationsProvider.notifier).markConversationAsRead(_effectiveConversationId);
       ref.read(chatRepositoryProvider).markConversationAsRead(_effectiveConversationId);
-      ref.read(presenceProvider.notifier).fetchPresence([widget.userId]);
+      ref.read(presenceProvider.notifier).subscribeToUsers([widget.userId]);
     });
   }
 
@@ -71,6 +71,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         InAppNotificationManager.activeConversationId == widget.userId) {
       InAppNotificationManager.activeConversationId = null;
     }
+    ref.read(presenceProvider.notifier).unsubscribeFromUsers([widget.userId]);
     ref.read(conversationsProvider.notifier).markConversationAsRead(_effectiveConversationId);
     _messageController.dispose();
     _scrollController.dispose();

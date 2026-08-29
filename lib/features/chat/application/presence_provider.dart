@@ -1,15 +1,16 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:socket_io_client/socket_io_client.dart' as sio;
 import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/core/services/socket_provider.dart';
-
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
 final presenceProvider =
-    StateNotifierProvider.autoDispose<PresenceNotifier, Map<String, bool>>((ref) {
+    StateNotifierProvider<PresenceNotifier, Map<String, bool>>((ref) {
   final apiClient = ref.watch(apiClientProvider);
   final socket = ref.watch(socketProvider);
-  // Re-build and reset cached map whenever user logs in, logs out, or switches accounts
+  // Reset cached map whenever user logs in, logs out, or switches accounts
   ref.watch(authStateProvider);
   return PresenceNotifier(apiClient, socket);
 });
@@ -17,6 +18,11 @@ final presenceProvider =
 class PresenceNotifier extends StateNotifier<Map<String, bool>> {
   final ApiClient _apiClient;
   final sio.Socket? _socket;
+  final Set<String> _subscribedUserIds = <String>{};
+  final Map<String, Timer> _pendingOfflineTimers = <String, Timer>{};
+
+  // Grace period before marking a user offline to prevent UI flickering on temporary network blips
+  static const Duration _offlineGracePeriod = Duration(seconds: 3);
 
   PresenceNotifier(this._apiClient, this._socket) : super({}) {
     _listenToPresenceEvents();
@@ -27,11 +33,35 @@ class PresenceNotifier extends StateNotifier<Map<String, bool>> {
 
     _socket.off('presence:update', _handlePresenceUpdate);
     _socket.on('presence:update', _handlePresenceUpdate);
+
+    _socket.off('connect', _handleSocketReconnect);
+    _socket.on('connect', _handleSocketReconnect);
+
+    // If socket is already connected upon initialization, subscribe to tracked users
+    if (_subscribedUserIds.isNotEmpty && _socket.connected) {
+      try {
+        _socket.emit('presence:subscribe', _subscribedUserIds.toList());
+      } catch (_) {}
+    }
+  }
+
+  void _handleSocketReconnect(dynamic _) {
+    if (_subscribedUserIds.isNotEmpty && _socket != null && _socket.connected) {
+      try {
+        _socket.emit('presence:subscribe', _subscribedUserIds.toList());
+        fetchPresence(_subscribedUserIds.toList());
+      } catch (_) {}
+    }
   }
 
   @override
   void dispose() {
     _socket?.off('presence:update', _handlePresenceUpdate);
+    _socket?.off('connect', _handleSocketReconnect);
+    for (final timer in _pendingOfflineTimers.values) {
+      timer.cancel();
+    }
+    _pendingOfflineTimers.clear();
     super.dispose();
   }
 
@@ -40,22 +70,94 @@ class PresenceNotifier extends StateNotifier<Map<String, bool>> {
     if (data is Map<String, dynamic>) {
       final userId = data['userId'] as String?;
       final isOnline = data['isOnline'] as bool?;
-      if (userId != null && isOnline != null) {
-        state = {
-          ...state,
-          userId: isOnline,
-        };
+      if (userId == null || isOnline == null) return;
+
+      if (isOnline) {
+        // Going online is INSTANT: cancel any pending offline timer and update state immediately
+        _pendingOfflineTimers.remove(userId)?.cancel();
+        if (state[userId] != true) {
+          state = {
+            ...state,
+            userId: true,
+          };
+        }
+      } else {
+        // Going offline is DEBOUNCED: start 3s grace period timer to absorb network blips
+        if (state[userId] == false) return;
+
+        _pendingOfflineTimers.remove(userId)?.cancel();
+        _pendingOfflineTimers[userId] = Timer(_offlineGracePeriod, () {
+          _pendingOfflineTimers.remove(userId);
+          if (mounted && state[userId] != false) {
+            state = {
+              ...state,
+              userId: false,
+            };
+          }
+        });
       }
     }
   }
 
+  /// Subscribe to real-time presence updates for a list of user IDs.
+  Future<void> subscribeToUsers(List<String> userIds) async {
+    final validIds = userIds.where((id) => id.isNotEmpty).toList();
+    if (validIds.isEmpty) return;
+
+    _subscribedUserIds.addAll(validIds);
+
+    if (_socket != null && _socket.connected) {
+      try {
+        _socket.emit('presence:subscribe', validIds);
+      } catch (err) {
+        debugPrint('[PresenceNotifier] Error subscribing to users: $err');
+      }
+    }
+
+    await fetchPresence(validIds);
+  }
+
+  /// Unsubscribe from real-time presence updates for a list of user IDs.
+  void unsubscribeFromUsers(List<String> userIds) {
+    final validIds = userIds.where((id) => id.isNotEmpty).toList();
+    if (validIds.isEmpty) return;
+
+    _subscribedUserIds.removeAll(validIds);
+    for (final id in validIds) {
+      _pendingOfflineTimers.remove(id)?.cancel();
+    }
+
+    if (_socket != null && _socket.connected) {
+      try {
+        _socket.emit('presence:unsubscribe', validIds);
+      } catch (err) {
+        debugPrint('[PresenceNotifier] Error unsubscribing from users: $err');
+      }
+    }
+  }
+
+  /// Refresh presence for all currently subscribed users (e.g., when app resumes).
+  Future<void> refreshSubscribedPresence() async {
+    if (_subscribedUserIds.isEmpty) return;
+
+    final userIds = _subscribedUserIds.toList();
+    if (_socket != null && _socket.connected) {
+      try {
+        _socket.emit('presence:subscribe', userIds);
+      } catch (_) {}
+    }
+
+    await fetchPresence(userIds);
+  }
+
   /// Query online presence for a list of user IDs via REST endpoint.
   Future<void> fetchPresence(List<String> userIds) async {
-    if (userIds.isEmpty || !mounted) return;
+    final validIds = userIds.where((id) => id.isNotEmpty).toList();
+    if (validIds.isEmpty || !mounted) return;
 
     try {
       final response = await _apiClient.dio.get('/api/presence', queryParameters: {
-        'userIds': userIds.join(','),
+        'userIds': validIds.join(','),
       });
 
       if (!mounted) return;
@@ -66,6 +168,9 @@ class PresenceNotifier extends StateNotifier<Map<String, bool>> {
 
       map.forEach((key, val) {
         final bool isOnline = val == true;
+        if (isOnline) {
+          _pendingOfflineTimers.remove(key)?.cancel();
+        }
         if (state[key] != isOnline) {
           hasChanges = true;
         }
@@ -76,7 +181,7 @@ class PresenceNotifier extends StateNotifier<Map<String, bool>> {
         state = updated;
       }
     } catch (err) {
-      // Keep existing status on error
+      // Keep existing status on network error
     }
   }
 

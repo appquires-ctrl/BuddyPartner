@@ -9,6 +9,7 @@ import 'package:buddypartner/features/call/application/matchmaking_controller.da
 import 'package:buddypartner/features/call/application/matchmaking_state.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/core/widgets/gradient_avatar.dart';
+import 'package:buddypartner/features/chat/application/presence_provider.dart';
 
 class MatchedUserCard extends ConsumerStatefulWidget {
   final MatchedUser user;
@@ -81,6 +82,7 @@ class _MatchedUserCardState extends ConsumerState<MatchedUserCard> {
     final colors = context.colors;
     final typography = context.typography;
     final initials = getInitials(widget.user.fullName);
+    final isOnline = ref.watch(presenceProvider)[widget.user.id] ?? widget.user.isOnline;
 
     final avatarSize = widget.isGrid ? 48.0 : 56.0;
 
@@ -112,7 +114,7 @@ class _MatchedUserCardState extends ConsumerState<MatchedUserCard> {
               gender: widget.user.gender,
               radius: avatarSize / 1.60,
               showStatus: true,
-              isOnline: widget.user.isOnline,
+              isOnline: isOnline,
               statusIndicatorSize: widget.isGrid ? 14 : 16,
             ),
             const SizedBox(height: 8),
@@ -138,15 +140,15 @@ class _MatchedUserCardState extends ConsumerState<MatchedUserCard> {
                   width: 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: widget.user.isOnline ? colors.success : colors.textSecondary.withValues(alpha: 0.4),
+                    color: isOnline ? colors.success : colors.textSecondary.withValues(alpha: 0.4),
                     shape: BoxShape.circle,
                   ),
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  widget.user.isOnline ? 'Online' : 'Offline',
+                  isOnline ? 'Online' : 'Offline',
                   style: typography.bodySmall.copyWith(
-                    color: widget.user.isOnline ? colors.success : colors.textSecondary,
+                    color: isOnline ? colors.success : colors.textSecondary,
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                   ),

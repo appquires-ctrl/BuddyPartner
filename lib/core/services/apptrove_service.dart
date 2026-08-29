@@ -104,6 +104,20 @@ class AppTroveService {
     }
   }
 
+  /// Sends FCM Device Token to Apptrove for uninstall and push tracking.
+  static void sendFcmToken(String fcmToken) {
+    if (!_isInitialized || fcmToken.isEmpty) return;
+
+    try {
+      AppTroveFlutterSdk.sendFcmToken(fcmToken);
+      if (kDebugMode) {
+        debugPrint('[AppTrove] FCM token registered successfully for uninstall tracking.');
+      }
+    } catch (e, stack) {
+      AppLogger.error('Failed to send FCM token to AppTrove', e, stack);
+    }
+  }
+
   /// Tracks a built-in or custom Apptrove event.
   static void trackEvent(AppTroveEvent event) {
     if (!_isInitialized) {
@@ -174,6 +188,16 @@ class AppTroveService {
     }
 
     trackEvent(event);
+
+    // Also dispatch dashboard Signup event (8ASKXJ1vWO) for full reporting coverage
+    final signupEvent = AppTroveEvent('8ASKXJ1vWO')
+      ..param1 = phoneNumber ?? ''
+      ..param2 = gender
+      ..param3 = language
+      ..param4 = fullName ?? ''
+      ..param5 = userId ?? '';
+    if (age != null) signupEvent.setEventValue('age', age);
+    trackEvent(signupEvent);
   }
 
   /// Tracks a user Login event in Apptrove.

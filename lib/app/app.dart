@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:go_router/go_router.dart';
 import 'package:buddypartner/core/services/notification_service.dart';
+import 'package:buddypartner/core/services/app_lifecycle_service.dart';
 import 'package:buddypartner/core/widgets/feedback/in_app_notification_banner.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
@@ -65,6 +66,9 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
 
   @override
   Widget build(BuildContext context) {
+    // Keep global app lifecycle presence service alive
+    ref.watch(appLifecycleServiceProvider);
+
     // Listen to Auth State to keep FCM Token registered upon login
     ref.listen<AsyncValue<CustomUser?>>(authStateProvider, (prev, next) {
       if (next.value != null && next.value?.id.isNotEmpty == true) {

@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { RtcTokenBuilder, RtcRole } = require('agora-access-token');
 const { instantConnectService } = require('./instant_connect.service');
+const { PresenceService } = require('../presence/presence.service');
 const { subscriptionsService } = require('../subscriptions/subscriptions.service');
 const { sendMulticastPushNotification } = require('../../services/firebase.service');
 const db = require('../../db');
@@ -154,7 +155,7 @@ async function triggerInstantMatchmaker(io, redis) {
     // Verify male socket is still active
     const maleSocket = getSocketForUser(io, maleUserId);
     if (!maleSocket || !maleSocket.connected) {
-      const isOnline = await redis.get(`online:${maleUserId}`);
+      const isOnline = await PresenceService.isUserOnline(redis, maleUserId);
       if (!isOnline) {
         await redis.zrem('instant:male_queue', maleUserId);
         await redis.del(`instant:male_session:${maleUserId}`);

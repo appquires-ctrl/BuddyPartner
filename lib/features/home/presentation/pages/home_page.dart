@@ -26,6 +26,7 @@ import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
 import 'package:buddypartner/features/home/presentation/widgets/instant_connect_sheet.dart';
 import 'package:buddypartner/features/home/presentation/widgets/incoming_paid_calls_banner.dart';
+import 'package:buddypartner/features/chat/application/presence_provider.dart';
 
 /// HomePage renders the primary "stranger search" radar screen.
 /// Matches screenshots/home.jpeg exactly.
@@ -48,6 +49,11 @@ class _HomePageState extends ConsumerState<HomePage> {
       if (user != null && user.isFemale) {
         ref.read(instantConnectControllerProvider.notifier).fetchFemaleStatus();
         ref.read(instantConnectControllerProvider.notifier).fetchScratchCards();
+      }
+      final matched = ref.read(matchedUsersProvider).valueOrNull ?? [];
+      if (matched.isNotEmpty) {
+        final userIds = matched.map((u) => u.id).toList();
+        ref.read(presenceProvider.notifier).subscribeToUsers(userIds);
       }
     });
   }
@@ -159,6 +165,14 @@ class _HomePageState extends ConsumerState<HomePage> {
         } else {
           AppSnackBar.showError(context, next.errorMessage!);
         }
+      }
+    });
+
+    ref.listen<AsyncValue<List<MatchedUser>>>(matchedUsersProvider, (prev, next) {
+      final list = next.valueOrNull ?? [];
+      if (list.isNotEmpty) {
+        final userIds = list.map((u) => u.id).toList();
+        ref.read(presenceProvider.notifier).subscribeToUsers(userIds);
       }
     });
 

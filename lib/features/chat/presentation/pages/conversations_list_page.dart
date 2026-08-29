@@ -10,7 +10,6 @@ import 'package:buddypartner/features/chat/domain/conversation.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/core/widgets/gradient_avatar.dart';
 import 'package:buddypartner/core/widgets/shimmer/app_shimmer.dart';
-import 'package:buddypartner/features/home/presentation/widgets/matching_illustration.dart';
 import 'package:buddypartner/features/home/presentation/providers/matched_users_provider.dart';
 import 'package:buddypartner/core/utils/app_throttler.dart';
 
@@ -25,6 +24,7 @@ class ConversationsListPage extends ConsumerStatefulWidget {
 
 class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
   final TextEditingController _searchController = TextEditingController();
+  final Set<String> _pageSubscribedUserIds = <String>{};
   String _searchQuery = '';
   String _selectedFilter = 'all'; // 'all', 'unread', 'online'
   bool _isRefreshing = false;
@@ -32,12 +32,48 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
   @override
   void initState() {
     super.initState();
+    Future.microtask(() {
+      if (mounted) {
+        _updateSubscriptions();
+      }
+    });
   }
 
   @override
   void dispose() {
+    if (_pageSubscribedUserIds.isNotEmpty) {
+      ref.read(presenceProvider.notifier).unsubscribeFromUsers(_pageSubscribedUserIds.toList());
+      _pageSubscribedUserIds.clear();
+    }
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _syncSubscriptions(Set<String> newVisibleUserIds) {
+    final toSubscribe = newVisibleUserIds.difference(_pageSubscribedUserIds).toList();
+    final toUnsubscribe = _pageSubscribedUserIds.difference(newVisibleUserIds).toList();
+
+    if (toUnsubscribe.isNotEmpty) {
+      ref.read(presenceProvider.notifier).unsubscribeFromUsers(toUnsubscribe);
+      _pageSubscribedUserIds.removeAll(toUnsubscribe);
+    }
+
+    if (toSubscribe.isNotEmpty) {
+      ref.read(presenceProvider.notifier).subscribeToUsers(toSubscribe);
+      _pageSubscribedUserIds.addAll(toSubscribe);
+    }
+  }
+
+  void _updateSubscriptions() {
+    final convs = ref.read(conversationsProvider).valueOrNull ?? [];
+    final matched = ref.read(matchedUsersProvider).valueOrNull ?? [];
+
+    final newSet = <String>{
+      ...convs.map((c) => c.otherUserId).where((id) => id.isNotEmpty),
+      ...matched.map((u) => u.id).where((id) => id.isNotEmpty),
+    };
+
+    _syncSubscriptions(newSet);
   }
 
   Future<void> _handleRefresh() async {
@@ -45,12 +81,9 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
     setState(() => _isRefreshing = true);
     ref.invalidate(conversationsProvider);
     ref.invalidate(matchedUsersProvider);
-    final list = await ref.read(conversationsProvider.future).catchError((_) => <Conversation>[]);
-    if (list.isNotEmpty) {
-      final userIds = list.map((c) => c.otherUserId).toList();
-      ref.read(presenceProvider.notifier).fetchPresence(userIds);
-    }
+    await ref.read(conversationsProvider.future).catchError((_) => <Conversation>[]);
     if (mounted) {
+      _updateSubscriptions();
       setState(() => _isRefreshing = false);
     }
   }
@@ -69,13 +102,14 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
     final matchedUsersAsync = ref.watch(matchedUsersProvider);
     final matchedUsers = (authState != null) ? (matchedUsersAsync.valueOrNull ?? const <MatchedUser>[]) : const <MatchedUser>[];
 
-    // Automatically update presence when conversations change
+    // Automatically update presence subscriptions when conversations change (with set-diffing)
     ref.listen<AsyncValue<List<Conversation>>>(conversationsProvider, (prev, next) {
-      final list = next.valueOrNull ?? [];
-      if (list.isNotEmpty) {
-        final userIds = list.map((c) => c.otherUserId).toList();
-        ref.read(presenceProvider.notifier).fetchPresence(userIds);
-      }
+      _updateSubscriptions();
+    });
+
+    // Automatically update presence subscriptions when matched users change (with set-diffing)
+    ref.listen<AsyncValue<List<MatchedUser>>>(matchedUsersProvider, (prev, next) {
+      _updateSubscriptions();
     });
 
     // Compute active counts

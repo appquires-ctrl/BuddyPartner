@@ -109,9 +109,9 @@ class SocketNotifier extends Notifier<sio.Socket?> {
           .setAuth(authPayload)
           .enableAutoConnect()
           .enableReconnection()
-          .setReconnectionDelay(1000)
-          .setReconnectionDelayMax(5000)
-          .setTimeout(10000)
+          .setReconnectionDelay(500)
+          .setReconnectionDelayMax(3000)
+          .setTimeout(5000)
           .build(),
     );
 
@@ -120,6 +120,10 @@ class SocketNotifier extends Notifier<sio.Socket?> {
     socket.onConnect((_) {
       debugPrint('[SocketProvider] Connected to backend as user: $_connectedUserId');
       state = socket;
+      // Immediately notify backend of online status on connect
+      try {
+        socket.emit('presence:state', {'status': 'online'});
+      } catch (_) {}
     });
 
     socket.on('force_disconnect', (data) {
@@ -182,8 +186,37 @@ class SocketNotifier extends Notifier<sio.Socket?> {
     state = socket;
   }
 
+  /// Instantly tell server the user is online (e.g. app foregrounded)
+  void setPresenceOnline() {
+    final user = ref.read(authStateProvider).value;
+    if (user == null) return;
+
+    if (_socket != null && _socket!.connected) {
+      try {
+        _socket!.emit('presence:state', {'status': 'online'});
+      } catch (err) {
+        debugPrint('[SocketProvider] Error setting presence online: $err');
+      }
+    } else {
+      _ensureConnected();
+    }
+  }
+
+  /// Instantly tell server the user is offline (e.g. app paused/backgrounded/closed)
+  void setPresenceOffline() {
+    final sock = _socket ?? state;
+    if (sock != null && sock.connected) {
+      try {
+        sock.emit('presence:state', {'status': 'offline'});
+      } catch (err) {
+        debugPrint('[SocketProvider] Error setting presence offline: $err');
+      }
+    }
+  }
+
   /// Explicitly disconnect and dispose socket connection (e.g. on logout)
   void disconnectAndDispose() {
+    setPresenceOffline();
     _dispose();
   }
 
@@ -210,4 +243,5 @@ class SocketNotifier extends Notifier<sio.Socket?> {
 final socketProvider = NotifierProvider<SocketNotifier, sio.Socket?>(
   SocketNotifier.new,
 );
+
 

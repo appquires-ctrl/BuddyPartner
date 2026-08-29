@@ -205,8 +205,8 @@ const io = new Server(server, {
     origin: '*', // Tighten in production
     methods: ['GET', 'POST'],
   },
-  pingTimeout: 30000,
-  pingInterval: 10000,
+  pingTimeout: 5000,
+  pingInterval: 5000,
 });
 app.set('io', io);
 
@@ -260,6 +260,7 @@ io.use(async (socket, next) => {
 const { registerMatchmakingHandlers } = require('./modules/matchmaking/matchmaking.socket');
 const { registerMessagingHandlers } = require('./modules/messaging/messaging.socket');
 const { registerInstantConnectHandlers } = require('./modules/instant_connect/instant_connect.socket');
+const { registerPresenceHandlers } = require('./modules/presence/presence.socket');
 
 io.on('connection', (socket) => {
   console.log(`🔌 User connected: ${socket.userId} (socket: ${socket.id})`);
@@ -267,17 +268,18 @@ io.on('connection', (socket) => {
   // Join the user's personal room for direct targeting and room broadcasts
   socket.join(socket.userId);
 
-  // Set user online in Redis and broadcast presence
-  PresenceService.setPresence(redis, io, socket.userId, true);
+  // Add socket to user's active socket set in Redis and broadcast presence if newly online
+  PresenceService.addSocket(redis, io, socket.userId, socket.id);
 
   registerMatchmakingHandlers(io, socket, redis);
   registerMessagingHandlers(io, socket, redis);
   registerInstantConnectHandlers(io, socket, redis);
+  registerPresenceHandlers(io, socket, redis);
 
   socket.on('disconnect', (reason) => {
     console.log(`🔌 User disconnected: ${socket.userId} — ${reason}`);
-    // Set user offline in Redis and broadcast presence
-    PresenceService.setPresence(redis, io, socket.userId, false);
+    // Remove socket from user's active socket set in Redis and broadcast presence if offline
+    PresenceService.removeSocket(redis, io, socket.userId, socket.id);
     
     // Clean up in-memory socket mapping
     try {

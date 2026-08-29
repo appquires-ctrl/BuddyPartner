@@ -431,7 +431,7 @@ router.all(['/delete-account', '/delete', '/me'], authMiddleware, async (req, re
 
     if (redis) {
       await redis.del(`user_active_session:${userId}`);
-      await redis.del(`online:${userId}`);
+      await redis.del(`online_sockets:${userId}`);
       await redis.srem('instant:female_pool', userId);
       await redis.zrem('instant:male_queue', userId);
       await redis.del(`instant:male_session:${userId}`);

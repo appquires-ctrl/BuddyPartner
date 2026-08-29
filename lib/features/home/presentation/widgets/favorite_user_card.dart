@@ -11,6 +11,7 @@ import 'package:buddypartner/features/call/application/matchmaking_state.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/core/widgets/gradient_avatar.dart';
 import 'package:buddypartner/core/utils/app_throttler.dart';
+import 'package:buddypartner/features/chat/application/presence_provider.dart';
 
 class FavoriteUserCard extends ConsumerStatefulWidget {
   final MatchedUser user;
@@ -84,6 +85,7 @@ class _FavoriteUserCardState extends ConsumerState<FavoriteUserCard> {
     final Color glassBg = colors.cardBackground;
     final Color glassBorder = colors.cardBorder;
     final Color cardShadow = colors.cardShadow;
+    final isOnline = ref.watch(presenceProvider)[widget.user.id] ?? widget.user.isOnline;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
@@ -116,7 +118,7 @@ class _FavoriteUserCardState extends ConsumerState<FavoriteUserCard> {
                   gender: widget.user.gender,
                   radius: 28,
                   showStatus: true,
-                  isOnline: widget.user.isOnline,
+                  isOnline: isOnline,
                   statusIndicatorSize: 14,
                 ),
                 const SizedBox(width: 14),
@@ -144,15 +146,15 @@ class _FavoriteUserCardState extends ConsumerState<FavoriteUserCard> {
                             width: 6,
                             height: 6,
                             decoration: BoxDecoration(
-                              color: widget.user.isOnline ? colors.success : colors.textSecondary.withValues(alpha: 0.4),
+                              color: isOnline ? colors.success : colors.textSecondary.withValues(alpha: 0.4),
                               shape: BoxShape.circle,
                             ),
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            widget.user.isOnline ? 'Online' : 'Offline',
+                            isOnline ? 'Online' : 'Offline',
                             style: typography.bodySmall.copyWith(
-                              color: widget.user.isOnline ? colors.success : colors.textSecondary,
+                              color: isOnline ? colors.success : colors.textSecondary,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),

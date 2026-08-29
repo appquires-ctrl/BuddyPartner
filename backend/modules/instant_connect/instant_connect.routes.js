@@ -1,6 +1,7 @@
 const express = require('express');
 const { authMiddleware } = require('../../middleware/auth.middleware');
 const { instantConnectService } = require('./instant_connect.service');
+const { PresenceService } = require('../presence/presence.service');
 const redis = require('../../redis');
 
 const router = express.Router();
@@ -140,7 +141,7 @@ router.get('/dev/queues', async (req, res) => {
       }
 
       const fSocket = getSocketForUser(io, fId);
-      const isRedisOnline = !!(await redis.get(`online:${fId}`));
+      const isRedisOnline = await PresenceService.isUserOnline(redis, fId);
       const isOnline = !!fSocket || isRedisOnline;
       const isSnoozed = await redis.get(`instant:snooze:${fId}`);
       activeFemales.push({

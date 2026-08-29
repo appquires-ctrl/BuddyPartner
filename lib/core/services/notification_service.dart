@@ -4,6 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:buddypartner/core/services/api_client.dart';
+import 'package:buddypartner/core/services/apptrove_service.dart';
 import 'package:buddypartner/core/widgets/feedback/in_app_notification_banner.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
@@ -74,6 +75,10 @@ class NotificationService {
         debugPrint('🔔 [FCM] Device Token: $_fcmToken');
       }
 
+      if (_fcmToken != null) {
+        AppTroveService.sendFcmToken(_fcmToken!);
+      }
+
       if (ref != null && _fcmToken != null) {
         await syncTokenWithBackend(ref, _fcmToken!);
       }
@@ -84,6 +89,7 @@ class NotificationService {
         if (kDebugMode) {
           debugPrint('🔔 [FCM] Token refreshed: $newToken');
         }
+        AppTroveService.sendFcmToken(newToken);
         if (ref != null) {
           syncTokenWithBackend(ref, newToken);
         }
