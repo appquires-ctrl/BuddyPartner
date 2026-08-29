@@ -41,15 +41,33 @@ class PresenceService {
 
     try {
       const key = `online_sockets:${userId}`;
-      const previousCount = await redis.scard(key);
+      const members = await redis.smembers(key);
+
+      // Identify and prune any dead/stale sockets currently in Redis
+      const deadSockets = [];
+      if (io && io.sockets) {
+        for (const memberId of members) {
+          if (memberId !== socketId) {
+            const s = io.sockets.sockets?.get(memberId);
+            if (!s || !s.connected) {
+              deadSockets.push(memberId);
+            }
+          }
+        }
+      }
 
       const pipeline = redis.pipeline();
+      if (deadSockets.length > 0) {
+        pipeline.srem(key, ...deadSockets);
+      }
       pipeline.sadd(key, socketId);
       pipeline.expire(key, LEASE_TTL_SECONDS);
       await pipeline.exec();
 
+      const activePreviousCount = members.length - deadSockets.length;
+
       // Only broadcast if transitioning from 0 -> 1 (newly online)
-      if (previousCount === 0) {
+      if (activePreviousCount === 0) {
         this._broadcastPresence(io, userId, true);
       }
     } catch (err) {
@@ -75,14 +93,31 @@ class PresenceService {
         await redis.srem(key, socketId);
       }
 
-      const remainingCount = await redis.scard(key);
+      const members = await redis.smembers(key);
+
+      // Verify whether any remaining members are truly active, connected sockets
+      const deadSockets = [];
+      if (io && io.sockets) {
+        for (const memberId of members) {
+          const s = io.sockets.sockets?.get(memberId);
+          if (!s || !s.connected) {
+            deadSockets.push(memberId);
+          }
+        }
+      }
+
+      if (deadSockets.length > 0) {
+        await redis.srem(key, ...deadSockets);
+      }
+
+      const activeRemainingCount = members.length - deadSockets.length;
 
       // Only broadcast offline if no active sockets remain
-      if (remainingCount === 0) {
+      if (activeRemainingCount === 0) {
         await redis.del(key);
         this._broadcastPresence(io, userId, false);
       } else {
-        // Refresh TTL for remaining sockets
+        // Refresh TTL for remaining active sockets
         await redis.expire(key, LEASE_TTL_SECONDS);
       }
     } catch (err) {

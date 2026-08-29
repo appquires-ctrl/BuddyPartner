@@ -78,21 +78,16 @@ function registerPresenceHandlers(io, socket, redis) {
 
       const now = Date.now();
 
-      // 2. Ignore duplicate events of the exact same state within cooldown window
+      // 2. Ignore duplicate events of the exact same state within cooldown window (deduplication)
       if (status === lastProcessedState && (now - lastStateChangeTimestamp < PRESENCE_STATE_COOLDOWN_MS)) {
         return;
       }
 
-      // 3. Rate-limit rapid offline/flapping spam (max 1 offline transition per 2 seconds)
-      if (status === 'offline' && (now - lastStateChangeTimestamp < PRESENCE_STATE_COOLDOWN_MS)) {
-        return;
-      }
-
-      // 4. Online recovery events are always allowed through immediately to cancel client grace timers
+      // 3. State transitions (online -> offline and offline -> online) are processed immediately
       lastProcessedState = status;
       lastStateChangeTimestamp = now;
 
-      // 5. Process validated state change
+      // 4. Process validated state change
       if (status === 'online') {
         await PresenceService.addSocket(redis, io, userId, socket.id);
       } else {

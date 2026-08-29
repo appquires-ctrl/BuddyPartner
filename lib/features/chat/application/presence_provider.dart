@@ -22,7 +22,7 @@ class PresenceNotifier extends StateNotifier<Map<String, bool>> {
   final Map<String, Timer> _pendingOfflineTimers = <String, Timer>{};
 
   // Grace period before marking a user offline to prevent UI flickering on temporary network blips
-  static const Duration _offlineGracePeriod = Duration(seconds: 3);
+  static const Duration _offlineGracePeriod = Duration(milliseconds: 1500);
 
   PresenceNotifier(this._apiClient, this._socket) : super({}) {
     _listenToPresenceEvents();

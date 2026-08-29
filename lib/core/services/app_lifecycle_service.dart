@@ -22,6 +22,7 @@ class AppLifecycleService {
     _listener = AppLifecycleListener(
       onStateChange: _handleStateChange,
       onResume: _handleResume,
+      onInactive: _handleInactive,
       onPause: _handlePause,
       onHide: _handleHide,
       onDetach: _handleDetach,
@@ -36,6 +37,11 @@ class AppLifecycleService {
     debugPrint('[AppLifecycleService] App resumed -> Setting presence: ONLINE');
     _ref.read(socketProvider.notifier).setPresenceOnline();
     _ref.read(presenceProvider.notifier).refreshSubscribedPresence();
+  }
+
+  void _handleInactive() {
+    debugPrint('[AppLifecycleService] App inactive -> Setting presence: OFFLINE');
+    _ref.read(socketProvider.notifier).setPresenceOffline();
   }
 
   void _handlePause() {
