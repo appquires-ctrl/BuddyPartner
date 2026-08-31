@@ -33,7 +33,7 @@ class LegalDocumentContent {
   LegalDocumentContent._();
 
   static const String defaultLastUpdated = 'July 25, 2026';
-  static const String companyName = 'Appquires Tech';
+  static const String companyName = 'Appquires Global LLP';
   static const String companyEmail = 'support@buddypartner.in';
   static const String companyWebsite = 'www.appquires.com';
   static const String companyAddress =
@@ -52,7 +52,7 @@ class LegalDocumentContent {
       LegalDocumentSection(
         title: '1. Important Notice & Legal Disclaimer',
         content:
-            'Welcome to BuddyPartner (the "App"), operated by Appquires Tech ("Company", "we", "us", or "our"), having its registered address at GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India. These Terms of Service ("Terms") govern your access to and use of BuddyPartner, including our live voice/video calling features and subscription plans.\n\nBy creating an account or accessing BuddyPartner, you enter into a legally binding contract with Appquires Tech. If you do not agree to these Terms, you must immediately cease accessing or using the App.',
+            'Welcome to BuddyPartner (the "App"), operated by Appquires Global LLP ("Company", "we", "us", or "our"), having its registered address at GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India. These Terms of Service ("Terms") govern your access to and use of BuddyPartner, including our live voice/video calling features and subscription plans.\n\nBy creating an account or accessing BuddyPartner, you enter into a legally binding contract with Appquires Global LLP. If you do not agree to these Terms, you must immediately cease accessing or using the App.',
       ),
       LegalDocumentSection(
         title: '2. Eligibility & Age Requirement (18+ Only)',
@@ -98,7 +98,7 @@ class LegalDocumentContent {
       LegalDocumentSection(
         title: '8. Limitation of Liability',
         content:
-            'To the maximum extent permitted by applicable law, Appquires Tech, its officers, directors, employees, and agents shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or goodwill, arising from your use of or inability to use the App.',
+            'To the maximum extent permitted by applicable law, Appquires Global LLP, its officers, directors, employees, and agents shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or goodwill, arising from your use of or inability to use the App.',
       ),
       LegalDocumentSection(
         title: '9. Dispute Resolution & Governing Law',
@@ -117,7 +117,7 @@ class LegalDocumentContent {
             '• Email: support@buddypartner.in\n'
             '• Website: www.appquires.com\n'
             '• Address: GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India\n'
-            '• Entity: Appquires Tech',
+            '• Entity: Appquires Global LLP',
       ),
     ],
   );
@@ -179,7 +179,7 @@ class LegalDocumentContent {
         content:
             'If you have questions regarding this Privacy Policy or wish to exercise your privacy rights, please reach out to our privacy officer:\n\n'
             '• Privacy Officer Email: support@buddypartner.in\n'
-            '• Legal Entity: Appquires Tech\n'
+            '• Legal Entity: Appquires Global LLP\n'
             '• Website: www.appquires.com\n'
             '• Address: GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India',
       ),

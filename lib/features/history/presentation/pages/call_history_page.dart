@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/widgets/shimmer/skeletons/call_history_skeleton.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/app/theme/app_spacing.dart';
@@ -60,6 +61,27 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
       return '${parts[0][0]}${parts[1][0]}';
     }
     return parts[0].isNotEmpty ? parts[0][0] : 'U';
+  }
+
+  /// Open direct chat conversation with this user.
+  void _openChat(CallLog log) {
+    AppLogger.button('Chat User from Call History', screen: 'CallHistoryPage');
+    final currentUserId = ref.read(authStateProvider).value?.id;
+    final targetUserId = log.matchedUserId == currentUserId
+        ? log.callerId
+        : log.matchedUserId;
+
+    context.push(
+      RouteNames.chat,
+      extra: {
+        'conversationId': 'user:$targetUserId',
+        'userId': targetUserId,
+        'userName': log.otherUserName,
+        'avatarSeed': log.otherUserAvatarSeed,
+        'avatarStyle': log.otherUserAvatarStyle,
+        'gender': log.otherUserGender,
+      },
+    );
   }
 
   /// Initiate a direct call to this user and navigate to the calling screen.
@@ -338,26 +360,67 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
                         ),
                       ),
 
-                      // Call duration & Call-back button
+                      // Action Buttons (Chat & Call) and duration
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          // Tappable call button
-                          GestureDetector(
-                            onTap: () => _callUser(log),
-                            child: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFF3EFFF),
-                                shape: BoxShape.circle,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Chat button (left of call button)
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => _openChat(log),
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: Container(
+                                    width: 38,
+                                    height: 38,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEFEAFF),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: const Color(0xFFDDD6FE),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: const Icon(
+                                      Icons.chat_bubble_outline_rounded,
+                                      color: Color(0xFF6B4EFF),
+                                      size: 18,
+                                    ),
+                                  ),
+                                ),
                               ),
-                              child: Icon(
-                                isVideo ? Icons.videocam_rounded : Icons.phone_rounded,
-                                color: const Color(0xFF7A58FF),
-                                size: 20,
+                              const SizedBox(width: 8),
+                              // Call button
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => _callUser(log),
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: Container(
+                                    width: 38,
+                                    height: 38,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF3EFFF),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: const Color(0xFFE9D5FF),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Icon(
+                                      isVideo ? Icons.videocam_rounded : Icons.phone_rounded,
+                                      color: const Color(0xFF7A58FF),
+                                      size: 19,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -365,7 +428,7 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
                             style: TextStyle(
                               color: colors.textSecondary,
                               fontSize: 11,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],

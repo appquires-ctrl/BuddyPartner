@@ -158,6 +158,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
     int currentBalance = ref.read(walletBalanceProvider).value ?? 0;
     if (currentBalance == 0) {
       currentBalance = await ref.read(walletBalanceProvider.notifier).fetchBalance();
+      if (!mounted) return;
     }
 
     if (currentBalance < amount) {
@@ -186,11 +187,53 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
     }
 
     setState(() => _isLoading = true);
-    final success = await ref.read(instantConnectControllerProvider.notifier).joinQueue(amount);
-    setState(() => _isLoading = false);
-
-    if (mounted && success) {
-      Navigator.pop(context);
+    try {
+      final success = await ref.read(instantConnectControllerProvider.notifier).joinQueue(amount);
+      if (mounted) {
+        if (success) {
+          Navigator.pop(context);
+        } else {
+          final error = ref.read(instantConnectControllerProvider).errorMessage ??
+              'Unable to join instant queue. Please try again.';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              backgroundColor: const Color(0xFF1E1E24),
+              content: Row(
+                children: [
+                  const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      error,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            backgroundColor: const Color(0xFF1E1E24),
+            content: Text(
+              'Error: $e',
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -452,7 +495,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
                   scrollDirection: Axis.horizontal,
                   clipBehavior: Clip.none,
                   itemCount: _presets.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  separatorBuilder: (_, _) => const SizedBox(width: 10),
                   itemBuilder: (context, index) {
                     final item = _presets[index];
                     final isSelected = _selectedPreset == item.coins;

@@ -13,9 +13,16 @@ class ChatRepository {
   ChatRepository(this._apiClient);
 
   Future<List<Conversation>> fetchConversations() async {
-    final response = await _apiClient.dio.get('/api/conversations');
-    final data = response.data['conversations'] as List;
-    return data.map((e) => Conversation.fromJson(e as Map<String, dynamic>)).toList();
+    try {
+      final response = await _apiClient.dio.get('/api/conversations');
+      if (response.data == null || response.data['conversations'] == null) {
+        return const [];
+      }
+      final data = response.data['conversations'] as List;
+      return data.map((e) => Conversation.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+    } catch (_) {
+      return const [];
+    }
   }
 
   Future<Conversation> findOrCreateConversation(String otherUserId) async {

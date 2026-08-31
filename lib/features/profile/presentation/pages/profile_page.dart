@@ -383,7 +383,7 @@ class ProfilePage extends ConsumerWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: AppSpacing.space24),
+              const SizedBox(height: 100),
             ],
           ),
         ),

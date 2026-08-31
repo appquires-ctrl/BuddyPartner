@@ -46,6 +46,7 @@ const { enforceMinimumVersion } = require('./middleware/version.middleware');
 const path = require('path');
 const advertisementsRoutes = require('./modules/advertisements/advertisements.routes');
 const instantConnectRoutes = require('./modules/instant_connect/instant_connect.routes');
+const supportRoutes = require('./modules/support/support.routes');
 
 // Serve uploaded images statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -67,6 +68,8 @@ app.use('/api/subscriptions', subscriptionsRoutes);
 app.use('/api/instant', instantConnectRoutes);
 app.use('/api/advertisements', advertisementsRoutes);
 app.use('/api/admin/advertisements', advertisementsRoutes);
+app.use('/api/support', supportRoutes);
+app.use('/api/app', supportRoutes);
 
 // Initialize Admin & App Config
 adminService.initAdminConfig();
@@ -193,6 +196,37 @@ db.query(`
 }).catch((err) => {
   console.error('❌ Failed to initialize withdrawal tables:', err.message);
 });
+
+// Auto-ensure bug reports and account deletion survey tables exist
+db.query(`
+  CREATE TABLE IF NOT EXISTS public.bug_reports (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    category TEXT NOT NULL,
+    description TEXT NOT NULL,
+    app_version TEXT,
+    platform TEXT,
+    device_info TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_bug_reports_user ON public.bug_reports(user_id);
+  CREATE INDEX IF NOT EXISTS idx_bug_reports_date ON public.bug_reports(created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS public.account_deletion_surveys (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id TEXT,
+    phone_number TEXT,
+    reason TEXT NOT NULL,
+    feedback TEXT,
+    deleted_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_deletion_surveys_date ON public.account_deletion_surveys(deleted_at DESC);
+`).then(() => {
+  console.log('✅ Bug reports and account deletion survey tables checked/initialized.');
+}).catch((err) => {
+  console.error('❌ Failed to initialize support/deletion tables:', err.message);
+});
+
 
 const server = http.createServer(app);
 

@@ -9,6 +9,8 @@ import 'package:buddypartner/features/call/domain/models/instant_connect_models.
 import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
 import 'package:buddypartner/features/call/application/matchmaking_state.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
+import 'package:buddypartner/features/home/presentation/providers/matched_users_provider.dart';
+import 'package:buddypartner/features/history/data/call_history_provider.dart';
 
 enum InstantPhase {
   idle,
@@ -102,6 +104,10 @@ class InstantConnectController extends Notifier<InstantConnectState> {
 
   sio.Socket? get _socket => ref.read(socketProvider);
 
+  bool get isClaimingOrPending =>
+      _inFlightClaimSessionIds.isNotEmpty ||
+      (_pendingSurgeSessionId != null && _pendingSurgeSessionId!.isNotEmpty);
+
   @override
   InstantConnectState build() {
     ref.onDispose(() {
@@ -119,6 +125,7 @@ class InstantConnectController extends Notifier<InstantConnectState> {
       if (next != null) {
         _listenersRegistered = false;
         _setupSocketListeners(next);
+        _checkAndEmitPendingSurge(next);
       } else {
         _listenersRegistered = false;
       }
@@ -142,7 +149,10 @@ class InstantConnectController extends Notifier<InstantConnectState> {
 
     final existingSocket = ref.read(socketProvider);
     if (existingSocket != null && !_listenersRegistered) {
-      Future.microtask(() => _setupSocketListeners(existingSocket));
+      Future.microtask(() {
+        _setupSocketListeners(existingSocket);
+        _checkAndEmitPendingSurge(existingSocket);
+      });
     }
 
     final user = ref.read(authStateProvider).value;
@@ -156,31 +166,66 @@ class InstantConnectController extends Notifier<InstantConnectState> {
     return const InstantConnectState();
   }
 
+  void _emitClaimAndJoin(sio.Socket socket, String sId, int bAmt) {
+    debugPrint('🚀 [InstantConnect] Emitting instant:claim_and_join for session: $sId');
+    socket.emitWithAck(
+      'instant:claim_and_join',
+      {'sessionId': sId, 'bidAmount': bAmt},
+      ack: (response) {
+        debugPrint('📡 [InstantConnect] instant:claim_and_join response: $response');
+        _inFlightClaimTimers.remove(sId)?.cancel();
+        _inFlightClaimSessionIds.remove(sId);
+
+        if (response is Map && response['success'] == false) {
+          // Guard: If the call already connected (e.g. instant:call_connected arrived before ack), do NOT revert to idle!
+          if (state.phase == InstantPhase.inCall && state.sessionId == sId) {
+            debugPrint('ℹ️ [InstantConnect] Received failure ack for $sId after call was already established. Preserving active call.');
+            return;
+          }
+
+          final errMsg = response['message'] as String? ?? 'Another buddy already answered this VIP call.';
+          state = state.copyWith(
+            phase: InstantPhase.idle,
+            clearIncomingRequest: true,
+            errorMessage: errMsg,
+          );
+        }
+      },
+    );
+  }
+
+  void _checkAndEmitPendingSurge(sio.Socket socket) {
+    if (_pendingSurgeSessionId != null && _pendingSurgeSessionId!.isNotEmpty) {
+      final sessId = _pendingSurgeSessionId!;
+      final bid = _pendingSurgeBidAmount ?? 10;
+      _pendingSurgeSessionId = null;
+      _pendingSurgeBidAmount = null;
+      _coldStartConnectTimer?.cancel();
+      _coldStartConnectTimer = null;
+      debugPrint('🚀 [InstantConnect] Socket available! Emitting cached instant:claim_and_join: $sessId');
+      _emitClaimAndJoin(socket, sessId, bid);
+    }
+  }
 
   void _setupSocketListeners(sio.Socket socket) {
     if (_listenersRegistered) return;
     _listenersRegistered = true;
 
-    void checkAndEmitPendingSurge() {
-      if (_pendingSurgeSessionId != null && _pendingSurgeSessionId!.isNotEmpty) {
-        final sessId = _pendingSurgeSessionId!;
-        final bid = _pendingSurgeBidAmount ?? 10;
-        _pendingSurgeSessionId = null;
-        _pendingSurgeBidAmount = null;
-        debugPrint('🚀 [InstantConnect] Emitting instant:claim_surge_call for session: $sessId');
-        socket.emit('instant:claim_surge_call', {'sessionId': sessId, 'bidAmount': bid});
-      }
-    }
-
-    socket.on('connect', (_) => checkAndEmitPendingSurge());
+    socket.on('connect', (_) => _checkAndEmitPendingSurge(socket));
     if (socket.connected) {
-      checkAndEmitPendingSurge();
+      _checkAndEmitPendingSurge(socket);
     }
 
     // Incoming 1:2 parallel ring for female
     socket.on('incoming_instant_call', (data) {
       if (data is Map) {
         final req = IncomingPaidCallRequest.fromJson(Map<String, dynamic>.from(data));
+
+        // If we are currently claiming this surge session via notification tap, auto-join directly and suppress dialog
+        if (_inFlightClaimSessionIds.contains(req.sessionId) || _pendingSurgeSessionId == req.sessionId) {
+          debugPrint('[InstantConnect] Suppressed incoming popup for one-tap surge claim session: ${req.sessionId}');
+          return;
+        }
 
         // Drop if user previously declined this request
         if (_declinedRequestIds.contains(req.callRequestId)) {
@@ -309,9 +354,14 @@ class InstantConnectController extends Notifier<InstantConnectState> {
     socket.on('instant:call_ended', (data) {
       _callTimer?.cancel();
       state = state.reset();
-      fetchFemaleStatus();
-      fetchScratchCards();
+      final authUser = ref.read(authStateProvider).value;
+      if (authUser != null && authUser.isFemale) {
+        fetchFemaleStatus();
+        fetchScratchCards();
+      }
       ref.invalidate(walletBalanceProvider);
+      ref.invalidate(matchedUsersProvider);
+      ref.invalidate(callHistoryProvider);
       ref.read(matchmakingControllerProvider.notifier).endCall();
     });
   }
@@ -333,12 +383,14 @@ class InstantConnectController extends Notifier<InstantConnectState> {
   Future<bool> joinQueue(int bidAmount) async {
     final socket = _socket;
     if (socket == null || !socket.connected) {
-      state = state.copyWith(errorMessage: 'Connecting to server...');
+      ref.read(socketProvider.notifier).setPresenceOnline();
+      state = state.copyWith(errorMessage: 'Connecting to server. Please try again.');
       return false;
     }
 
     final completer = Completer<bool>();
     socket.emitWithAck('instant:join_queue', {'bidAmount': bidAmount}, ack: (response) {
+      if (completer.isCompleted) return;
       if (response is Map && response['success'] == true) {
         final newBal = (response['newBalance'] as num?)?.toInt();
         if (newBal != null) {
@@ -358,7 +410,15 @@ class InstantConnectController extends Notifier<InstantConnectState> {
       }
     });
 
-    return completer.future;
+    return completer.future.timeout(
+      const Duration(seconds: 6),
+      onTimeout: () {
+        if (!completer.isCompleted) {
+          state = state.copyWith(errorMessage: 'Connection timed out. Please try again.');
+        }
+        return false;
+      },
+    );
   }
 
   /// End active instant connect call and reset state
@@ -371,9 +431,14 @@ class InstantConnectController extends Notifier<InstantConnectState> {
     }
     _callTimer?.cancel();
     state = state.reset();
-    fetchFemaleStatus();
-    fetchScratchCards();
+    final authUser = ref.read(authStateProvider).value;
+    if (authUser != null && authUser.isFemale) {
+      fetchFemaleStatus();
+      fetchScratchCards();
+    }
     ref.invalidate(walletBalanceProvider);
+    ref.invalidate(matchedUsersProvider);
+    ref.invalidate(callHistoryProvider);
   }
 
   /// Male: Cancel Queue and get 100% instant coin refund
@@ -485,39 +550,11 @@ class InstantConnectController extends Notifier<InstantConnectState> {
       _inFlightClaimSessionIds.remove(sessionId);
     });
 
-    void emitClaimAndJoin(sio.Socket socket, String sId, int bAmt) {
-      debugPrint('🚀 [InstantConnect] Emitting instant:claim_and_join for session: $sId');
-      socket.emitWithAck(
-        'instant:claim_and_join',
-        {'sessionId': sId, 'bidAmount': bAmt},
-        ack: (response) {
-          debugPrint('📡 [InstantConnect] instant:claim_and_join response: $response');
-          _inFlightClaimTimers.remove(sId)?.cancel();
-          _inFlightClaimSessionIds.remove(sId);
-
-          if (response is Map && response['success'] == false) {
-            // Guard: If the call already connected (e.g. instant:call_connected arrived before ack), do NOT revert to idle!
-            if (state.phase == InstantPhase.inCall && state.sessionId == sId) {
-              debugPrint('ℹ️ [InstantConnect] Received failure ack for $sId after call was already established. Preserving active call.');
-              return;
-            }
-
-            final errMsg = response['message'] as String? ?? 'Another buddy already answered this VIP call.';
-            state = state.copyWith(
-              phase: InstantPhase.idle,
-              clearIncomingRequest: true,
-              errorMessage: errMsg,
-            );
-          }
-        },
-      );
-    }
-
     final socket = _socket;
     if (socket != null && socket.connected) {
       _coldStartConnectTimer?.cancel();
       _coldStartConnectTimer = null;
-      emitClaimAndJoin(socket, sessionId, bidAmount);
+      _emitClaimAndJoin(socket, sessionId, bidAmount);
     } else {
       debugPrint('⏳ [InstantConnect] Caching pending surge session: $sessionId until socket connects');
       _pendingSurgeSessionId = sessionId;
@@ -544,16 +581,7 @@ class InstantConnectController extends Notifier<InstantConnectState> {
 
       if (socket != null) {
         socket.once('connect', (_) {
-          _coldStartConnectTimer?.cancel();
-          _coldStartConnectTimer = null;
-          if (_pendingSurgeSessionId != null && _pendingSurgeSessionId!.isNotEmpty) {
-            final sId = _pendingSurgeSessionId!;
-            final bAmt = _pendingSurgeBidAmount ?? 10;
-            _pendingSurgeSessionId = null;
-            _pendingSurgeBidAmount = null;
-            debugPrint('🚀 [InstantConnect] Socket connected! Emitting cached instant:claim_and_join: $sId');
-            emitClaimAndJoin(socket, sId, bAmt);
-          }
+          _checkAndEmitPendingSurge(socket);
         });
       }
     }

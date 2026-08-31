@@ -98,6 +98,7 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
         if (next.isCallMinimized) {
           ref.read(matchmakingControllerProvider.notifier).restoreCall();
         }
+        navContext.go(RouteNames.home);
       }
 
       if (next.errorMessage != null && next.errorMessage != prev?.errorMessage) {
@@ -111,10 +112,6 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
       if (navContext == null || !navContext.mounted) return;
 
       if (next.phase == InstantPhase.inCall && prev?.phase != InstantPhase.inCall) {
-        final nav = Navigator.of(navContext, rootNavigator: true);
-        while (nav.canPop()) {
-          nav.pop();
-        }
         navContext.go(RouteNames.activeCall);
       } else if (next.phase == InstantPhase.incomingRequest && prev?.phase != InstantPhase.incomingRequest) {
         final mmPhase = ref.read(matchmakingControllerProvider).phase;

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/app/theme/app_spacing.dart';
@@ -372,7 +374,7 @@ class HelpPage extends StatelessWidget {
                         const SizedBox(height: 10),
                         Text('Registered Business Entity:', style: typography.bodySmall.copyWith(color: colors.textSecondary, fontSize: 11)),
                         const SizedBox(height: 2),
-                        Text('Appquires Tech', style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                        Text('Appquires Global LLP', style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 13.5)),
                         const SizedBox(height: 10),
                         Text('Registered Office Address:', style: typography.bodySmall.copyWith(color: colors.textSecondary, fontSize: 11)),
                         const SizedBox(height: 2),
@@ -407,110 +409,322 @@ class HelpPage extends StatelessWidget {
 
   void _showReportBugModal(BuildContext context) {
     AppLogger.dialogOpen('Report a Bug', screen: 'HelpPage');
-    final colors = context.colors;
-    final typography = context.typography;
-    final controller = TextEditingController();
-
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
-      backgroundColor: colors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      backgroundColor: Colors.transparent,
+      builder: (context) => const _ReportBugBottomSheet(),
+    );
+  }
+}
+
+class _ReportBugBottomSheet extends ConsumerStatefulWidget {
+  const _ReportBugBottomSheet();
+
+  @override
+  ConsumerState<_ReportBugBottomSheet> createState() => _ReportBugBottomSheetState();
+}
+
+class _ReportBugBottomSheetState extends ConsumerState<_ReportBugBottomSheet> {
+  final TextEditingController _controller = TextEditingController();
+  String? _selectedCategory;
+  bool _isSubmitting = false;
+
+  static const List<({String key, String title, IconData icon})> _categories = [
+    (key: 'Audio / Call Issue', title: 'Audio or Call Connection Issue', icon: Icons.phone_in_talk_rounded),
+    (key: 'Video Glitch', title: 'Video Stream / Camera Glitch', icon: Icons.videocam_rounded),
+    (key: 'Coins & Billing', title: 'Coins, Subscription or Billing', icon: Icons.monetization_on_outlined),
+    (key: 'App Crash / Freeze', title: 'App Crash, Freeze, or Slow Loading', icon: Icons.speed_rounded),
+    (key: 'Other Issue', title: 'Other Issue / Feedback', icon: Icons.edit_note_rounded),
+  ];
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitReport() async {
+    final text = _controller.text.trim();
+    if (_selectedCategory == null) {
+      AppSnackBar.showError(context, 'Please select an issue category.');
+      return;
+    }
+    if (text.isEmpty) {
+      AppSnackBar.showError(context, 'Please describe the issue encountered.');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    AppLogger.button('Submit Bug Report', screen: 'HelpPage');
+
+    try {
+      final apiClient = ref.read(apiClientProvider);
+      final response = await apiClient.dio.post(
+        '/api/support/bug-report',
+        data: {
+          'category': _selectedCategory,
+          'description': text,
+        },
+      );
+
+      if (mounted) {
+        if (response.statusCode == 200 && response.data['success'] == true) {
+          AppLogger.dialogClose('Submit Report', screen: 'HelpPage');
+          Navigator.pop(context);
+          AppSnackBar.showSuccess(context, 'Thank you! Your bug report has been submitted to our team.');
+        } else {
+          final msg = response.data['error'] ?? 'Failed to submit bug report.';
+          AppSnackBar.showError(context, msg.toString());
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.showError(context, 'Unable to submit report. Please check your network.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final typography = context.typography;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 24,
-            right: 24,
-            top: 20,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: colors.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFFEF2F2),
-                      shape: BoxShape.circle,
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C1929) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.15),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Drag Handle
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: colors.border.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    child: const Icon(Icons.bug_report_outlined, color: Color(0xFFDC2626), size: 24),
                   ),
-                  const SizedBox(width: 14),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Report a Bug',
-                        style: typography.titleCard.copyWith(fontWeight: FontWeight.bold, fontSize: 18),
-                      ),
-                      Text(
-                        'Help us resolve glitches quickly',
-                        style: typography.bodySmall.copyWith(color: colors.textSecondary),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                maxLines: 4,
-                style: typography.bodyMedium,
-                decoration: InputDecoration(
-                  hintText: 'Describe the bug or issue you encountered...',
-                  hintStyle: typography.bodySmall.copyWith(color: colors.textSecondary.withValues(alpha: 0.6)),
-                  filled: true,
-                  fillColor: colors.surface,
-                  border: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: colors.border)),
-                  enabledBorder: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: colors.border)),
-                  focusedBorder: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: colors.primary, width: 1.5)),
                 ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: colors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                  onPressed: () {
-                    final text = controller.text.trim();
-                    if (text.isEmpty) {
-                      AppSnackBar.showError(context, 'Please describe the bug before submitting.');
-                      return;
-                    }
-                    AppLogger.button('Submit Bug Report', screen: 'HelpPage');
-                    AppLogger.dialogClose('Submit Report', screen: 'HelpPage');
-                    Navigator.pop(context);
-                    AppSnackBar.showSuccess(context, 'Thank you! Your bug report has been submitted to support@buddypartner.in');
-                  },
-                  child: const Text('Submit Report', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 20),
+
+                // Header Row
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFEF2F2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.bug_report_outlined, color: Color(0xFFDC2626), size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Report a Bug',
+                          style: typography.titleCard.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: colors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          'Help us resolve glitches quickly',
+                          style: typography.bodySmall.copyWith(color: colors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 8),
-            ],
+                const SizedBox(height: 18),
+
+                // Category Selection Label
+                Text(
+                  'SELECT CATEGORY',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                    color: colors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Category List
+                ..._categories.map((c) {
+                  final isSelected = _selectedCategory == c.key;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: InkWell(
+                      onTap: () {
+                        setState(() => _selectedCategory = c.key);
+                      },
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? colors.primary.withValues(alpha: 0.08)
+                              : colors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isSelected
+                                ? colors.primary
+                                : colors.border.withValues(alpha: 0.6),
+                            width: isSelected ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              c.icon,
+                              size: 19,
+                              color: isSelected ? colors.primary : colors.textSecondary,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                c.title,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                  color: isSelected ? colors.primary : colors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            if (isSelected)
+                              Icon(
+                                Icons.check_circle_rounded,
+                                size: 18,
+                                color: colors.primary,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+
+                const SizedBox(height: 12),
+
+                // Description Field
+                Text(
+                  'DESCRIPTION',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                    color: colors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _controller,
+                  maxLines: 3,
+                  style: typography.bodyMedium.copyWith(color: colors.textPrimary),
+                  decoration: InputDecoration(
+                    hintText: 'Describe what happened or steps to reproduce...',
+                    hintStyle: typography.bodySmall.copyWith(
+                      color: colors.textSecondary.withValues(alpha: 0.6),
+                    ),
+                    filled: true,
+                    fillColor: colors.surfaceMuted,
+                    contentPadding: const EdgeInsets.all(12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: colors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: colors.border.withValues(alpha: 0.6)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: colors.primary, width: 1.5),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          side: BorderSide(color: colors.border),
+                        ),
+                        onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          elevation: 0,
+                        ),
+                        onPressed: _isSubmitting ? null : _submitReport,
+                        child: _isSubmitting
+                            ? const SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text(
+                                'Submit Report',
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

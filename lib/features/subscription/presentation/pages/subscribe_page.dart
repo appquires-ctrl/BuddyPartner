@@ -158,7 +158,7 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
               // Trust Badges
               _buildTrustBadges(context),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 100),
             ],
           ),
         ),

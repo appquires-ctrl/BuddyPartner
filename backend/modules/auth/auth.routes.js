@@ -458,6 +458,20 @@ router.all(['/delete-account', '/delete', '/me'], authMiddleware, async (req, re
       }
     }
 
+    // 0. Persist deletion survey to database
+    try {
+      const userRes = await db.query('SELECT phone_number FROM public.users WHERE id = $1', [userId]);
+      const phone = userRes.rows[0]?.phone_number || null;
+      await db.query(
+        `INSERT INTO public.account_deletion_surveys (user_id, phone_number, reason, feedback)
+         VALUES ($1, $2, $3, $4)`,
+        [userId, phone, reason || 'unspecified', feedback || null]
+      );
+      console.log(`📝 [Auth] Saved account deletion survey for user ${userId}`);
+    } catch (surveyErr) {
+      console.error('Error saving deletion survey:', surveyErr.message);
+    }
+
     // 2. Cascade delete user record from database
     await db.query(`DELETE FROM public.users WHERE id = $1`, [userId]);
 

@@ -65,15 +65,18 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
   }
 
   void _updateSubscriptions() {
-    final convs = ref.read(conversationsProvider).valueOrNull ?? [];
-    final matched = ref.read(matchedUsersProvider).valueOrNull ?? [];
+    Future.microtask(() {
+      if (!mounted) return;
+      final convs = ref.read(conversationsProvider).valueOrNull ?? [];
+      final matched = ref.read(matchedUsersProvider).valueOrNull ?? [];
 
-    final newSet = <String>{
-      ...convs.map((c) => c.otherUserId).where((id) => id.isNotEmpty),
-      ...matched.map((u) => u.id).where((id) => id.isNotEmpty),
-    };
+      final newSet = <String>{
+        ...convs.map((c) => c.otherUserId).where((id) => id.isNotEmpty),
+        ...matched.map((u) => u.id).where((id) => id.isNotEmpty),
+      };
 
-    _syncSubscriptions(newSet);
+      _syncSubscriptions(newSet);
+    });
   }
 
   Future<void> _handleRefresh() async {

@@ -59,11 +59,15 @@ final matchedUsersProvider = FutureProvider.autoDispose<List<MatchedUser>>((ref)
   final user = authState.value;
   if (user == null) return const [];
 
-  final apiClient = ref.watch(apiClientProvider);
-  final response = await apiClient.dio.get('/api/calls/matches');
-  if (response.data == null) return const [];
-  final list = List<Map<String, dynamic>>.from(response.data as List);
-  return list.map((json) => MatchedUser.fromJson(json)).toList();
+  try {
+    final apiClient = ref.watch(apiClientProvider);
+    final response = await apiClient.dio.get('/api/calls/matches');
+    if (response.data == null) return const [];
+    final list = (response.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    return list.map((json) => MatchedUser.fromJson(json)).toList();
+  } catch (e) {
+    return const [];
+  }
 });
 
 final favoriteUsersProvider = FutureProvider.autoDispose<List<MatchedUser>>((ref) async {

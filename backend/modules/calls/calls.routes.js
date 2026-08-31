@@ -5,7 +5,7 @@ const { authMiddleware } = require('../../middleware/auth.middleware');
 
 /**
  * Endpoint: GET /api/calls/history
- * Returns the authenticated user's call history.
+ * Returns the authenticated user's call history across matchmaking and VIP instant calls.
  * Retains exact same JSON format as previously returned by Supabase to avoid breaking client parser.
  */
 router.get('/history', authMiddleware, async (req, res) => {
@@ -16,11 +16,22 @@ router.get('/history', authMiddleware, async (req, res) => {
       `SELECT c.id, c.caller_id, c.matched_user_id, c.status, c.call_type, c.duration_seconds, c.started_at, c.ended_at,
               u1.full_name AS caller_name, u1.gender AS caller_gender, u1.avatar_seed AS caller_avatar_seed, u1.avatar_style AS caller_avatar_style,
               u2.full_name AS matched_name, u2.gender AS matched_gender, u2.avatar_seed AS matched_avatar_seed, u2.avatar_style AS matched_avatar_style
-       FROM public.calls c
+       FROM (
+         SELECT id, caller_id, matched_user_id, status, call_type, duration_seconds, started_at, ended_at
+         FROM public.calls
+         WHERE caller_id = $1 OR matched_user_id = $1
+
+         UNION ALL
+
+         SELECT id, male_user_id AS caller_id, female_user_id AS matched_user_id,
+                CASE WHEN status = 'completed' THEN 'ended' WHEN status = 'in_call' THEN 'active' ELSE status END AS status,
+                'instant_vip' AS call_type, duration_seconds, started_at, ended_at
+         FROM public.instant_call_sessions
+         WHERE (male_user_id = $1 OR female_user_id = $1) AND female_user_id IS NOT NULL
+       ) c
        LEFT JOIN public.users u1 ON c.caller_id = u1.id
        LEFT JOIN public.users u2 ON c.matched_user_id = u2.id
-       WHERE c.caller_id = $1 OR c.matched_user_id = $1
-       ORDER BY c.started_at DESC`,
+       ORDER BY c.started_at DESC NULLS LAST`,
       [userId]
     );
 
@@ -60,22 +71,41 @@ const { userSockets } = require('../matchmaking/matchmaking.socket');
 
 /**
  * Endpoint: GET /api/calls/matches
- * Returns a list of users matched with the current user.
+ * Returns a list of users matched with the current user across matchmaking and VIP Instant calls.
  */
 router.get('/matches', authMiddleware, async (req, res) => {
   const userId = req.user.id;
 
   try {
     const result = await db.query(
-      `SELECT DISTINCT u.id, u.full_name, u.gender, u.avatar_seed, u.avatar_style,
+      `SELECT u.id, u.full_name, u.gender, u.avatar_seed, u.avatar_style,
               EXISTS(
                 SELECT 1 FROM public.favorites f 
                 WHERE f.user_id = $1 AND f.favorite_user_id = u.id
-              ) AS is_favorite
+              ) AS is_favorite,
+              COALESCE(
+                (
+                  SELECT GREATEST(
+                    COALESCE((SELECT MAX(started_at) FROM public.calls c WHERE (c.caller_id = $1 AND c.matched_user_id = u.id) OR (c.matched_user_id = $1 AND c.caller_id = u.id)), '1970-01-01'::timestamptz),
+                    COALESCE((SELECT MAX(started_at) FROM public.instant_call_sessions s WHERE (s.male_user_id = $1 AND s.female_user_id = u.id) OR (s.female_user_id = $1 AND s.male_user_id = u.id)), '1970-01-01'::timestamptz)
+                  )
+                ),
+                u.created_at
+              ) AS last_matched_at
        FROM public.users u
-       JOIN public.calls c ON (c.caller_id = u.id OR c.matched_user_id = u.id)
-       WHERE u.id != $1 AND (c.caller_id = $1 OR c.matched_user_id = $1) AND c.status = 'ended'
-       ORDER BY u.full_name ASC`,
+       WHERE u.id != $1
+         AND (
+           EXISTS (
+             SELECT 1 FROM public.calls c
+             WHERE (c.caller_id = $1 AND c.matched_user_id = u.id) OR (c.matched_user_id = $1 AND c.caller_id = u.id)
+           )
+           OR EXISTS (
+             SELECT 1 FROM public.instant_call_sessions s
+             WHERE ((s.male_user_id = $1 AND s.female_user_id = u.id) OR (s.female_user_id = $1 AND s.male_user_id = u.id))
+               AND s.female_user_id IS NOT NULL
+           )
+         )
+       ORDER BY last_matched_at DESC, u.full_name ASC`,
       [userId]
     );
 

@@ -857,25 +857,25 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ),
                   const SizedBox(height: 24),
                 ] else ...[
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 18),
 
-                  // Centered rotating orbits radar illustration
+                  // Centered rotating orbits radar illustration (compact responsive size)
                   const Center(
-                    child: MatchingIllustration(),
+                    child: MatchingIllustration(size: 180),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 18),
 
                   // Heading Status text
                   Text(
                     'Ready to Make Your First Connection?',
                     style: typography.titleCard.copyWith(
                       fontWeight: FontWeight.bold,
-                      fontSize: 20,
+                      fontSize: 18,
                       color: colors.textPrimary,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
 
                   // Helper Subtitle information
                   Padding(
@@ -884,8 +884,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                       'Press Start Matchmaking to connect with someone new. After your call finishes, your recent matches will appear below.',
                       style: typography.bodySmall.copyWith(
                         color: colors.textSecondary,
-                        fontSize: 13,
-                        height: 1.4,
+                        fontSize: 12.5,
+                        height: 1.35,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -893,7 +893,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ],
 
                 const AdBannerWidget(),
-                const SizedBox(height: 80),
+                const SizedBox(height: 120),
               ],
             ),
           ),

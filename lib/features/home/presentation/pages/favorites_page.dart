@@ -83,7 +83,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         color: const Color(0xFFFF4E64), // Pink/Red refresh color
         child: favoriteUsers.isNotEmpty
             ? ListView.separated(
-                padding: const EdgeInsets.all(AppSpacing.space24),
+                padding: const EdgeInsets.only(left: 24, right: 24, top: 20, bottom: 100),
                 physics: const AlwaysScrollableScrollPhysics(),
                 itemCount: favoriteUsers.length,
                 separatorBuilder: (context, index) => const SizedBox(height: 16),
@@ -99,30 +99,31 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const SizedBox(height: 80),
+                      const SizedBox(height: 32),
                       
                       // Centered concentric heart orbits radar illustration
                       const Center(
                         child: MatchingIllustration(
+                          size: 180,
                           primaryColor: Color(0xFFFF4E64), // Pink/Red orbits
                           centerCircleColor: Color(0xFFFFF2F4), // Light pink background
                           icon: Icons.favorite, // Heart icon
                           iconColor: Color(0xFFFF4E64), // Pink/Red icon
                         ),
                       ),
-                      const SizedBox(height: 48),
+                      const SizedBox(height: 24),
 
                       // Heading text
                       Text(
                         'No Favorites Yet',
                         style: typography.titleCard.copyWith(
                           fontWeight: FontWeight.bold,
-                          fontSize: 20,
+                          fontSize: 19,
                           color: colors.textPrimary,
                         ),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
 
                       // Helper Subtitle information
                       Padding(
@@ -137,6 +138,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                           textAlign: TextAlign.center,
                         ),
                       ),
+                      const SizedBox(height: 100),
                       // const SizedBox(height: 32),
                       // // Light pink pull down action button
                       // GestureDetector(

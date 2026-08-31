@@ -885,6 +885,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                 );
               },
             ),
+            const SizedBox(height: 100),
           ],
         ),
       ),

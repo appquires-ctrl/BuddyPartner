@@ -96,10 +96,10 @@ final callHistoryProvider = FutureProvider.autoDispose<List<CallLog>>((ref) asyn
     
     if (response.data == null) return const [];
     
-    final list = List<Map<String, dynamic>>.from(response.data as List);
+    final list = (response.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
     return list.map((json) => CallLog.fromJson(json, user.id)).toList();
   } catch (e, stackTrace) {
     debugPrint('Error fetching call history: $e\n$stackTrace');
-    rethrow;
+    return const [];
   }
 });

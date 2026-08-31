@@ -7,6 +7,10 @@ import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/core/services/api_client.dart';
 
+import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
+import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
+import 'package:buddypartner/features/call/application/matchmaking_state.dart';
+
 /// AnimatedSplashScreen renders a 3-step continuous animation sequence:
 /// 1. Logo Scale-in (0.3 -> 1.0)
 /// 2. Wordmark Fade-in ("BuddyPartner")
@@ -96,12 +100,34 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
     _controller.forward();
   }
 
-  Future<void> _navigateToNext() async {
+  Future<void> _navigateToNext({bool force = false}) async {
     if (_hasNavigated) return;
+
+    final instantPhase = ref.read(instantConnectControllerProvider).phase;
+    final mmPhase = ref.read(matchmakingControllerProvider).phase;
+    final isClaiming = ref.read(instantConnectControllerProvider.notifier).isClaimingOrPending;
+
+    if (instantPhase == InstantPhase.inCall || mmPhase == MatchmakingPhase.inCall) {
+      _hasNavigated = true;
+      return;
+    }
+
+    // If still in the middle of claiming a surge call, wait for the socket claim to resolve
+    if (isClaiming && !force) {
+      debugPrint('ℹ️ [Splash] Claim in flight. Waiting for claim resolution before navigating to home.');
+      return;
+    }
 
     try {
       final hasSeenOnboarding = await ref.read(apiClientProvider).hasSeenOnboarding();
       if (!mounted) return;
+
+      final currentInstantPhase = ref.read(instantConnectControllerProvider).phase;
+      final currentMmPhase = ref.read(matchmakingControllerProvider).phase;
+      if (currentInstantPhase == InstantPhase.inCall || currentMmPhase == MatchmakingPhase.inCall) {
+        _hasNavigated = true;
+        return;
+      }
 
       if (!hasSeenOnboarding) {
         _hasNavigated = true;
@@ -138,6 +164,31 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<InstantConnectState>(instantConnectControllerProvider, (prev, next) {
+      if (next.phase == InstantPhase.inCall) {
+        _hasNavigated = true;
+        _controller.stop();
+        if (mounted) {
+          context.go(RouteNames.activeCall);
+        }
+      } else if (next.phase == InstantPhase.idle && _controller.isCompleted) {
+        // If claim failed (e.g. already claimed by another female) and splash finished, navigate to home
+        if (!_hasNavigated && mounted) {
+          _navigateToNext(force: true);
+        }
+      }
+    });
+
+    ref.listen<MatchmakingState>(matchmakingControllerProvider, (prev, next) {
+      if (next.phase == MatchmakingPhase.inCall) {
+        _hasNavigated = true;
+        _controller.stop();
+        if (mounted) {
+          context.go(RouteNames.activeCall);
+        }
+      }
+    });
+
     final colors = context.colors;
     final typography = context.typography;
 
