@@ -135,8 +135,8 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
         return;
       }
 
-      CustomUser? user = ref.read(authStateProvider).value;
-      user ??= await ref.read(authStateProvider.future);
+      CustomUser? user = ref.read(authStateProvider).valueOrNull;
+      user ??= await ref.read(authStateProvider.future).catchError((_) => null);
       if (!mounted) return;
 
       _hasNavigated = true;

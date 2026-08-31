@@ -19,7 +19,12 @@ final apiClientProvider = Provider<ApiClient>((ref) => ApiClient(ref));
 class ApiClient {
   late final Dio dio;
   final Ref? _ref;
-  final _secureStorage = const FlutterSecureStorage();
+  final _secureStorage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+      resetOnError: true,
+    ),
+  );
   static const _tokenKey = 'auth_token';
   static const _refreshTokenKey = 'refresh_token';
   static const _userSessionKey = 'cached_user_session';
@@ -181,23 +186,41 @@ class ApiClient {
 
   /// Write access and refresh tokens to platform secure storage
   Future<void> saveTokens({required String token, required String refreshToken}) async {
-    await _secureStorage.write(key: _tokenKey, value: token);
-    await _secureStorage.write(key: _refreshTokenKey, value: refreshToken);
+    try {
+      await _secureStorage.write(key: _tokenKey, value: token);
+      await _secureStorage.write(key: _refreshTokenKey, value: refreshToken);
+    } catch (_) {}
   }
 
   /// Write access JWT token to platform secure storage
   Future<void> saveToken(String token) async {
-    await _secureStorage.write(key: _tokenKey, value: token);
+    try {
+      await _secureStorage.write(key: _tokenKey, value: token);
+    } catch (_) {}
   }
 
   /// Read Access JWT token from platform secure storage
   Future<String?> getToken() async {
-    return await _secureStorage.read(key: _tokenKey);
+    try {
+      return await _secureStorage.read(key: _tokenKey);
+    } catch (e) {
+      try {
+        await _secureStorage.deleteAll();
+      } catch (_) {}
+      return null;
+    }
   }
 
   /// Read Refresh token from platform secure storage
   Future<String?> getRefreshToken() async {
-    return await _secureStorage.read(key: _refreshTokenKey);
+    try {
+      return await _secureStorage.read(key: _refreshTokenKey);
+    } catch (e) {
+      try {
+        await _secureStorage.deleteAll();
+      } catch (_) {}
+      return null;
+    }
   }
 
   /// Save serialized user session to platform secure storage
@@ -227,9 +250,15 @@ class ApiClient {
 
   /// Delete both tokens & user session from platform secure storage (logout)
   Future<void> deleteTokens() async {
-    await _secureStorage.delete(key: _tokenKey);
-    await _secureStorage.delete(key: _refreshTokenKey);
-    await deleteUserSessionJson();
+    try {
+      await _secureStorage.delete(key: _tokenKey);
+      await _secureStorage.delete(key: _refreshTokenKey);
+      await deleteUserSessionJson();
+    } catch (_) {
+      try {
+        await _secureStorage.deleteAll();
+      } catch (_) {}
+    }
   }
 
   /// Alias for deleteTokens

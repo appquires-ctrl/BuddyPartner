@@ -41,10 +41,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
 
   @override
   void dispose() {
-    if (_pageSubscribedUserIds.isNotEmpty) {
-      ref.read(presenceProvider.notifier).unsubscribeFromUsers(_pageSubscribedUserIds.toList());
-      _pageSubscribedUserIds.clear();
-    }
+    _pageSubscribedUserIds.clear();
     _searchController.dispose();
     super.dispose();
   }

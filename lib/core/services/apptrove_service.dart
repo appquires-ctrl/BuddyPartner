@@ -242,4 +242,27 @@ class AppTroveService {
 
     trackEvent(subscribeEvent);
   }
+
+  /// Tracks a Coin Recharge / In-App Coin Purchase event in Apptrove.
+  static void trackCoinRecharge({
+    required int coins,
+    required double priceRupees,
+    String? orderId,
+    String? planId,
+  }) {
+    final effectiveOrderId = orderId ?? 'COIN_${DateTime.now().millisecondsSinceEpoch}';
+
+    // 1. Track standard PURCHASE event for revenue & monetization reporting in Apptrove
+    final purchaseEvent = AppTroveEvent(AppTroveEvent.PURCHASE)
+      ..productId = planId ?? 'COIN_PACK_$coins'
+      ..revenue = priceRupees
+      ..currency = 'INR'
+      ..orderId = effectiveOrderId
+      ..param1 = '$coins Coins'
+      ..param2 = '₹$priceRupees';
+
+    purchaseEvent.setEventValue('coins', coins);
+    purchaseEvent.setEventValue('priceRupees', priceRupees);
+    trackEvent(purchaseEvent);
+  }
 }

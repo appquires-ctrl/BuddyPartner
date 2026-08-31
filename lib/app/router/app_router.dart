@@ -32,6 +32,7 @@ import 'package:buddypartner/features/legal/data/legal_document_content.dart';
 import 'package:buddypartner/features/wallet/presentation/pages/transaction_history_page.dart';
 import 'package:buddypartner/features/wallet/presentation/pages/wallet_history_page.dart';
 import 'package:buddypartner/features/recharge/presentation/pages/recharge_page.dart';
+import 'package:buddypartner/features/recharge/presentation/pages/dev_recharge_page.dart';
 import 'package:buddypartner/features/withdraw/presentation/pages/withdraw_page.dart';
 import 'package:buddypartner/features/auth/presentation/pages/banned_screen.dart';
 import 'package:buddypartner/core/widgets/layout/app_bottom_nav.dart';
@@ -79,7 +80,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
-      final currentUser = ref.read(authStateProvider).value;
+      final currentUser = ref.read(authStateProvider).valueOrNull;
       final isLoggedIn = currentUser != null;
       final isProfileComplete = currentUser?.isProfileComplete ?? false;
 
@@ -292,6 +293,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final plan = state.extra as SubscriptionPlan? ?? SubscriptionPlan.defaultPlans.first;
           return DevSubscriptionPage(plan: plan);
+        },
+      ),
+      GoRoute(
+        path: RouteNames.devRecharge,
+        name: 'DevRechargePage',
+        builder: (context, state) {
+          final args = state.extra as Map<String, dynamic>? ?? {};
+          final coins = args['coins'] as int? ?? 100;
+          final price = args['price'] as int? ?? 100;
+          return DevRechargePage(coins: coins, price: price);
         },
       ),
       // Stateful Nested Shell for Main Dashboard (4 core tabs)

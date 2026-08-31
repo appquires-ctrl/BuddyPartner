@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/app/theme/app_spacing.dart';
-import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/core/widgets/coins/app_coin_balance_card.dart';
@@ -24,7 +23,6 @@ class RechargePage extends ConsumerStatefulWidget {
 class _RechargePageState extends ConsumerState<RechargePage> {
   final TextEditingController _customController = TextEditingController();
   String? _selectedPlanId = 'plan_100'; // Default selected ₹100 pack
-  bool _isProcessing = false;
 
   @override
   void dispose() {
@@ -58,7 +56,7 @@ class _RechargePageState extends ConsumerState<RechargePage> {
     return customVal;
   }
 
-  Future<void> _handleRecharge() async {
+  void _handleRecharge() {
     final coinsToCredit = _calculatedCoins;
     final priceToPay = _calculatedPrice;
 
@@ -68,117 +66,17 @@ class _RechargePageState extends ConsumerState<RechargePage> {
     }
 
     HapticFeedback.mediumImpact();
-    AppLogger.button('Recharge $coinsToCredit Coins (₹$priceToPay)', screen: 'RechargePage');
-    setState(() => _isProcessing = true);
+    AppLogger.button(
+      'Navigate to Dev Checkout: $coinsToCredit Coins (₹$priceToPay)',
+      screen: 'RechargePage',
+    );
 
-    try {
-      final apiClient = ref.read(apiClientProvider);
-      final response = await apiClient.dio.post(
-        '/api/wallet/recharge',
-        data: {
-          'amount': coinsToCredit,
-          'paymentReference': 'recharge_${DateTime.now().millisecondsSinceEpoch}',
-        },
-      );
-
-      if (response.data != null && response.data['success'] == true) {
-        ref.invalidate(walletBalanceProvider);
-        if (mounted) {
-          _showSuccessDialog(coinsToCredit, priceToPay);
-        }
-      } else {
-        if (mounted) {
-          AppSnackBar.showError(
-            context,
-            response.data?['error'] ?? 'Recharge failed. Please try again.',
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        AppSnackBar.showError(context, 'Recharge error: $e');
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
-      }
-    }
-  }
-
-  void _showSuccessDialog(int coins, int price) {
-    HapticFeedback.heavyImpact();
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        contentPadding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF10B981), Color(0xFF059669)],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.35),
-                    blurRadius: 18,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.check_circle_rounded,
-                color: Colors.white,
-                size: 44,
-              ),
-            ),
-            const SizedBox(height: 18),
-            const Text(
-              'Recharge Successful!',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.3,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Successfully added $coins Coins to your wallet for ₹$price.',
-              style: TextStyle(
-                fontSize: 13.5,
-                color: Colors.grey.shade600,
-                height: 1.4,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 22),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7C6AEF),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 2,
-                ),
-                child: const Text(
-                  'Continue',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    context.push(
+      RouteNames.devRecharge,
+      extra: {
+        'coins': coinsToCredit,
+        'price': priceToPay,
+      },
     );
   }
 
@@ -488,7 +386,7 @@ class _RechargePageState extends ConsumerState<RechargePage> {
                   SizedBox(
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: _isProcessing ? null : _handleRecharge,
+                      onPressed: _handleRecharge,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF18181B),
                         foregroundColor: Colors.white,
@@ -497,29 +395,20 @@ class _RechargePageState extends ConsumerState<RechargePage> {
                         elevation: 4,
                         shadowColor: Colors.black.withValues(alpha: 0.35),
                       ),
-                      child: _isProcessing
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2.5,
-                              ),
-                            )
-                          : const Row(
-                              children: [
-                                Icon(Icons.bolt_rounded, color: Color(0xFFFFD54F), size: 20),
-                                SizedBox(width: 6),
-                                Text(
-                                  'Recharge Now',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 15,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
+                      child: const Row(
+                        children: [
+                          Icon(Icons.bolt_rounded, color: Color(0xFFFFD54F), size: 20),
+                          SizedBox(width: 6),
+                          Text(
+                            'Recharge Now',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 15,
+                              color: Colors.white,
                             ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],

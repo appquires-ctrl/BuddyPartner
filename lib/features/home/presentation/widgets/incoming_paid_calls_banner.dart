@@ -171,7 +171,7 @@ class _IncomingPaidCallsBannerState extends ConsumerState<IncomingPaidCallsBanne
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Text(
-                              'Incoming Paid Calls',
+                              'Go Online and Earn',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w700,

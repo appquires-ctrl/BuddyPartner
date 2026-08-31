@@ -64,15 +64,25 @@ router.post('/wallet/recharge', authMiddleware, async (req, res) => {
       );
 
       const newBalance = walletRes.rows[0].balance;
+      const refId = req.body.paymentReference ? String(req.body.paymentReference) : null;
 
-      await client.query(
-        `INSERT INTO public.wallet_transactions (user_id, amount, type, reason, reference_id)
-         VALUES ($1, $2, 'credit', 'recharge', $3)`,
-        [userId, amount, req.body.paymentReference || 'manual_recharge']
-      );
+      try {
+        await client.query(
+          `INSERT INTO public.wallet_transactions (user_id, amount, type, reason, reference_id)
+           VALUES ($1, $2, 'credit', 'recharge', $3)`,
+          [userId, amount, refId]
+        );
+      } catch (txErr) {
+        console.warn('⚠️ wallet_transactions insert with reference_id failed, falling back to NULL reference_id:', txErr.message);
+        await client.query(
+          `INSERT INTO public.wallet_transactions (user_id, amount, type, reason, reference_id)
+           VALUES ($1, $2, 'credit', 'recharge', NULL)`,
+          [userId, amount]
+        );
+      }
 
       await client.query('COMMIT');
-      res.json({ success: true, amount, newBalance });
+      res.json({ success: true, amount, newBalance, paymentReference: refId });
     } catch (dbErr) {
       await client.query('ROLLBACK');
       throw dbErr;
@@ -81,7 +91,7 @@ router.post('/wallet/recharge', authMiddleware, async (req, res) => {
     }
   } catch (err) {
     console.error('Error in POST /api/wallet/recharge:', err.message);
-    res.status(500).json({ error: 'Failed to recharge wallet.' });
+    res.status(500).json({ error: 'Failed to recharge wallet: ' + err.message });
   }
 });
 

@@ -107,23 +107,27 @@ class CustomUser {
 class AuthNotifier extends AsyncNotifier<CustomUser?> {
   @override
   FutureOr<CustomUser?> build() async {
-    final apiClient = ref.watch(apiClientProvider);
-    final hasToken = await apiClient.hasToken();
-    if (!hasToken) return null;
+    try {
+      final apiClient = ref.watch(apiClientProvider);
+      final hasToken = await apiClient.hasToken();
+      if (!hasToken) return null;
 
-    // Load cached session instantly from platform secure storage
-    CustomUser? cachedUser;
-    final cachedMap = await apiClient.getUserSessionJson();
-    if (cachedMap != null) {
-      try {
-        cachedUser = CustomUser.fromJson(cachedMap);
-      } catch (_) {}
+      // Load cached session instantly from platform secure storage
+      CustomUser? cachedUser;
+      final cachedMap = await apiClient.getUserSessionJson();
+      if (cachedMap != null) {
+        try {
+          cachedUser = CustomUser.fromJson(cachedMap);
+        } catch (_) {}
+      }
+
+      // Asynchronously revalidate session against backend in background
+      _revalidateSession(apiClient);
+
+      return cachedUser;
+    } catch (_) {
+      return null;
     }
-
-    // Asynchronously revalidate session against backend in background
-    _revalidateSession(apiClient);
-
-    return cachedUser;
   }
 
   Future<void> _revalidateSession(ApiClient apiClient) async {

@@ -71,8 +71,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         InAppNotificationManager.activeConversationId == widget.userId) {
       InAppNotificationManager.activeConversationId = null;
     }
-    ref.read(presenceProvider.notifier).unsubscribeFromUsers([widget.userId]);
-    ref.read(conversationsProvider.notifier).markConversationAsRead(_effectiveConversationId);
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();

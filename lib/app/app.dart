@@ -88,16 +88,20 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
       if (navContext == null || !navContext.mounted) return;
 
       if (next.phase == MatchmakingPhase.inCall && prev?.phase != MatchmakingPhase.inCall) {
+        Navigator.of(navContext, rootNavigator: true).popUntil((route) => route is! PopupRoute);
         navContext.go(RouteNames.activeCall);
       } else if (next.phase == MatchmakingPhase.incomingRequest && prev?.phase != MatchmakingPhase.incomingRequest) {
+        Navigator.of(navContext, rootNavigator: true).popUntil((route) => route is! PopupRoute);
         navContext.go(RouteNames.incomingCall);
       } else if (next.phase == MatchmakingPhase.outgoingRequest && prev?.phase != MatchmakingPhase.outgoingRequest) {
+        Navigator.of(navContext, rootNavigator: true).popUntil((route) => route is! PopupRoute);
         navContext.go(RouteNames.calling);
       } else if (prev?.phase == MatchmakingPhase.inCall &&
           (next.phase == MatchmakingPhase.idle || next.phase == MatchmakingPhase.ended)) {
         if (next.isCallMinimized) {
           ref.read(matchmakingControllerProvider.notifier).restoreCall();
         }
+        Navigator.of(navContext, rootNavigator: true).popUntil((route) => route is! PopupRoute);
         navContext.go(RouteNames.home);
       }
 
@@ -112,6 +116,7 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
       if (navContext == null || !navContext.mounted) return;
 
       if (next.phase == InstantPhase.inCall && prev?.phase != InstantPhase.inCall) {
+        Navigator.of(navContext, rootNavigator: true).popUntil((route) => route is! PopupRoute);
         navContext.go(RouteNames.activeCall);
       } else if (next.phase == InstantPhase.incomingRequest && prev?.phase != InstantPhase.incomingRequest) {
         final mmPhase = ref.read(matchmakingControllerProvider).phase;
@@ -123,6 +128,7 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
           );
         }
       } else if (prev?.phase == InstantPhase.inCall && (next.phase == InstantPhase.idle || next.phase == InstantPhase.ended)) {
+        Navigator.of(navContext, rootNavigator: true).popUntil((route) => route is! PopupRoute);
         navContext.go(RouteNames.home);
       }
 

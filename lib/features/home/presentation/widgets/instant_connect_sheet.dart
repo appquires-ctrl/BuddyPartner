@@ -239,6 +239,14 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<InstantConnectState>(instantConnectControllerProvider, (prev, next) {
+      if (next.phase == InstantPhase.inCall && mounted) {
+        if (Navigator.of(context, rootNavigator: true).canPop()) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+      }
+    });
+
     final typography = context.typography;
     final walletAsync = ref.watch(walletBalanceProvider);
     final walletBalance = walletAsync.valueOrNull ?? 0;

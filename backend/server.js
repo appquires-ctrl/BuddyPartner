@@ -113,9 +113,10 @@ db.query(`
     amount INTEGER NOT NULL,
     type TEXT CHECK (type IN ('credit', 'debit')) NOT NULL,
     reason TEXT NOT NULL,
-    reference_id UUID,
+    reference_id TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
   );
+  ALTER TABLE public.wallet_transactions ALTER COLUMN reference_id TYPE TEXT;
   CREATE INDEX IF NOT EXISTS idx_wallet_tx_user ON public.wallet_transactions(user_id);
 `).then(() => {
   console.log('✅ Wallets default (0) and wallet_transactions table checked/initialized.');

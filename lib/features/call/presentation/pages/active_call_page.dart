@@ -56,6 +56,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
       if (next.phase == MatchmakingPhase.idle && prev?.phase != MatchmakingPhase.idle ||
           next.phase == MatchmakingPhase.ended) {
         if (mounted) {
+          Navigator.of(context, rootNavigator: true).popUntil((route) => route is! PopupRoute);
           context.go(RouteNames.home);
         }
       }
@@ -72,6 +73,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
     ref.listen<InstantConnectState>(instantConnectControllerProvider, (prev, next) {
       if (prev?.phase == InstantPhase.inCall && (next.phase == InstantPhase.idle || next.phase == InstantPhase.ended)) {
         if (mounted) {
+          Navigator.of(context, rootNavigator: true).popUntil((route) => route is! PopupRoute);
           context.go(RouteNames.home);
         }
       }
@@ -596,6 +598,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                           controller.endCall();
                           ref.read(instantConnectControllerProvider.notifier).endCall();
                           if (mounted) {
+                            Navigator.of(context, rootNavigator: true).popUntil((route) => route is! PopupRoute);
                             context.go(RouteNames.home);
                           }
                         },

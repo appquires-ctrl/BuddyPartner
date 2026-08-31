@@ -59,6 +59,8 @@ class AppNavigationObserver extends NavigatorObserver {
         return 'SubscribePage';
       case 'dev-subscription':
         return 'DevSubscriptionPage';
+      case 'dev-recharge':
+        return 'DevRechargePage';
       case 'recharge':
         return 'RechargePage';
       case 'withdraw':

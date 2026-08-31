@@ -29,6 +29,7 @@ class RouteNames {
   static const String plans = '/plans';
   static const String subscribe = '/subscribe';
   static const String devSubscription = '/dev-subscription';
+  static const String devRecharge = '/dev-recharge';
   static const String updateRequired = '/update-required';
 
   // Legal routes
