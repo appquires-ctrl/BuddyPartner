@@ -42,21 +42,40 @@ class GooglePlayService {
     }
 
     let credentials;
-    if (process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON) {
+    const rawJson = process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON;
+    const rawFile = process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_FILE;
+
+    // Check if JSON content is in GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
+    if (rawJson) {
       try {
-        credentials = typeof process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON === 'string'
-          ? JSON.parse(process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON)
-          : process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON;
+        credentials = typeof rawJson === 'string' && rawJson.trim().startsWith('{')
+          ? JSON.parse(rawJson)
+          : rawJson;
       } catch (err) {
         console.error('❌ Failed to parse GOOGLE_PLAY_SERVICE_ACCOUNT_JSON:', err.message);
       }
     }
 
-    const auth = new google.auth.GoogleAuth({
-      credentials,
-      keyFile: process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_FILE,
+    // Check if JSON content was pasted into GOOGLE_PLAY_SERVICE_ACCOUNT_FILE
+    if (!credentials && rawFile && typeof rawFile === 'string' && rawFile.trim().startsWith('{')) {
+      try {
+        credentials = JSON.parse(rawFile);
+      } catch (err) {
+        console.error('❌ Failed to parse JSON from GOOGLE_PLAY_SERVICE_ACCOUNT_FILE:', err.message);
+      }
+    }
+
+    const authOptions = {
       scopes: ['https://www.googleapis.com/auth/androidpublisher'],
-    });
+    };
+
+    if (credentials) {
+      authOptions.credentials = credentials;
+    } else if (rawFile && typeof rawFile === 'string' && !rawFile.trim().startsWith('{')) {
+      authOptions.keyFile = rawFile;
+    }
+
+    const auth = new google.auth.GoogleAuth(authOptions);
 
     return google.androidpublisher({ version: 'v3', auth });
   }
@@ -171,7 +190,7 @@ class GooglePlayService {
       googlePurchase = res.data;
     } catch (apiErr) {
       console.error(`❌ [Google Play API Error] Product verification failed for ${coinProduct.id}:`, apiErr.message);
-      const err = new Error('Google Play verification failed. Purchase token is invalid or fraudulent.');
+      const err = new Error(`Google Play verification failed: ${apiErr.message || 'Purchase token is invalid or fraudulent.'}`);
       err.statusCode = 400;
       err.code = 'INVALID_PURCHASE_TOKEN';
       err.details = apiErr.message;
@@ -298,7 +317,7 @@ class GooglePlayService {
       subData = res.data;
     } catch (apiErr) {
       console.error(`❌ [Google Play API Error] Subscription verification failed for token ${purchaseToken.substring(0, 10)}...:`, apiErr.message);
-      const err = new Error('Google Play subscription verification failed. Subscription token is invalid.');
+      const err = new Error(`Google Play subscription verification failed: ${apiErr.message || 'Subscription token is invalid.'}`);
       err.statusCode = 400;
       err.code = 'INVALID_SUBSCRIPTION_TOKEN';
       err.details = apiErr.message;

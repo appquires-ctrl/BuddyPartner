@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
@@ -279,9 +280,18 @@ class GooglePlayPurchaseNotifier extends StateNotifier<GooglePlayState> {
       }
     } catch (e) {
       debugPrint('❌ [Google Play Verification Exception]: $e');
+      String displayError = e.toString();
+      if (e is DioException) {
+        final resData = e.response?.data;
+        if (resData is Map) {
+          displayError = resData['message'] ?? resData['error'] ?? e.message ?? 'Server verification failed';
+        } else if (e.message != null) {
+          displayError = e.message!;
+        }
+      }
       state = state.copyWith(
         status: GooglePlayPurchaseStatus.error,
-        errorMessage: 'Backend verification error: $e',
+        errorMessage: displayError,
       );
     }
   }
