@@ -563,22 +563,71 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
 
                   const SizedBox(height: 28),
 
-                  // Footer Security Note
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  // Footer Security Note & Legal Notice
+                  Column(
                     children: [
-                      Icon(
-                        Icons.verified_user_outlined,
-                        size: 16,
-                        color: colors.primary.withValues(alpha: 0.85),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.verified_user_outlined,
+                            size: 16,
+                            color: colors.primary.withValues(alpha: 0.85),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Your number is safe with us.',
+                            style: typography.bodySmall.copyWith(
+                              color: colors.textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Your number is safe with us.',
-                        style: typography.bodySmall.copyWith(
-                          color: colors.textSecondary,
-                          fontSize: 13,
+                      const SizedBox(height: 12),
+                      Text.rich(
+                        TextSpan(
+                          style: typography.bodySmall.copyWith(
+                            color: colors.textSecondary.withValues(alpha: 0.8),
+                            fontSize: 11.5,
+                          ),
+                          children: [
+                            const TextSpan(text: 'By continuing, you agree to our '),
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: GestureDetector(
+                                onTap: () => context.push(RouteNames.termsOfService),
+                                child: Text(
+                                  'Terms of Service',
+                                  style: typography.bodySmall.copyWith(
+                                    color: colors.primary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11.5,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const TextSpan(text: ' & '),
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: GestureDetector(
+                                onTap: () => context.push(RouteNames.privacyPolicy),
+                                child: Text(
+                                  'Privacy Policy',
+                                  style: typography.bodySmall.copyWith(
+                                    color: colors.primary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11.5,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const TextSpan(text: '.'),
+                          ],
                         ),
+                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),

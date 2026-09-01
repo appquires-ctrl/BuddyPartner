@@ -31,8 +31,8 @@ class InstantCallSession {
       bidAmount: (json['bid_amount'] ?? json['bidAmount'] as num?)?.toInt() ?? 10,
       status: json['status'] as String? ?? 'queued',
       agoraChannelName: json['agora_channel_name'] as String? ?? json['agoraChannelName'] as String?,
-      startedAt: json['started_at'] != null ? DateTime.tryParse(json['started_at'] as String) : null,
-      milestone10mAt: json['milestone_10m_at'] != null ? DateTime.tryParse(json['milestone_10m_at'] as String) : null,
+      startedAt: json['started_at'] != null ? DateTime.tryParse(json['started_at'] as String)?.toLocal() : null,
+      milestone10mAt: json['milestone_10m_at'] != null ? DateTime.tryParse(json['milestone_10m_at'] as String)?.toLocal() : null,
       durationSeconds: (json['duration_seconds'] ?? json['durationSeconds'] as num?)?.toInt() ?? 0,
       scratchCardUnlocked: json['scratch_card_unlocked'] == true || json['scratchCardUnlocked'] == true,
     );
@@ -62,8 +62,16 @@ class ScratchCardModel {
       sessionId: json['sessionId'] as String? ?? json['session_id'] as String?,
       coinReward: (json['coinReward'] ?? json['coin_reward'] as num?)?.toInt() ?? 0,
       isScratched: json['isScratched'] == true || json['is_scratched'] == true,
-      scratchedAt: json['scratchedAt'] != null ? DateTime.tryParse(json['scratchedAt'] as String) : (json['scratched_at'] != null ? DateTime.tryParse(json['scratched_at'] as String) : null),
-      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now() : (json['created_at'] != null ? DateTime.tryParse(json['created_at'] as String) ?? DateTime.now() : DateTime.now()),
+      scratchedAt: json['scratchedAt'] != null
+          ? DateTime.tryParse(json['scratchedAt'] as String)?.toLocal()
+          : (json['scratched_at'] != null
+              ? DateTime.tryParse(json['scratched_at'] as String)?.toLocal()
+              : null),
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'] as String)?.toLocal() ?? DateTime.now()
+          : (json['created_at'] != null
+              ? DateTime.tryParse(json['created_at'] as String)?.toLocal() ?? DateTime.now()
+              : DateTime.now()),
     );
   }
 }

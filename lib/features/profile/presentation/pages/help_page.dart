@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/core/services/api_client.dart';
@@ -8,11 +11,64 @@ import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/app/theme/app_spacing.dart';
 import 'package:buddypartner/app/theme/app_radius.dart';
+import 'package:buddypartner/features/legal/data/legal_document_content.dart';
 
-/// HelpPage renders the Help & Support menu categories.
-/// Matches screenshots/help.jpeg exactly.
-class HelpPage extends StatelessWidget {
+/// HelpPage renders the Help & Support menu, FAQs, and legal policies.
+class HelpPage extends StatefulWidget {
   const HelpPage({super.key});
+
+  @override
+  State<HelpPage> createState() => _HelpPageState();
+}
+
+class _HelpPageState extends State<HelpPage> {
+  String _appVersion = 'v1.0.0';
+  int? _expandedFaqIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() {
+          _appVersion = 'v${info.version}+${info.buildNumber}';
+        });
+      }
+    } catch (_) {
+      // Fallback stays v1.0.0
+    }
+  }
+
+  Future<void> _launchEmail(String email, {String subject = 'Support Inquiry - BuddyPartner'}) async {
+    final Uri emailUri = Uri(
+      scheme: 'mailto',
+      path: email,
+      queryParameters: {
+        'subject': subject,
+      },
+    );
+
+    try {
+      if (await canLaunchUrl(emailUri)) {
+        await launchUrl(emailUri, mode: LaunchMode.externalApplication);
+      } else {
+        await Clipboard.setData(ClipboardData(text: email));
+        if (mounted) {
+          AppSnackBar.showSuccess(context, 'Email copied to clipboard: $email');
+        }
+      }
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: email));
+      if (mounted) {
+        AppSnackBar.showSuccess(context, 'Email copied to clipboard: $email');
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +87,7 @@ class HelpPage extends StatelessWidget {
         title: Column(
           children: [
             Text(
-              'Help',
+              'Help & Legal Center',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
@@ -40,7 +96,7 @@ class HelpPage extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              'Support & FAQs',
+              'Support, FAQs & Policies',
               style: typography.bodySmall.copyWith(
                 fontSize: 12,
                 color: colors.textSecondary,
@@ -59,21 +115,10 @@ class HelpPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
               // GET HELP section
-              Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 8),
-                child: Text(
-                  'GET HELP',
-                  style: TextStyle(
-                    color: colors.textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
+              _buildSectionTitle(context, 'GET HELP & SUPPORT'),
               Container(
                 decoration: BoxDecoration(
                   color: colors.surface,
@@ -87,11 +132,9 @@ class HelpPage extends StatelessWidget {
                       icon: Icons.mail_outline,
                       iconBgColor: const Color(0xFFEFEAFF),
                       iconColor: const Color(0xFF6B4EFF),
-                      title: 'Contact Us',
-                      subtitle: 'Get in touch with our support team',
-                      onTap: () {
-                        _showContactUsModal(context);
-                      },
+                      title: 'Contact Support',
+                      subtitle: 'Direct email assistance & response within 24h',
+                      onTap: () => _showContactUsModal(context),
                     ),
                     _buildDivider(context),
                     _buildHelpTile(
@@ -99,30 +142,108 @@ class HelpPage extends StatelessWidget {
                       icon: Icons.bug_report_outlined,
                       iconBgColor: const Color(0xFFFFEAEA),
                       iconColor: const Color(0xFFEF4444),
-                      title: 'Report a Bug',
-                      subtitle: 'Help us improve the app',
-                      onTap: () {
-                        _showReportBugModal(context);
-                      },
+                      title: 'Report an Issue / Bug',
+                      subtitle: 'Help us resolve technical or call glitches',
+                      onTap: () => _showReportBugModal(context),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: AppSpacing.space20),
 
-              // LEGAL section
-              Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 8),
-                child: Text(
-                  'LEGAL & POLICIES',
-                  style: TextStyle(
-                    color: colors.textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
+              // FREQUENTLY ASKED QUESTIONS section
+              _buildSectionTitle(context, 'FREQUENTLY ASKED QUESTIONS'),
+              Container(
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: AppRadius.lg,
+                  border: Border.all(color: colors.border),
+                ),
+                child: Column(
+                  children: List.generate(
+                    LegalDocumentContent.helpFaqs.length,
+                    (index) {
+                      final faq = LegalDocumentContent.helpFaqs[index];
+                      final isExpanded = _expandedFaqIndex == index;
+                      final isLast = index == LegalDocumentContent.helpFaqs.length - 1;
+
+                      return Column(
+                        children: [
+                          InkWell(
+                            onTap: () {
+                              setState(() {
+                                _expandedFaqIndex = isExpanded ? null : index;
+                              });
+                            },
+                            borderRadius: BorderRadius.vertical(
+                              top: index == 0 ? const Radius.circular(16) : Radius.zero,
+                              bottom: isLast && !isExpanded ? const Radius.circular(16) : Radius.zero,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: colors.primary.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Icon(
+                                      Icons.help_outline_rounded,
+                                      size: 18,
+                                      color: colors.primary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          faq.question,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                            color: colors.textPrimary,
+                                          ),
+                                        ),
+                                        if (isExpanded) ...[
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            faq.answer,
+                                            style: typography.bodySmall.copyWith(
+                                              color: colors.textSecondary,
+                                              fontSize: 13,
+                                              height: 1.45,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                                    color: colors.textSecondary.withValues(alpha: 0.6),
+                                    size: 20,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (!isLast) _buildDivider(context),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
+              const SizedBox(height: AppSpacing.space20),
+
+              // LEGAL & POLICIES section
+              _buildSectionTitle(context, 'LEGAL, SAFETY & POLICIES'),
               Container(
                 decoration: BoxDecoration(
                   color: colors.surface,
@@ -138,9 +259,7 @@ class HelpPage extends StatelessWidget {
                       iconColor: const Color(0xFF3B82F6),
                       title: 'Terms of Service',
                       subtitle: 'User agreement, eligibility & rules',
-                      onTap: () {
-                        context.push(RouteNames.termsOfService);
-                      },
+                      onTap: () => context.push(RouteNames.termsOfService),
                     ),
                     _buildDivider(context),
                     _buildHelpTile(
@@ -149,10 +268,8 @@ class HelpPage extends StatelessWidget {
                       iconBgColor: const Color(0xFFE8F8F0),
                       iconColor: const Color(0xFF22C55E),
                       title: 'Privacy Policy',
-                      subtitle: 'Data collection & privacy protection',
-                      onTap: () {
-                        context.push(RouteNames.privacyPolicy);
-                      },
+                      subtitle: 'Data collection & DPDP privacy protection',
+                      onTap: () => context.push(RouteNames.privacyPolicy),
                     ),
                     _buildDivider(context),
                     _buildHelpTile(
@@ -162,9 +279,17 @@ class HelpPage extends StatelessWidget {
                       iconColor: const Color(0xFF6B4EFF),
                       title: 'Community Guidelines',
                       subtitle: 'Conduct, safety & moderation rules',
-                      onTap: () {
-                        context.push(RouteNames.communityGuidelines);
-                      },
+                      onTap: () => context.push(RouteNames.communityGuidelines),
+                    ),
+                    _buildDivider(context),
+                    _buildHelpTile(
+                      context,
+                      icon: Icons.security_rounded,
+                      iconBgColor: const Color(0xFFEFF6FF),
+                      iconColor: const Color(0xFF2563EB),
+                      title: 'Safety & Anti-Fraud Guidelines',
+                      subtitle: 'Online dating tips, anti-extortion & scam prevention',
+                      onTap: () => context.push(RouteNames.safetyGuidelines),
                     ),
                     _buildDivider(context),
                     _buildHelpTile(
@@ -173,61 +298,93 @@ class HelpPage extends StatelessWidget {
                       iconBgColor: const Color(0xFFFFF7EA),
                       iconColor: const Color(0xFFF59E0B),
                       title: 'Refund Policy',
-                      subtitle: 'Subscription passes, billing & store refunds',
-                      onTap: () {
-                        context.push(RouteNames.refundPolicy);
-                      },
+                      subtitle: 'Subscription passes & billing rules',
+                      onTap: () => context.push(RouteNames.refundPolicy),
                     ),
                     _buildDivider(context),
                     _buildHelpTile(
                       context,
-                      icon: Icons.account_balance_wallet_outlined,
+                      icon: Icons.card_membership_outlined,
                       iconBgColor: const Color(0xFFFFEAF2),
                       iconColor: const Color(0xFFEC4899),
                       title: 'Subscription Terms',
-                      subtitle: 'Pass rules & subscription guidelines',
-                      onTap: () {
-                        context.push(RouteNames.withdrawalTerms);
-                      },
+                      subtitle: 'Pass access & validity conditions',
+                      onTap: () => context.push(RouteNames.subscriptionTerms),
+                    ),
+                    _buildDivider(context),
+                    _buildHelpTile(
+                      context,
+                      icon: Icons.gavel_outlined,
+                      iconBgColor: const Color(0xFFF3E8FF),
+                      iconColor: const Color(0xFF9333EA),
+                      title: 'Grievance Redressal Policy',
+                      subtitle: 'Indian IT Rules 2021 statutory mechanism',
+                      onTap: () => context.push(RouteNames.grievanceRedressal),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: AppSpacing.space20),
 
-              // APP INFO section
-              Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 8),
-                child: Text(
-                  'APP INFO',
-                  style: TextStyle(
-                    color: colors.textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
+              // APP & SYSTEM INFO section
+              _buildSectionTitle(context, 'APP & SYSTEM INFO'),
               Container(
                 decoration: BoxDecoration(
                   color: colors.surface,
                   borderRadius: AppRadius.lg,
                   border: Border.all(color: colors.border),
                 ),
-                child: _buildHelpTile(
-                  context,
-                  icon: Icons.info_outline,
-                  iconBgColor: const Color(0xFFF0F0F2),
-                  iconColor: colors.textSecondary,
-                  title: 'App Version',
-                  subtitle: 'v1.0.0',
-                  showChevron: false,
-                  onTap: () {},
+                child: Column(
+                  children: [
+                    _buildHelpTile(
+                      context,
+                      icon: Icons.info_outline,
+                      iconBgColor: const Color(0xFFF0F0F2),
+                      iconColor: colors.textSecondary,
+                      title: 'App Version',
+                      subtitle: _appVersion,
+                      showChevron: false,
+                      onTap: () {},
+                    ),
+                    // _buildDivider(context),
+                    // _buildHelpTile(
+                    //   context,
+                    //   icon: Icons.code_rounded,
+                    //   iconBgColor: const Color(0xFFF0FDF4),
+                    //   iconColor: const Color(0xFF16A34A),
+                    //   title: 'Open Source Licenses',
+                    //   subtitle: 'Software attributions and third-party notices',
+                    //   onTap: () {
+                    //     showLicensePage(
+                    //       context: context,
+                    //       applicationName: 'BuddyPartner',
+                    //       applicationVersion: _appVersion,
+                    //       applicationLegalese: '© 2026 Appquires Global LLP. All rights reserved.',
+                    //     );
+                    //   },
+                    // ),
+                  ],
                 ),
               ),
-              const SizedBox(height: AppSpacing.space24),
+              const SizedBox(height: AppSpacing.space32),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(BuildContext context, String title) {
+    final colors = context.colors;
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          color: colors.textSecondary,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
         ),
       ),
     );
@@ -270,7 +427,7 @@ class HelpPage extends StatelessWidget {
           title,
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 15,
+            fontSize: 14.5,
             color: colors.textPrimary,
           ),
         ),
@@ -308,7 +465,7 @@ class HelpPage extends StatelessWidget {
       builder: (context) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               child: Column(
@@ -334,18 +491,18 @@ class HelpPage extends StatelessWidget {
                           color: Color(0xFFEFEAFF),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.mail_outline, color: Color(0xFF6B4EFF), size: 22),
+                        child: const Icon(Icons.headset_mic_outlined, color: Color(0xFF6B4EFF), size: 22),
                       ),
                       const SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Contact Support',
+                            'BuddyPartner Support',
                             style: typography.titleCard.copyWith(fontWeight: FontWeight.bold, fontSize: 18),
                           ),
                           Text(
-                            'We are here to help 24/7',
+                            'Official assistance & redressal',
                             style: typography.bodySmall.copyWith(color: colors.textSecondary),
                           ),
                         ],
@@ -353,6 +510,8 @@ class HelpPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
+
+                  // Contact details box
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(14),
@@ -364,39 +523,108 @@ class HelpPage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Official Support Email:', style: typography.bodySmall.copyWith(color: colors.textSecondary, fontSize: 11)),
+                        // Support Email
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Support Email:', style: typography.bodySmall.copyWith(color: colors.textSecondary, fontSize: 11)),
+                            InkWell(
+                              onTap: () => _launchEmail(LegalDocumentContent.companyEmail),
+                              child: Text(
+                                'Tap to Email',
+                                style: TextStyle(color: colors.primary, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 2),
-                        Text('support@buddypartner.in', style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold, color: colors.primary, fontSize: 13.5)),
-                        // const SizedBox(height: 10),
-                        // Text('Official Website:', style: typography.bodySmall.copyWith(color: colors.textSecondary, fontSize: 11)),
-                        // const SizedBox(height: 2),
-                        // Text('www.appquires.com', style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold, color: colors.primary, fontSize: 13.5)),
-                        // const SizedBox(height: 10),
-                        // Text('Registered Business Entity:', style: typography.bodySmall.copyWith(color: colors.textSecondary, fontSize: 11)),
-                        // const SizedBox(height: 2),
-                        // Text('Appquires Global LLP', style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 13.5)),
-                        // const SizedBox(height: 10),
-                        // Text('Registered Office Address:', style: typography.bodySmall.copyWith(color: colors.textSecondary, fontSize: 11)),
+                        SelectableText(
+                          LegalDocumentContent.companyEmail,
+                          style: typography.bodyMedium.copyWith(fontWeight: FontWeight.bold, color: colors.primary, fontSize: 13.5),
+                        ),
+                        const SizedBox(height: 12),
+
+
+                        // Registered Entity
+                        // Text('Operating Business Entity:', style: typography.bodySmall.copyWith(color: colors.textSecondary, fontSize: 11)),
                         // const SizedBox(height: 2),
                         // Text(
-                        //   'GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India',
-                        //   style: typography.bodySmall.copyWith(color: colors.textPrimary, height: 1.25, fontSize: 11.5),
+                        //   LegalDocumentContent.companyName,
+                        //   style: typography.bodyMedium.copyWith(fontWeight: FontWeight.w600, fontSize: 13),
+                        // ),
+                        // const SizedBox(height: 12),
+
+                        // Registered Office Address
+                        // Text('Registered Office Address:', style: typography.bodySmall.copyWith(color: colors.textSecondary, fontSize: 11)),
+                        // const SizedBox(height: 2),
+                        // SelectableText(
+                        //   LegalDocumentContent.companyAddress,
+                        //   style: typography.bodySmall.copyWith(color: colors.textPrimary, height: 1.35, fontSize: 11.5),
+                        // ),
+                        // const SizedBox(height: 12),
+
+                        // Response SLA
+                        // Container(
+                        //   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        //   decoration: BoxDecoration(
+                        //     color: colors.chipLavender,
+                        //     borderRadius: BorderRadius.circular(8),
+                        //   ),
+                        //   child: Row(
+                        //     children: [
+                        //       Icon(Icons.access_time_rounded, size: 14, color: colors.primary),
+                        //       const SizedBox(width: 6),
+                        //       Expanded(
+                        //         child: Text(
+                        //           'SLA: Acknowledgment in 24h; resolution in 15 days.',
+                        //           style: TextStyle(
+                        //             fontSize: 11,
+                        //             fontWeight: FontWeight.w600,
+                        //             color: colors.primary,
+                        //           ),
+                        //         ),
+                        //       ),
+                        //     ],
+                        //   ),
                         // ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: colors.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            side: BorderSide(color: colors.border),
+                          ),
+                          onPressed: () {
+                            Clipboard.setData(const ClipboardData(text: LegalDocumentContent.companyEmail));
+                            Navigator.pop(context);
+                            AppSnackBar.showSuccess(context, 'Support email copied to clipboard.');
+                          },
+                          child: Text('Copy Email', style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold)),
+                        ),
                       ),
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Close', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colors.primary,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _launchEmail(LegalDocumentContent.companyEmail);
+                          },
+                          child: const Text('Open Mail App', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -434,7 +662,7 @@ class _ReportBugBottomSheetState extends ConsumerState<_ReportBugBottomSheet> {
   static const List<({String key, String title, IconData icon})> _categories = [
     (key: 'Audio / Call Issue', title: 'Audio or Call Connection Issue', icon: Icons.phone_in_talk_rounded),
     (key: 'Video Glitch', title: 'Video Stream / Camera Glitch', icon: Icons.videocam_rounded),
-    (key: 'Coins & Billing', title: 'Coins, Subscription or Billing', icon: Icons.monetization_on_outlined),
+    (key: 'Subscription & Billing', title: 'Subscription, Pass or Billing', icon: Icons.card_membership_outlined),
     (key: 'App Crash / Freeze', title: 'App Crash, Freeze, or Slow Loading', icon: Icons.speed_rounded),
     (key: 'Other Issue', title: 'Other Issue / Feedback', icon: Icons.edit_note_rounded),
   ];
@@ -466,6 +694,8 @@ class _ReportBugBottomSheetState extends ConsumerState<_ReportBugBottomSheet> {
         data: {
           'category': _selectedCategory,
           'description': text,
+          'appVersion': '1.0.0',
+          'platform': Theme.of(context).platform.name,
         },
       );
 
@@ -473,7 +703,7 @@ class _ReportBugBottomSheetState extends ConsumerState<_ReportBugBottomSheet> {
         if (response.statusCode == 200 && response.data['success'] == true) {
           AppLogger.dialogClose('Submit Report', screen: 'HelpPage');
           Navigator.pop(context);
-          AppSnackBar.showSuccess(context, 'Thank you! Your bug report has been submitted to our team.');
+          AppSnackBar.showSuccess(context, 'Thank you! Your report has been submitted to our engineering team.');
         } else {
           final msg = response.data['error'] ?? 'Failed to submit bug report.';
           AppSnackBar.showError(context, msg.toString());
@@ -481,7 +711,7 @@ class _ReportBugBottomSheetState extends ConsumerState<_ReportBugBottomSheet> {
       }
     } catch (e) {
       if (mounted) {
-        AppSnackBar.showError(context, 'Unable to submit report. Please check your network.');
+        AppSnackBar.showError(context, 'Unable to submit report. Please check your network connection.');
       }
     } finally {
       if (mounted) {
@@ -551,7 +781,7 @@ class _ReportBugBottomSheetState extends ConsumerState<_ReportBugBottomSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Report a Bug',
+                          'Report an Issue',
                           style: typography.titleCard.copyWith(
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
@@ -728,4 +958,3 @@ class _ReportBugBottomSheetState extends ConsumerState<_ReportBugBottomSheet> {
     );
   }
 }
-

@@ -27,10 +27,11 @@ class WalletTransaction {
       type: json['type'] as String? ?? 'credit',
       reason: rawReason,
       reasonLabel: _formatReasonLabel(rawLabel),
-      referenceId: json['referenceId'] as String?,
       createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
-          : DateTime.now(),
+          ? DateTime.tryParse(json['createdAt'] as String)?.toLocal() ?? DateTime.now()
+          : (json['created_at'] != null
+              ? DateTime.tryParse(json['created_at'] as String)?.toLocal() ?? DateTime.now()
+              : DateTime.now()),
     );
   }
 

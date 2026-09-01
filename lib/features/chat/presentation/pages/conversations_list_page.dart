@@ -1090,26 +1090,27 @@ class _ConversationTile extends ConsumerWidget {
   });
 
   String _formatTime(DateTime dt) {
+    final localDt = dt.isUtc ? dt.toLocal() : dt;
     final now = DateTime.now();
-    final isToday = now.year == dt.year && now.month == dt.month && now.day == dt.day;
+    final isToday = now.year == localDt.year && now.month == localDt.month && now.day == localDt.day;
     if (isToday) {
-      final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
-      final period = dt.hour >= 12 ? 'PM' : 'AM';
-      final minute = dt.minute.toString().padLeft(2, '0');
+      final hour = localDt.hour > 12 ? localDt.hour - 12 : (localDt.hour == 0 ? 12 : localDt.hour);
+      final period = localDt.hour >= 12 ? 'PM' : 'AM';
+      final minute = localDt.minute.toString().padLeft(2, '0');
       return '$hour:$minute $period';
     }
     final yesterday = now.subtract(const Duration(days: 1));
-    final isYesterday = yesterday.year == dt.year && yesterday.month == dt.month && yesterday.day == dt.day;
+    final isYesterday = yesterday.year == localDt.year && yesterday.month == localDt.month && yesterday.day == localDt.day;
     if (isYesterday) {
       return 'Yesterday';
     }
-    final diff = now.difference(dt);
+    final diff = now.difference(localDt);
     if (diff.inDays < 7) {
       const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      return weekdays[dt.weekday - 1];
+      return weekdays[localDt.weekday - 1];
     }
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return '${months[dt.month - 1]} ${dt.day}';
+    return '${months[localDt.month - 1]} ${localDt.day}';
   }
 
   @override

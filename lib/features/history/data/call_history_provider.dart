@@ -34,9 +34,6 @@ class CallLog {
   });
 
   factory CallLog.fromJson(Map<String, dynamic> json, String currentUserId) {
-    debugPrint('CallLog JSON row: $json');
-    debugPrint('CallLog currentUserId: $currentUserId');
-
     final callerJson = json['caller'];
     final matchedUserJson = json['matched_user'];
 
@@ -74,7 +71,7 @@ class CallLog {
       status: json['status'] as String? ?? '',
       callType: json['call_type'] as String? ?? 'voice',
       durationSeconds: json['duration_seconds'] as int? ?? 0,
-      startedAt: DateTime.tryParse(json['started_at'] as String? ?? '') ?? DateTime.now(),
+      startedAt: DateTime.tryParse(json['started_at'] as String? ?? '')?.toLocal() ?? DateTime.now(),
       otherUserName: otherName,
       otherUserAvatar: otherAvatar,
       otherUserAvatarSeed: avatarSeed,

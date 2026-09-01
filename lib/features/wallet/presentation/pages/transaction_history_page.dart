@@ -38,15 +38,15 @@ class SubscriptionItem {
           (json['amountPaid'] as num?)?.toInt() ??
           0,
       startedAt: json['started_at'] != null
-          ? DateTime.tryParse(json['started_at'] as String) ?? DateTime.now()
+          ? DateTime.tryParse(json['started_at'] as String)?.toLocal() ?? DateTime.now()
           : DateTime.now(),
       expiresAt: json['expires_at'] != null
-          ? DateTime.tryParse(json['expires_at'] as String) ?? DateTime.now()
+          ? DateTime.tryParse(json['expires_at'] as String)?.toLocal() ?? DateTime.now()
           : DateTime.now(),
       paymentReference: json['payment_reference'] as String? ??
           json['paymentReference'] as String?,
       createdAt: json['created_at'] != null
-          ? DateTime.tryParse(json['created_at'] as String) ?? DateTime.now()
+          ? DateTime.tryParse(json['created_at'] as String)?.toLocal() ?? DateTime.now()
           : DateTime.now(),
     );
   }

@@ -343,6 +343,30 @@ class ProfilePage extends ConsumerWidget {
                         context.push(RouteNames.privacyPolicy);
                       },
                     ),
+                    _buildDivider(context),
+                    _buildSettingsTile(
+                      context,
+                      icon: Icons.security_rounded,
+                      iconBgColor: const Color(0xFFEFF6FF),
+                      iconColor: const Color(0xFF2563EB),
+                      title: 'Safety Guidelines',
+                      subtitle: 'Fraud prevention & caller safety',
+                      onTap: () {
+                        context.push(RouteNames.safetyGuidelines);
+                      },
+                    ),
+                    _buildDivider(context),
+                    _buildSettingsTile(
+                      context,
+                      icon: Icons.groups_outlined,
+                      iconBgColor: const Color(0xFFEFEAFF),
+                      iconColor: const Color(0xFF6B4EFF),
+                      title: 'Community Guidelines',
+                      subtitle: 'Standards for safe interactions',
+                      onTap: () {
+                        context.push(RouteNames.communityGuidelines);
+                      },
+                    ),
                   ],
                 ),
               ),

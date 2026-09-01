@@ -32,8 +32,10 @@ class Conversation {
   factory Conversation.fromJson(Map<String, dynamic> json) {
     DateTime parseDate(dynamic val) {
       if (val == null) return DateTime.now();
-      if (val is DateTime) return val;
-      return DateTime.tryParse(val.toString()) ?? DateTime.now();
+      if (val is DateTime) return val.toLocal();
+      final parsed = DateTime.tryParse(val.toString());
+      if (parsed == null) return DateTime.now();
+      return parsed.toLocal();
     }
 
     int parseUnreadCount(dynamic val) {

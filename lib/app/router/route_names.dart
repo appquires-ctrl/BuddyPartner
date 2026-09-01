@@ -37,7 +37,10 @@ class RouteNames {
   static const String privacyPolicy = '/legal/privacy';
   static const String communityGuidelines = '/legal/community-guidelines';
   static const String refundPolicy = '/legal/refund-policy';
-  static const String withdrawalTerms = '/legal/withdrawal-terms';
+  static const String subscriptionTerms = '/legal/subscription-terms';
+  static const String safetyGuidelines = '/legal/safety-guidelines';
+  static const String grievanceRedressal = '/legal/grievance-redressal';
+  static const String withdrawalTerms = '/legal/withdrawal-terms'; // Legacy alias
 
   RouteNames._();
 }

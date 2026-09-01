@@ -8,6 +8,27 @@ import 'package:buddypartner/core/services/apptrove_service.dart';
 import 'package:buddypartner/core/widgets/feedback/in_app_notification_banner.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
+/// Holds pending chat payload when app is launched cold from a notification
+class PendingChatNotification {
+  final String conversationId;
+  final String userId;
+  final String userName;
+  final String? userAvatar;
+  final String? avatarSeed;
+  final String? avatarStyle;
+  final String? gender;
+
+  const PendingChatNotification({
+    required this.conversationId,
+    required this.userId,
+    required this.userName,
+    this.userAvatar,
+    this.avatarSeed,
+    this.avatarStyle,
+    this.gender,
+  });
+}
+
 /// Top-level background message handler required by Firebase Messaging
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -27,6 +48,17 @@ class NotificationService {
 
   bool _initialized = false;
   String? _fcmToken;
+  PendingChatNotification? _pendingChatNotification;
+
+  /// Pending chat notification if launched from terminated state
+  PendingChatNotification? get pendingChatNotification => _pendingChatNotification;
+
+  /// Consumes and clears the pending chat notification
+  PendingChatNotification? consumePendingChat() {
+    final pending = _pendingChatNotification;
+    _pendingChatNotification = null;
+    return pending;
+  }
 
   /// Callback to navigate to a conversation from notification click
   void Function({
@@ -34,6 +66,9 @@ class NotificationService {
     required String userId,
     required String userName,
     String? userAvatar,
+    String? avatarSeed,
+    String? avatarStyle,
+    String? gender,
   })? onOpenChat;
 
   /// Callback when a female taps an Instant VIP call push notification
@@ -117,7 +152,7 @@ class NotificationService {
         if (kDebugMode) {
           debugPrint('🔔 [FCM Terminated Open] App launched via notification: ${initialMessage.data}');
         }
-        _handleNotificationClick(initialMessage);
+        _handleInitialMessage(initialMessage);
       }
     } catch (e) {
       if (kDebugMode) {
@@ -144,15 +179,9 @@ class NotificationService {
 
       final apiClient = ref.read(apiClientProvider);
       await apiClient.dio.post(
-        '/api/notifications/fcm-token',
+        '/api/auth/fcm-token',
         data: {'fcmToken': tokenToSync},
-      ).catchError((_) async {
-        // Fallback endpoint
-        return await apiClient.dio.post(
-          '/api/auth/fcm-token',
-          data: {'fcmToken': tokenToSync},
-        );
-      });
+      );
 
       if (kDebugMode) {
         debugPrint('🔔 [FCM] Token successfully registered with server for user ${authUser.id}');
@@ -206,6 +235,45 @@ class NotificationService {
     }
   }
 
+  void _handleInitialMessage(RemoteMessage message) {
+    final data = message.data;
+    final type = data['type']?.toString();
+
+    if (type == 'instant_call') {
+      final sessionId = data['sessionId']?.toString() ?? '';
+      final bidAmount = int.tryParse(data['bidAmount']?.toString() ?? '10') ?? 10;
+      debugPrint('🔔 [FCM Initial Click] Female clicked instant call alert: session=$sessionId, bid=$bidAmount');
+      onInstantCallNotification?.call(sessionId: sessionId, bidAmount: bidAmount);
+      return;
+    }
+
+    if (type == 'incoming_call') {
+      debugPrint('🔔 [FCM Initial Click] Opened app for live standard call alert');
+      return;
+    }
+
+    final senderId = data['senderId']?.toString() ?? data['userId']?.toString() ?? '';
+    final senderName = data['senderName']?.toString() ?? data['userName']?.toString() ?? 'User';
+    final conversationId = data['conversationId']?.toString() ?? (senderId.isNotEmpty ? 'user:$senderId' : '');
+    final avatar = data['avatar']?.toString() ?? data['senderAvatar']?.toString();
+    final avatarSeed = data['avatarSeed']?.toString();
+    final avatarStyle = data['avatarStyle']?.toString();
+    final gender = data['gender']?.toString();
+
+    if (senderId.isNotEmpty || conversationId.isNotEmpty) {
+      _pendingChatNotification = PendingChatNotification(
+        conversationId: conversationId,
+        userId: senderId,
+        userName: senderName,
+        userAvatar: avatar,
+        avatarSeed: avatarSeed,
+        avatarStyle: avatarStyle,
+        gender: gender,
+      );
+      debugPrint('🔔 [FCM Terminated] Cached pending chat notification for $senderName ($conversationId)');
+    }
+  }
+
   void _handleNotificationClick(RemoteMessage message) {
     final data = message.data;
     final type = data['type']?.toString();
@@ -227,6 +295,9 @@ class NotificationService {
     final senderName = data['senderName']?.toString() ?? data['userName']?.toString() ?? 'User';
     final conversationId = data['conversationId']?.toString() ?? (senderId.isNotEmpty ? 'user:$senderId' : '');
     final avatar = data['avatar']?.toString() ?? data['senderAvatar']?.toString();
+    final avatarSeed = data['avatarSeed']?.toString();
+    final avatarStyle = data['avatarStyle']?.toString();
+    final gender = data['gender']?.toString();
 
     if (senderId.isNotEmpty || conversationId.isNotEmpty) {
       onOpenChat?.call(
@@ -234,6 +305,9 @@ class NotificationService {
         userId: senderId,
         userName: senderName,
         userAvatar: avatar,
+        avatarSeed: avatarSeed,
+        avatarStyle: avatarStyle,
+        gender: gender,
       );
     }
   }

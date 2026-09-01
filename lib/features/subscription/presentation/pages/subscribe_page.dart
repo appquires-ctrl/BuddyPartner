@@ -6,6 +6,8 @@ import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/features/subscription/domain/subscription_plan.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
+import 'package:buddypartner/core/services/google_play_purchase_service.dart';
+import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 
 class SubscribePage extends ConsumerStatefulWidget {
@@ -18,6 +20,13 @@ class SubscribePage extends ConsumerStatefulWidget {
 class _SubscribePageState extends ConsumerState<SubscribePage> {
   String _selectedPlanId = '1_day';
 
+  Future<void> _handleSubscribe(SubscriptionPlan plan) async {
+    final passId = 'pass_${plan.id}';
+    AppLogger.button('Google Play Subscribe: ${plan.title} ($passId - ₹${plan.priceRupees})', screen: 'SubscribePage');
+
+    await ref.read(googlePlayPurchaseProvider.notifier).buyProduct(passId, isConsumable: false);
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -26,6 +35,25 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<GooglePlayState>(googlePlayPurchaseProvider, (prev, next) {
+      if (next.status == GooglePlayPurchaseStatus.success && next.successMessage != null) {
+        AppSnackBar.showSuccess(context, next.successMessage!);
+        ref.read(googlePlayPurchaseProvider.notifier).resetStatus();
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go(RouteNames.home);
+        }
+      } else if (next.status == GooglePlayPurchaseStatus.error && next.errorMessage != null) {
+        AppSnackBar.showError(context, next.errorMessage!);
+        ref.read(googlePlayPurchaseProvider.notifier).resetStatus();
+      }
+    });
+
+    final gpState = ref.watch(googlePlayPurchaseProvider);
+    final isPurchasing = gpState.status == GooglePlayPurchaseStatus.purchasing ||
+        gpState.status == GooglePlayPurchaseStatus.verifying;
+
     final colors = context.colors;
     final typography = context.typography;
     final authUser = ref.watch(authStateProvider).value;
@@ -44,6 +72,11 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
           .firstWhere((p) => p.id != '1_day', orElse: () => allPlans.first)
           .id;
     }
+
+    final selectedPlan = allPlans.firstWhere(
+      (p) => p.id == _selectedPlanId,
+      orElse: () => allPlans.first,
+    );
 
     return Scaffold(
       backgroundColor: colors.surfaceMuted,
@@ -76,6 +109,55 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
               ),
             ),
           ],
+        ),
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: SizedBox(
+            height: 50,
+            child: ElevatedButton(
+              onPressed: isPurchasing ? null : () => _handleSubscribe(selectedPlan),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colors.primary,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: colors.primary.withValues(alpha: 0.5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 4,
+              ),
+              child: isPurchasing
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.lock_open_rounded, size: 20, color: Colors.white),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Subscribe with Google Play (₹${selectedPlan.priceRupees})',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
         ),
       ),
       body: SafeArea(
@@ -311,7 +393,6 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
         setState(() {
           _selectedPlanId = plan.id;
         });
-        context.push(RouteNames.devSubscription, extra: plan);
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),

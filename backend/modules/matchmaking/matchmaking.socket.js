@@ -750,7 +750,7 @@ async function handleCallEnd(callId, callsService, io, reason, matchmakingServic
   const callInfo = activeCalls.get(callId);
   if (!callInfo) return; // Already cleaned up
 
-  // Remove from tracking maps
+  // 1. Instantly remove from tracking maps
   activeCalls.delete(callId);
   socketToCall.delete(callInfo.userA.socketId);
   socketToCall.delete(callInfo.userB.socketId);
@@ -759,78 +759,70 @@ async function handleCallEnd(callId, callsService, io, reason, matchmakingServic
   if (currentSocketA) socketToCall.delete(currentSocketA);
   if (currentSocketB) socketToCall.delete(currentSocketB);
 
-  // ALWAYS PURGE BOTH USERS FROM ALL MATCHMAKING QUEUES AND LOCKS ON CALL END
-  if (matchmakingService) {
-    await Promise.all([
-      matchmakingService.leaveQueue(callInfo.userA.userId),
-      matchmakingService.leaveQueue(callInfo.userB.userId),
-    ]);
-  }
-
-  await redis.del(`call_lock:${callInfo.userA.userId}`);
-  await redis.del(`call_lock:${callInfo.userB.userId}`);
-
-
-  // End call in DB
-  await callsService.endCall(callId);
-
-  // Determine boy/girl based on gender
+  // 2. Immediately notify both users' sockets at 0ms latency so the screens cut instantly!
   const isAFemale = isFemale(callInfo.userA.gender);
   const boyInfo = isAFemale ? callInfo.userB : callInfo.userA;
   const girlInfo = isAFemale ? callInfo.userA : callInfo.userB;
-
-  // Query actual total cost for the boy from wallet_transactions
-  let totalCostBoy = 0;
-  try {
-    const resBoy = await db.query(
-      `SELECT COALESCE(SUM(amount), 0) AS total FROM public.wallet_transactions
-       WHERE user_id = $1 AND reference_id = $2 AND type = 'debit'`,
-      [boyInfo.userId, callId]
-    );
-    totalCostBoy = parseInt(resBoy.rows[0]?.total, 10) || 0;
-  } catch (err) {
-    console.error(`Error fetching boy's call costs for ${callId}:`, err.message);
-  }
-
-  // Query total roses earned by the girl from rose_transactions
-  let totalRosesGirl = 0;
-  try {
-    const resGirl = await db.query(
-      `SELECT COALESCE(SUM(amount), 0) AS total FROM public.rose_transactions
-       WHERE user_id = $1 AND reference_id = $2 AND type = 'credit'`,
-      [girlInfo.userId, callId]
-    );
-    totalRosesGirl = parseInt(resGirl.rows[0]?.total, 10) || 0;
-  } catch (err) {
-    console.error(`Error fetching girl's rose earnings for ${callId}:`, err.message);
-  }
-
-  // Notify both users using their latest connected socket ID
   const socketBoyId = userSockets.get(boyInfo.userId) || boyInfo.socketId;
   const socketGirlId = userSockets.get(girlInfo.userId) || girlInfo.socketId;
 
-  // Boy gets totalCost (coins spent)
-  io.to(socketBoyId).emit('call_ended', { callId, reason, totalCost: totalCostBoy });
-  // Girl gets totalCoinsEarned
-  if (socketGirlId !== socketBoyId) {
-    io.to(socketGirlId).emit('call_ended', { callId, reason, totalCoinsEarned: totalRosesGirl });
-  }
+  // Emit instant termination to both users
+  if (socketBoyId) io.to(socketBoyId).emit('call_ended', { callId, reason });
+  if (socketGirlId && socketGirlId !== socketBoyId) io.to(socketGirlId).emit('call_ended', { callId, reason });
+  if (boyInfo.userId) io.to(boyInfo.userId).emit('call_ended', { callId, reason });
+  if (girlInfo.userId && girlInfo.userId !== boyInfo.userId) io.to(girlInfo.userId).emit('call_ended', { callId, reason });
 
-  // Emit final balance updates
-  try {
-    const [boyBal, girlBal] = await Promise.all([
-      WalletService.getBalance(boyInfo.userId),
-      WalletService.getBalance(girlInfo.userId),
-    ]);
-    if (socketBoyId) io.to(socketBoyId).emit('balance_update', { balance: boyBal });
-    if (socketGirlId && socketGirlId !== socketBoyId) {
-      io.to(socketGirlId).emit('balance_update', { balance: girlBal });
+  // 3. Perform database operations, queue cleanups, and balance updates asynchronously in background
+  (async () => {
+    try {
+      if (matchmakingService) {
+        await Promise.all([
+          matchmakingService.leaveQueue(callInfo.userA.userId),
+          matchmakingService.leaveQueue(callInfo.userB.userId),
+        ]);
+      }
+      await redis.del(`call_lock:${callInfo.userA.userId}`);
+      await redis.del(`call_lock:${callInfo.userB.userId}`);
+
+      await callsService.endCall(callId);
+
+      // Query actual total cost for the boy from wallet_transactions
+      let totalCostBoy = 0;
+      try {
+        const resBoy = await db.query(
+          `SELECT COALESCE(SUM(amount), 0) AS total FROM public.wallet_transactions
+           WHERE user_id = $1 AND reference_id = $2 AND type = 'debit'`,
+          [boyInfo.userId, callId]
+        );
+        totalCostBoy = parseInt(resBoy.rows[0]?.total, 10) || 0;
+      } catch (_) {}
+
+      // Query total roses earned by the girl from rose_transactions
+      let totalRosesGirl = 0;
+      try {
+        const resGirl = await db.query(
+          `SELECT COALESCE(SUM(amount), 0) AS total FROM public.rose_transactions
+           WHERE user_id = $1 AND reference_id = $2 AND type = 'credit'`,
+          [girlInfo.userId, callId]
+        );
+        totalRosesGirl = parseInt(resGirl.rows[0]?.total, 10) || 0;
+      } catch (_) {}
+
+      // Emit final balance updates
+      const [boyBal, girlBal] = await Promise.all([
+        WalletService.getBalance(boyInfo.userId),
+        WalletService.getBalance(girlInfo.userId),
+      ]);
+      if (socketBoyId) io.to(socketBoyId).emit('balance_update', { balance: boyBal });
+      if (socketGirlId && socketGirlId !== socketBoyId) {
+        io.to(socketGirlId).emit('balance_update', { balance: girlBal });
+      }
+
+      console.log(`📴 Call ${callId} ended (reason: ${reason}) — boy ${boyInfo.userId} spent ${totalCostBoy} coins, girl ${girlInfo.userId} earned ${totalRosesGirl} coins`);
+    } catch (err) {
+      console.error(`Error in async post-call processing for ${callId}:`, err.message);
     }
-  } catch (err) {
-    console.error(`Error emitting final balance updates for call ${callId}:`, err.message);
-  }
-
-  console.log(`📴 Call ${callId} ended (reason: ${reason}) — boy ${boyInfo.userId} spent ${totalCostBoy} coins, girl ${girlInfo.userId} earned ${totalRosesGirl} coins`);
+  })();
 }
 
 /**

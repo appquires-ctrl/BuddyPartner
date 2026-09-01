@@ -69,7 +69,13 @@ class LocationService {
   ///
   /// Rate-limited to at most 1 time per day unless [force] is set to true or user has no location set yet.
   static Future<String?> fetchAndSaveUserLocation(WidgetRef ref, {bool force = false}) async {
-    final profile = ref.read(userProfileProvider).value;
+    ApiClient? apiClient;
+    UserProfile? profile;
+    try {
+      apiClient = ref.read(apiClientProvider);
+      profile = ref.read(userProfileProvider).value;
+    } catch (_) {}
+
     final hasExistingLocation = profile?.city != null && profile!.city!.trim().isNotEmpty;
 
     if (!force && hasExistingLocation) {
@@ -141,18 +147,21 @@ class LocationService {
       // 4. Save to User Profile on Backend silently if location info was resolved
       if (city != null || state != null || country != null) {
         try {
-          final apiClient = ref.read(apiClientProvider);
-          final payload = {
-            'country': country,
-            'state': state,
-            'city': city,
-            'latitude': position.latitude,
-            'longitude': position.longitude,
-          };
-          await apiClient.dio.post('/api/auth/location', data: payload);
-          await _markLocationSynced();
-          ref.invalidate(userProfileProvider);
-          ref.invalidate(authStateProvider);
+          if (apiClient != null) {
+            final payload = {
+              'country': country,
+              'state': state,
+              'city': city,
+              'latitude': position.latitude,
+              'longitude': position.longitude,
+            };
+            await apiClient.dio.post('/api/auth/location', data: payload);
+            await _markLocationSynced();
+            try {
+              ref.invalidate(userProfileProvider);
+              ref.invalidate(authStateProvider);
+            } catch (_) {}
+          }
         } catch (_) {}
       }
 

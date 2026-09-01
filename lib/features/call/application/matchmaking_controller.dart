@@ -29,6 +29,7 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
 
   Timer? _callingTimeoutTimer;
   Timer? _videoUpgradeTimer;
+  Timer? _peerOfflineTimer;
 
   /// Tracks a pending direct-call target so we can re-emit the event
   /// if the socket wasn't connected when `callUser()` was called.
@@ -270,7 +271,7 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
         _agoraAppId = agoraAppId;
       }
       state = state.reset().copyWith(
-        phase: MatchmakingPhase.matched,
+        phase: MatchmakingPhase.inCall,
         callId: callId,
         agoraChannel: agoraChannelName,
         agoraToken: agoraToken,
@@ -281,10 +282,15 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
           fullName: otherUserName,
         ),
       );
+      _startCountdown();
 
       await _initAgora(agoraChannelName, agoraToken, agoraUid);
-      state = state.copyWith(phase: MatchmakingPhase.inCall);
-      _startCountdown();
+
+      // Guard: if call was cancelled or ended while Agora was connecting, leave and exit
+      if (state.phase == MatchmakingPhase.idle || state.callId != callId) {
+        await _leaveAgoraChannel();
+        return;
+      }
     } catch (e) {
       debugPrint('Failed to initialize Agora for Instant Call: $e');
       final socket = ref.read(socketProvider);
@@ -534,21 +540,23 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
       // So no fallback database query is required.
 
       state = state.reset().copyWith(
-        phase: MatchmakingPhase.matched,
+        phase: MatchmakingPhase.inCall,
         callId: callId,
         agoraChannel: channelName,
         agoraToken: agoraToken,
         agoraUid: agoraUid,
         matchedUser: matchedUser,
       );
+      _startCountdown();
 
       // Initialize Agora and join the channel
       await _initAgora(channelName, agoraToken, agoraUid);
 
-      state = state.copyWith(phase: MatchmakingPhase.inCall);
-
-      // Start display-only countdown (5:00 → 0:00)
-      _startCountdown();
+      // Guard: if call was cancelled or ended while Agora was connecting, leave and exit
+      if (state.phase == MatchmakingPhase.idle || state.callId != callId) {
+        await _leaveAgoraChannel();
+        return;
+      }
     } catch (e) {
       state = state.copyWith(
         phase: MatchmakingPhase.idle,
@@ -560,6 +568,9 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
   }
 
   Future<void> _onCallEnded(dynamic data) async {
+    _peerOfflineTimer?.cancel();
+    _peerOfflineTimer = null;
+
     String? endReason;
     int? serverTotalCost;
     if (data is Map) {
@@ -818,13 +829,28 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
         },
         onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
           debugPrint('[Agora] Remote user joined with UID $remoteUid');
+          _peerOfflineTimer?.cancel();
+          _peerOfflineTimer = null;
           state = state.copyWith(remoteUid: remoteUid);
         },
         onUserOffline: (RtcConnection connection, int remoteUid,
             UserOfflineReasonType reason) {
           debugPrint('[Agora] Remote user offline with UID $remoteUid, reason: $reason');
           if (state.phase == MatchmakingPhase.inCall || state.phase == MatchmakingPhase.matched) {
-            _onCallEnded({'reason': 'peer_disconnected'});
+            if (reason == UserOfflineReasonType.userOfflineQuit) {
+              // User explicitly pressed the hangup button or left -> Cut call instantly!
+              _peerOfflineTimer?.cancel();
+              _peerOfflineTimer = null;
+              _onCallEnded({'reason': 'peer_disconnected'});
+            } else {
+              // userOfflineDropped / userOfflineBecomeAudience (e.g. temporary network glitch or video upgrade track renegotiation)
+              _peerOfflineTimer?.cancel();
+              _peerOfflineTimer = Timer(const Duration(seconds: 6), () {
+                if (state.phase == MatchmakingPhase.inCall || state.phase == MatchmakingPhase.matched) {
+                  _onCallEnded({'reason': 'peer_disconnected'});
+                }
+              });
+            }
           }
         },
         onError: (ErrorCodeType code, String msg) {
@@ -865,16 +891,26 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
     final engine = _agoraEngine;
     if (engine == null || state.isVideoEnabled) return;
 
-    await engine.enableVideo();
-    await engine.startPreview();
+    try {
+      await engine.enableVideo();
+      await engine.startPreview();
 
-    // Update channel media options to publish video
-    await engine.updateChannelMediaOptions(const ChannelMediaOptions(
-      publishCameraTrack: true,
-      autoSubscribeVideo: true,
-    ));
+      // On video calls, automatically switch to speakerphone for hands-free audio
+      try {
+        await engine.setEnableSpeakerphone(true);
+        state = state.copyWith(isSpeakerOn: true);
+      } catch (_) {}
 
-    state = state.copyWith(isVideoEnabled: true);
+      // Update channel media options to publish video
+      await engine.updateChannelMediaOptions(const ChannelMediaOptions(
+        publishCameraTrack: true,
+        autoSubscribeVideo: true,
+      ));
+
+      state = state.copyWith(isVideoEnabled: true);
+    } catch (e) {
+      debugPrint('Error enabling video in Agora: $e');
+    }
   }
 
   Future<void> _leaveAgoraChannel() async {
@@ -913,6 +949,8 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
     _callingTimeoutTimer = null;
     _videoUpgradeTimer?.cancel();
     _videoUpgradeTimer = null;
+    _peerOfflineTimer?.cancel();
+    _peerOfflineTimer = null;
     _stopCountdown();
     _leaveAgoraChannel();
     _listenersRegistered = false;

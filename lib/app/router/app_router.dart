@@ -80,7 +80,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
-      final currentUser = ref.read(authStateProvider).valueOrNull;
+      final authAsync = ref.read(authStateProvider);
+      final currentUser = authAsync.valueOrNull;
+      final isAuthLoading = authAsync.isLoading;
       final isLoggedIn = currentUser != null;
       final isProfileComplete = currentUser?.isProfileComplete ?? false;
 
@@ -96,6 +98,11 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (isLegalRoute || isBannedRoute || isSplashRoute || isUpdateRequiredRoute || isOnboardingRoute) {
         // Exempt routes can be viewed without auto-redirect
+        return null;
+      }
+
+      if (isAuthLoading) {
+        // While auth state is initializing asynchronously from disk/network, don't prematurely kick to login
         return null;
       }
 
@@ -174,9 +181,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => LegalDocumentPage(document: LegalDocumentContent.refundPolicy),
       ),
       GoRoute(
+        path: RouteNames.subscriptionTerms,
+        name: 'SubscriptionTerms',
+        builder: (context, state) => LegalDocumentPage(document: LegalDocumentContent.subscriptionTerms),
+      ),
+      GoRoute(
+        path: RouteNames.safetyGuidelines,
+        name: 'SafetyGuidelines',
+        builder: (context, state) => LegalDocumentPage(document: LegalDocumentContent.safetyGuidelines),
+      ),
+      GoRoute(
+        path: RouteNames.grievanceRedressal,
+        name: 'GrievanceRedressal',
+        builder: (context, state) => LegalDocumentPage(document: LegalDocumentContent.grievancePolicy),
+      ),
+      GoRoute(
         path: RouteNames.withdrawalTerms,
         name: 'WithdrawalTerms',
-        builder: (context, state) => LegalDocumentPage(document: LegalDocumentContent.withdrawalTerms),
+        builder: (context, state) => LegalDocumentPage(document: LegalDocumentContent.subscriptionTerms),
       ),
 
       

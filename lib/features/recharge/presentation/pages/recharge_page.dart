@@ -10,9 +10,10 @@ import 'package:buddypartner/core/widgets/coins/app_coin_balance_card.dart';
 import 'package:buddypartner/features/recharge/presentation/providers/recharge_providers.dart';
 import 'package:buddypartner/features/recharge/presentation/widgets/recharge_plan_card.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
+import 'package:buddypartner/core/services/google_play_purchase_service.dart';
 
 /// Professional, state-of-the-art Recharge Store screen
-/// Based on 1 Rupee = 1 Coin base pricing model.
+/// Based on Google Play In-App Billing & 1 Rupee = 1 Coin base pricing model.
 class RechargePage extends ConsumerStatefulWidget {
   const RechargePage({super.key});
 
@@ -56,9 +57,10 @@ class _RechargePageState extends ConsumerState<RechargePage> {
     return customVal;
   }
 
-  void _handleRecharge() {
+  Future<void> _handleRecharge() async {
     final coinsToCredit = _calculatedCoins;
     final priceToPay = _calculatedPrice;
+    final planId = _selectedPlanId ?? 'plan_100';
 
     if (coinsToCredit < 10 || priceToPay < 10) {
       AppSnackBar.showError(context, 'Minimum recharge amount is ₹10 (10 Coins).');
@@ -67,21 +69,30 @@ class _RechargePageState extends ConsumerState<RechargePage> {
 
     HapticFeedback.mediumImpact();
     AppLogger.button(
-      'Navigate to Dev Checkout: $coinsToCredit Coins (₹$priceToPay)',
+      'Google Play In-App Purchase: $planId ($coinsToCredit Coins - ₹$priceToPay)',
       screen: 'RechargePage',
     );
 
-    context.push(
-      RouteNames.devRecharge,
-      extra: {
-        'coins': coinsToCredit,
-        'price': priceToPay,
-      },
-    );
+    // Initiate native Google Play In-App Purchase flow
+    await ref.read(googlePlayPurchaseProvider.notifier).buyProduct(planId, isConsumable: true);
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<GooglePlayState>(googlePlayPurchaseProvider, (prev, next) {
+      if (next.status == GooglePlayPurchaseStatus.success && next.successMessage != null) {
+        AppSnackBar.showSuccess(context, next.successMessage!);
+        ref.read(googlePlayPurchaseProvider.notifier).resetStatus();
+      } else if (next.status == GooglePlayPurchaseStatus.error && next.errorMessage != null) {
+        AppSnackBar.showError(context, next.errorMessage!);
+        ref.read(googlePlayPurchaseProvider.notifier).resetStatus();
+      }
+    });
+
+    final gpState = ref.watch(googlePlayPurchaseProvider);
+    final isPurchasing = gpState.status == GooglePlayPurchaseStatus.purchasing ||
+        gpState.status == GooglePlayPurchaseStatus.verifying;
+
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final balanceAsync = ref.watch(walletBalanceProvider);
@@ -386,29 +397,39 @@ class _RechargePageState extends ConsumerState<RechargePage> {
                   SizedBox(
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: _handleRecharge,
+                      onPressed: isPurchasing ? null : _handleRecharge,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF18181B),
                         foregroundColor: Colors.white,
+                        disabledBackgroundColor: const Color(0xFF27272A),
                         padding: const EdgeInsets.symmetric(horizontal: 24),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         elevation: 4,
                         shadowColor: Colors.black.withValues(alpha: 0.35),
                       ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.bolt_rounded, color: Color(0xFFFFD54F), size: 20),
-                          SizedBox(width: 6),
-                          Text(
-                            'Recharge Now',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 15,
-                              color: Colors.white,
+                      child: isPurchasing
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Row(
+                              children: [
+                                Icon(Icons.bolt_rounded, color: Color(0xFFFFD54F), size: 20),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Recharge Now',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 15,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
                     ),
                   ),
                 ],

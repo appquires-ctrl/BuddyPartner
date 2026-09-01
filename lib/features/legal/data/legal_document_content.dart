@@ -28,17 +28,31 @@ class LegalDocument {
   });
 }
 
-/// LegalDocumentContent contains complete draft legal texts for BuddyPartner.
+/// HelpFaqItem represents a question and answer item for the Help Center.
+class HelpFaqItem {
+  final String question;
+  final String answer;
+  final String category;
+
+  const HelpFaqItem({
+    required this.question,
+    required this.answer,
+    required this.category,
+  });
+}
+
+/// LegalDocumentContent contains complete, compliant legal texts and FAQ items for BuddyPartner.
 class LegalDocumentContent {
   LegalDocumentContent._();
 
-  static const String defaultLastUpdated = 'July 25, 2026';
+  static const String defaultLastUpdated = 'August 31, 2026';
   static const String companyName = 'Appquires Global LLP';
   static const String companyEmail = 'support@buddypartner.in';
   static const String companyWebsite = 'www.appquires.com';
   static const String companyAddress =
       'GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India';
   static const String jurisdictionCity = 'Ahmedabad, Gujarat, India';
+  static const String grievanceOfficerName = 'Nodal Grievance Redressal Officer';
 
   // 1. Terms of Service
   static const LegalDocument termsOfService = LegalDocument(
@@ -47,77 +61,88 @@ class LegalDocumentContent {
     subtitle: 'Rules, user agreement & platform conditions',
     lastUpdated: defaultLastUpdated,
     summaryNotice:
-        'Official Terms of Service agreement governing access to BuddyPartner subscription plans and platform features.',
+        'Official Terms of Service agreement governing access to BuddyPartner subscription passes, live calling, and platform features.',
     sections: [
       LegalDocumentSection(
         title: '1. Important Notice & Legal Disclaimer',
         content:
-            'Welcome to BuddyPartner (the "App"), operated by Appquires Global LLP ("Company", "we", "us", or "our"), having its registered address at GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India. These Terms of Service ("Terms") govern your access to and use of BuddyPartner, including our live voice/video calling features and subscription plans.\n\nBy creating an account or accessing BuddyPartner, you enter into a legally binding contract with Appquires Global LLP. If you do not agree to these Terms, you must immediately cease accessing or using the App.',
+            'Welcome to BuddyPartner (the "App"), operated by Appquires Global LLP ("Company", "we", "us", or "our"), having its registered office at GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India.\n\nThese Terms of Service ("Terms") govern your access to and use of the BuddyPartner mobile application, websites, software, live voice/video calling network, and subscription passes.\n\nBy creating an account, accessing, or using BuddyPartner, you agree to be bound by these Terms and our Privacy Policy. If you do not agree to these Terms, you must immediately uninstall and discontinue using the App.',
       ),
       LegalDocumentSection(
-        title: '2. Eligibility & Age Requirement (18+ Only)',
+        title: '2. Eligibility & Strict Age Requirement (18+ Only)',
         content:
-            'BuddyPartner is strictly intended for individuals who are at least eighteen (18) years of age. By registering an account, you self-attest and warrant that you are 18 years of age or older.\n\nWe maintain zero tolerance for underage access. If we discover or have reason to suspect that an account belongs to anyone under 18, we reserve the right to immediately terminate the account without prior notice or refund of any subscription pass.',
+            'BuddyPartner is strictly designed for adults who are at least eighteen (18) years of age. By creating an account or accessing the App, you warrant and represent that:\n\n'
+            '• You are at least 18 years old.\n'
+            '• You have the legal capacity and authority to enter into these Terms under the laws of your jurisdiction.\n'
+            '• You have never been convicted of a felony, sexual offense, or any crime involving violence.\n\n'
+            'We enforce zero tolerance for underage usage. If we discover or have reason to suspect that any user is under 18, their account will be immediately terminated with permanent forfeiture of any active subscription passes.',
       ),
       LegalDocumentSection(
-        title: '3. Account Responsibilities & Security',
+        title: '3. Account Security & Verification',
         content:
-            '• Security: You are solely responsible for maintaining the confidentiality of your mobile number and one-time password (OTP) credentials.\n• Account Activity: You accept responsibility for all activities, calls, and subscription transactions that occur under your account.\n• Identity Attestation: You agree to provide accurate, current, and complete profile information (Name, Gender, Language, Date of Birth). Creating fake accounts, misleading profiles, or impersonating another person is strictly forbidden.',
+            '• Mobile & OTP Authentication: You must register with a valid mobile number verified via WhatsApp OTP. You are responsible for safeguarding your device and login credentials.\n'
+            '• Account Responsibility: You are solely responsible for all activities, messages, and calls initiated under your account.\n'
+            '• Profile Accuracy: You agree to provide genuine and accurate profile information (Name, Date of Birth, Gender, Language, Avatar). Misrepresenting your age, gender, or identity is strictly prohibited.',
       ),
       LegalDocumentSection(
-        title: '4. Prohibited Conduct & Safety Obligations',
+        title: '4. Prohibited Conduct & Community Safety',
         content:
-            'When participating in live audio/video matches, messaging, or interacting on BuddyPartner, you explicitly agree NOT to:\n\n'
-            'a) Engage in harassment, bullying, intimidation, hate speech, stalking, or abusive behavior toward any user or host.\n'
-            'b) Broadcast or transmit nudity, sexually explicit content, vulgar language, violence, or illegal acts during live calls.\n'
-            'c) Share, solicit, or exchange off-platform contact details (such as whatsapp numbers, personal social media handles, messaging IDs, or financial account details) to circumvent the App or route around platform subscription rules.\n'
-            'd) Impersonate any entity, celebrity, company representative, or other user.\n'
-            'e) Engage in fraud, scamming, commercial solicitation, spamming, or unauthorized advertising.\n'
-            'f) Attempt to reverse-engineer, exploit, hack, or disrupt BuddyPartner servers, real-time call connections, or payment processing APIs.',
+            'You agree to use BuddyPartner in a safe, courteous, and lawful manner. You strictly agree NOT to:\n\n'
+            'a) Broadcast, transmit, or solicit nudity, sexual acts, pornographic material, or vulgar gestures during live audio/video calls.\n'
+            'b) Engage in harassment, stalking, bullying, intimidation, threats, hate speech, religious or racial discrimination, or blackmail.\n'
+            'c) Share or solicit off-platform contact details (such as personal phone numbers, WhatsApp, Telegram, Instagram, UPI handles, or bank accounts) to circumvent platform safety rules or subscription policies.\n'
+            'd) Solicit money, advance fees, investments, gifts, or financial transfers from any user.\n'
+            'e) Impersonate any person, brand, public figure, or company representative.\n'
+            'f) Upload malicious code, use bots, automated match scrapers, or attempt to compromise server infrastructure or Agora real-time audio/video streams.\n'
+            'g) Engage in any activity that exploits or endangers minors (Child Sexual Abuse Material - CSAM). Any such activity results in immediate permanent ban and direct reporting to law enforcement authorities.',
       ),
       LegalDocumentSection(
-        title: '5. Subscription Economy & Pass Access',
+        title: '5. Universal Subscription Model & Pass Economy',
         content:
-            '• Subscription Passes: Access to matchmaking, direct calling, and instant messaging for all users (both male and female) is provided exclusively via subscription passes (e.g. 1 Day Pass, 1 Week Pass, 1 Month Pass, 1 Year VIP). Subscriptions grant full unlimited access during the active pass period.\n'
-            '• Non-Transferable: Subscriptions are strictly bound to your registered account and cannot be transferred, sold, or shared with third parties.',
+            '• Universal Access: Access to matchmaking, direct voice/video calling, and messaging for all users (both male and female) is provided exclusively via Subscription Passes (e.g., 1 Day Pass, 1 Week Pass, 1 Month Pass, 1 Year VIP).\n'
+            '• Unlimited Usage During Validity: An active subscription pass grants unlimited calling and messaging privileges during the validity window.\n'
+            '• Auto-Expiration: Passes expire automatically upon the conclusion of the chosen time period and must be renewed for continued calling access.\n'
+            '• Non-Transferable: Subscriptions are strictly non-transferable, non-assignable, and cannot be resold or transferred to any other account.',
       ),
       LegalDocumentSection(
-        title: '6. Content Moderation & Account Enforcement',
+        title: '6. Live Calling Disclaimer (Unverified Strangers)',
         content:
-            'We actively monitor, review reports, and enforce community standards. We reserve the absolute right to:\n\n'
-            '• Suspend, restrict, or permanently ban any account found violating these Terms or Community Guidelines.\n'
-            '• Terminate accounts involved in abusive behavior, off-platform solicitation, or fraudulent activity.\n'
-            '• Forfeit active subscriptions linked to banned accounts.',
+            'YOU EXPRESSLY ACKNOWLEDGE THAT BUDDYPARTNER CONNECTS YOU WITH OTHER REGISTERED USERS WHO ARE INDEPENDENT THIRD PARTIES AND UNVERIFIED STRANGERS.\n\n'
+            'BuddyPartner provides the real-time communications infrastructure (via WebRTC / Agora) to facilitate voice and video connections. BuddyPartner does not conduct criminal background checks or verify the private statements of every user. You interact with other users entirely at your own risk and judgment.',
       ),
       LegalDocumentSection(
-        title: '7. Matched Users Disclaimer (Unverified Strangers)',
+        title: '7. Content Moderation, Reporting & Account Enforcement',
         content:
-            'YOU ACKNOWLEDGE AND AGREE THAT MATCHED USERS ARE UNVERIFIED STRANGERS. THE PLATFORM DOES NOT GUARANTEE ANY USER\'S IDENTITY, AGE, BACKGROUND, OR CONDUCT.\n\n'
-            'BuddyPartner provides the real-time transportation infrastructure for audio and video calls, but does not control user interactions. You participate in live calls at your own risk and discretion. Exercise caution when interacting with strangers.',
+            'We actively maintain real-time reporting mechanisms and automated safety monitors. We reserve the absolute discretion to:\n\n'
+            '• Investigate any user report submitted via the in-app reporting tool.\n'
+            '• Restrict calling features, issue warnings, or impose temporary suspensions.\n'
+            '• Permanently terminate accounts violating these Terms or Community Guidelines.\n'
+            '• Forfeit any active subscription pass balance without refund upon account termination for cause.',
       ),
       LegalDocumentSection(
-        title: '8. Limitation of Liability',
+        title: '8. Intellectual Property Rights',
         content:
-            'To the maximum extent permitted by applicable law, Appquires Global LLP, its officers, directors, employees, and agents shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or goodwill, arising from your use of or inability to use the App.',
+            'All intellectual property rights in the BuddyPartner application, including design, brand trademarks, logos, UI code, graphics, audio algorithms, and databases, are the sole property of Appquires Global LLP. You are granted a limited, personal, non-exclusive, non-transferable, revocable license to use the App solely for personal, non-commercial entertainment.',
       ),
       LegalDocumentSection(
-        title: '9. Dispute Resolution & Governing Law',
+        title: '9. Limitation of Liability',
         content:
-            'These Terms shall be governed by and construed in accordance with the laws of India. Any legal action, dispute, or proceeding arising out of or relating to these Terms shall be subject to the exclusive jurisdiction of the courts located in Ahmedabad, Gujarat, India.',
+            'To the maximum extent permitted by applicable law, Appquires Global LLP, its partners, officers, employees, and agents shall not be liable for any direct, indirect, incidental, special, consequential, or punitive damages, including loss of data, profits, emotional distress, or damages arising out of user conduct or inability to use the platform.\n\nIn no event shall our total aggregate liability exceed the total amount paid by you for subscription passes in the three (3) months preceding the claim.',
       ),
       LegalDocumentSection(
-        title: '10. Changes to Terms',
+        title: '10. Governing Law, Dispute Resolution & Jurisdiction',
         content:
-            'We reserve the right to revise these Terms at any time. When changes are published, we will update the "Last Updated" date at the top of this page. Your continued use of BuddyPartner after revised Terms are posted constitutes acceptance of the updated Terms.',
+            'These Terms and any dispute or claim arising out of or related to BuddyPartner shall be governed by and construed in accordance with the substantive laws of India.\n\nAll disputes, claims, or controversies shall be subject to the exclusive jurisdiction of the competent courts located in Ahmedabad, Gujarat, India.',
       ),
       LegalDocumentSection(
-        title: '11. Contact Information',
+        title: '11. Grievance Redressal & Contact Information',
         content:
-            'For any questions or legal inquiries regarding these Terms, please contact us at:\n\n'
-            '• Email: support@buddypartner.in\n'
-            '• Website: www.appquires.com\n'
+            'In accordance with the Information Technology Act, 2000 and the Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021, you may contact our designated Grievance Officer:\n\n'
+            '• Designation: Nodal Grievance Redressal Officer\n'
+            '• Support & Grievance Email: support@buddypartner.in\n'
+            '• Company: Appquires Global LLP\n'
             '• Address: GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India\n'
-            '• Entity: Appquires Global LLP',
+            '• Response Timeline: Acknowledgment within 24 hours; disposal/resolution within 15 days.',
       ),
     ],
   );
@@ -129,58 +154,69 @@ class LegalDocumentContent {
     subtitle: 'How your data is collected, used & protected',
     lastUpdated: defaultLastUpdated,
     summaryNotice:
-        'This privacy policy complies with Indian Information Technology (IT Rules 2021) guidelines and governs subscription and user data protection.',
+        'This Privacy Policy complies with the Information Technology Act 2000, IT (Intermediary Guidelines) Rules 2021, and the Digital Personal Data Protection (DPDP) Act, 2023.',
     sections: [
       LegalDocumentSection(
         title: '1. Information We Collect',
         content:
-            'We collect information to provide, maintain, and improve our live calling platform:\n\n'
-            '• Account & Profile Information: Mobile whatsapp number, Full Name, Date of Birth, Gender, Preferred Language, and optional avatar image.\n'
-            '• Call Metadata & Technical Data: Real-time call logs, call duration, timestamp, socket connection status, network performance, IP address, device model, and OS version.\n'
-            '• Call Content Disclaimer: We do NOT record or store live audio/video call stream content unless explicitly notified for safety moderation. Calls are transmitted real-time via secure WebRTC protocols.\n'
-            '• Transaction & Financial Logs: Subscription order IDs, payment transaction amounts, active subscription pass records, and billing logs. We do not store raw credit card numbers or UPI PINs.',
+            'We collect limited information essential to provide secure authentication, matchmaking, and subscription management:\n\n'
+            '• Profile Information: Mobile number (for WhatsApp OTP login), Full Name, Date of Birth, Gender, Preferred Language, and selected avatar.\n'
+            '• Technical & Device Data: Device model, operating system version, unique device identifier, IP address, connection speed, socket telemetry, and app crash logs.\n'
+            '• Call Metadata: Timestamps of initiated calls, call connection status, duration, call rating, and reporting logs.\n'
+            '• Transaction Data: Subscription order IDs, purchase timestamps, pass type, and payment gateway confirmation receipts (e.g. Razorpay/Google Play). We NEVER collect or store credit/debit card numbers, CVV, or UPI PINs.',
       ),
       LegalDocumentSection(
-        title: '2. Authentication & Credential Management',
+        title: '2. Live Audio & Video Call Privacy (No Stream Recording)',
         content:
-            'We utilize secure backend APIs and Authkey WhatsApp OTP service to verify user mobile numbers via WhatsApp OTP. User credentials and authorization tokens are transmitted over HTTPS encrypted channels and protected using industry-standard security practices.',
+            '• Unrecorded Streams: Your live audio and video calls are transmitted peer-to-peer or via ultra-low-latency real-time servers using encrypted WebRTC protocols (powered by Agora.io).\n'
+            '• Zero Permanent Recording: We do NOT record, intercept, or store live video feeds or voice streams of your 1-on-1 calls on our servers under standard operational mode.\n'
+            '• Screenshot & Privacy Protection: The app enforces platform-level screen recording and screenshot restrictions where supported to protect user privacy.',
       ),
       LegalDocumentSection(
-        title: '3. How We Use Your Data',
+        title: '3. Authentication & Verification',
         content:
-            'Your data is used strictly for legitimate operational purposes:\n\n'
-            '• Matchmaking & Call Facilitation: Connecting compatible male and female users based on online availability and language preferences.\n'
-            '• Safety, Moderation & Trust: Investigating user reports, detecting spam, preventing abuse, and enforcing Community Guidelines.\n'
-            '• Billing & Ledger Management: Processing subscription purchases and keeping accurate billing records.\n'
-            '• Customer Support: Responding to support inquiries and troubleshooting app connection issues.',
+            'We utilize secure API endpoints and verified WhatsApp OTP delivery providers (such as Authkey.io) to authenticate your registered mobile number. All authentication tokens and API communications are encrypted via TLS/HTTPS 256-bit encryption.',
       ),
       LegalDocumentSection(
-        title: '4. Third-Party Service Providers',
+        title: '4. How We Use Collected Information',
         content:
-            'We share data with trusted third-party providers solely to transport calls and process payments:\n\n'
-            '• Agora.io / WebRTC Infrastructure: Powers low-latency real-time voice and video transmission.\n'
-            '• Razorpay / Payment Gateways: Securely processes subscription purchases and payment transactions.\n'
-            '• Authkey.io: Provides WhatsApp OTP verification and messaging infrastructure.',
+            'Your data is processed strictly for the following purposes:\n\n'
+            '• Matchmaking & Connection: Finding compatible users according to mutual language and availability preferences.\n'
+            '• Trust, Safety & Enforcement: Investigating reported harassment, preventing spam, detecting ban-evasion, and maintaining a respectful community.\n'
+            '• Subscription Fulfillment: Verifying pass payments and updating account access privileges in real time.\n'
+            '• Service Improvement & Support: Resolving technical issues, debugging latency/connection errors, and answering customer support inquiries.',
       ),
       LegalDocumentSection(
-        title: '5. Data Retention & User Rights',
+        title: '5. Third-Party Service Providers',
         content:
-            '• Data Retention: We retain user profile data and transaction logs as long as your account remains active or as required by law (e.g. tax and financial record obligations under Indian law).\n'
-            '• Access & Deletion Rights: You have the right to request access to your stored personal data or request permanent deletion of your account and associated profile data.\n'
-            '• Request Submission: Submit data access or deletion requests by emailing support@buddypartner.in.',
+            'We share minimum necessary data with trusted infrastructure providers:\n\n'
+            '• Agora.io: Real-time audio and video communications infrastructure.\n'
+            '• Razorpay / App Stores: Secure payment gateways processing subscription pass purchases.\n'
+            '• Authkey.io: WhatsApp OTP delivery service.\n'
+            '• Firebase / Google Cloud: Secure cloud infrastructure and push notifications.\n\n'
+            'We NEVER sell, rent, or trade your personal data to third-party advertisers or data brokers.',
       ),
       LegalDocumentSection(
-        title: '6. Cookies, Storage & Analytics',
+        title: '6. Data Retention & User Rights (DPDP Act Compliance)',
         content:
-            'We use secure local application storage (e.g. Flutter SharedPreferences / Secure Storage) to maintain user login sessions and preference states. We may use anonymized analytics tools to evaluate app performance and crash telemetry.',
+            'Under the Digital Personal Data Protection Act (DPDP Act) and applicable regulations, you enjoy full control over your personal data:\n\n'
+            '• Right to Access & Correction: You can view and update your profile details directly from the Account screen.\n'
+            '• Right to Erasure / Account Deletion: You can permanently delete your account and all associated profile data at any time from Profile -> Delete Account, or by emailing support@buddypartner.in.\n'
+            '• Deletion Process: Upon account deletion, personal profile identifiers are permanently purged from active databases within 7 days, subject to statutory tax and financial transaction retention laws required by Indian authorities.',
       ),
       LegalDocumentSection(
-        title: '7. Privacy Inquiries & Contact Info',
+        title: '7. Cookies, Local Storage & Security Safeguards',
         content:
-            'If you have questions regarding this Privacy Policy or wish to exercise your privacy rights, please reach out to our privacy officer:\n\n'
-            '• Privacy Officer Email: support@buddypartner.in\n'
-            '• Legal Entity: Appquires Global LLP\n'
-            '• Website: www.appquires.com\n'
+            '• Local Secure Storage: We use encrypted local device storage (Flutter Secure Storage) to maintain encrypted session tokens and user preference states.\n'
+            '• Data Security: We implement administrative, physical, and technical safeguards including encrypted database storage, strict role-based access control, and firewalled backend clusters to protect your information.',
+      ),
+      LegalDocumentSection(
+        title: '8. Privacy Inquiries & Grievance Redressal Officer',
+        content:
+            'For any questions, clarifications, or requests regarding your personal data or privacy rights, please reach out to:\n\n'
+            '• Grievance Officer: Nodal Grievance Redressal Officer\n'
+            '• Privacy Email: support@buddypartner.in\n'
+            '• Entity: Appquires Global LLP\n'
             '• Address: GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India',
       ),
     ],
@@ -190,132 +226,256 @@ class LegalDocumentContent {
   static const LegalDocument communityGuidelines = LegalDocument(
     id: 'community-guidelines',
     title: 'Community Guidelines',
-    subtitle: 'Standards for safe & respectful interactions',
+    subtitle: 'Standards for safe, authentic & respectful interactions',
     lastUpdated: defaultLastUpdated,
     summaryNotice:
-        'Written in clear, accessible language for all BuddyPartner users. Everyone on BuddyPartner must follow these standards.',
+        'Clear standards governing all interactions on BuddyPartner. Every user must follow these guidelines to keep the community safe.',
     sections: [
       LegalDocumentSection(
-        title: '1. Respect & Be Kind',
+        title: '1. Respect & Courtesy for Everyone',
         content:
-            'BuddyPartner is built for genuine, friendly connections. Treat every user with respect.\n\n'
-            '• Zero Bullying & Hate Speech: Harassment, hate speech, body shaming, religious disrespect, or racial slurs will result in immediate account suspension.\n'
-            '• Respect Boundaries: If someone expresses discomfort or asks to end a call, respect their decision gracefully.',
+            'BuddyPartner is built to foster friendly, meaningful, and respectful 1-on-1 conversations.\n\n'
+            '• Zero Tolerance for Hate Speech: Harassment, racial slurs, religious intolerance, caste-based comments, disability shaming, or body shaming will result in immediate permanent suspension.\n'
+            '• Respect Boundaries: If another user does not wish to speak or asks to end a call, respect their decision immediately.',
       ),
       LegalDocumentSection(
-        title: '2. Keep It Safe (18+ & Sexual Content Policy)',
+        title: '2. Nudity, Sexual Content & 18+ Rules',
         content:
-            '• Adults Only (18+): You must be 18 years or older. Minor involvement is strictly banned.\n'
-            '• No Nudity or Explicit Sexual Content: Broadcasters and callers are prohibited from showing nudity, performing sexual acts, or soliciting sexual favors on camera.\n'
-            '• No Unwanted Sexual Solicitation: Sending unwelcome sexual messages or making graphic sexual demands is prohibited.',
+            '• Adults Only: You must be 18 years of age or older. Minors are strictly prohibited from using BuddyPartner.\n'
+            '• No Nudity or Sexual Acts: Displaying nudity, showing genitals, performing explicit sexual acts, or soliciting sexual services during live audio/video calls is strictly banned.\n'
+            '• Zero Tolerance for CSAM: Any transmission or solicitation of child sexual abuse material results in immediate account ban, hardware device ban, and reporting to law enforcement agencies and cybercrime authorities.',
       ),
       LegalDocumentSection(
-        title: '3. No Off-Platform Routing or Scams',
+        title: '3. Anti-Fraud & Off-Platform Solicitation Policy',
         content:
-            '• Keep Calls Inside BuddyPartner: Asking users to exchange personal whatsapp numbers, WhatsApp, Telegram, or social media handles to bypass platform subscription rules is strictly prohibited.\n'
-            '• Anti-Fraud Policy: Asking for money transfers, sharing fake UPI payment links, or attempting financial scams will lead to immediate permanent ban and reporting to authorities.',
+            '• Keep Conversations In-App: Do NOT ask other users for personal phone numbers, WhatsApp numbers, Telegram usernames, or Instagram IDs to circumvent subscription rules or lure users off-platform.\n'
+            '• No Financial Demands: Asking for money transfers, UPI payments, recharge requests, gift cards, or investment schemes is strictly banned.\n'
+            '• Anti-Blackmail & Anti-Extortion: Threatening users with screenshots, extortion, or recording calls will lead to immediate criminal prosecution and platform bans.',
       ),
       LegalDocumentSection(
-        title: '4. Be Authentic (No Impersonation)',
+        title: '4. Authenticity (No Impersonation or Fake Profiles)',
         content:
-            'Use your real details and genuine profile photos. Do not use images of celebrities, public figures, or third parties without permission. Fake accounts and deceptive profiles are removed immediately.',
+            '• Real Information: Use accurate profile information and your genuine avatar representation.\n'
+            '• No Impersonation: Do not pretend to be someone else, use photos of celebrities, or falsely claim to represent BuddyPartner staff or customer support.',
       ),
       LegalDocumentSection(
-        title: '5. Reporting & Moderation Consequences',
+        title: '5. In-App Reporting & Enforcement Actions',
         content:
-            '• How Reporting Works: You can report any user during or after a call using the in-app report button.\n'
-            '• Consequences: Our moderation team reviews reported accounts. Violations result in:\n'
-            '  1. Warning or call feature restriction.\n'
-            '  2. Temporary account suspension.\n'
-            '  3. Permanent account termination & forfeiture of active subscription access.',
+            '• How to Report: Use the in-call or post-call report button to flag any inappropriate behavior immediately.\n'
+            '• Investigation & Penalty Hierarchy:\n'
+            '  1. Formal Warning and calling feature restriction.\n'
+            '  2. Temporary Account Suspension (24h - 7 days).\n'
+            '  3. Permanent Account & Device Ban with complete forfeiture of active subscription passes.',
       ),
     ],
   );
 
-  // 4. Refund Policy
+  // 4. Refund & Cancellation Policy
   static const LegalDocument refundPolicy = LegalDocument(
     id: 'refund-policy',
     title: 'Refund Policy',
-    subtitle: 'Subscription pass billing & refund rules',
+    subtitle: 'Subscription pass billing, cancellation & refund terms',
     lastUpdated: defaultLastUpdated,
     summaryNotice:
-        'Clear terms governing subscription pass purchases and billing inquiries on BuddyPartner.',
+        'Clear terms governing subscription pass purchases, store refunds, and technical payment disputes on BuddyPartner.',
     sections: [
       LegalDocumentSection(
-        title: '1. Subscription Pass Purchases (Non-Refundable)',
+        title: '1. Subscription Passes (Non-Refundable Once Activated)',
         content:
-            'All subscription pass purchases (1 Day Pass, 1 Week Pass, 1 Month Pass, 1 Year VIP) made through BuddyPartner are final, non-refundable, and non-exchangeable for cash, except as explicitly required by applicable law or app store policy (Google Play / Apple App Store).\n\n'
-            'Subscriptions are activated immediately upon successful payment verification.',
+            'All subscription pass purchases (1 Day Pass, 1 Week Pass, 1 Month Pass, 1 Year VIP) made on BuddyPartner grant immediate digital access to real-time voice and video calling features.\n\n'
+            'Due to the immediate provisioning of real-time server bandwidth and matchmaking infrastructure, all subscription purchases are final, non-refundable, and non-exchangeable for cash once activated, except as required by law or official app store policies.',
       ),
       LegalDocumentSection(
-        title: '2. Exceptions & App Store Refunds',
+        title: '2. Google Play & Apple App Store Purchases',
         content:
-            'If you purchased a subscription via Google Play Billing or Apple In-App Purchase:\n\n'
-            '• Store Policy: Refund requests are subject to the policies of Google Play or the Apple App Store.\n'
-            '• Request Process: You may request a refund directly through your Google Play Account history or Apple ID purchase receipt.\n'
-            '• Consumed Access: If a refund is granted by the store provider for a subscription pass, BuddyPartner reserves the right to cancel the subscription or suspend the account if fraudulent activity is detected.',
+            'If you purchased your subscription pass via Google Play In-App Billing or Apple In-App Purchase:\n\n'
+            '• Applicable Store Rules: Refund requests are governed by Google Play or Apple App Store policies.\n'
+            '• How to Request: You can request a refund directly via Google Play Order History (play.google.com) or Apple Report a Problem (reportaproblem.apple.com).\n'
+            '• Subscription Revocation: If Google or Apple grants a refund, the corresponding subscription pass will be automatically revoked from your BuddyPartner account.',
       ),
       LegalDocumentSection(
-        title: '3. Technical Billing Errors',
+        title: '3. Technical Billing Errors & Glitch Resolution',
         content:
-            'In the event of a technical glitch where money was debited from your bank account or card but subscription status was not activated on your BuddyPartner account:\n\n'
-            '• Contact Support: Email support@buddypartner.in with your transaction payment ID, registered mobile number, and order receipt.\n'
-            '• Resolution: Upon verification with payment gateway logs (e.g. Razorpay), your subscription will be manually activated within 24–48 hours.',
+            'In rare cases where your bank account, card, or UPI was debited but the subscription pass was not activated in the app due to network latency:\n\n'
+            '• Step 1: Please wait 15 minutes and restart the application.\n'
+            '• Step 2: If the pass is still inactive, email support@buddypartner.in with your registered mobile number, payment transaction ID, and bank receipt.\n'
+            '• Step 3: Our billing team will verify with the payment gateway (e.g. Razorpay) and manually activate your pass or initiate a direct gateway refund within 24 to 48 hours.',
       ),
       LegalDocumentSection(
-        title: '4. Account Termination Impact',
+        title: '4. Violations & Account Termination Impact',
         content:
-            'If your account is terminated or suspended due to violations of our Terms of Service or Community Guidelines, any remaining active subscription period is forfeited and will not be refunded.',
+            'If an account is suspended or permanently banned due to a violation of our Terms of Service, Community Guidelines, or Safety Policies, any remaining time on active subscription passes is forfeited without entitlement to any refund.',
+      ),
+      LegalDocumentSection(
+        title: '5. Chargebacks & Payment Inquiries',
+        content:
+            'If you notice an unrecognized charge or have questions regarding a subscription invoice, please contact us at support@buddypartner.in before filing an external dispute so we can resolve the issue swiftly.',
       ),
     ],
   );
 
-  // 5. Withdrawal / Subscription Terms
-  static const LegalDocument withdrawalTerms = LegalDocument(
-    id: 'withdrawal-terms',
+  // 5. Subscription Terms
+  static const LegalDocument subscriptionTerms = LegalDocument(
+    id: 'subscription-terms',
     title: 'Subscription Terms',
-    subtitle: 'Subscription access & service policies',
+    subtitle: 'Subscription passes, access rules & validity guidelines',
     lastUpdated: defaultLastUpdated,
     summaryNotice:
-        'Terms governing subscription pass access, features, and platform services for all users.',
+        'Terms governing subscription pass privileges, feature access, and validity durations for all BuddyPartner users.',
     sections: [
       LegalDocumentSection(
-        title: '1. Universal Subscription Model',
+        title: '1. Universal Subscription Pass Model',
         content:
-            'BuddyPartner operates on a unified subscription model for both male and female users. Access to matchmaking, direct voice/video calling, and instant messaging requires an active subscription pass.\n\n'
-            'Subscription options include 1 Day Pass, 1 Week Pass, 1 Month Pass, and 1 Year VIP.',
+            'BuddyPartner operates on an all-inclusive subscription pass model. Rather than paying per minute, users purchase flexible time-based passes that unlock full platform capabilities:\n\n'
+            '• 1 Day Pass: 24-hour unlimited voice & video calling and instant messaging access.\n'
+            '• 1 Week Pass: 7-day full unlimited access.\n'
+            '• 1 Month Pass: 30-day comprehensive unlimited access.\n'
+            '• 1 Year VIP Pass: 365-day premium uninterrupted access with priority matchmaking.',
       ),
       LegalDocumentSection(
-        title: '2. Unlimited Pass Features',
+        title: '2. Pass Features & Unlimited Calling Privileges',
         content:
-            '• Full Access: Subscribers enjoy unlimited matchmaking attempts, voice/video calls, and direct messaging during their active subscription duration.\n'
-            '• Auto-Expiration: Subscriptions automatically expire at the end of the selected duration unless renewed.',
+            'During the active duration of any valid subscription pass, users receive:\n\n'
+            '• Unlimited voice and video call matchmaking.\n'
+            '• Direct audio/video calling with online profiles.\n'
+            '• Instant messaging and chat conversations.\n'
+            '• No per-minute deductions or hidden fees.',
       ),
       LegalDocumentSection(
-        title: '3. Platform Guidelines & Safety',
+        title: '3. Validity & Expiration Rules',
         content:
-            '• Genuine Usage: Subscriptions are for personal use only. Commercial exploitation, automated calling, or bot usage is strictly prohibited.\n'
-            '• Compliance: All subscribers must comply with our Terms of Service and Community Guidelines during calls and chats.',
+            '• Precise Countdown: Pass validity starts immediately upon payment confirmation and runs continuously in real-time until expiration.\n'
+            '• No Pausing: Passes cannot be paused, suspended, or put on hold.\n'
+            '• Renewal: Once a pass expires, calling and chat features pause until a new pass is purchased.',
       ),
       LegalDocumentSection(
-        title: '4. Termination & Forfeiture',
+        title: '4. Fair Usage & Commercial Use Prohibition',
         content:
-            'Active subscription access will be cancelled and forfeited if an account is suspended or banned for severe ToS or Community Guideline violations.',
+            '• Personal Use Only: Subscription passes are intended exclusively for personal, individual social interactions.\n'
+            '• Prohibited Activities: Automated autodialers, commercial marketing broadcasts, call-center operations, or bot integration are strictly prohibited and will result in immediate termination without refund.',
       ),
       LegalDocumentSection(
-        title: '5. Inquiries & Support',
+        title: '5. Pricing Changes & Billing Support',
         content:
-            'For questions concerning subscription passes or billing status, contact support at support@buddypartner.in.',
+            'We reserve the right to modify subscription pass prices or offer promotional discounts. Any price change will apply only to subsequent purchases and will not affect currently active passes. For billing support, email support@buddypartner.in.',
       ),
     ],
   );
+
+  // 6. Safety & Anti-Fraud Guidelines
+  static const LegalDocument safetyGuidelines = LegalDocument(
+    id: 'safety-guidelines',
+    title: 'Safety & Anti-Fraud Guidelines',
+    subtitle: 'Essential online safety tips, fraud protection & scam prevention',
+    lastUpdated: defaultLastUpdated,
+    summaryNotice:
+        'Follow these critical safety guidelines to protect your identity, privacy, and finances while interacting with other users.',
+    sections: [
+      LegalDocumentSection(
+        title: '1. Never Share Financial Details or Send Money',
+        content:
+            '• Zero Financial Transfers: NEVER send money, transfer funds via UPI, buy gift cards, or share bank account details with anyone you meet on the App, regardless of how compelling their story or emergency sounds.\n'
+            '• Keep OTPs Secret: Never share your WhatsApp OTP, banking OTP, or passwords with anyone. BuddyPartner staff will NEVER ask for your OTP or password.',
+      ),
+      LegalDocumentSection(
+        title: '2. Keep Conversations on BuddyPartner',
+        content:
+            '• Stay On-Platform: Scammers and fraudsters frequently ask you to move conversations to WhatsApp, Telegram, or social media handles to bypass in-app safety monitors.\n'
+            '• Protect Your Personal Phone Number: Keep your personal phone number, home address, workplace, and private social media profiles confidential.',
+      ),
+      LegalDocumentSection(
+        title: '3. Live Audio/Video Call Safety & Sextortion Prevention',
+        content:
+            '• Guard Your Privacy on Camera: Be mindful of your surroundings and personal privacy while on video calls. Do NOT engage in sexually compromising acts on camera.\n'
+            '• Beware of Recording Blackmail: Scammers may attempt to record screen footage and demand money under threat of publishing videos. If anyone threatens you, DO NOT pay. Block and report them immediately and contact law enforcement.',
+      ),
+      LegalDocumentSection(
+        title: '4. Recognizing Common Online Dating Scams',
+        content:
+            'Be vigilant against common scam tactics:\n\n'
+            '• Emergency / Medical Crisis: Claiming sudden illness, travel crisis, or hospital emergency and asking for urgent funds.\n'
+            '• Fake Investment Schemes: Promising high returns through crypto, foreign exchange, or third-party betting links.\n'
+            '• Travel / Meetup Deposit Scams: Demanding advance travel or ticket money before meeting.\n'
+            '• Impersonation: Posing as military personnel, celebrities, or corporate executives.',
+      ),
+      LegalDocumentSection(
+        title: '5. In-App Reporting & Blocking',
+        content:
+            '• Instant Reporting: You can report abusive, suspicious, or inappropriate users at any time using the Report button during or after a call.\n'
+            '• Immediate Blocking: Blocking a user immediately prevents them from calling, messaging, or appearing in your matchmaking queue.',
+      ),
+      LegalDocumentSection(
+        title: '6. Law Enforcement & Emergency Helpline Contacts',
+        content:
+            'If you are in immediate danger or a victim of cybercrime, fraud, or extortion:\n\n'
+            '• National Cyber Crime Reporting Portal (India): https://cybercrime.gov.in\n'
+            '• National Cyber Financial Fraud Helpline: 1930\n'
+            '• National Emergency Helpline (India): 112\n'
+            '• BuddyPartner Safety Team: support@buddypartner.in',
+      ),
+    ],
+  );
+
+  // 7. Grievance Redressal Policy (IT Rules 2021 Statutory Compliance)
+  static const LegalDocument grievancePolicy = LegalDocument(
+    id: 'grievance-redressal',
+    title: 'Grievance Redressal Policy',
+    subtitle: 'Statutory compliance under Indian IT Rules 2021',
+    lastUpdated: defaultLastUpdated,
+    summaryNotice:
+        'Formal grievance redressal mechanism established pursuant to Rule 3(2) of the Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021.',
+    sections: [
+      LegalDocumentSection(
+        title: '1. Regulatory Mandate & Applicability',
+        content:
+            'In compliance with the Information Technology Act, 2000 and Rule 3(2) of the Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021, Appquires Global LLP has established a dedicated Grievance Redressal Mechanism to address user complaints and concerns regarding platform access, content moderation, privacy violations, or user conduct.',
+      ),
+      LegalDocumentSection(
+        title: '2. Designated Grievance Redressal Officer',
+        content:
+            'Users and authorities may address any grievance, violation, or legal notice to our designated officer:\n\n'
+            '• Officer Title: Nodal Grievance Redressal Officer\n'
+            '• Legal Entity: Appquires Global LLP\n'
+            '• Support & Grievance Email: support@buddypartner.in\n'
+            '• Registered Physical Address: GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India\n'
+            '• Business Hours: Monday to Friday, 10:00 AM to 6:00 PM IST (excluding public holidays)',
+      ),
+      LegalDocumentSection(
+        title: '3. Grievance Submission Procedure',
+        content:
+            'To lodge a formal grievance, please submit an email to support@buddypartner.in containing:\n\n'
+            '1. Your registered mobile number on BuddyPartner.\n'
+            '2. Detailed description of the grievance, along with the reported user\'s profile name or timestamp of the call/interaction.\n'
+            '3. Relevant screenshots or supporting evidence (if available).\n'
+            '4. Specific remedy or corrective action requested.',
+      ),
+      LegalDocumentSection(
+        title: '4. Statutory Timelines for Grievance Resolution',
+        content:
+            'In accordance with Indian IT Rules 2021:\n\n'
+            '• Acknowledgment: Every formal grievance will be acknowledged with a unique reference ticket within twenty-four (24) hours of receipt.\n'
+            '• Disposal & Resolution: The grievance will be thoroughly investigated and formally disposed of / resolved within fifteen (15) days from the date of receipt.\n'
+            '• Expedited Removal: In cases involving non-consensual sexual content, nudity, or impersonation, content removal actions will be executed within twenty-four (24) hours of receiving valid notice.',
+      ),
+      LegalDocumentSection(
+        title: '5. Grievance Appellate Committee (GAC)',
+        content:
+            'If you are dissatisfied with the resolution provided by our Grievance Officer, you may appeal the decision before the Grievance Appellate Committee (GAC) established by the Central Government of India under Rule 3A of the IT Rules 2021 via their portal: https://gac.gov.in.',
+      ),
+    ],
+  );
+
+  // Backward compatibility alias for legacy withdrawalTerms reference
+  static LegalDocument get withdrawalTerms => subscriptionTerms;
 
   static List<LegalDocument> get allDocuments => [
         termsOfService,
         privacyPolicy,
         communityGuidelines,
         refundPolicy,
-        withdrawalTerms,
+        subscriptionTerms,
+        safetyGuidelines,
+        grievancePolicy,
       ];
 
   static LegalDocument getById(String id) {
@@ -332,11 +492,59 @@ class LegalDocumentContent {
       case 'refund-policy':
       case 'refund':
         return refundPolicy;
+      case 'subscription-terms':
+      case 'subscription':
       case 'withdrawal-terms':
       case 'withdrawal':
-        return withdrawalTerms;
+        return subscriptionTerms;
+      case 'safety-guidelines':
+      case 'safety':
+        return safetyGuidelines;
+      case 'grievance-redressal':
+      case 'grievance':
+        return grievancePolicy;
       default:
         return termsOfService;
     }
   }
+
+  // FAQ Questions & Answers list for Help Center
+  static const List<HelpFaqItem> helpFaqs = [
+    HelpFaqItem(
+      question: 'How do Subscription Passes work?',
+      answer:
+          'BuddyPartner uses flexible Subscription Passes (1 Day, 1 Week, 1 Month, and 1 Year VIP). An active pass gives you unlimited voice & video calls, matchmaking, and direct messaging without per-minute fees.',
+      category: 'Subscriptions',
+    ),
+    HelpFaqItem(
+      question: 'Are my voice and video calls recorded or stored?',
+      answer:
+          'No. All 1-on-1 audio and video calls are transmitted in real time over encrypted WebRTC protocols. We do not record, intercept, or store your live audio or video streams.',
+      category: 'Privacy & Calls',
+    ),
+    HelpFaqItem(
+      question: 'Is my phone number visible to other users?',
+      answer:
+          'No. Your registered mobile number is kept strictly confidential and is never shared with or visible to other users. Only your display name, age, language, and avatar are shown.',
+      category: 'Privacy & Safety',
+    ),
+    HelpFaqItem(
+      question: 'How do I report or block an abusive user?',
+      answer:
+          'You can tap the Report or Block icon directly on the active call screen or post-call summary. Our moderation team reviews flagged users, and blocking immediately prevents further calls.',
+      category: 'Safety & Moderation',
+    ),
+    HelpFaqItem(
+      question: 'Money was debited but my subscription pass is inactive. What should I do?',
+      answer:
+          'Please wait 10–15 minutes and restart the app. If your pass is still inactive, email support@buddypartner.in with your payment transaction ID and registered number. We will verify and activate your pass within 24–48 hours.',
+      category: 'Billing & Payments',
+    ),
+    HelpFaqItem(
+      question: 'How can I permanently delete my account and data?',
+      answer:
+          'Go to Profile -> Delete Account and confirm your decision. All personal profile details and active sessions will be permanently purged in accordance with our Privacy Policy.',
+      category: 'Account',
+    ),
+  ];
 }

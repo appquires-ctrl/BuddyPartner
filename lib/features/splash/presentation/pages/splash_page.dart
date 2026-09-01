@@ -10,6 +10,8 @@ import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
 import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
 import 'package:buddypartner/features/call/application/matchmaking_state.dart';
+import 'package:buddypartner/core/services/notification_service.dart';
+import 'package:buddypartner/app/router/app_router.dart';
 
 /// AnimatedSplashScreen renders a 3-step continuous animation sequence:
 /// 1. Logo Scale-in (0.3 -> 1.0)
@@ -142,15 +144,40 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
       _hasNavigated = true;
 
       if (user != null && user.isProfileComplete) {
-        context.go(RouteNames.home);
+        final pendingChat = NotificationService.instance.consumePendingChat();
+        if (pendingChat != null) {
+          context.go(RouteNames.home);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final navContext = rootNavigatorKey.currentContext;
+            if (navContext != null && navContext.mounted) {
+              navContext.push(
+                RouteNames.chat,
+                extra: {
+                  'conversationId': pendingChat.conversationId,
+                  'userId': pendingChat.userId,
+                  'userName': pendingChat.userName,
+                  'userAvatar': pendingChat.userAvatar,
+                  'avatarSeed': pendingChat.avatarSeed,
+                  'avatarStyle': pendingChat.avatarStyle,
+                  'gender': pendingChat.gender,
+                },
+              );
+            }
+          });
+        } else {
+          context.go(RouteNames.home);
+        }
       } else if (user != null && !user.isProfileComplete) {
+        NotificationService.instance.consumePendingChat(); // Clear if incomplete
         context.go(RouteNames.signup);
       } else {
+        NotificationService.instance.consumePendingChat(); // Clear if unauthenticated
         context.go(RouteNames.login);
       }
     } catch (_) {
       if (mounted) {
         _hasNavigated = true;
+        NotificationService.instance.consumePendingChat();
         context.go(RouteNames.login);
       }
     }

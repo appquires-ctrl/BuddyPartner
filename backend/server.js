@@ -24,6 +24,14 @@ for (const key of REQUIRED_ENV) {
   }
 }
 
+if (!process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON && !process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_FILE) {
+  console.warn('⚠️ [Google Play Billing] Neither GOOGLE_PLAY_SERVICE_ACCOUNT_JSON nor GOOGLE_PLAY_SERVICE_ACCOUNT_FILE is configured in environment.');
+}
+
+if (!process.env.GOOGLE_PLAY_RTDN_SERVICE_ACCOUNT || !process.env.GOOGLE_PLAY_RTDN_AUDIENCE) {
+  console.warn('⚠️ [Google Play RTDN] GOOGLE_PLAY_RTDN_SERVICE_ACCOUNT and/or GOOGLE_PLAY_RTDN_AUDIENCE not configured. RTDN webhook will reject all requests until configured.');
+}
+
 // ── Express setup ───────────────────────────────────────────────────────────
 const app = express();
 app.use(helmet());
@@ -47,6 +55,8 @@ const path = require('path');
 const advertisementsRoutes = require('./modules/advertisements/advertisements.routes');
 const instantConnectRoutes = require('./modules/instant_connect/instant_connect.routes');
 const supportRoutes = require('./modules/support/support.routes');
+const googlePlayRoutes = require('./modules/payments/google_play.routes');
+const { GooglePlayService } = require('./modules/payments/google_play.service');
 
 // Serve uploaded images statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -70,10 +80,12 @@ app.use('/api/advertisements', advertisementsRoutes);
 app.use('/api/admin/advertisements', advertisementsRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/app', supportRoutes);
+app.use('/api/payments/google-play', googlePlayRoutes);
 
-// Initialize Admin & App Config
+// Initialize Admin, App Config & Google Play tables
 adminService.initAdminConfig();
 appService.initAppConfig();
+GooglePlayService.initTable();
 
 // ── Auto-ensure subscriptions table exists ─────────────────────────────────
 db.query(`

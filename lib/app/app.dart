@@ -37,6 +37,9 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
         required String userId,
         required String userName,
         String? userAvatar,
+        String? avatarSeed,
+        String? avatarStyle,
+        String? gender,
       }) {
         final navContext = rootNavigatorKey.currentContext;
         if (navContext != null && navContext.mounted) {
@@ -47,6 +50,9 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
               'userId': userId,
               'userName': userName,
               'userAvatar': userAvatar,
+              'avatarSeed': avatarSeed,
+              'avatarStyle': avatarStyle,
+              'gender': gender,
             },
           );
         }
@@ -87,7 +93,10 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
       final navContext = rootNavigatorKey.currentContext;
       if (navContext == null || !navContext.mounted) return;
 
-      if (next.phase == MatchmakingPhase.inCall && prev?.phase != MatchmakingPhase.inCall) {
+      final wasInCall = prev?.phase == MatchmakingPhase.inCall || prev?.phase == MatchmakingPhase.matched;
+      final isNowInCall = next.phase == MatchmakingPhase.inCall || next.phase == MatchmakingPhase.matched;
+
+      if (isNowInCall && !wasInCall) {
         Navigator.of(navContext, rootNavigator: true).popUntil((route) => route is! PopupRoute);
         navContext.go(RouteNames.activeCall);
       } else if (next.phase == MatchmakingPhase.incomingRequest && prev?.phase != MatchmakingPhase.incomingRequest) {
@@ -96,7 +105,7 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
       } else if (next.phase == MatchmakingPhase.outgoingRequest && prev?.phase != MatchmakingPhase.outgoingRequest) {
         Navigator.of(navContext, rootNavigator: true).popUntil((route) => route is! PopupRoute);
         navContext.go(RouteNames.calling);
-      } else if (prev?.phase == MatchmakingPhase.inCall &&
+      } else if (wasInCall &&
           (next.phase == MatchmakingPhase.idle || next.phase == MatchmakingPhase.ended)) {
         if (next.isCallMinimized) {
           ref.read(matchmakingControllerProvider.notifier).restoreCall();
