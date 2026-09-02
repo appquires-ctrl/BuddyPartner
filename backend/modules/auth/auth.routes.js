@@ -18,6 +18,11 @@ const SEND_LIMIT_WINDOW = 600; // 10 minutes
 const VERIFY_ATTEMPTS_MAX = 5; // Max 5 wrong attempts before lockout
 const VERIFY_LOCKOUT_WINDOW = 600; // 10 minutes lockout
 
+// Google Play Review / Demo Test Account credentials
+const DEMO_TEST_COUNTRY_CODE = process.env.DEMO_TEST_COUNTRY_CODE || '91';
+const DEMO_TEST_MOBILE = process.env.DEMO_TEST_MOBILE || '9999999999';
+const DEMO_TEST_OTP = process.env.DEMO_TEST_OTP || '123456';
+
 /**
  * Endpoint: POST /api/auth/otp/send
  * Validates country_code and mobile, enforces Redis rate limits, generates bcrypt-hashed OTP,
@@ -33,6 +38,23 @@ router.post('/otp/send', async (req, res) => {
   }
 
   try {
+    // Check if this is the Google Play Reviewer / Demo Test Account
+    const isTestAccount = (cleanMobile === DEMO_TEST_MOBILE && cleanCountryCode === DEMO_TEST_COUNTRY_CODE);
+
+    if (isTestAccount) {
+      // Demo test account: Store fixed OTP hash in Redis, skip external WhatsApp API call
+      const hashedOtp = await bcrypt.hash(DEMO_TEST_OTP, 10);
+      const otpRedisKey = `otp:${cleanCountryCode}${cleanMobile}`;
+      await redis.set(otpRedisKey, hashedOtp, 'EX', OTP_TTL_SECONDS);
+
+      console.log(`🧪 [TEST ACCOUNT] OTP generated for Google Play review (+${cleanCountryCode}${cleanMobile}): ${DEMO_TEST_OTP}`);
+
+      return res.json({
+        success: true,
+        message: 'Verification code sent.',
+      });
+    }
+
     // 1. Enforce send rate limit: max 3 sends per 10 minutes per mobile
     const sendCountKey = `otp_send_count:${cleanMobile}`;
     const sendCount = await redis.incr(sendCountKey);
@@ -75,7 +97,7 @@ router.post('/otp/send', async (req, res) => {
  * Endpoint: POST /api/auth/otp/verify
  * Verifies submitted OTP against bcrypt hash in Redis.
  * On success:
- * - Provisions user + wallet (0 initial balance) atomically if new
+ * - Provisions user + wallet atomically if new
  * - Issues Access JWT (1d expiry) and rotating Refresh Token (stored in Redis with 30d TTL)
  * - Deletes Redis OTP key immediately
  */
@@ -90,31 +112,40 @@ router.post('/otp/verify', async (req, res) => {
   }
 
   try {
-    // 1. Check attempt lockout counter
-    const attemptsKey = `otp_verify_attempts:${cleanMobile}`;
-    const attempts = await redis.get(attemptsKey);
-    if (attempts && parseInt(attempts, 10) >= VERIFY_ATTEMPTS_MAX) {
-      return res.status(429).json({ error: 'Too many failed verification attempts. Please try again in 10 minutes.' });
-    }
-
-    // 2. Fetch stored hashed OTP from Redis
+    const isTestAccount = (cleanMobile === DEMO_TEST_MOBILE && cleanCountryCode === DEMO_TEST_COUNTRY_CODE);
     const otpRedisKey = `otp:${cleanCountryCode}${cleanMobile}`;
-    const storedHash = await redis.get(otpRedisKey);
+    const attemptsKey = `otp_verify_attempts:${cleanMobile}`;
 
-    if (!storedHash) {
-      // Increment attempt counter
-      const currentAttempts = await redis.incr(attemptsKey);
-      if (currentAttempts === 1) await redis.expire(attemptsKey, VERIFY_LOCKOUT_WINDOW);
-      return res.status(400).json({ error: 'Invalid or expired verification code.' });
-    }
+    if (isTestAccount) {
+      // Test account bypasses rate limits and matches static OTP
+      if (cleanOtp !== DEMO_TEST_OTP) {
+        return res.status(400).json({ error: 'Invalid or expired verification code.' });
+      }
+    } else {
+      // 1. Check attempt lockout counter
+      const attempts = await redis.get(attemptsKey);
+      if (attempts && parseInt(attempts, 10) >= VERIFY_ATTEMPTS_MAX) {
+        return res.status(429).json({ error: 'Too many failed verification attempts. Please try again in 10 minutes.' });
+      }
 
-    // 3. Compare submitted OTP against hash
-    const isMatch = await bcrypt.compare(cleanOtp, storedHash);
+      // 2. Fetch stored hashed OTP from Redis
+      const storedHash = await redis.get(otpRedisKey);
 
-    if (!isMatch) {
-      const currentAttempts = await redis.incr(attemptsKey);
-      if (currentAttempts === 1) await redis.expire(attemptsKey, VERIFY_LOCKOUT_WINDOW);
-      return res.status(400).json({ error: 'Invalid or expired verification code.' });
+      if (!storedHash) {
+        // Increment attempt counter
+        const currentAttempts = await redis.incr(attemptsKey);
+        if (currentAttempts === 1) await redis.expire(attemptsKey, VERIFY_LOCKOUT_WINDOW);
+        return res.status(400).json({ error: 'Invalid or expired verification code.' });
+      }
+
+      // 3. Compare submitted OTP against hash
+      const isMatch = await bcrypt.compare(cleanOtp, storedHash);
+
+      if (!isMatch) {
+        const currentAttempts = await redis.incr(attemptsKey);
+        if (currentAttempts === 1) await redis.expire(attemptsKey, VERIFY_LOCKOUT_WINDOW);
+        return res.status(400).json({ error: 'Invalid or expired verification code.' });
+      }
     }
 
     // 4. Verification successful! Delete OTP key & clear attempt counter
@@ -138,29 +169,46 @@ router.post('/otp/verify', async (req, res) => {
     let user;
 
     if (userResult.rows.length === 0) {
-      // Atomic Transaction: Create user + wallet (0 balance)
+      // Atomic Transaction: Create user + wallet
       const client = await db.pool.connect();
       try {
         await client.query('BEGIN');
 
-        const insertUserRes = await client.query(
-          `INSERT INTO public.users (country_code, mobile, phone_number) 
-           VALUES ($1, $2, $3) 
-           RETURNING id, country_code, mobile, phone_number, full_name, dob, gender, language, avatar_seed, avatar_style, is_telecaller, has_claimed_intro_offer, country, state, city, latitude, longitude`,
-          [cleanCountryCode, cleanMobile, fullPhoneNumber]
-        );
+        let insertUserRes;
+        if (isTestAccount) {
+          // Pre-populate reviewer profile so reviewer directly accesses app features
+          insertUserRes = await client.query(
+            `INSERT INTO public.users (
+               country_code, mobile, phone_number, full_name, dob, gender, language, avatar_seed, avatar_style, country, state, city
+             ) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
+             RETURNING id, country_code, mobile, phone_number, full_name, dob, gender, language, avatar_seed, avatar_style, is_telecaller, has_claimed_intro_offer, country, state, city, latitude, longitude`,
+            [
+              cleanCountryCode, cleanMobile, fullPhoneNumber,
+              'Google Reviewer', '1998-01-01', 'Male', 'English', 'Felix', 'avataaars', 'India', 'Delhi', 'New Delhi'
+            ]
+          );
+        } else {
+          insertUserRes = await client.query(
+            `INSERT INTO public.users (country_code, mobile, phone_number) 
+             VALUES ($1, $2, $3) 
+             RETURNING id, country_code, mobile, phone_number, full_name, dob, gender, language, avatar_seed, avatar_style, is_telecaller, has_claimed_intro_offer, country, state, city, latitude, longitude`,
+            [cleanCountryCode, cleanMobile, fullPhoneNumber]
+          );
+        }
         user = insertUserRes.rows[0];
 
-        // Provision wallet with 0 balance
+        // Provision wallet (preloaded with 100 coins for reviewer to test calls, 0 for standard users)
+        const initialBalance = isTestAccount ? 100 : 0;
         await client.query(
           `INSERT INTO public.wallets (user_id, balance) 
-           VALUES ($1, 0) 
-           ON CONFLICT (user_id) DO NOTHING`,
-          [user.id]
+           VALUES ($1, $2) 
+           ON CONFLICT (user_id) DO UPDATE SET balance = GREATEST(wallets.balance, $2)`,
+          [user.id, initialBalance]
         );
 
         await client.query('COMMIT');
-        console.log(`🎉 New user created via Authkey WhatsApp OTP: ID ${user.id}, mobile +${cleanCountryCode}${cleanMobile}`);
+        console.log(`🎉 New user created: ID ${user.id}, mobile +${cleanCountryCode}${cleanMobile}${isTestAccount ? ' [TEST ACCOUNT]' : ''}`);
       } catch (txErr) {
         await client.query('ROLLBACK');
         throw txErr;
@@ -169,6 +217,27 @@ router.post('/otp/verify', async (req, res) => {
       }
     } else {
       user = userResult.rows[0];
+
+      // Ensure existing test reviewer account has complete profile and active balance
+      if (isTestAccount) {
+        if (!user.full_name) {
+          await db.query(
+            `UPDATE public.users SET full_name = $1, gender = $2, dob = $3, language = $4 WHERE id = $5`,
+            ['Google Reviewer', 'Male', '1998-01-01', 'English', user.id]
+          );
+          user.full_name = 'Google Reviewer';
+          user.gender = 'Male';
+          user.dob = new Date('1998-01-01');
+          user.language = 'English';
+        }
+        if ((parseFloat(user.balance) || 0) < 50) {
+          await db.query(
+            `INSERT INTO public.wallets (user_id, balance) VALUES ($1, 100) ON CONFLICT (user_id) DO UPDATE SET balance = 100`,
+            [user.id]
+          );
+          user.balance = 100;
+        }
+      }
 
       // Backfill country_code / mobile if missing on existing record
       if (!user.country_code || !user.mobile) {
