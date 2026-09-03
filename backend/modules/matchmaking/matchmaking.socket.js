@@ -311,6 +311,46 @@ function registerMatchmakingHandlers(io, socket, redis) {
     }
   });
 
+  // ── switch_to_voice ────────────────────────────────────────────────────
+  socket.on('switch_to_voice', async ({ callId }) => {
+    try {
+      let otherSocketId = null;
+
+      const callInfo = activeCalls.get(callId);
+      if (callInfo) {
+        if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) {
+          console.warn(`⚠️ Unauthorized attempt to switch call to voice by ${userId}`);
+          return;
+        }
+        await callsService.downgradeToVoice(callId);
+        otherSocketId = callInfo.userA.userId === userId ? callInfo.userB.socketId : callInfo.userA.socketId;
+      } else {
+        const instantCall = activeInstantCalls?.get(callId);
+        if (instantCall) {
+          if (instantCall.maleUserId !== userId && instantCall.femaleUserId !== userId) {
+            console.warn(`⚠️ Unauthorized attempt to switch instant call to voice by ${userId}`);
+            return;
+          }
+          await callsService.downgradeToVoice(callId);
+          otherSocketId = instantCall.maleUserId === userId ? instantCall.femaleSocketId : instantCall.maleSocketId;
+        }
+      }
+
+      if (!otherSocketId) return;
+
+      const switcherProfile = await fetchPublicProfile(userId);
+      const switcherName = switcherProfile?.fullName || 'Participant';
+
+      io.to(otherSocketId).emit('switched_to_voice', {
+        callId,
+        switcherName,
+      });
+      console.log(`🎙️ User ${userId} (${switcherName}) switched call ${callId} to voice`);
+    } catch (err) {
+      console.error('Error in switch_to_voice:', err);
+    }
+  });
+
   // ── accept_call_request ────────────────────────────────────────────────
   socket.on('accept_call_request', async ({ callRequestId }) => {
     try {

@@ -167,14 +167,42 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                     ),
                   ],
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: AgoraVideoView(
-                    controller: VideoViewController(
-                      rtcEngine: controller.agoraEngine!,
-                      canvas: const VideoCanvas(uid: 0),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: AgoraVideoView(
+                          controller: VideoViewController(
+                            rtcEngine: controller.agoraEngine!,
+                            canvas: const VideoCanvas(uid: 0),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    Positioned(
+                      bottom: 6,
+                      right: 6,
+                      child: GestureDetector(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          controller.switchCamera();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.65),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.flip_camera_ios_rounded,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -488,7 +516,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                     const Spacer(flex: 5),
                   ],
 
-                  // Switch to Video Call banner card
+                  // Switch to Video / Voice Call banner card
                   if (!matchState.isVideoEnabled)
                     GestureDetector(
                       onTap: matchState.isVideoRequestOutgoing
@@ -572,6 +600,71 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                                 color: Colors.white60,
                                 size: 24,
                               ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    // Switch back to Voice Call banner card
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.mediumImpact();
+                        controller.switchToVoice();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: const Color(0xFF2DCE89).withValues(alpha: 0.4),
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Color(0xFF2DCE89), // Green phone icon
+                              ),
+                              child: const Icon(
+                                Icons.phone_in_talk_rounded,
+                                color: Colors.white,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: const [
+                                  Text(
+                                    'Switch to',
+                                    style: TextStyle(
+                                      color: Color(0xFFA19EBB),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    'Voice Call',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right_rounded,
+                              color: Colors.white60,
+                              size: 24,
+                            ),
                           ],
                         ),
                       ),

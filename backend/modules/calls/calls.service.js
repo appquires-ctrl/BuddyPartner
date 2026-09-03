@@ -99,6 +99,22 @@ class CallsService {
   }
 
   /**
+   * Downgrade a call from video back to voice/audio.
+   *
+   * @param {string} callId
+   */
+  async downgradeToVoice(callId) {
+    try {
+      await db.query(
+        "UPDATE public.calls SET call_type = 'audio' WHERE id = $1",
+        [callId]
+      );
+    } catch (err) {
+      console.error('Error downgrading call to voice in Postgres:', err.message);
+    }
+  }
+
+  /**
    * Generate an Agora RTC token for a given channel and UID.
    *
    * @param {string} channelName

@@ -464,6 +464,27 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
     );
   }
 
+  /// Switch from video call back to voice call unilaterally.
+  Future<void> switchToVoice() async {
+    final callId = state.callId;
+    if (callId != null) {
+      _socket?.emit('switch_to_voice', {'callId': callId});
+    }
+    await _disableVideo();
+    state = state.copyWith(isVideoEnabled: false);
+  }
+
+  /// Flip between front and rear cameras during video call.
+  Future<void> switchCamera() async {
+    final engine = _agoraEngine;
+    if (engine == null || !state.isVideoEnabled) return;
+    try {
+      await engine.switchCamera();
+    } catch (e) {
+      debugPrint('[Agora] Error switching camera: $e');
+    }
+  }
+
   // ── Socket.io listeners ─────────────────────────────────────────────────
 
   /// Register matchmaking-specific event handlers on the shared socket.
@@ -497,6 +518,7 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
     socket.on('video_upgrade_request', _onVideoUpgradeRequest);
     socket.on('video_upgrade_accepted', _onVideoUpgradeAccepted);
     socket.on('video_upgrade_declined', _onVideoUpgradeDeclined);
+    socket.on('switched_to_voice', _onSwitchedToVoice);
     socket.on('match_error', _onMatchError);
     socket.on('balance_update', _onBalanceUpdate);
     socket.on('rose_update', _onRoseUpdate);
@@ -652,6 +674,20 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
     state = state.copyWith(
       isVideoRequestOutgoing: false,
       errorMessage: 'Video call request was declined.',
+    );
+  }
+
+  Future<void> _onSwitchedToVoice(dynamic data) async {
+    debugPrint('[Matchmaking] Remote participant switched to voice call');
+    String switcher = state.matchedUser?.fullName ?? 'Participant';
+    if (data is Map && data['switcherName'] != null) {
+      switcher = data['switcherName'].toString();
+    }
+
+    await _disableVideo();
+    state = state.copyWith(
+      isVideoEnabled: false,
+      errorMessage: '$switcher switched to voice call',
     );
   }
 
@@ -910,6 +946,24 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
       state = state.copyWith(isVideoEnabled: true);
     } catch (e) {
       debugPrint('Error enabling video in Agora: $e');
+    }
+  }
+
+  Future<void> _disableVideo() async {
+    final engine = _agoraEngine;
+    if (engine == null) return;
+
+    try {
+      await engine.stopPreview();
+      await engine.disableVideo();
+
+      // Update channel media options to stop publishing video track
+      await engine.updateChannelMediaOptions(const ChannelMediaOptions(
+        publishCameraTrack: false,
+        autoSubscribeVideo: false,
+      ));
+    } catch (e) {
+      debugPrint('Error disabling video in Agora: $e');
     }
   }
 
