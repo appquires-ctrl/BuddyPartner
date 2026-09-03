@@ -253,7 +253,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                                 );
                               }
 
-                              final remainingToMilestone = (60 - instantState.callSecondsElapsed).clamp(0, 60);
+                              final remainingToMilestone = (600 - instantState.callSecondsElapsed).clamp(0, 600);
                               return Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                                 decoration: BoxDecoration(

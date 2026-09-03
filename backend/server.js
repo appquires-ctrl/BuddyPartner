@@ -355,6 +355,21 @@ setInterval(async () => {
   }
 }, 60 * 60 * 1000);
 
+// ── Periodically reconcile voided Google Play purchases (startup + every 6 hours) ──
+if (process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_FILE) {
+  setTimeout(() => {
+    GooglePlayService.syncVoidedPurchases().catch((err) => {
+      console.warn('⚠️ [Google Play Startup Voided Sync]:', err.message);
+    });
+  }, 15 * 1000);
+
+  setInterval(() => {
+    GooglePlayService.syncVoidedPurchases().catch((err) => {
+      console.warn('⚠️ [Google Play Scheduled Voided Sync]:', err.message);
+    });
+  }, 6 * 60 * 60 * 1000);
+}
+
 // ── Start server ────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, async () => {

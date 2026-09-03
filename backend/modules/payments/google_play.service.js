@@ -95,11 +95,20 @@ class GooglePlayService {
           purchase_type TEXT NOT NULL,
           amount_paid NUMERIC(10, 2) NOT NULL,
           coins_credited INTEGER DEFAULT 0,
+          status TEXT DEFAULT 'COMPLETED',
+          voided_at TIMESTAMPTZ,
+          void_reason TEXT,
           raw_payload JSONB,
           created_at TIMESTAMPTZ DEFAULT NOW()
         );
+        ALTER TABLE public.google_play_purchases 
+          ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'COMPLETED',
+          ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ,
+          ADD COLUMN IF NOT EXISTS void_reason TEXT;
         CREATE INDEX IF NOT EXISTS idx_gp_purchases_token ON public.google_play_purchases(purchase_token);
         CREATE INDEX IF NOT EXISTS idx_gp_purchases_user ON public.google_play_purchases(user_id);
+        CREATE INDEX IF NOT EXISTS idx_gp_purchases_order_id ON public.google_play_purchases(order_id);
+        CREATE INDEX IF NOT EXISTS idx_gp_purchases_status ON public.google_play_purchases(status);
       `);
       console.log('✅ Google Play purchases table initialized.');
     } catch (err) {
@@ -261,22 +270,24 @@ class GooglePlayService {
       // 2. Insert wallet transaction
       await client.query(
         `INSERT INTO public.wallet_transactions (user_id, amount, type, reason, reference_id)
-         VALUES ($1, $2, 'credit', 'recharge', $3)`,
-        [userId, totalCoins, resolvedOrderId]
+         VALUES ($1, $2, $3, $4, $5)`,
+        [userId, totalCoins, 'credit', 'recharge', resolvedOrderId]
       );
 
       // 3. Record in google_play_purchases to guarantee anti-replay integrity
       await client.query(
         `INSERT INTO public.google_play_purchases (
-           user_id, product_id, purchase_token, order_id, purchase_type, amount_paid, coins_credited, raw_payload
-         ) VALUES ($1, $2, $3, $4, 'inapp', $5, $6, $7)`,
+           user_id, product_id, purchase_token, order_id, purchase_type, amount_paid, coins_credited, status, raw_payload
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           userId,
           coinProduct.id,
           purchaseToken,
           resolvedOrderId,
+          'inapp',
           coinProduct.priceRupees,
           totalCoins,
+          'COMPLETED',
           JSON.stringify({ ...rawDetails, googlePurchase }),
         ]
       );
@@ -424,14 +435,17 @@ class GooglePlayService {
       // 2. Record in google_play_purchases — use verifiedProductId for the audit trail
       await client.query(
         `INSERT INTO public.google_play_purchases (
-           user_id, product_id, purchase_token, order_id, purchase_type, amount_paid, coins_credited, raw_payload
-         ) VALUES ($1, $2, $3, $4, 'subs', $5, 0, $6)`,
+           user_id, product_id, purchase_token, order_id, purchase_type, amount_paid, coins_credited, status, raw_payload
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           userId,
           verifiedProductId,
           purchaseToken,
           resolvedOrderId,
+          'subs',
           subProduct.priceRupees,
+          0,
+          'COMPLETED',
           JSON.stringify({ ...rawDetails, subData }),
         ]
       );
@@ -460,26 +474,245 @@ class GooglePlayService {
   }
 
   /**
+   * Revoke/void a purchase (debit coins or deactivate subscription) upon refund or chargeback
+   * Idempotent: safe to call multiple times for the same token or orderId
+   * @param {object} params - { purchaseToken, orderId, reason, refundType }
+   */
+  static async revokePurchase({ purchaseToken, orderId, reason, refundType } = {}) {
+    if (!purchaseToken && !orderId) {
+      throw new Error('Either purchaseToken or orderId is required to revoke a purchase.');
+    }
+
+    let purchase = null;
+    if (purchaseToken) {
+      const res = await db.query(
+        `SELECT * FROM public.google_play_purchases WHERE purchase_token = $1`,
+        [purchaseToken.trim()]
+      );
+      purchase = res.rows[0];
+    }
+
+    if (!purchase && orderId) {
+      const res = await db.query(
+        `SELECT * FROM public.google_play_purchases WHERE order_id = $1`,
+        [orderId.trim()]
+      );
+      purchase = res.rows[0];
+    }
+
+    if (!purchase) {
+      console.warn(`⚠️ [Google Play Revocation] No matching purchase found in database for token: ${purchaseToken || 'N/A'}, orderId: ${orderId || 'N/A'}`);
+      return { success: false, reason: 'PURCHASE_NOT_FOUND' };
+    }
+
+    // Idempotency: If already voided, do not double-debit or revoke again
+    if (purchase.status === 'VOIDED' || purchase.status === 'REFUNDED') {
+      console.log(`ℹ️ [Google Play Revocation] Purchase ${purchase.id} (Order: ${purchase.order_id}) was already voided on ${purchase.voided_at}`);
+      return {
+        success: true,
+        alreadyVoided: true,
+        purchaseId: purchase.id,
+        orderId: purchase.order_id,
+        userId: purchase.user_id,
+      };
+    }
+
+    const resolvedReason = reason || 'CHARGEBACK_REFUND';
+    const client = await db.pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      if (purchase.purchase_type === 'inapp') {
+        const coinsToDeduct = parseInt(purchase.coins_credited, 10) || 0;
+        let newBalance = 0;
+
+        if (coinsToDeduct > 0) {
+          // Deduct from wallet balance (clamped to 0)
+          const walletRes = await client.query(
+            `UPDATE public.wallets 
+             SET balance = GREATEST(0, balance - $1) 
+             WHERE user_id = $2 
+             RETURNING balance`,
+            [coinsToDeduct, purchase.user_id]
+          );
+          newBalance = walletRes.rows[0]?.balance ?? 0;
+
+          // Insert debit entry in wallet_transactions for audit history
+          await client.query(
+            `INSERT INTO public.wallet_transactions (user_id, amount, type, reason, reference_id)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [purchase.user_id, coinsToDeduct, 'debit', 'chargeback_reversal', purchase.order_id || purchase.id]
+          );
+        }
+
+        // Update purchase record to VOIDED
+        await client.query(
+          `UPDATE public.google_play_purchases 
+           SET status = 'VOIDED', voided_at = NOW(), void_reason = $1 
+           WHERE id = $2`,
+          [resolvedReason, purchase.id]
+        );
+
+        await client.query('COMMIT');
+        console.log(`🚫 [Google Play Revoked] Deducted ${coinsToDeduct} coins from user ${purchase.user_id} (Order: ${purchase.order_id}). New balance: ${newBalance}`);
+
+        return {
+          success: true,
+          revoked: true,
+          purchaseType: 'inapp',
+          userId: purchase.user_id,
+          orderId: purchase.order_id,
+          coinsDeducted: coinsToDeduct,
+          newBalance,
+        };
+      } else if (purchase.purchase_type === 'subs') {
+        // Immediately expire the active subscription
+        await client.query(
+          `UPDATE public.subscriptions 
+           SET expires_at = NOW() - INTERVAL '1 second' 
+           WHERE user_id = $1 AND (payment_reference = $2 OR payment_reference = $3)`,
+          [purchase.user_id, purchase.order_id, purchase.purchase_token]
+        );
+
+        // Update purchase record to VOIDED
+        await client.query(
+          `UPDATE public.google_play_purchases 
+           SET status = 'VOIDED', voided_at = NOW(), void_reason = $1 
+           WHERE id = $2`,
+          [resolvedReason, purchase.id]
+        );
+
+        await client.query('COMMIT');
+        console.log(`🚫 [Google Play Revoked] Deactivated subscription for user ${purchase.user_id} (Order: ${purchase.order_id})`);
+
+        return {
+          success: true,
+          revoked: true,
+          purchaseType: 'subs',
+          userId: purchase.user_id,
+          orderId: purchase.order_id,
+        };
+      } else {
+        await client.query('COMMIT');
+        return { success: true, revoked: false, reason: `Unknown purchase_type: ${purchase.purchase_type}` };
+      }
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('❌ Error during purchase revocation transaction:', err.message);
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * Handle Google Play Real-Time Developer Notifications (RTDN) for refunds, chargebacks, and cancellations
    */
   static async handleRtdnNotification(messageData) {
     try {
-      console.log('📡 [RTDN Webhook] Received notification message:', JSON.stringify(messageData));
-      
-      // TODO: Decode Pub/Sub notification payload:
-      // const payload = JSON.parse(Buffer.from(messageData.data, 'base64').toString('utf8'));
-      // Handle voided purchases / refunds:
-      // if (payload.voidedPurchaseNotification) {
-      //   const { purchaseToken, orderId, refundType } = payload.voidedPurchaseNotification;
-      //   // Look up purchase by purchaseToken and debit user wallet or deactivate subscription pass
-      // }
-      // if (payload.subscriptionNotification) {
-      //   const { notificationType, purchaseToken, subscriptionId } = payload.subscriptionNotification;
-      //   // Handle SUBSCRIPTION_REVOKED (12), SUBSCRIPTION_CANCELED (3), etc.
-      // }
-      return { success: true, acknowledged: true };
+      let payload;
+      if (messageData && messageData.data) {
+        const decoded = Buffer.from(messageData.data, 'base64').toString('utf8');
+        payload = JSON.parse(decoded);
+      } else if (messageData && typeof messageData === 'object') {
+        payload = messageData;
+      } else {
+        throw new Error('Missing or invalid Pub/Sub message data.');
+      }
+
+      console.log('📡 [RTDN Webhook] Decoded notification payload:', JSON.stringify(payload));
+
+      // 1. Handle Test Notification from Google Play Console
+      if (payload.testNotification) {
+        console.log('🧪 [RTDN Webhook] Successfully received and acknowledged Google Play test notification.');
+        return { success: true, type: 'testNotification', acknowledged: true };
+      }
+
+      // 2. Handle Voided Purchase Notification (Refunds, Chargebacks)
+      if (payload.voidedPurchaseNotification) {
+        const { purchaseToken, orderId, refundType } = payload.voidedPurchaseNotification;
+        console.log(`📡 [RTDN Webhook] Voided purchase received for order ${orderId || 'N/A'}, token: ${purchaseToken ? purchaseToken.substring(0, 10) + '...' : 'N/A'}`);
+        
+        const result = await this.revokePurchase({
+          purchaseToken,
+          orderId,
+          reason: `RTDN_VOIDED_PURCHASE (refundType: ${refundType || 'standard'})`,
+          refundType,
+        });
+
+        return { success: true, type: 'voidedPurchase', ...result };
+      }
+
+      // 3. Handle Subscription Notification (Renewals, Cancellations, Revocations)
+      if (payload.subscriptionNotification) {
+        const { notificationType, purchaseToken, subscriptionId } = payload.subscriptionNotification;
+        console.log(`📡 [RTDN Webhook] Subscription notification (type ${notificationType}) for product: ${subscriptionId}`);
+
+        // Notification type 12 = SUBSCRIPTION_REVOKED (user revoked/refunded before expiration)
+        if (notificationType === 12) {
+          const result = await this.revokePurchase({
+            purchaseToken,
+            reason: 'RTDN_SUBSCRIPTION_REVOKED',
+          });
+          return { success: true, type: 'subscriptionRevoked', ...result };
+        }
+
+        return { success: true, type: 'subscriptionNotification', notificationType, acknowledged: true };
+      }
+
+      // Other unhandled notification types (e.g. one-time product notifications)
+      return { success: true, acknowledged: true, type: 'unknown_or_unhandled' };
     } catch (err) {
-      console.error('Error handling RTDN notification:', err.message);
+      console.error('❌ Error handling RTDN notification:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Periodically query Google Play Voided Purchases API to reconcile refunds/chargebacks
+   * Catches any refunds that occurred when webhooks were down or missed
+   * @param {number|string} [startTimeMs] - Milliseconds timestamp to start query from (defaults to past 30 days)
+   */
+  static async syncVoidedPurchases(startTimeMs) {
+    try {
+      const publisher = this.getPublisherClient();
+      const defaultStart = Date.now() - (30 * 24 * 60 * 60 * 1000);
+      const start = startTimeMs ? String(startTimeMs) : String(defaultStart);
+
+      console.log(`🔄 [Google Play Voided Sync] Querying voided purchases since ${new Date(parseInt(start, 10)).toISOString()}...`);
+
+      const res = await publisher.purchases.voidedpurchases.list({
+        packageName: ANDROID_PACKAGE_NAME,
+        startTime: start,
+      });
+
+      const voidedList = res.data?.voidedPurchases || [];
+      console.log(`📦 [Google Play Voided Sync] Found ${voidedList.length} voided purchase(s).`);
+
+      const results = [];
+      for (const item of voidedList) {
+        const { purchaseToken, orderId, voidedReason } = item;
+        const revokeRes = await this.revokePurchase({
+          purchaseToken,
+          orderId,
+          reason: `VOIDED_API_SYNC (reason: ${voidedReason ?? 'unspecified'})`,
+        });
+        results.push({
+          orderId,
+          purchaseToken: purchaseToken ? `${purchaseToken.substring(0, 10)}...` : null,
+          ...revokeRes,
+        });
+      }
+
+      return {
+        success: true,
+        totalFound: voidedList.length,
+        processed: results.length,
+        results,
+      };
+    } catch (err) {
+      console.error('❌ [Google Play Voided Sync Error]:', err.message);
       return { success: false, error: err.message };
     }
   }

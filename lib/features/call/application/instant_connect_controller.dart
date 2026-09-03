@@ -11,6 +11,11 @@ import 'package:buddypartner/features/call/application/matchmaking_state.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 import 'package:buddypartner/features/home/presentation/providers/matched_users_provider.dart';
 import 'package:buddypartner/features/history/data/call_history_provider.dart';
+import 'package:go_router/go_router.dart';
+import 'package:buddypartner/app/router/app_router.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
+import 'package:buddypartner/core/utils/app_snack_bar.dart';
 
 enum InstantPhase {
   idle,
@@ -177,6 +182,18 @@ class InstantConnectController extends Notifier<InstantConnectState> {
         _inFlightClaimSessionIds.remove(sId);
 
         if (response is Map && response['success'] == false) {
+          final isSubRequired = response['error'] == 'SUBSCRIPTION_REQUIRED';
+          if (isSubRequired) {
+            final navContext = rootNavigatorKey.currentContext;
+            if (navContext != null && navContext.mounted) {
+              AppSnackBar.showError(
+                navContext,
+                response['message'] as String? ?? 'Active VIP Subscription Pass required to answer VIP calls.',
+              );
+              navContext.push(RouteNames.subscribe);
+            }
+          }
+
           // Guard: If the call already connected (e.g. instant:call_connected arrived before ack), do NOT revert to idle!
           if (state.phase == InstantPhase.inCall && state.sessionId == sId) {
             debugPrint('ℹ️ [InstantConnect] Received failure ack for $sId after call was already established. Preserving active call.');
@@ -499,11 +516,22 @@ class InstantConnectController extends Notifier<InstantConnectState> {
         ack: (response) {
           debugPrint('[Instant Connect] accept_call response: $response');
           if (response is Map && response['success'] == false) {
+            final isSubRequired = response['error'] == 'SUBSCRIPTION_REQUIRED';
             state = state.copyWith(
               phase: InstantPhase.idle,
               clearIncomingRequest: true,
               errorMessage: response['message'] as String? ?? 'Call request is no longer available.',
             );
+            if (isSubRequired) {
+              final navContext = rootNavigatorKey.currentContext;
+              if (navContext != null && navContext.mounted) {
+                AppSnackBar.showError(
+                  navContext,
+                  response['message'] as String? ?? 'Active VIP Subscription Pass required to answer VIP calls.',
+                );
+                navContext.push(RouteNames.subscribe);
+              }
+            }
           }
         },
       );
@@ -523,6 +551,21 @@ class InstantConnectController extends Notifier<InstantConnectState> {
   /// Female: Handle app launch from an Instant VIP push notification click (One-tap direct join)
   void handleNotificationLaunch({required String sessionId, required int bidAmount}) {
     if (sessionId.isEmpty) return;
+
+    // Check female subscription state before claiming VIP call
+    final isSubscribed = ref.read(subscriptionStatusProvider).value?.isSubscribed ?? false;
+    if (!isSubscribed) {
+      debugPrint('🚫 [InstantConnect] Unsubscribed female tapped VIP push notification. Redirecting to SubscribePage.');
+      final navContext = rootNavigatorKey.currentContext;
+      if (navContext != null && navContext.mounted) {
+        AppSnackBar.showError(
+          navContext,
+          'Active VIP Subscription Pass required to answer VIP calls.',
+        );
+        navContext.push(RouteNames.subscribe);
+      }
+      return;
+    }
 
     // 1. Guard against duplicate launches if already in an active call for this session
     if (state.phase == InstantPhase.inCall && state.sessionId == sessionId) {

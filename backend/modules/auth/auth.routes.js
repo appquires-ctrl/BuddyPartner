@@ -185,13 +185,13 @@ router.post('/otp/verify', async (req, res) => {
              RETURNING id, country_code, mobile, phone_number, full_name, dob, gender, language, avatar_seed, avatar_style, is_telecaller, has_claimed_intro_offer, country, state, city, latitude, longitude`,
             [
               cleanCountryCode, cleanMobile, fullPhoneNumber,
-              'Google Reviewer', '1998-01-01', 'Male', 'English', 'Felix', 'avataaars', 'India', 'Delhi', 'New Delhi'
+              'Google Reviewer', '1998-01-01', 'Male', 'English', 'male_2f', 'avataaars', 'India', 'Delhi', 'New Delhi'
             ]
           );
         } else {
           insertUserRes = await client.query(
-            `INSERT INTO public.users (country_code, mobile, phone_number) 
-             VALUES ($1, $2, $3) 
+            `INSERT INTO public.users (country_code, mobile, phone_number, avatar_seed, avatar_style) 
+             VALUES ($1, $2, $3, 'male_2f', 'avataaars') 
              RETURNING id, country_code, mobile, phone_number, full_name, dob, gender, language, avatar_seed, avatar_style, is_telecaller, has_claimed_intro_offer, country, state, city, latitude, longitude`,
             [cleanCountryCode, cleanMobile, fullPhoneNumber]
           );

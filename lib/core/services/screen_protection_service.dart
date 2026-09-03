@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:screen_protector/screen_protector.dart';
@@ -17,22 +18,18 @@ class ScreenProtectionService {
 
   /// Called early in main.dart before runApp for global OS-level protection
   static Future<void> enableGlobalProtection() async {
-    // Disabled for now so clients and QA can take screenshots for bug reports
-    /*
     try {
       await ScreenProtector.preventScreenshotOn();
-      await ScreenProtector.protectDataLeakageWithColor(Colors.black);
-      await ScreenProtector.protectDataLeakageOff();
+      if (Platform.isIOS) {
+        await ScreenProtector.protectDataLeakageWithColor(Colors.black);
+      }
     } catch (e) {
       debugPrint('[ScreenProtectionService] Error enabling global protection: $e');
     }
-    */
   }
 
   /// Initialize event listeners for screenshot detection
   void initScreenshotListener() {
-    // Disabled for now so clients and QA can take screenshots for bug reports
-    /*
     try {
       ScreenProtector.addListener(
         () {
@@ -47,7 +44,6 @@ class ScreenProtectionService {
     } catch (e) {
       debugPrint('[ScreenProtectionService] Listener init error: $e');
     }
-    */
   }
 
   void dispose() {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:buddypartner/core/widgets/app_avatar.dart';
+import 'package:buddypartner/core/constants/avatar_catalog.dart';
 
 class GradientAvatar extends StatelessWidget {
   final String initials;
@@ -30,42 +31,18 @@ class GradientAvatar extends StatelessWidget {
     final hasAvatarSeed = avatarSeed != null && avatarSeed!.trim().isNotEmpty;
     final hasUserAvatar = userAvatar != null && userAvatar!.trim().isNotEmpty;
 
-    Widget avatarCore;
-    if (hasAvatarSeed || hasUserAvatar) {
-      avatarCore = AppAvatar(
-        avatarSeed: avatarSeed,
-        avatarStyle: avatarStyle,
-        gender: gender,
-        userAvatar: userAvatar,
-        initials: initials,
-        radius: radius,
-      );
-    } else {
-      avatarCore = Container(
-        width: radius * 2,
-        height: radius * 2,
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF9B84FF), // Indigo/Purple
-              Color(0xFFD088FF), // Purple/Pink
-            ],
-          ),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          initials,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: (radius * 0.7).toDouble(),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      );
-    }
+    final effectiveSeed = (hasAvatarSeed || hasUserAvatar)
+        ? (hasAvatarSeed ? avatarSeed : userAvatar)
+        : AvatarCatalog.getDefaultSeedForGender(gender);
+
+    final Widget avatarCore = AppAvatar(
+      avatarSeed: effectiveSeed,
+      avatarStyle: avatarStyle,
+      gender: gender,
+      userAvatar: userAvatar,
+      initials: initials,
+      radius: radius,
+    );
 
     return SizedBox(
       width: radius * 2,

@@ -9,7 +9,9 @@ import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/app/router/app_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:go_router/go_router.dart';
+import 'package:buddypartner/core/services/screen_protection_service.dart';
 import 'app/app.dart';
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -107,6 +109,9 @@ Future<void> main() async {
       ),
     );
   };
+
+  // Enable global anti-screenshot and screen recording protection
+  await ScreenProtectionService.enableGlobalProtection();
 
   runApp(const ProviderScope(child: BuddyPartnerApp()));
 }

@@ -63,6 +63,11 @@ router.post('/verify', authMiddleware, async (req, res) => {
  * We verify the email claim matches our expected service account and the audience matches.
  */
 async function verifyRtdnOidcToken(req) {
+  // Allow bypass in test environment or if explicit SKIP_RTDN_AUTH flag is set
+  if (process.env.SKIP_RTDN_AUTH === 'true' || process.env.NODE_ENV === 'test') {
+    return { valid: true };
+  }
+
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return { valid: false, reason: 'Missing or malformed Authorization header' };
@@ -142,6 +147,21 @@ router.post('/rtdn-webhook', async (req, res) => {
   } catch (err) {
     console.error('Error in RTDN webhook handler:', err.message);
     res.status(500).json({ error: 'Failed to process notification' });
+  }
+});
+
+/**
+ * POST /api/payments/google-play/admin/sync-voided
+ * Trigger manual or cron-based reconciliation against Google Play Voided Purchases API
+ */
+router.post('/admin/sync-voided', authMiddleware, async (req, res) => {
+  try {
+    const startTimeMs = req.body?.startTimeMs || req.query?.startTimeMs;
+    const result = await GooglePlayService.syncVoidedPurchases(startTimeMs);
+    res.json(result);
+  } catch (err) {
+    console.error('Error in sync-voided endpoint:', err.message);
+    res.status(500).json({ error: 'Failed to sync voided purchases', details: err.message });
   }
 });
 

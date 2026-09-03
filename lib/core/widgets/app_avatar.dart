@@ -53,7 +53,10 @@ class AppAvatar extends StatelessWidget {
         ),
       );
     } else {
-      final assetPath = AvatarCatalog.getAssetPath(effectiveSeed, gender: gender);
+      final safeSeed = (effectiveSeed != null && effectiveSeed.isNotEmpty)
+          ? effectiveSeed
+          : AvatarCatalog.getDefaultSeedForGender(gender);
+      final assetPath = AvatarCatalog.getAssetPath(safeSeed, gender: gender);
       if (assetPath != null) {
         avatarChild = ClipOval(
           child: SvgPicture.asset(
@@ -63,11 +66,12 @@ class AppAvatar extends StatelessWidget {
             fit: BoxFit.cover,
             placeholderBuilder: (context) => _buildFallback(colors, typography),
             errorBuilder: (context, error, stackTrace) {
-              final altPath = assetPath.contains('/female/')
-                  ? assetPath.replaceAll('/female/', '/male/')
-                  : assetPath.replaceAll('/male/', '/female/');
+              final isFemale = (gender ?? '').toLowerCase().contains('female');
+              final guaranteedPath = isFemale
+                  ? 'assets/avatars/female/avatar_female_1.svg'
+                  : 'assets/avatars/male/avatar_male_2f.svg';
               return SvgPicture.asset(
-                altPath,
+                guaranteedPath,
                 width: size,
                 height: size,
                 fit: BoxFit.cover,

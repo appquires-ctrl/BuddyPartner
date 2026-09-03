@@ -533,6 +533,18 @@ function registerInstantConnectHandlers(io, socket, redis) {
       const reqData = JSON.parse(requestStr);
       const { sessionId, maleUserId, maleSocketId, bidAmount, femaleUserIds } = reqData;
 
+      // Verify female user has active subscription pass to answer VIP calls
+      const isSub = await subscriptionsService.isSubscribed(userId);
+      if (!isSub) {
+        console.warn(`🚫 [Instant Connect] Unsubscribed female ${userId} attempted to accept VIP call request ${callRequestId}`);
+        cb({
+          success: false,
+          error: 'SUBSCRIPTION_REQUIRED',
+          message: 'An active VIP Subscription Pass is required to answer VIP calls.',
+        });
+        return;
+      }
+
       // Atomic SETNX to claim the entire session! (Prevents any second female from connecting)
       const win = await redis.set(`instant:claim_session:${sessionId}`, userId, 'NX', 'EX', 120);
 
@@ -605,9 +617,9 @@ function registerInstantConnectHandlers(io, socket, redis) {
         console.error('Error during parallel instant call initialization:', err.message);
       }
 
-      // Start 60-second (1-minute) server-authoritative milestone timer
+      // Start 10-minute (600-second) server-authoritative milestone timer
       const milestoneTimer = setTimeout(async () => {
-        console.log(`🎉 [Instant Connect] 1-Minute Milestone reached for session ${sessionId}! Unlocking scratch card.`);
+        console.log(`🎉 [Instant Connect] 10-Minute Milestone reached for session ${sessionId}! Unlocking scratch card.`);
         const scratchCard = await instantConnectService.trigger10MinuteMilestone(sessionId);
         if (scratchCard) {
           const liveMaleSocket = getSocketForUser(io, maleUserId);
@@ -617,20 +629,20 @@ function registerInstantConnectHandlers(io, socket, redis) {
             liveMaleSocket.emit('instant:milestone_reached', {
               callId,
               sessionId,
-              milestoneMinutes: 1,
+              milestoneMinutes: 10,
             });
           }
           if (liveFemaleSocket) {
             liveFemaleSocket.emit('instant:milestone_reached', {
               callId,
               sessionId,
-              milestoneMinutes: 1,
+              milestoneMinutes: 10,
               scratchCardId: scratchCard.id,
               coinReward: scratchCard.coin_reward,
             });
           }
         }
-      }, 60 * 1000); // 1 minute
+      }, 10 * 60 * 1000); // 10 minutes
 
       const activeMaleSocket = getSocketForUser(io, maleUserId) || { id: maleSocketId };
 
@@ -796,6 +808,18 @@ function registerInstantConnectHandlers(io, socket, redis) {
         return;
       }
 
+      // Verify female user has active subscription pass to answer VIP calls
+      const isSub = await subscriptionsService.isSubscribed(userId);
+      if (!isSub) {
+        console.warn(`🚫 [Instant Connect] Unsubscribed female ${userId} attempted to claim surge VIP session ${sessionId}`);
+        cb({
+          success: false,
+          error: 'SUBSCRIPTION_REQUIRED',
+          message: 'An active VIP Subscription Pass is required to answer VIP calls.',
+        });
+        return;
+      }
+
       // 2. Check if female is already in an active call
       const isCurrentlyInCall = await redis.get(`instant:in_call:${userId}`) || await redis.get(`call_lock:${userId}`);
       if (isCurrentlyInCall) {
@@ -908,9 +932,9 @@ function registerInstantConnectHandlers(io, socket, redis) {
         console.error('Error in parallel instant claim initialization:', userErr.message);
       }
 
-      // 11. Start 60-second milestone timer for scratch card reward
+      // 11. Start 10-minute milestone timer for scratch card reward (600 seconds)
       const milestoneTimer = setTimeout(async () => {
-        console.log(`🎉 [Instant Connect] 1-Minute Milestone reached for session ${sessionId}! Unlocking scratch card.`);
+        console.log(`🎉 [Instant Connect] 10-Minute Milestone reached for session ${sessionId}! Unlocking scratch card.`);
         const scratchCard = await instantConnectService.trigger10MinuteMilestone(sessionId);
         if (scratchCard) {
           const liveMaleSocket = getSocketForUser(io, maleUserId);
@@ -920,20 +944,20 @@ function registerInstantConnectHandlers(io, socket, redis) {
             liveMaleSocket.emit('instant:milestone_reached', {
               callId,
               sessionId,
-              milestoneMinutes: 1,
+              milestoneMinutes: 10,
             });
           }
           if (liveFemaleSocket) {
             liveFemaleSocket.emit('instant:milestone_reached', {
               callId,
               sessionId,
-              milestoneMinutes: 1,
+              milestoneMinutes: 10,
               scratchCardId: scratchCard.id,
               coinReward: scratchCard.coin_reward,
             });
           }
         }
-      }, 60 * 1000);
+      }, 10 * 60 * 1000);
 
       const activeMaleSocket = maleSocket;
 

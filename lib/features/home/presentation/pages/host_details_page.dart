@@ -42,7 +42,7 @@ class _HostDetailsPageState extends ConsumerState<HostDetailsPage> {
     final rate = widget.hostId == 'host_2' ? 12 : 10;
     final rating = widget.hostId == 'host_2' ? 4.5 : 4.8;
     final reviews = widget.hostId == 'host_2' ? 16 : 24;
-    final avatarSeed = widget.hostId == 'host_2' ? 'male_1_new' : 'female_1_new';
+    final avatarSeed = widget.hostId == 'host_2' ? 'male_2f' : 'female_1_new';
     final gender = widget.hostId == 'host_2' ? 'Male' : 'Female';
 
     return Scaffold(
@@ -75,14 +75,13 @@ class _HostDetailsPageState extends ConsumerState<HostDetailsPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 CircleAvatar(
-                  backgroundColor: Colors.black.withOpacity(0.3),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => context.pop(),
-                  ),
+                  radius: 20,
+                  backgroundColor: Colors.black.withValues(alpha: 0.4),
+                  child: const BackButton(color: Colors.white),
                 ),
                 CircleAvatar(
-                  backgroundColor: Colors.black.withOpacity(0.3),
+                  radius: 20,
+                  backgroundColor: Colors.black.withValues(alpha: 0.4),
                   child: IconButton(
                     icon: Icon(
                       _isFavorited ? Icons.favorite : Icons.favorite_border,

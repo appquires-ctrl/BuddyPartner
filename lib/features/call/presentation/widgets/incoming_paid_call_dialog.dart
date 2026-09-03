@@ -4,6 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
+import 'package:go_router/go_router.dart';
+import 'package:buddypartner/app/router/app_router.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
+import 'package:buddypartner/core/utils/app_snack_bar.dart';
 
 class IncomingPaidCallDialog extends ConsumerStatefulWidget {
   const IncomingPaidCallDialog({super.key});
@@ -55,6 +60,25 @@ class _IncomingPaidCallDialogState extends ConsumerState<IncomingPaidCallDialog>
 
   void _onAccept() {
     if (_actionHandled) return;
+
+    // Verify if female has an active subscription pass before accepting VIP call
+    final isSubscribed = ref.read(subscriptionStatusProvider).value?.isSubscribed ?? false;
+    if (!isSubscribed) {
+      _actionHandled = true;
+      _countdownTimer?.cancel();
+      if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      ref.read(instantConnectControllerProvider.notifier).declineIncomingCall();
+      final navContext = rootNavigatorKey.currentContext ?? context;
+      AppSnackBar.showError(
+        navContext,
+        'Active VIP Subscription Pass required to answer VIP calls.',
+      );
+      navContext.push(RouteNames.subscribe);
+      return;
+    }
+
     _actionHandled = true;
     setState(() => _isAccepting = true);
     HapticFeedback.mediumImpact();

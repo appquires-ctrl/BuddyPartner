@@ -16,6 +16,20 @@ const mockDbModule = {
       const found = mockDb.purchases.get(token);
       return { rows: found ? [found] : [] };
     }
+    if (sql.includes('SELECT * FROM public.google_play_purchases WHERE purchase_token = $1')) {
+      const token = params[0];
+      const found = mockDb.purchases.get(token);
+      return { rows: found ? [found] : [] };
+    }
+    if (sql.includes('SELECT * FROM public.google_play_purchases WHERE order_id = $1')) {
+      const orderId = params[0];
+      for (const record of mockDb.purchases.values()) {
+        if (record.order_id === orderId || record.orderId === orderId) {
+          return { rows: [record] };
+        }
+      }
+      return { rows: [] };
+    }
     return { rows: [] };
   },
   pool: {
@@ -30,21 +44,67 @@ const mockDbModule = {
             mockDb.wallets.set(userId, updated);
             return { rows: [{ balance: updated }] };
           }
+          if (sql.includes('UPDATE public.wallets')) {
+            const amount = params[0];
+            const userId = params[1];
+            const current = mockDb.wallets.get(userId) || 0;
+            const updated = Math.max(0, current - amount);
+            mockDb.wallets.set(userId, updated);
+            return { rows: [{ balance: updated }] };
+          }
           if (sql.includes('INSERT INTO public.wallet_transactions')) {
-            mockDb.transactions.push({ userId: params[0], amount: params[1], ref: params[4] });
+            mockDb.transactions.push({
+              userId: params[0],
+              amount: params[1],
+              type: params[2] || 'credit',
+              reason: params[3] || 'recharge',
+              ref: params[4],
+            });
             return { rows: [] };
           }
           if (sql.includes('INSERT INTO public.google_play_purchases')) {
             const purchaseRecord = {
-              id: 'mock_purchase_id',
+              id: 'mock_purchase_id_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+              user_id: params[0],
               userId: params[0],
+              product_id: params[1],
               productId: params[1],
               purchase_token: params[2],
+              order_id: params[3],
               orderId: params[3],
+              purchase_type: params[4] || 'inapp',
+              amount_paid: params[5],
+              coins_credited: params[6] || 0,
+              status: params[7] || 'COMPLETED',
               created_at: new Date().toISOString(),
             };
             mockDb.purchases.set(params[2], purchaseRecord);
             return { rows: [purchaseRecord] };
+          }
+          if (sql.includes('UPDATE public.google_play_purchases')) {
+            const reason = params[0];
+            const id = params[1];
+            for (const record of mockDb.purchases.values()) {
+              if (record.id === id) {
+                record.status = 'VOIDED';
+                record.voided_at = new Date().toISOString();
+                record.void_reason = reason;
+                return { rows: [record] };
+              }
+            }
+            return { rows: [] };
+          }
+          if (sql.includes('UPDATE public.subscriptions')) {
+            const userId = params[0];
+            const orderId = params[1];
+            const token = params[2];
+            for (const sub of mockDb.subscriptions) {
+              if (sub.userId === userId && (sub.paymentRef === orderId || sub.paymentRef === token)) {
+                sub.expiresAt = new Date(Date.now() - 1000).toISOString();
+                sub.is_active = false;
+              }
+            }
+            return { rows: [] };
           }
           return { rows: [] };
         },
@@ -466,6 +526,192 @@ async function runGooglePlaySecurityTests() {
     assert.strictEqual(mockDb.purchases.has('sub_wrong_pkg_token'), false, 'Token must NOT be recorded');
 
     console.log('  ✅ Test 9 Passed: Subscription package mismatch rejected with PACKAGE_MISMATCH!\n');
+    testsPassed++;
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Test 10: RTDN voidedPurchaseNotification (Chargeback/Refund of Coin Pack)
+    // ──────────────────────────────────────────────────────────────────────────
+    testsTotal++;
+    console.log('▶ Test 10: RTDN voided purchase notification revokes credited coins');
+
+    // user_test_valid_a had 110 coins credited from Test 1 with valid_token_100
+    const balanceBeforeVoid = mockDb.wallets.get('user_test_valid_a');
+    assert.strictEqual(balanceBeforeVoid, 110, 'User should start with 110 coins');
+
+    const voidPayload = {
+      version: '1.0',
+      packageName: ANDROID_PACKAGE_NAME,
+      voidedPurchaseNotification: {
+        purchaseToken: 'valid_token_100',
+        orderId: 'GPA.3355-3527-8229-20563',
+        productType: 1,
+        refundType: 1,
+      },
+    };
+
+    const rtdnMessage = {
+      data: Buffer.from(JSON.stringify(voidPayload)).toString('base64'),
+      messageId: 'rtdn_void_100',
+    };
+
+    const rtdnRes = await GooglePlayService.handleRtdnNotification(rtdnMessage);
+
+    assert.strictEqual(rtdnRes.success, true, 'RTDN handler must succeed');
+    assert.strictEqual(rtdnRes.revoked, true, 'Purchase must be revoked');
+    assert.strictEqual(rtdnRes.coinsDeducted, 110, 'Must deduct 110 coins');
+    assert.strictEqual(mockDb.wallets.get('user_test_valid_a'), 0, 'User balance must be 0 after chargeback');
+
+    const lastTx = mockDb.transactions[mockDb.transactions.length - 1];
+    assert.strictEqual(lastTx.type, 'debit', 'Must insert debit transaction');
+    assert.strictEqual(lastTx.reason, 'chargeback_reversal', 'Reason must be chargeback_reversal');
+
+    const purchaseRec = mockDb.purchases.get('valid_token_100');
+    assert.strictEqual(purchaseRec.status, 'VOIDED', 'Purchase status must be VOIDED');
+
+    console.log('  ✅ Test 10 Passed: RTDN voided notification debited 110 coins and set status VOIDED!\n');
+    testsPassed++;
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Test 11: RTDN Idempotency (Duplicate Voided Notification)
+    // ──────────────────────────────────────────────────────────────────────────
+    testsTotal++;
+    console.log('▶ Test 11: RTDN idempotency prevents double-debiting on duplicate notification');
+
+    const txCountBefore11 = mockDb.transactions.length;
+    const rtdnDupRes = await GooglePlayService.handleRtdnNotification(rtdnMessage);
+
+    assert.strictEqual(rtdnDupRes.success, true, 'Duplicate RTDN must succeed cleanly');
+    assert.strictEqual(rtdnDupRes.alreadyVoided, true, 'Must report alreadyVoided: true');
+    assert.strictEqual(mockDb.wallets.get('user_test_valid_a'), 0, 'User balance must remain 0 (no double-debit)');
+    assert.strictEqual(mockDb.transactions.length, txCountBefore11, 'No new debit transaction should be added');
+
+    console.log('  ✅ Test 11 Passed: Duplicate notification handled idempotently with 0 balance change!\n');
+    testsPassed++;
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Test 12: RTDN subscriptionNotification (SUBSCRIPTION_REVOKED type 12)
+    // ──────────────────────────────────────────────────────────────────────────
+    testsTotal++;
+    console.log('▶ Test 12: RTDN subscription revocation deactivates active pass');
+
+    // user_test_sub_d had valid_sub_token_7d activated in Test 5
+    const subRevokePayload = {
+      version: '1.0',
+      packageName: ANDROID_PACKAGE_NAME,
+      subscriptionNotification: {
+        version: '1.0',
+        notificationType: 12, // SUBSCRIPTION_REVOKED
+        purchaseToken: 'valid_sub_token_7d',
+        subscriptionId: 'pass_7_days',
+      },
+    };
+
+    const subRtdnMessage = {
+      data: Buffer.from(JSON.stringify(subRevokePayload)).toString('base64'),
+      messageId: 'rtdn_sub_revoke_12',
+    };
+
+    const subRtdnRes = await GooglePlayService.handleRtdnNotification(subRtdnMessage);
+
+    assert.strictEqual(subRtdnRes.success, true, 'Subscription revocation must succeed');
+    assert.strictEqual(subRtdnRes.revoked, true, 'Subscription must be revoked');
+    assert.strictEqual(subRtdnRes.purchaseType, 'subs', 'Purchase type must be subs');
+
+    const subPurchaseRec = mockDb.purchases.get('valid_sub_token_7d');
+    assert.strictEqual(subPurchaseRec.status, 'VOIDED', 'Subscription purchase record status must be VOIDED');
+
+    console.log('  ✅ Test 12 Passed: RTDN subscription revocation deactivated pass and marked VOIDED!\n');
+    testsPassed++;
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Test 13: RTDN testNotification ping from Google Play Console
+    // ──────────────────────────────────────────────────────────────────────────
+    testsTotal++;
+    console.log('▶ Test 13: RTDN test notification ping from Google Play Console');
+
+    const testPingPayload = {
+      version: '1.0',
+      packageName: ANDROID_PACKAGE_NAME,
+      testNotification: {
+        version: '1.0',
+      },
+    };
+
+    const pingMessage = {
+      data: Buffer.from(JSON.stringify(testPingPayload)).toString('base64'),
+    };
+
+    const pingRes = await GooglePlayService.handleRtdnNotification(pingMessage);
+
+    assert.strictEqual(pingRes.success, true, 'Test notification ping must succeed');
+    assert.strictEqual(pingRes.type, 'testNotification', 'Type must be testNotification');
+    assert.strictEqual(pingRes.acknowledged, true, 'Acknowledged must be true');
+
+    console.log('  ✅ Test 13 Passed: Google Play test notification ping acknowledged successfully!\n');
+    testsPassed++;
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Test 14: Voided Purchases API Reconciliation
+    // ──────────────────────────────────────────────────────────────────────────
+    testsTotal++;
+    console.log('▶ Test 14: Voided Purchases API reconciliation catches missed chargebacks');
+
+    // First, set up a coin purchase that was verified earlier
+    const mockPublisherSyncSetup = {
+      purchases: {
+        products: {
+          get: async () => ({
+            data: {
+              packageName: ANDROID_PACKAGE_NAME,
+              purchaseState: 0,
+              acknowledgementState: 1,
+              orderId: 'GPA.sync.50.order',
+            },
+          }),
+        },
+      },
+    };
+    GooglePlayService.setPublisherClientOverride(mockPublisherSyncSetup);
+
+    await GooglePlayService.verifyAndProcessPurchase('user_test_sync', {
+      productId: 'plan_50',
+      purchaseToken: 'sync_token_50',
+      orderId: 'GPA.sync.50.order',
+    });
+
+    assert.strictEqual(mockDb.wallets.get('user_test_sync'), 50, 'User should have 50 coins');
+
+    // Now mock the voidedpurchases API returning this purchase as voided
+    const mockPublisherVoidedApi = {
+      purchases: {
+        voidedpurchases: {
+          list: async ({ packageName, startTime }) => {
+            assert.strictEqual(packageName, ANDROID_PACKAGE_NAME);
+            return {
+              data: {
+                voidedPurchases: [
+                  {
+                    purchaseToken: 'sync_token_50',
+                    orderId: 'GPA.sync.50.order',
+                    voidedReason: 1,
+                  },
+                ],
+              },
+            };
+          },
+        },
+      },
+    };
+    GooglePlayService.setPublisherClientOverride(mockPublisherVoidedApi);
+
+    const syncResult = await GooglePlayService.syncVoidedPurchases();
+
+    assert.strictEqual(syncResult.success, true, 'Sync must succeed');
+    assert.strictEqual(syncResult.totalFound, 1, 'Must find 1 voided purchase');
+    assert.strictEqual(mockDb.wallets.get('user_test_sync'), 0, 'User balance must be debited to 0');
+    assert.strictEqual(mockDb.purchases.get('sync_token_50').status, 'VOIDED', 'Status must be VOIDED');
+
+    console.log('  ✅ Test 14 Passed: Voided Purchases API reconciliation debited coins to 0!\n');
     testsPassed++;
 
   } finally {
