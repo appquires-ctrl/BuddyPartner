@@ -33,19 +33,27 @@ pool.on('error', (err) => {
   console.error('❌ Unexpected database error on idle client:', err.message);
 });
 
-// Initialize the favorites table if it doesn't exist
-pool.query(`
-  CREATE TABLE IF NOT EXISTS public.favorites (
-    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-    favorite_user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    PRIMARY KEY (user_id, favorite_user_id)
-  );
-`).then(() => {
-  return pool.query(`ALTER TABLE public.users ALTER COLUMN avatar_seed TYPE TEXT;`);
-}).catch((err) => {
-  console.error('❌ Failed to initialize database schemas:', err.message);
-});
+// Initialize the favorites table if it doesn't exist (with retry for serverless cold starts)
+async function initCoreTables(retries = 2) {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.favorites (
+        user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+        favorite_user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (user_id, favorite_user_id)
+      );
+    `);
+    await pool.query(`ALTER TABLE public.users ALTER COLUMN avatar_seed TYPE TEXT;`);
+  } catch (err) {
+    if (retries > 0) {
+      setTimeout(() => initCoreTables(retries - 1), 2000);
+    } else {
+      console.warn('⚠️ Initial core table check deferred to server startup:', err.message);
+    }
+  }
+}
+initCoreTables();
 
 /**
  * Profiled query executor with slow-query detection (>200ms)

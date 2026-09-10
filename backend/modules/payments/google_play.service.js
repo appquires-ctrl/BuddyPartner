@@ -676,8 +676,9 @@ class GooglePlayService {
    */
   static async syncVoidedPurchases(startTimeMs) {
     try {
-      const publisher = this.getPublisherClient();
-      const defaultStart = Date.now() - (30 * 24 * 60 * 60 * 1000);
+      // Google Play Developer API requires startTime to be strictly within 30 days.
+      // Using 28 days avoids server clock-skew boundary rejection.
+      const defaultStart = Date.now() - (28 * 24 * 60 * 60 * 1000);
       const start = startTimeMs ? String(startTimeMs) : String(defaultStart);
 
       console.log(`🔄 [Google Play Voided Sync] Querying voided purchases since ${new Date(parseInt(start, 10)).toISOString()}...`);
