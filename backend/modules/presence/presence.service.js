@@ -1,8 +1,13 @@
 const LEASE_TTL_SECONDS = 60; // 60s lease TTL for self-healing on crash / unclean disconnect
+const DEBOUNCE_DISCONNECT_MS = 1500; // 1.5s grace period for mobile network handoffs
+
+// In-memory timer map for debouncing rapid disconnect/reconnect cycles
+const pendingDisconnects = new Map();
 
 class PresenceService {
   /**
-   * Helper to broadcast presence update to targeted room, user room, and global.
+   * Broadcast presence update ONLY to targeted rooms (room for this user's subscribers & the user themselves).
+   * High-scale fix: Global io.emit(...) removed to avoid O(N^2) socket packet flooding across instances.
    * @param {import('socket.io').Server} io
    * @param {string} userId
    * @param {boolean} isOnline
@@ -16,21 +21,20 @@ class PresenceService {
       timestamp: new Date().toISOString(),
     };
 
-    // 1. Broadcast to targeted presence room (Approach B)
+    // 1. Broadcast to targeted presence room for subscribers/matches
     io.to(`presence_user:${userId}`).emit('presence:update', payload);
 
     // 2. Broadcast to personal user room
     io.to(userId).emit('presence:update', payload);
 
-    // 3. Broadcast globally for fallback / legacy listeners
-    io.emit('presence:update', payload);
-
-    console.log(`🌐 [Presence] User ${userId} is now ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+    // Global broadcast removed — scalable targeted room emits only
+    console.log(`🌐 [Presence] User ${userId} is now ${isOnline ? 'ONLINE' : 'OFFLINE'} (targeted emit)`);
   }
 
   /**
    * Add a socket ID to the user's active socket set in Redis.
    * Emits 'online: true' if the user transitioned from offline (0 sockets) to online (1+ sockets).
+   * Cancels any pending disconnect debouncer.
    * @param {import('ioredis').Redis} redis
    * @param {import('socket.io').Server} io
    * @param {string} userId
@@ -38,6 +42,12 @@ class PresenceService {
    */
   async addSocket(redis, io, userId, socketId) {
     if (!userId || !socketId) return;
+
+    // If there was a pending disconnect timer for this user, cancel it (user reconnected quickly)
+    if (pendingDisconnects.has(userId)) {
+      clearTimeout(pendingDisconnects.get(userId));
+      pendingDisconnects.delete(userId);
+    }
 
     try {
       const key = `online_sockets:${userId}`;
@@ -77,7 +87,7 @@ class PresenceService {
 
   /**
    * Remove a socket ID from the user's active socket set in Redis.
-   * Emits 'online: false' only when all active sockets for this user are closed (count == 0).
+   * Emits 'online: false' after a debounce grace period if no active sockets remain.
    * @param {import('ioredis').Redis} redis
    * @param {import('socket.io').Server} io
    * @param {string} userId
@@ -112,10 +122,23 @@ class PresenceService {
 
       const activeRemainingCount = members.length - deadSockets.length;
 
-      // Only broadcast offline if no active sockets remain
+      // If no active sockets remain, debounce the offline event
       if (activeRemainingCount === 0) {
-        await redis.del(key);
-        this._broadcastPresence(io, userId, false);
+        if (pendingDisconnects.has(userId)) {
+          clearTimeout(pendingDisconnects.get(userId));
+        }
+
+        const timer = setTimeout(async () => {
+          pendingDisconnects.delete(userId);
+          // Re-verify that user hasn't reconnected during the debounce window
+          const currentCount = await redis.scard(key);
+          if (currentCount === 0) {
+            await redis.del(key);
+            this._broadcastPresence(io, userId, false);
+          }
+        }, DEBOUNCE_DISCONNECT_MS);
+
+        pendingDisconnects.set(userId, timer);
       } else {
         // Refresh TTL for remaining active sockets
         await redis.expire(key, LEASE_TTL_SECONDS);
@@ -133,6 +156,11 @@ class PresenceService {
    */
   async clearUserPresence(redis, io, userId) {
     if (!userId) return;
+
+    if (pendingDisconnects.has(userId)) {
+      clearTimeout(pendingDisconnects.get(userId));
+      pendingDisconnects.delete(userId);
+    }
 
     try {
       const key = `online_sockets:${userId}`;

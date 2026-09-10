@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const db = require('../../db');
 const redis = require('../../redis');
 const { authMiddleware } = require('../../middleware/auth.middleware');
+const { cacheService } = require('../../services/cache.service');
 const { generateOTP, sanitizePhoneInputs, sendWhatsAppOtp } = require('./otpService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'buddypartner_fallback_jwt_secret_key_change_me_in_prod';
@@ -600,6 +601,9 @@ router.post('/profile', authMiddleware, async (req, res) => {
       );
     }
 
+    // Invalidate cached user profile in Redis
+    await cacheService.invalidate(`user:profile:${userId}`);
+
     res.json({ success: true, message: 'Profile updated successfully.' });
   } catch (err) {
     console.error('Error updating profile:', err.message);
@@ -610,24 +614,27 @@ router.post('/profile', authMiddleware, async (req, res) => {
 /**
  * Endpoint: GET /api/auth/me
  * Retrieves current user's profile and wallet balance.
+ * Cached in Redis for 60 seconds with write-invalidation to handle rapid app restarts.
  */
 router.get('/me', authMiddleware, async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const result = await db.query(
-      `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, w.balance 
-       FROM public.users u
-       LEFT JOIN public.wallets w ON w.user_id = u.id
-       WHERE u.id = $1`,
-      [userId]
-    );
+    const userRow = await cacheService.getOrSet(`user:profile:${userId}`, 60, async () => {
+      const result = await db.query(
+        `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, w.balance 
+         FROM public.users u
+         LEFT JOIN public.wallets w ON w.user_id = u.id
+         WHERE u.id = $1`,
+        [userId]
+      );
+      return result.rows.length > 0 ? result.rows[0] : null;
+    });
 
-    if (result.rows.length === 0) {
+    if (!userRow) {
       return res.status(404).json({ error: 'User profile not found.' });
     }
 
-    const userRow = result.rows[0];
     res.json({
       success: true,
       user: {

@@ -4,6 +4,7 @@ const { WalletService, CALL_RATES } = require('../wallet/wallet.service');
 const { subscriptionsService } = require('../subscriptions/subscriptions.service');
 const { activeInstantCalls, endInstantCallHelper } = require('../instant_connect/instant_connect.socket');
 const { sendPushNotification } = require('../../services/firebase.service');
+const { cacheService } = require('../../services/cache.service');
 const db = require('../../db');
 
 // In-memory map of active calls: callId → { userA: { userId, socketId, gender }, userB: { userId, socketId, gender } }
@@ -823,6 +824,10 @@ async function handleCallEnd(callId, callsService, io, reason, matchmakingServic
       }
       await redis.del(`call_lock:${callInfo.userA.userId}`);
       await redis.del(`call_lock:${callInfo.userB.userId}`);
+      await Promise.all([
+        cacheService.invalidate(`user:matches:${callInfo.userA.userId}`),
+        cacheService.invalidate(`user:matches:${callInfo.userB.userId}`),
+      ]);
 
       await callsService.endCall(callId);
 

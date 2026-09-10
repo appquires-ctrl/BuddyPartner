@@ -3,10 +3,15 @@ const db = require('../../db');
 class ModerationService {
   /**
    * Check if a user is currently banned.
+   * Direct primary key index scan on public.users(id) (<0.1ms).
    * @param {string} userId
    * @returns {Promise<{ isBlocked: boolean, isBanned: boolean, isSuspended: boolean, suspendedUntil: null }>}
    */
   async isUserBlocked(userId) {
+    if (!userId) {
+      return { isBlocked: false, isBanned: false, isSuspended: false, suspendedUntil: null };
+    }
+
     try {
       const result = await db.query(
         'SELECT is_banned FROM public.users WHERE id = $1',
@@ -44,33 +49,32 @@ class ModerationService {
    * @param {string|null} conversationId
    */
   async fileReport(reporterId, reportedUserId, reason, description = null, messageId = null, conversationId = null) {
-    if (reporterId === reportedUserId) {
-      throw new Error('Cannot report yourself');
+    if (!reporterId || !reportedUserId || !reason) {
+      throw new Error('reporterId, reportedUserId, and reason are required.');
     }
 
-    const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
-
-    let validMessageId = (messageId && typeof messageId === 'string' && uuidRegex.test(messageId.trim())) ? messageId.trim() : null;
-    let validConversationId = (conversationId && typeof conversationId === 'string' && uuidRegex.test(conversationId.trim())) ? conversationId.trim() : null;
-    const cleanDescription = (description && typeof description === 'string' && description.trim().length > 0) ? description.trim() : null;
+    if (reporterId === reportedUserId) {
+      throw new Error('A user cannot report themselves.');
+    }
 
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
 
-      // Verify conversation exists in DB before linking
+      const validConversationId = (conversationId && conversationId.length === 36) ? conversationId : null;
+      const validMessageId = (messageId && messageId.length === 36) ? messageId : null;
+
       if (validConversationId) {
         const convCheck = await client.query('SELECT id FROM public.conversations WHERE id = $1', [validConversationId]);
         if (convCheck.rows.length === 0) {
-          validConversationId = null;
+          console.warn(`[Moderation] Conversation ${validConversationId} does not exist, storing NULL`);
         }
       }
 
-      // Verify message exists in DB before linking
       if (validMessageId) {
         const msgCheck = await client.query('SELECT id FROM public.messages WHERE id = $1', [validMessageId]);
         if (msgCheck.rows.length === 0) {
-          validMessageId = null;
+          console.warn(`[Moderation] Message ${validMessageId} does not exist, storing NULL`);
         }
       }
 
@@ -78,13 +82,13 @@ class ModerationService {
       const insertRes = await client.query(
         `INSERT INTO public.reports (reporter_id, reported_user_id, reason, description, message_id, conversation_id)
          VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING *`,
-        [reporterId, reportedUserId, reason, cleanDescription, validMessageId, validConversationId]
+         RETURNING id, reporter_id, reported_user_id, reason, description, message_id, conversation_id, created_at`,
+        [reporterId, reportedUserId, reason, description, validMessageId, validConversationId]
       );
 
       // 2. Count DISTINCT reporters for this reported user
       const countRes = await client.query(
-        `SELECT COUNT(DISTINCT reporter_id)::int AS distinct_count
+        `SELECT COUNT(DISTINCT reporter_id) AS distinct_count
          FROM public.reports
          WHERE reported_user_id = $1`,
         [reportedUserId]

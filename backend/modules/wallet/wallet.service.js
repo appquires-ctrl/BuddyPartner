@@ -1,4 +1,5 @@
 const db = require('../../db');
+const { cacheService } = require('../../services/cache.service');
 
 const CALL_RATES = Object.freeze({
   voice: 10,
@@ -78,6 +79,7 @@ class WalletService {
       );
 
       await client.query('COMMIT');
+      await cacheService.invalidate(`user:balance:${userId}`);
       console.log(`💰 [Deduct] COMMITTED for user ${userId} — deducted ${amount}, newBalance: ${newBalance}`);
       return { success: true, newBalance };
     } catch (err) {

@@ -36,7 +36,14 @@ if (!process.env.GOOGLE_PLAY_RTDN_SERVICE_ACCOUNT || !process.env.GOOGLE_PLAY_RT
 const app = express();
 app.use(helmet());
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
+
+// Distributed Redis-backed Rate Limiters
+const { apiGlobalLimiter, otpRateLimiter, callRateLimiter } = require('./middleware/rate_limit.middleware');
+app.use('/api', apiGlobalLimiter);
+app.use('/api/auth/otp', otpRateLimiter);
+app.use('/api/calls', callRateLimiter);
+app.use('/api/instant', callRateLimiter);
 
 // Import and mount custom modules REST endpoints
 const authRoutes = require('./modules/auth/auth.routes');
@@ -247,15 +254,47 @@ const server = http.createServer(app);
 const redis = require('./redis');
 
 // ── Socket.io setup ─────────────────────────────────────────────────────────
+const { createAdapter } = require('@socket.io/redis-adapter');
+
 const io = new Server(server, {
   cors: {
     origin: '*', // Tighten in production
     methods: ['GET', 'POST'],
   },
-  pingTimeout: 5000,
-  pingInterval: 5000,
+  pingTimeout: 20000,
+  pingInterval: 15000,
 });
 app.set('io', io);
+
+// Multi-instance Socket.IO clustering via Redis adapter
+if (process.env.REDIS_URL) {
+  try {
+    const pubClient = new Redis(process.env.REDIS_URL, {
+      maxRetriesPerRequest: null,
+      retryStrategy: (times) => Math.min(times * 100, 2000),
+      lazyConnect: true,
+    });
+    const subClient = pubClient.duplicate();
+
+    pubClient.on('error', (err) => {
+      console.warn('⚠️ [Socket.io pubClient error]:', err.message);
+    });
+    subClient.on('error', (err) => {
+      console.warn('⚠️ [Socket.io subClient error]:', err.message);
+    });
+
+    Promise.all([pubClient.connect(), subClient.connect()])
+      .then(() => {
+        io.adapter(createAdapter(pubClient, subClient));
+        console.log('✅ Socket.io Redis Adapter active for horizontal multi-instance scaling');
+      })
+      .catch((err) => {
+        console.warn('⚠️ Redis adapter pub/sub failed to connect, using local in-memory adapter:', err.message);
+      });
+  } catch (err) {
+    console.warn('⚠️ Socket.io Redis adapter setup failed:', err.message);
+  }
+}
 
 const { ModerationService } = require('./modules/moderation/moderation.service');
 const { PresenceService } = require('./modules/presence/presence.service');

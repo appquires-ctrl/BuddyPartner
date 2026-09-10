@@ -124,8 +124,8 @@ router.get('/dev/queues', async (req, res) => {
         AND (LOWER(gender) IN ('female', 'girl', 'woman', 'f'))
     `);
 
-    for (const f of dbFemales.rows) {
-      await redis.sadd('instant:female_pool', f.id);
+    if (dbFemales.rows.length > 0) {
+      await redis.sadd('instant:female_pool', ...dbFemales.rows.map((f) => f.id));
     }
 
     const io = req.app.get('io');
@@ -133,24 +133,42 @@ router.get('/dev/queues', async (req, res) => {
     const femaleIds = await redis.smembers('instant:female_pool');
     const activeFemales = [];
 
-    for (const fId of femaleIds) {
-      const userRes = await db.query('SELECT full_name, phone_number, incoming_paid_calls_enabled FROM public.users WHERE id = $1', [fId]);
-      if (userRes.rows[0]?.incoming_paid_calls_enabled !== true) {
-        await redis.srem('instant:female_pool', fId);
-        continue;
-      }
+    if (femaleIds.length > 0) {
+      // Single batched query replacing N individual queries
+      const usersRes = await db.query(
+        'SELECT id, full_name, phone_number, incoming_paid_calls_enabled FROM public.users WHERE id = ANY($1::uuid[])',
+        [femaleIds]
+      );
+      const userMap = new Map(usersRes.rows.map((u) => [u.id, u]));
 
-      const fSocket = getSocketForUser(io, fId);
-      const isRedisOnline = await PresenceService.isUserOnline(redis, fId);
-      const isOnline = !!fSocket || isRedisOnline;
-      const isSnoozed = await redis.get(`instant:snooze:${fId}`);
-      activeFemales.push({
-        userId: fId,
-        fullName: userRes.rows[0]?.full_name || 'Unknown',
-        phoneNumber: userRes.rows[0]?.phone_number || 'N/A',
-        isSnoozed: !!isSnoozed,
-        isOnline: isOnline,
+      // Pipelined Redis checks replacing N individual GET calls
+      const pipeline = redis.pipeline();
+      femaleIds.forEach((fId) => {
+        pipeline.get(`instant:snooze:${fId}`);
       });
+      const snoozeResults = await pipeline.exec();
+
+      for (let i = 0; i < femaleIds.length; i++) {
+        const fId = femaleIds[i];
+        const user = userMap.get(fId);
+        if (!user || user.incoming_paid_calls_enabled !== true) {
+          await redis.srem('instant:female_pool', fId);
+          continue;
+        }
+
+        const fSocket = getSocketForUser(io, fId);
+        const isRedisOnline = await PresenceService.isUserOnline(redis, fId);
+        const isOnline = !!fSocket || isRedisOnline;
+        const isSnoozed = !!(snoozeResults[i] && snoozeResults[i][1]);
+
+        activeFemales.push({
+          userId: fId,
+          fullName: user.full_name || 'Unknown',
+          phoneNumber: user.phone_number || 'N/A',
+          isSnoozed: isSnoozed,
+          isOnline: isOnline,
+        });
+      }
     }
 
     // 4. Ongoing active calls (only those truly in memory & db)

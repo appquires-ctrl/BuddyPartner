@@ -1,0 +1,40 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - duration: 30
+      arrivalRate: 20
+      name: "Warm-up"
+    - duration: 60
+      arrivalRate: 100
+      name: "Ramp up to 100 req/s"
+    - duration: 60
+      arrivalRate: 500
+      name: "High load 500 req/s"
+  payload:
+    path: "test-data.csv"
+    fields:
+      - "userId"
+scenarios:
+  - name: "Authenticated User Session"
+    flow:
+      - post:
+          url: "/api/auth/otp/verify"
+          json:
+            country_code: "91"
+            mobile: "9999999999"
+            otp: "123456"
+          capture:
+            json: "$.token"
+            as: "token"
+      - get:
+          url: "/api/calls/matches"
+          headers:
+            Authorization: "Bearer {{ token }}"
+      - get:
+          url: "/api/calls/history"
+          headers:
+            Authorization: "Bearer {{ token }}"
+      - get:
+          url: "/api/wallet/balance"
+          headers:
+            Authorization: "Bearer {{ token }}"

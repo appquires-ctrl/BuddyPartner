@@ -2,19 +2,25 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../../middleware/auth.middleware');
 const { WalletService } = require('./wallet.service');
+const { cacheService } = require('../../services/cache.service');
 const db = require('../../db');
 
 /**
  * GET /api/wallet/balance
  * Returns the current coin balance for the authenticated user.
+ * Cached in Redis for 15s to support rapid polling/home refresh without DB spikes.
  */
 router.get('/wallet/balance', authMiddleware, async (req, res) => {
   try {
-    const result = await db.query(
-      'SELECT balance FROM public.wallets WHERE user_id = $1',
-      [req.user.id]
-    );
-    const balance = result.rows.length > 0 ? result.rows[0].balance : 0;
+    const userId = req.user.id;
+    const balance = await cacheService.getOrSet(`user:balance:${userId}`, 15, async () => {
+      const result = await db.query(
+        'SELECT balance FROM public.wallets WHERE user_id = $1',
+        [userId]
+      );
+      return result.rows.length > 0 ? result.rows[0].balance : 0;
+    });
+
     res.json({ success: true, balance });
   } catch (err) {
     console.error('Error fetching wallet balance:', err.message);
@@ -82,6 +88,7 @@ router.post('/wallet/recharge', authMiddleware, async (req, res) => {
       }
 
       await client.query('COMMIT');
+      await cacheService.invalidate(`user:balance:${userId}`);
       res.json({ success: true, amount, newBalance, paymentReference: refId });
     } catch (dbErr) {
       await client.query('ROLLBACK');

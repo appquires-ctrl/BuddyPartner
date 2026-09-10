@@ -175,8 +175,8 @@ async function triggerInstantMatchmaker(io, redis) {
       WHERE incoming_paid_calls_enabled = true
         AND (LOWER(gender) IN ('female', 'girl', 'woman', 'f'))
     `);
-    for (const f of dbFemales.rows) {
-      await redis.sadd('instant:female_pool', f.id);
+    if (dbFemales.rows.length > 0) {
+      await redis.sadd('instant:female_pool', ...dbFemales.rows.map((f) => f.id));
     }
 
     const allFemales = await redis.smembers('instant:female_pool');
