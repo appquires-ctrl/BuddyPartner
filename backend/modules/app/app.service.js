@@ -1,6 +1,8 @@
 const db = require('../../db');
 const semver = require('semver');
 
+const cacheService = require('../../services/cache.service');
+
 const DEFAULT_CONFIGS = {
   minimum_supported_version_android: '1.0.0',
   minimum_supported_version_ios: '1.0.0',
@@ -37,21 +39,23 @@ class AppService {
   }
 
   /**
-   * Get config value by key
+   * Get config value by key with 5-minute cache
    * @param {string} key
    * @returns {Promise<string|null>}
    */
   async getConfig(key) {
-    try {
-      const res = await db.query(
-        'SELECT value FROM public.app_config WHERE key = $1',
-        [key]
-      );
-      return res.rows[0]?.value || DEFAULT_CONFIGS[key] || null;
-    } catch (err) {
-      console.error(`Error fetching config for ${key}:`, err.message);
-      return DEFAULT_CONFIGS[key] || null;
-    }
+    return cacheService.getOrSet(`app_config:${key}`, 300, async () => {
+      try {
+        const res = await db.query(
+          'SELECT value FROM public.app_config WHERE key = $1',
+          [key]
+        );
+        return res.rows[0]?.value || DEFAULT_CONFIGS[key] || null;
+      } catch (err) {
+        console.error(`Error fetching config for ${key}:`, err.message);
+        return DEFAULT_CONFIGS[key] || null;
+      }
+    });
   }
 
   /**
@@ -67,6 +71,7 @@ class AppService {
          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
         [key, value]
       );
+      await cacheService.invalidate(`app_config:${key}`);
       return true;
     } catch (err) {
       console.error(`Error setting config for ${key}:`, err.message);
