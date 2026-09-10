@@ -676,6 +676,7 @@ class GooglePlayService {
    */
   static async syncVoidedPurchases(startTimeMs) {
     try {
+      const publisher = this.getPublisherClient();
       // Google Play Developer API requires startTime to be strictly within 30 days.
       // Using 28 days avoids server clock-skew boundary rejection.
       const defaultStart = Date.now() - (28 * 24 * 60 * 60 * 1000);

@@ -34,6 +34,7 @@ if (!process.env.GOOGLE_PLAY_RTDN_SERVICE_ACCOUNT || !process.env.GOOGLE_PLAY_RT
 
 // ── Express setup ───────────────────────────────────────────────────────────
 const app = express();
+app.set('trust proxy', 1); // Trust Render / Railway reverse proxy for accurate client IP in rate limiting
 app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
