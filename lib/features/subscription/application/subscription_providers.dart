@@ -61,13 +61,8 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
         _startTimer();
         return statePayload;
       }
-    } catch (e) {
-      // In case of initial network drop on launch, auto-retry in 3 seconds
-      Timer(const Duration(seconds: 3), () {
-        if (state.hasValue && !state.value!.isSubscribed) {
-          reload();
-        }
-      });
+    } catch (_) {
+      // Fail gracefully without blind timer loops; retry is handled via socket reconnect / user action
     }
 
     return const SubscriptionState(isSubscribed: false, formattedLabel: 'Not Subscribed');

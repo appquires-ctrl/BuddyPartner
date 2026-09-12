@@ -73,7 +73,7 @@ class LocationService {
     UserProfile? profile;
     try {
       apiClient = ref.read(apiClientProvider);
-      profile = ref.read(userProfileProvider).value;
+      profile = ref.read(userProfileProvider);
     } catch (_) {}
 
     final hasExistingLocation = profile?.city != null && profile!.city!.trim().isNotEmpty;
@@ -158,8 +158,18 @@ class LocationService {
             await apiClient.dio.post('/api/auth/location', data: payload);
             await _markLocationSynced();
             try {
-              ref.invalidate(userProfileProvider);
-              ref.invalidate(authStateProvider);
+              final currentUser = ref.read(authStateProvider).value;
+              if (currentUser != null) {
+                await ref.read(authStateProvider.notifier).setSession(
+                  currentUser.copyWith(
+                    country: country,
+                    state: state,
+                    city: city,
+                    latitude: position.latitude,
+                    longitude: position.longitude,
+                  ),
+                );
+              }
             } catch (_) {}
           }
         } catch (_) {}

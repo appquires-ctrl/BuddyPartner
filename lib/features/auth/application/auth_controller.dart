@@ -86,28 +86,18 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
           } catch (_) {}
         }
 
-        final fullNameStr = (userMap?['fullName'] as String? ?? '').trim();
-        final userId = userMap?['id'] as String? ?? '';
-        final phoneNumber = userMap?['phoneNumber'] as String? ?? '+$countryCode$mobile';
-
-        await ref.read(authStateProvider.notifier).setSession(
-          CustomUser(
-            id: userId,
-            phoneNumber: phoneNumber,
-            isProfileComplete: isProfileComplete,
-            gender: userMap?['gender'] as String? ?? 'Male',
-            fullName: fullNameStr.isNotEmpty ? fullNameStr : null,
-            avatarSeed: userMap?['avatarSeed'] as String?,
-            avatarStyle: userMap?['avatarStyle'] as String? ?? 'avataaars',
-            isTelecaller: userMap?['isTelecaller'] as bool?,
-            hasClaimedIntroOffer: userMap?['hasClaimedIntroOffer'] as bool? ?? false,
-          ),
+        final user = CustomUser.fromBackendUserMap(
+          userMap ?? {},
+          isProfileComplete: isProfileComplete,
+          fallbackPhone: '+$countryCode$mobile',
         );
+
+        await ref.read(authStateProvider.notifier).setSession(user);
 
         // Track Login event in Apptrove
         AppTroveService.trackLogin(
-          phoneNumber: phoneNumber,
-          userId: userId,
+          phoneNumber: user.phoneNumber,
+          userId: user.id,
         );
 
         state = const AsyncData(null);
@@ -163,22 +153,19 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
       // Fetch updated profile state and update session notifier
       final userProfileResponse = await apiClient.dio.get('/api/auth/me');
       if (userProfileResponse.statusCode == 200 && userProfileResponse.data != null) {
-        final userMap = userProfileResponse.data['user'];
-        final updatedName = (userMap['fullName'] as String? ?? fullName).trim();
-        final userPhone = userMap['phoneNumber'] as String?;
-        await ref.read(authStateProvider.notifier).setSession(
-          CustomUser(
-            id: userMap['id'] as String,
-            phoneNumber: userPhone ?? '',
-            isProfileComplete: true,
-            gender: userMap['gender'] as String? ?? gender,
-            fullName: updatedName.isNotEmpty ? updatedName : fullName.trim(),
-            avatarSeed: userMap['avatarSeed'] as String? ?? avatarSeed,
-            avatarStyle: userMap['avatarStyle'] as String? ?? avatarStyle ?? 'avataaars',
-            isTelecaller: userMap['isTelecaller'] as bool? ?? isTelecaller,
-            hasClaimedIntroOffer: userMap['hasClaimedIntroOffer'] as bool? ?? false,
-          ),
+        final userMap = userProfileResponse.data['user'] as Map<String, dynamic>? ?? {};
+        final user = CustomUser.fromBackendUserMap(
+          userMap,
+          isProfileComplete: true,
+          fallbackFullName: fullName,
+          fallbackGender: gender,
+          fallbackDob: dob,
+          fallbackLanguage: language,
+          fallbackAvatarSeed: avatarSeed,
+          fallbackAvatarStyle: avatarStyle,
+          fallbackIsTelecaller: isTelecaller,
         );
+        await ref.read(authStateProvider.notifier).setSession(user);
       }
 
       final currentUser = ref.read(authStateProvider).value;

@@ -20,6 +20,7 @@ import 'package:buddypartner/features/home/presentation/providers/matched_users_
 import 'package:buddypartner/features/home/presentation/widgets/matched_user_card.dart';
 import 'package:buddypartner/features/home/presentation/widgets/ad_banner_widget.dart';
 import 'package:buddypartner/features/home/presentation/widgets/home_skeleton.dart';
+import 'package:buddypartner/core/widgets/shimmer/app_shimmer.dart';
 import 'package:buddypartner/core/widgets/gradient_avatar.dart';
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
@@ -177,14 +178,13 @@ class _HomePageState extends ConsumerState<HomePage> {
     });
 
     final authUser = ref.watch(authStateProvider).value;
-    final profileAsync = ref.watch(userProfileProvider);
+    final profile = ref.watch(userProfileProvider);
     final matchmakingState = ref.watch(matchmakingControllerProvider);
     final instantConnectState = ref.watch(instantConnectControllerProvider);
     final matchedUsersAsync = ref.watch(matchedUsersProvider);
     
-    // Ensure profile matches currently authenticated user ID to prevent stale name flash
-    final profile = (profileAsync.valueOrNull?.id == authUser?.id) ? profileAsync.valueOrNull : null;
-    final matchedUsers = (profile != null) ? (matchedUsersAsync.valueOrNull ?? const []) : const [];
+    // Matched users depend only on authenticated session, not on profile waterfall
+    final matchedUsers = matchedUsersAsync.valueOrNull ?? const [];
     
     final String rawProfileName = profile?.fullName ?? '';
     final String fullName = (rawProfileName.isNotEmpty && rawProfileName != 'User')
@@ -195,8 +195,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     final String initials = getInitials(fullName);
     final bool isMatching = matchmakingState.phase == MatchmakingPhase.queued;
 
-    // Option B: Show smooth skeleton placeholder on cold start while initial profile is loading
-    final bool showSkeleton = (profileAsync.isLoading && profile == null) || (authUser == null && profile == null);
+    // Show full skeleton only if authentication session is completely unresolved
+    final bool showSkeleton = (authUser == null && profile == null);
 
     Widget content;
     if (showSkeleton) {
@@ -309,6 +309,23 @@ class _HomePageState extends ConsumerState<HomePage> {
                 Consumer(
                   builder: (context, ref, child) {
                     final subAsync = ref.watch(subscriptionStatusProvider);
+                    if (subAsync.isLoading && !subAsync.hasValue) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 16.0),
+                        child: Center(
+                          child: AppShimmer(
+                            child: Container(
+                              width: 96,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: colors.surface,
+                                borderRadius: BorderRadius.circular(16.0),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }
                     final subState = subAsync.value;
                     final isSubscribed = subState?.isSubscribed ?? false;
                     final label = isSubscribed ? subState!.formattedLabel : 'Subscribe';
@@ -841,7 +858,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ],
                 ),
 
-                if (matchedUsers.isNotEmpty) ...[
+                if (matchedUsersAsync.isLoading && !matchedUsersAsync.hasValue) ...[
+                  const SizedBox(height: 20),
+                  const DiscoverRowSkeleton(),
+                  const SizedBox(height: 24),
+                ] else if (matchedUsers.isNotEmpty) ...[
                   const SizedBox(height: 24),
                   SizedBox(
                     height: 220,
@@ -1085,7 +1106,7 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
   Widget build(BuildContext context) {
     final colors = context.colors;
     final typography = context.typography;
-    final profile = ref.watch(userProfileProvider).value;
+    final profile = ref.watch(userProfileProvider);
 
     if (_isChecking) {
 

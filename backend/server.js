@@ -69,6 +69,11 @@ const { GooglePlayService } = require('./modules/payments/google_play.service');
 // Serve uploaded images statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// ── Lightweight Health check endpoint (exempt from version enforcement & DB) ─
+app.get(['/health', '/api/health'], (_req, res) => {
+  res.json({ status: 'ok', uptime: process.uptime() });
+});
+
 // Public version routes mounted before middleware enforcement
 app.use('/api/app', appRoutes);
 
@@ -376,11 +381,6 @@ io.on('connection', (socket) => {
       }
     } catch (_) {}
   });
-});
-
-// ── Health check endpoint ───────────────────────────────────────────────────
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', uptime: process.uptime() });
 });
 
 // ── Periodically clean up expired OTPs (every 1 hour) ────────────────────────

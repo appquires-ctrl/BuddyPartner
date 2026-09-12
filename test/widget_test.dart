@@ -11,7 +11,8 @@ void main() {
       ),
     );
 
-    // Let the entrance animation/router settle
-    await tester.pumpAndSettle();
+    // Pump frames to allow initial build and splash animations to render
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
   });
 }

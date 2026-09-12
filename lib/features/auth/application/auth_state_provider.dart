@@ -17,7 +17,6 @@ import 'package:buddypartner/features/call/application/instant_connect_controlle
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 
 class CustomUser {
-
   final String id;
   final String phoneNumber;
   final bool isProfileComplete;
@@ -27,6 +26,13 @@ class CustomUser {
   final String? avatarStyle;
   final bool? isTelecaller;
   final bool hasClaimedIntroOffer;
+  final DateTime? dob;
+  final String? language;
+  final String? country;
+  final String? state;
+  final String? city;
+  final double? latitude;
+  final double? longitude;
 
   CustomUser({
     required this.id,
@@ -38,6 +44,13 @@ class CustomUser {
     this.avatarStyle,
     this.isTelecaller,
     this.hasClaimedIntroOffer = false,
+    this.dob,
+    this.language,
+    this.country,
+    this.state,
+    this.city,
+    this.latitude,
+    this.longitude,
   });
 
   Map<String, dynamic> toJson() {
@@ -51,6 +64,13 @@ class CustomUser {
       'avatarStyle': avatarStyle,
       'isTelecaller': isTelecaller,
       'hasClaimedIntroOffer': hasClaimedIntroOffer,
+      'dob': dob?.toIso8601String(),
+      'language': language,
+      'country': country,
+      'state': state,
+      'city': city,
+      'latitude': latitude,
+      'longitude': longitude,
     };
   }
 
@@ -65,6 +85,51 @@ class CustomUser {
       avatarStyle: json['avatarStyle'] as String? ?? 'avataaars',
       isTelecaller: json['isTelecaller'] as bool?,
       hasClaimedIntroOffer: json['hasClaimedIntroOffer'] as bool? ?? false,
+      dob: DateTime.tryParse(json['dob'] as String? ?? ''),
+      language: json['language'] as String?,
+      country: json['country'] as String?,
+      state: json['state'] as String?,
+      city: json['city'] as String?,
+      latitude: (json['latitude'] != null) ? (json['latitude'] as num).toDouble() : null,
+      longitude: (json['longitude'] != null) ? (json['longitude'] as num).toDouble() : null,
+    );
+  }
+
+  /// Factory to construct CustomUser from the backend `user` map returned by
+  /// /api/auth/otp/verify or /api/auth/me, ensuring all profile metadata fields are mapped.
+  factory CustomUser.fromBackendUserMap(
+    Map<String, dynamic> userMap, {
+    bool isProfileComplete = false,
+    String? fallbackPhone,
+    String? fallbackFullName,
+    String? fallbackGender,
+    DateTime? fallbackDob,
+    String? fallbackLanguage,
+    String? fallbackAvatarSeed,
+    String? fallbackAvatarStyle,
+    bool? fallbackIsTelecaller,
+  }) {
+    final rawFullName = (userMap['fullName'] as String? ?? fallbackFullName ?? '').trim();
+    final rawPhone = userMap['phoneNumber'] as String? ?? fallbackPhone ?? '';
+    final parsedDob = DateTime.tryParse(userMap['dob'] as String? ?? '') ?? fallbackDob;
+
+    return CustomUser(
+      id: userMap['id'] as String? ?? '',
+      phoneNumber: rawPhone,
+      isProfileComplete: isProfileComplete,
+      gender: userMap['gender'] as String? ?? fallbackGender ?? 'Male',
+      fullName: rawFullName.isNotEmpty ? rawFullName : null,
+      avatarSeed: userMap['avatarSeed'] as String? ?? fallbackAvatarSeed,
+      avatarStyle: userMap['avatarStyle'] as String? ?? fallbackAvatarStyle ?? 'avataaars',
+      isTelecaller: userMap['isTelecaller'] as bool? ?? fallbackIsTelecaller,
+      hasClaimedIntroOffer: userMap['hasClaimedIntroOffer'] as bool? ?? false,
+      dob: parsedDob,
+      language: userMap['language'] as String? ?? fallbackLanguage ?? 'English',
+      country: userMap['country'] as String?,
+      state: userMap['state'] as String?,
+      city: userMap['city'] as String?,
+      latitude: (userMap['latitude'] != null) ? (userMap['latitude'] as num).toDouble() : null,
+      longitude: (userMap['longitude'] != null) ? (userMap['longitude'] as num).toDouble() : null,
     );
   }
 
@@ -89,6 +154,13 @@ class CustomUser {
     String? avatarStyle,
     bool? isTelecaller,
     bool? hasClaimedIntroOffer,
+    DateTime? dob,
+    String? language,
+    String? country,
+    String? state,
+    String? city,
+    double? latitude,
+    double? longitude,
   }) {
     return CustomUser(
       id: id ?? this.id,
@@ -100,6 +172,13 @@ class CustomUser {
       avatarStyle: avatarStyle ?? this.avatarStyle,
       isTelecaller: isTelecaller ?? this.isTelecaller,
       hasClaimedIntroOffer: hasClaimedIntroOffer ?? this.hasClaimedIntroOffer,
+      dob: dob ?? this.dob,
+      language: language ?? this.language,
+      country: country ?? this.country,
+      state: state ?? this.state,
+      city: city ?? this.city,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
     );
   }
 }
@@ -147,6 +226,13 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
           avatarStyle: userMap['avatarStyle'] as String? ?? 'avataaars',
           isTelecaller: userMap['isTelecaller'] as bool?,
           hasClaimedIntroOffer: userMap['hasClaimedIntroOffer'] as bool? ?? false,
+          dob: DateTime.tryParse(userMap['dob'] as String? ?? ''),
+          language: userMap['language'] as String? ?? 'English',
+          country: userMap['country'] as String?,
+          state: userMap['state'] as String?,
+          city: userMap['city'] as String?,
+          latitude: (userMap['latitude'] != null) ? (userMap['latitude'] as num).toDouble() : null,
+          longitude: (userMap['longitude'] != null) ? (userMap['longitude'] as num).toDouble() : null,
         );
 
         await apiClient.saveUserSessionJson(freshUser.toJson());
@@ -310,38 +396,29 @@ class UserProfile {
   }
 }
 
-/// Fetches the user profile row corresponding to the currently authenticated user
-final userProfileProvider = FutureProvider<UserProfile?>((ref) async {
+/// Synchronously derives the user profile row corresponding to the currently authenticated user.
+/// Eliminates redundant GET /api/auth/me call by sourcing directly from authStateProvider.
+final userProfileProvider = Provider<UserProfile?>((ref) {
   final authState = ref.watch(authStateProvider);
-  final user = authState.value;
-  if (user == null) return null;
+  final user = authState.valueOrNull;
+  if (user == null || user.id.isEmpty) return null;
 
-  try {
-    final apiClient = ref.watch(apiClientProvider);
-    final response = await apiClient.dio.get('/api/auth/me');
-
-    if (response.data == null || response.data['user'] == null) return null;
-    final profile = UserProfile.fromJson(response.data['user'] as Map<String, dynamic>);
-    if (profile.id != user.id) return null;
-    return profile;
-  } catch (e) {
-    // Network error — fall back to cached auth user so the home screen
-    // doesn't stay stuck on the skeleton loader forever.
-    if (user.id.isNotEmpty) {
-      return UserProfile(
-        id: user.id,
-        fullName: user.fullName ?? 'User',
-        dob: DateTime.now(),
-        gender: user.gender,
-        language: 'English',
-        avatarSeed: user.avatarSeed,
-        avatarStyle: user.avatarStyle ?? 'avataaars',
-        isTelecaller: user.isTelecaller,
-        hasClaimedIntroOffer: user.hasClaimedIntroOffer,
-      );
-    }
-    return null;
-  }
+  return UserProfile(
+    id: user.id,
+    fullName: (user.fullName != null && user.fullName!.trim().isNotEmpty) ? user.fullName!.trim() : 'User',
+    dob: user.dob ?? DateTime.now(),
+    gender: user.gender,
+    language: user.language ?? 'English',
+    avatarSeed: user.avatarSeed,
+    avatarStyle: user.avatarStyle ?? 'avataaars',
+    isTelecaller: user.isTelecaller,
+    hasClaimedIntroOffer: user.hasClaimedIntroOffer,
+    country: user.country,
+    state: user.state,
+    city: user.city,
+    latitude: user.latitude,
+    longitude: user.longitude,
+  );
 });
 
 /// Helper utility to extract initials from name

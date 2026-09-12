@@ -5,12 +5,16 @@ const { appService } = require('../modules/app/app.service');
  * Expects headers: "X-App-Platform: android|ios" and "X-App-Version: 1.4.2"
  */
 async function enforceMinimumVersion(req, res, next) {
-  // Exclude public version check, admin routes, health check
+  // Exclude public version check, admin routes, and exact health check endpoints
   const path = req.path;
+  const originalUrl = (req.originalUrl || '').split('?')[0];
   if (
     path.startsWith('/app/version-check') ||
     path.startsWith('/admin') ||
-    path === '/health'
+    path === '/health' ||
+    path === '/api/health' ||
+    originalUrl === '/health' ||
+    originalUrl === '/api/health'
   ) {
     return next();
   }
@@ -18,8 +22,8 @@ async function enforceMinimumVersion(req, res, next) {
   const platformHeader = req.headers['x-app-platform'];
   const versionHeader = req.headers['x-app-version'];
 
-  if (!versionHeader) {
-    // Logging-only for rollout window if header is missing
+  if (!versionHeader || versionHeader === 'unknown') {
+    // Logging-only for rollout window or uninitialized/fallback clients
     return next();
   }
 

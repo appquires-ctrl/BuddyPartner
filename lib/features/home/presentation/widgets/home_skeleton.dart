@@ -380,3 +380,68 @@ class HomeSkeleton extends ConsumerWidget {
   }
 }
 
+/// Shimmering placeholder for the Discover matched users row during progressive loading
+class DiscoverRowSkeleton extends StatelessWidget {
+  const DiscoverRowSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentColor = SkeletonColors.accentColor(isDark);
+
+    return AppShimmer(
+      child: SizedBox(
+        height: 220,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: 3,
+          itemBuilder: (context, index) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Container(
+                width: 150,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: accentColor,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white12 : Colors.black12,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: 80,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white12 : Colors.black12,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      width: 100,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white12 : Colors.black12,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}

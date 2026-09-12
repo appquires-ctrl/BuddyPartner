@@ -54,7 +54,7 @@ class MatchedUser {
   }
 }
 
-final matchedUsersProvider = FutureProvider.autoDispose<List<MatchedUser>>((ref) async {
+final matchedUsersProvider = FutureProvider<List<MatchedUser>>((ref) async {
   final authState = ref.watch(authStateProvider);
   final user = authState.value;
   if (user == null) return const [];
@@ -70,16 +70,20 @@ final matchedUsersProvider = FutureProvider.autoDispose<List<MatchedUser>>((ref)
   }
 });
 
-final favoriteUsersProvider = FutureProvider.autoDispose<List<MatchedUser>>((ref) async {
+final favoriteUsersProvider = FutureProvider<List<MatchedUser>>((ref) async {
   final authState = ref.watch(authStateProvider);
   final user = authState.value;
   if (user == null) return const [];
 
   final apiClient = ref.watch(apiClientProvider);
-  final response = await apiClient.dio.get('/api/calls/favorites');
-  if (response.data == null) return const [];
-  final list = List<Map<String, dynamic>>.from(response.data as List);
-  return list.map((json) => MatchedUser.fromJson(json)).toList();
+  try {
+    final response = await apiClient.dio.get('/api/calls/favorites');
+    if (response.data == null) return const [];
+    final list = List<Map<String, dynamic>>.from(response.data as List);
+    return list.map((json) => MatchedUser.fromJson(json)).toList();
+  } catch (e) {
+    return const [];
+  }
 });
 
 class FavoritesNotifier extends AutoDisposeNotifier<void> {

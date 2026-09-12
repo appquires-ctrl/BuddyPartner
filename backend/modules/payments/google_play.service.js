@@ -1,6 +1,7 @@
 const { google } = require('googleapis');
 const db = require('../../db');
 const { subscriptionsService, SUBSCRIPTION_PLANS } = require('../subscriptions/subscriptions.service');
+const { cacheService } = require('../../services/cache.service');
 
 const ANDROID_PACKAGE_NAME = process.env.ANDROID_PACKAGE_NAME || 'com.buddypartner.app';
 
@@ -585,6 +586,9 @@ class GooglePlayService {
 
         await client.query('COMMIT');
         console.log(`🚫 [Google Play Revoked] Deactivated subscription for user ${purchase.user_id} (Order: ${purchase.order_id})`);
+
+        // Invalidate Redis cache for user's subscription status
+        await cacheService.invalidate(`subscription_status:${purchase.user_id}`);
 
         return {
           success: true,

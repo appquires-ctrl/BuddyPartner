@@ -1,24 +1,28 @@
 const express = require('express');
 const { authMiddleware } = require('../../middleware/auth.middleware');
 const { subscriptionsService, SUBSCRIPTION_PLANS } = require('./subscriptions.service');
+const { cacheService } = require('../../services/cache.service');
 
 const router = express.Router();
 
 // ── GET /api/subscriptions/status ──────────────────────────────────────────
-// Fetch current subscription status and countdown payload
+// Fetch current subscription status and countdown payload (cached in Redis for 30s)
 router.get('/status', authMiddleware, async (req, res) => {
   try {
-    const timeInfo = await subscriptionsService.getTimeRemaining(req.user.id);
-    const hasClaimedIntroOffer = await subscriptionsService.hasClaimedIntroOffer(req.user.id);
-    const availablePlans = hasClaimedIntroOffer
-      ? SUBSCRIPTION_PLANS.filter((p) => p.id !== '1_day')
-      : SUBSCRIPTION_PLANS;
+    const userId = req.user.id;
+    const data = await cacheService.getOrSet(`subscription_status:${userId}`, 30, async () => {
+      const statusInfo = await subscriptionsService.getSubscriptionStatus(userId);
+      const availablePlans = statusInfo.hasClaimedIntroOffer
+        ? SUBSCRIPTION_PLANS.filter((p) => p.id !== '1_day')
+        : SUBSCRIPTION_PLANS;
 
-    res.json({
-      ...timeInfo,
-      hasClaimedIntroOffer,
-      plans: availablePlans,
+      return {
+        ...statusInfo,
+        plans: availablePlans,
+      };
     });
+
+    res.json(data);
   } catch (err) {
     console.error('Error in GET /subscriptions/status:', err.message);
     res.status(500).json({ error: 'Failed to fetch subscription status' });

@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:buddypartner/core/services/apptrove_service.dart';
 import 'package:buddypartner/core/services/notification_service.dart';
+import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/app/router/app_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
@@ -15,6 +16,9 @@ import 'app/app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Cache platform app version once before any network calls
+  await ApiClient.initAppVersion();
 
   // Initialize Firebase and background messaging handler
   try {

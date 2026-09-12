@@ -1,4 +1,5 @@
 const db = require('../../db');
+const { cacheService } = require('../../services/cache.service');
 
 const SUBSCRIPTION_PLANS = [
   { id: '1_day', durationDays: 1, amountPaid: 9, label: '1 Day Pass' },
@@ -23,7 +24,9 @@ class SubscriptionsService {
         return true;
       }
 
-      // Fallback check against subscriptions history table
+      // Fallback check against subscriptions history table.
+      // NOTE (Tech Debt): (plan_duration_days = 1 OR amount_paid = 9) is a heuristic proxy tied
+      // to current pricing (₹9 / 1-day). Revisit if pricing changes or add is_intro_offer column.
       const subRes = await db.query(
         `SELECT id FROM public.subscriptions 
          WHERE user_id = $1 AND (plan_duration_days = 1 OR amount_paid = 9) 
@@ -99,7 +102,10 @@ class SubscriptionsService {
    * @returns {Promise<Object>}
    */
   async createSubscription(userId, planDurationDays, amountPaid, paymentReference = null) {
-    // Server-side enforcement for 1-day ₹9 introductory offer
+    // Server-side enforcement for 1-day ₹9 introductory offer.
+    // NOTE (Tech Debt): (plan_duration_days = 1 OR amount_paid = 9) is a heuristic proxy tied
+    // to current pricing (₹9 / 1-day). If pricing changes or a separate 1-day promo is introduced,
+    // add an explicit is_intro_offer column to public.subscriptions.
     const isIntroPlan = planDurationDays === 1 || amountPaid === 9;
     if (isIntroPlan) {
       const alreadyClaimed = await this.hasClaimedIntroOffer(userId);
@@ -125,6 +131,9 @@ class SubscriptionsService {
         );
       }
 
+      // Invalidate Redis cache for user's subscription status
+      await cacheService.invalidate(`subscription_status:${userId}`);
+
       return result.rows[0];
     } catch (err) {
       console.error('Error creating subscription:', err.message);
@@ -144,10 +153,110 @@ class SubscriptionsService {
          WHERE user_id = $1 AND expires_at > NOW()`,
         [userId]
       );
+
+      // Invalidate Redis cache for user's subscription status
+      await cacheService.invalidate(`subscription_status:${userId}`);
+
       return true;
     } catch (err) {
       console.error('Error expiring subscription:', err.message);
       throw new Error('Failed to expire subscription');
+    }
+  }
+
+  /**
+   * Combined query: returns active subscription duration/label and intro-offer claimed flag in 1 DB round trip.
+   * @param {string} userId
+   * @returns {Promise<Object>}
+   */
+  async getSubscriptionStatus(userId) {
+    try {
+      const result = await db.query(
+        `SELECT 
+           u.has_claimed_intro_offer,
+           sub.id AS sub_id,
+           sub.plan_duration_days,
+           sub.amount_paid,
+           sub.started_at,
+           sub.expires_at,
+           sub.payment_reference
+         FROM public.users u
+         LEFT JOIN LATERAL (
+           SELECT id, plan_duration_days, amount_paid, started_at, expires_at, payment_reference
+           FROM public.subscriptions
+           WHERE user_id = u.id AND expires_at > NOW()
+           ORDER BY expires_at DESC
+           LIMIT 1
+         ) sub ON true
+         WHERE u.id = $1`,
+        [userId]
+      );
+
+      const row = result.rows[0];
+      const hasClaimedIntroOffer = row ? (row.has_claimed_intro_offer === true) : false;
+
+      if (!row || !row.sub_id || !row.expires_at) {
+        return {
+          isSubscribed: false,
+          expiresAt: null,
+          remainingSeconds: 0,
+          remainingHours: 0,
+          remainingDays: 0,
+          formattedLabel: 'Not Subscribed',
+          hasClaimedIntroOffer,
+        };
+      }
+
+      const now = new Date();
+      const expiresAt = new Date(row.expires_at);
+      const diffMs = expiresAt.getTime() - now.getTime();
+
+      if (diffMs <= 0) {
+        return {
+          isSubscribed: false,
+          expiresAt: row.expires_at,
+          remainingSeconds: 0,
+          remainingHours: 0,
+          remainingDays: 0,
+          formattedLabel: 'Expired',
+          hasClaimedIntroOffer,
+        };
+      }
+
+      const remainingSeconds = Math.floor(diffMs / 1000);
+      const remainingHours = Math.ceil(remainingSeconds / 3600);
+      const remainingDays = Math.ceil(remainingHours / 24);
+
+      let formattedLabel = '';
+      if (remainingHours <= 24) {
+        const hrs = Math.max(1, remainingHours);
+        formattedLabel = `${hrs} hour${hrs === 1 ? '' : 's'} left`;
+      } else {
+        const days = Math.max(1, remainingDays);
+        formattedLabel = `${days} day${days === 1 ? '' : 's'} left`;
+      }
+
+      return {
+        isSubscribed: true,
+        expiresAt: row.expires_at,
+        planDurationDays: row.plan_duration_days,
+        remainingSeconds,
+        remainingHours,
+        remainingDays,
+        formattedLabel,
+        hasClaimedIntroOffer,
+      };
+    } catch (err) {
+      console.error('Error in getSubscriptionStatus:', err.message);
+      return {
+        isSubscribed: false,
+        expiresAt: null,
+        remainingSeconds: 0,
+        remainingHours: 0,
+        remainingDays: 0,
+        formattedLabel: 'Not Subscribed',
+        hasClaimedIntroOffer: false,
+      };
     }
   }
 

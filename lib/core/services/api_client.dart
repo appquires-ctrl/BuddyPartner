@@ -28,7 +28,24 @@ class ApiClient {
   static const _tokenKey = 'auth_token';
   static const _refreshTokenKey = 'refresh_token';
   static const _userSessionKey = 'cached_user_session';
+  static String? _cachedAppVersion;
   bool _isRefreshing = false;
+
+  /// Cache app version once at startup to prevent native platform-channel delays on every API call.
+  static Future<void> initAppVersion() async {
+    try {
+      if (kIsWeb) {
+        _cachedAppVersion = '1.0.0';
+      } else {
+        final pkg = await PackageInfo.fromPlatform();
+        _cachedAppVersion = pkg.version;
+      }
+    } catch (_) {
+      _cachedAppVersion = 'unknown';
+    }
+  }
+
+  static String get appVersion => _cachedAppVersion ?? 'unknown';
 
   ApiClient([this._ref]) {
     dio = Dio(
@@ -54,16 +71,11 @@ class ApiClient {
             options.headers['Authorization'] = 'Bearer $token';
           }
 
-          // Attach version & platform headers
+          // Attach version & platform headers synchronously from cached values
           try {
             final platform = kIsWeb ? 'android' : (Platform.isIOS ? 'ios' : 'android');
             options.headers['X-App-Platform'] = platform;
-            if (!kIsWeb) {
-              final pkg = await PackageInfo.fromPlatform();
-              options.headers['X-App-Version'] = pkg.version;
-            } else {
-              options.headers['X-App-Version'] = '1.0.0';
-            }
+            options.headers['X-App-Version'] = _cachedAppVersion ?? 'unknown';
           } catch (_) {}
 
           return handler.next(options);
@@ -171,7 +183,7 @@ class ApiClient {
             if (data is Map<String, dynamic>) {
               final errorCode = data['error'];
               final context = rootNavigatorKey.currentContext;
-              if (context != null) {
+              if (context != null && context.mounted) {
                 if (errorCode == 'ACCOUNT_BANNED' || errorCode == 'ACCOUNT_SUSPENDED') {
                   context.go(RouteNames.banned);
                 }

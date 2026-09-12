@@ -21,10 +21,8 @@ class ProfilePage extends ConsumerWidget {
     final colors = context.colors;
     final typography = context.typography;
     final userAsync = ref.watch(authStateProvider);
-    final profileAsync = ref.watch(userProfileProvider);
-    
     final currentUser = userAsync.value;
-    final profile = profileAsync.value;
+    final profile = ref.watch(userProfileProvider);
     
     final String rawProfileName = profile?.fullName ?? '';
     final String fullName = (rawProfileName.isNotEmpty && rawProfileName != 'User')
