@@ -115,7 +115,35 @@ class UsersNotifier extends StateNotifier<UsersState> {
       return false;
     }
   }
+
+  Future<bool> giveCoins(String userId, int amount, {String reason = 'admin_gift'}) async {
+    try {
+      await ApiService.post('/users/$userId/give-coins', body: {
+        'amount': amount,
+        'reason': reason,
+      });
+      await fetchUsers();
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> giveSubscription(String userId, {int durationDays = 365}) async {
+    try {
+      await ApiService.post('/users/$userId/give-subscription', body: {
+        'durationDays': durationDays,
+      });
+      await fetchUsers();
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      return false;
+    }
+  }
 }
+
 
 final usersProvider = StateNotifierProvider<UsersNotifier, UsersState>((ref) {
   return UsersNotifier();

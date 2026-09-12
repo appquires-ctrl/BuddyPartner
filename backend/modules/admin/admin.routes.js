@@ -109,6 +109,35 @@ router.post('/users/:id/unban', adminAuth, async (req, res) => {
   }
 });
 
+router.post('/users/:id/give-coins', adminAuth, async (req, res) => {
+  try {
+    const { amount = 100, reason = 'admin_gift' } = req.body;
+    const result = await adminService.giveCoins(req.params.id, amount, reason);
+    return res.json({
+      success: true,
+      message: `Successfully granted ${result.creditedAmount} coins to user`,
+      data: result,
+    });
+  } catch (err) {
+    return res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/users/:id/give-subscription', adminAuth, async (req, res) => {
+  try {
+    const { durationDays = 365, paymentReference = 'ADMIN_GRANT' } = req.body;
+    const result = await adminService.giveSubscription(req.params.id, durationDays, paymentReference);
+    return res.json({
+      success: true,
+      message: `Successfully granted ${result.durationDays}-day subscription to user`,
+      data: result,
+    });
+  } catch (err) {
+    return res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+});
+
+
 // ── 4. Reports Queue ────────────────────────────────────────────────────────
 router.get('/reports', adminAuth, async (req, res) => {
   try {

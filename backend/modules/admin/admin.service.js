@@ -1,5 +1,6 @@
 const db = require('../../db');
 const bcrypt = require('bcryptjs');
+const { cacheService } = require('../../services/cache.service');
 
 class AdminService {
   /**
@@ -156,8 +157,19 @@ class AdminService {
           COALESCE(u.is_banned, FALSE) AS is_banned, 
           COALESCE(u.strike_count, 0) AS strike_count,
           COALESCE(u.created_at, NOW()) AS signup_date,
+          COALESCE(w.balance, 0)::int AS coin_balance,
+          sub.expires_at AS subscription_expires_at,
+          CASE WHEN sub.expires_at > NOW() THEN TRUE ELSE FALSE END AS is_subscribed,
           (SELECT COUNT(*)::int FROM public.reports r WHERE r.reported_user_id = u.id) AS report_count
         FROM public.users u
+        LEFT JOIN public.wallets w ON w.user_id = u.id
+        LEFT JOIN LATERAL (
+          SELECT expires_at
+          FROM public.subscriptions
+          WHERE user_id = u.id AND expires_at > NOW()
+          ORDER BY expires_at DESC
+          LIMIT 1
+        ) sub ON true
         ${whereClause}
         ORDER BY u.created_at DESC NULLS LAST
         LIMIT $${limitIdx} OFFSET $${offsetIdx}
@@ -190,6 +202,26 @@ class AdminService {
 
       const user = userRes.rows[0];
 
+      // Wallet balance
+      const walletRes = await db.query(
+        'SELECT balance FROM public.wallets WHERE user_id = $1',
+        [userId]
+      ).catch(() => ({ rows: [] }));
+      const coinBalance = walletRes.rows[0]?.balance || 0;
+
+      // Active & recent subscriptions
+      const subRes = await db.query(
+        `SELECT id, plan_duration_days, amount_paid, started_at, expires_at, payment_reference, created_at,
+                (expires_at > NOW()) AS is_active
+         FROM public.subscriptions
+         WHERE user_id = $1
+         ORDER BY created_at DESC
+         LIMIT 5`,
+        [userId]
+      ).catch(() => ({ rows: [] }));
+
+      const activeSub = subRes.rows.find((s) => s.is_active) || null;
+
       // Reports filed against user
       const reportsRes = await db.query(
         `SELECT r.id, r.reason, r.description, r.created_at, COALESCE(u.full_name, 'Anonymous') AS reporter_name
@@ -212,6 +244,9 @@ class AdminService {
 
       return {
         ...user,
+        coinBalance,
+        activeSubscription: activeSub,
+        subscriptionHistory: subRes.rows,
         reports: reportsRes.rows,
         callStats,
       };
@@ -380,6 +415,127 @@ class AdminService {
       throw err;
     }
   }
+
+  /**
+   * Directly grant coins to a user from admin.
+   * @param {string} userId
+   * @param {number} amount
+   * @param {string} reason
+   */
+  async giveCoins(userId, amount, reason = 'admin_gift') {
+    const coinAmount = parseInt(amount, 10);
+    if (isNaN(coinAmount) || coinAmount <= 0) {
+      const err = new Error('Amount must be a positive integer');
+      err.status = 400;
+      throw err;
+    }
+
+    const userCheck = await db.query('SELECT id, full_name FROM public.users WHERE id = $1', [userId]);
+    if (userCheck.rows.length === 0) {
+      const err = new Error('User not found');
+      err.status = 404;
+      throw err;
+    }
+
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const walletRes = await client.query(
+        `INSERT INTO public.wallets (user_id, balance)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id)
+         DO UPDATE SET balance = public.wallets.balance + $2
+         RETURNING balance`,
+        [userId, coinAmount]
+      );
+      const newBalance = walletRes.rows[0].balance;
+
+      const refId = `ADMIN_GIFT_${Date.now()}`;
+      await client.query(
+        `INSERT INTO public.wallet_transactions (user_id, amount, type, reason, reference_id)
+         VALUES ($1, $2, 'credit', $3, $4)`,
+        [userId, coinAmount, reason, refId]
+      );
+
+      await client.query('COMMIT');
+
+      // Invalidate Redis/memory balance cache
+      await cacheService.invalidate(`user:balance:${userId}`);
+
+      return {
+        userId,
+        newBalance,
+        creditedAmount: coinAmount,
+        reason,
+      };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error(`Error granting coins to user ${userId}:`, err.message);
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Directly grant VIP subscription to a user for specified duration (default 365 days).
+   * @param {string} userId
+   * @param {number} durationDays
+   * @param {string} paymentReference
+   */
+  async giveSubscription(userId, durationDays = 365, paymentReference = 'ADMIN_GRANT') {
+    const days = parseInt(durationDays, 10);
+    if (isNaN(days) || days <= 0) {
+      const err = new Error('Duration in days must be a positive integer');
+      err.status = 400;
+      throw err;
+    }
+
+    const userCheck = await db.query('SELECT id, full_name FROM public.users WHERE id = $1', [userId]);
+    if (userCheck.rows.length === 0) {
+      const err = new Error('User not found');
+      err.status = 404;
+      throw err;
+    }
+
+    // Check if user currently has an active subscription
+    const activeRes = await db.query(
+      `SELECT expires_at FROM public.subscriptions
+       WHERE user_id = $1 AND expires_at > NOW()
+       ORDER BY expires_at DESC
+       LIMIT 1`,
+      [userId]
+    );
+
+    let baseTime = Date.now();
+    if (activeRes.rows.length > 0 && activeRes.rows[0].expires_at) {
+      const currentExpiry = new Date(activeRes.rows[0].expires_at).getTime();
+      if (currentExpiry > baseTime) {
+        baseTime = currentExpiry;
+      }
+    }
+
+    const expiresAt = new Date(baseTime + days * 24 * 60 * 60 * 1000);
+
+    const insertRes = await db.query(
+      `INSERT INTO public.subscriptions (user_id, plan_duration_days, amount_paid, started_at, expires_at, payment_reference)
+       VALUES ($1, $2, 0, NOW(), $3, $4)
+       RETURNING id, user_id, plan_duration_days, amount_paid, started_at, expires_at, payment_reference, created_at`,
+      [userId, days, expiresAt.toISOString(), paymentReference]
+    );
+
+    // Invalidate Redis/memory subscription cache
+    await cacheService.invalidate(`subscription_status:${userId}`);
+
+    return {
+      userId,
+      subscription: insertRes.rows[0],
+      expiresAt: expiresAt.toISOString(),
+      durationDays: days,
+    };
+  }
 }
 
 module.exports = new AdminService();
+
