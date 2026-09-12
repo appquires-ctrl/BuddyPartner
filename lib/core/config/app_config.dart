@@ -7,7 +7,7 @@ class AppConfig {
   /// Pass via: --dart-define=BACKEND_URL=http://your-server:3000
   static const String backendUrl = String.fromEnvironment(
     'BACKEND_URL',
-    defaultValue: 'https://dating-app-chir.onrender.com',
+    defaultValue: 'https://buddypartner.onrender.com',
   );
 
   /// Agora App ID (safe to embed client-side — used for RTC engine init).

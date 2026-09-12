@@ -181,10 +181,9 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
           durationDays: plan.durationDays,
         );
 
-        // Refresh auth state and profile so hasClaimedIntroOffer updates across app
+        // Refresh auth state so hasClaimedIntroOffer updates across app
         Future.microtask(() {
           ref.invalidate(authStateProvider);
-          ref.invalidate(userProfileProvider);
         });
         final updatedState = await fetchStatus();
         state = AsyncData(updatedState);

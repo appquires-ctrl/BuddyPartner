@@ -89,12 +89,15 @@ class ApiClient {
           return handler.next(response);
         },
         onError: (DioException err, handler) async {
-          AppLogger.apiError(
-            err.requestOptions.method,
-            err.requestOptions.path,
-            err.response?.statusCode,
-            err.error ?? err.message ?? 'Network Error',
-          );
+          // Do not log routine client-side request cancellations as API failures
+          if (err.type != DioExceptionType.cancel) {
+            AppLogger.apiError(
+              err.requestOptions.method,
+              err.requestOptions.path,
+              err.response?.statusCode,
+              err.error ?? err.message ?? 'Network Error',
+            );
+          }
 
           // Handle HTTP 426 Upgrade Required
           if (err.response?.statusCode == 426) {

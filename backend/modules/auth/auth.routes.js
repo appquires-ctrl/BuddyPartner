@@ -121,10 +121,8 @@ router.get('/search', authMiddleware, userSearchLimiter, async (req, res) => {
   const rawQuery = (req.query.query || req.query.q || req.query.username || req.query.user_name || '').toString().trim();
 
   if (!rawQuery || rawQuery.length < 2) {
-    return res.status(400).json({
-      success: false,
-      error: 'INVALID_QUERY',
-      message: 'Search query must be at least 2 characters long.',
+    return res.json({
+      success: true,
       users: [],
     });
   }
@@ -132,10 +130,8 @@ router.get('/search', authMiddleware, userSearchLimiter, async (req, res) => {
   // Sanitize query: strip leading '@' if entered by user, normalize to lowercase
   const cleanQuery = rawQuery.startsWith('@') ? rawQuery.slice(1).toLowerCase() : rawQuery.toLowerCase();
   if (cleanQuery.length < 2) {
-    return res.status(400).json({
-      success: false,
-      error: 'INVALID_QUERY',
-      message: 'Search query must be at least 2 characters long.',
+    return res.json({
+      success: true,
       users: [],
     });
   }

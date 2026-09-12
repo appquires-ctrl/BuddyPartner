@@ -3,6 +3,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/app/theme/app_colors.dart';
+import 'package:buddypartner/app/theme/app_typography.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
@@ -26,6 +28,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounceTimer;
+  CancelToken? _searchCancelToken;
   int _activeRequestId = 0;
 
   List<MatchedUser>? _searchResults;
@@ -35,15 +38,27 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _cancelSearch('component_disposed');
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _cancelSearch(String reason) {
+    final token = _searchCancelToken;
+    _searchCancelToken = null;
+    if (token != null && !token.isCancelled) {
+      token.cancel(reason);
+    }
   }
 
   void _onSearchChanged(String query) {
     _debounceTimer?.cancel();
     final trimmed = query.trim();
+    final cleanQuery = trimmed.startsWith('@') ? trimmed.substring(1).trim() : trimmed;
 
-    if (trimmed.length < 2) {
+    if (cleanQuery.length < 2) {
+      _cancelSearch('search_cancelled');
+      _activeRequestId++;
       setState(() {
         _isSearching = false;
         _searchResults = null;
@@ -53,11 +68,23 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     }
 
     _debounceTimer = Timer(const Duration(milliseconds: 400), () {
-      _performSearch(trimmed);
+      _performSearch(cleanQuery);
     });
   }
 
   Future<void> _performSearch(String query) async {
+    // 1. Double check current input at fire time (handles rapid backspaces/edits)
+    final currentRaw = _searchController.text.trim();
+    final currentClean = currentRaw.startsWith('@') ? currentRaw.substring(1).trim() : currentRaw;
+    if (currentClean != query || currentClean.length < 2) {
+      return;
+    }
+
+    // 2. Cancel any pending in-flight HTTP request to avoid stacking
+    _cancelSearch('superseded_by_newer_query');
+    final cancelToken = CancelToken();
+    _searchCancelToken = cancelToken;
+
     final requestId = ++_activeRequestId;
     setState(() {
       _isSearching = true;
@@ -72,6 +99,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
           'query': query,
           'limit': 20,
         },
+        cancelToken: cancelToken,
       );
 
       // Discard stale responses if user continued typing
@@ -108,6 +136,10 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         });
       }
     } on DioException catch (e) {
+      // Silently ignore explicitly cancelled requests
+      if (CancelToken.isCancel(e)) {
+        return;
+      }
       if (requestId != _activeRequestId || !mounted) return;
       final statusCode = e.response?.statusCode;
       String errorMsg = 'Failed to search users. Please try again.';
@@ -131,6 +163,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 
   void _clearSearch() {
     _debounceTimer?.cancel();
+    _cancelSearch('search_cleared');
     _activeRequestId++;
     _searchController.clear();
     setState(() {
@@ -183,7 +216,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
               'Favorites',
               style: typography.titleCard.copyWith(
                 fontWeight: FontWeight.bold,
-                fontSize: 20,
+                fontSize: 20.0,
                 color: colors.textPrimary,
               ),
             ),
@@ -191,7 +224,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
             Text(
               'Your saved partners',
               style: typography.bodySmall.copyWith(
-                fontSize: 12,
+                fontSize: 12.0,
                 color: colors.textSecondary,
               ),
             ),
@@ -231,7 +264,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                   hintText: 'Search by @username...',
                   hintStyle: typography.bodySmall.copyWith(
                     color: colors.textSecondary.withValues(alpha: 0.6),
-                    fontSize: 14,
+                    fontSize: 14.0,
                   ),
                   prefixIcon: Icon(
                     Icons.search_rounded,
@@ -260,7 +293,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     );
   }
 
-  Widget _buildBodyContent(List<MatchedUser> favoriteUsers, dynamic colors, dynamic typography) {
+  Widget _buildBodyContent(List<MatchedUser> favoriteUsers, AppColors colors, AppTypography typography) {
     // 1. Loading State
     if (_isSearching) {
       return const Center(
@@ -289,7 +322,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                 style: typography.bodyMedium.copyWith(
                   color: const Color(0xFFEF4444),
                   fontWeight: FontWeight.w600,
-                  fontSize: 14,
+                  fontSize: 14.0,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -338,7 +371,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                 'No Users Found',
                 style: typography.titleCard.copyWith(
                   fontWeight: FontWeight.bold,
-                  fontSize: 18,
+                  fontSize: 18.0,
                   color: colors.textPrimary,
                 ),
                 textAlign: TextAlign.center,
@@ -348,7 +381,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                 'No accounts found matching "${_searchController.text.trim()}"',
                 style: typography.bodySmall.copyWith(
                   color: colors.textSecondary,
-                  fontSize: 13,
+                  fontSize: 13.0,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -395,7 +428,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                       'No Favorites Yet',
                       style: typography.titleCard.copyWith(
                         fontWeight: FontWeight.bold,
-                        fontSize: 19,
+                        fontSize: 19.0,
                         color: colors.textPrimary,
                       ),
                       textAlign: TextAlign.center,
@@ -407,7 +440,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                         'Start adding partners to your favorites and they will appear here!',
                         style: typography.bodySmall.copyWith(
                           color: colors.textSecondary,
-                          fontSize: 13,
+                          fontSize: 13.0,
                           height: 1.4,
                         ),
                         textAlign: TextAlign.center,

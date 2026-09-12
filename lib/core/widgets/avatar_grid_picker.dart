@@ -87,8 +87,12 @@ class _AvatarGridPickerState extends ConsumerState<AvatarGridPicker> {
         _uploadedPhotoUrl = uploadedUrl;
       });
       widget.onAvatarSelected(uploadedUrl);
-      // Immediately refresh userProfileProvider so avatar updates everywhere in the app
-      Future.microtask(() => ref.invalidate(userProfileProvider));
+      final currentUser = ref.read(authStateProvider).value;
+      if (currentUser != null) {
+        ref.read(authStateProvider.notifier).setSession(
+          currentUser.copyWith(avatarSeed: uploadedUrl, avatarStyle: 'custom'),
+        );
+      }
     }
   }
 

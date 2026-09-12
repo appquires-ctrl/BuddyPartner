@@ -255,9 +255,6 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
         dob: dob,
         age: age,
       );
-
-      // Refresh userProfileProvider to notify profile widget listeners
-      Future.microtask(() => ref.invalidate(userProfileProvider));
     });
 
     if (result.hasError) {
@@ -294,8 +291,6 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
           currentUser.copyWith(isTelecaller: isTelecaller),
         );
       }
-
-      Future.microtask(() => ref.invalidate(userProfileProvider));
     });
 
     if (result.hasError) {
@@ -362,11 +357,15 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
 
       // 2. Clear local session, socket connection, tokens, and invalidate all caches
       await ref.read(authStateProvider.notifier).clearSession();
-      state = const AsyncData(null);
+      try {
+        state = const AsyncData(null);
+      } catch (_) {}
       return true;
     } catch (e, st) {
       await ref.read(authStateProvider.notifier).clearSession();
-      state = AsyncError(e, st);
+      try {
+        state = AsyncError(e, st);
+      } catch (_) {}
       return false;
     }
   }

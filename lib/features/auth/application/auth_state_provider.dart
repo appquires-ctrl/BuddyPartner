@@ -4,17 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/core/services/apptrove_service.dart';
 import 'package:buddypartner/core/services/socket_provider.dart';
-import 'package:buddypartner/features/chat/application/presence_provider.dart';
-import 'package:buddypartner/features/chat/application/conversations_provider.dart';
-import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
-import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
-import 'package:buddypartner/features/call/application/call_summary_provider.dart';
-import 'package:buddypartner/features/withdraw/application/withdraw_providers.dart';
-import 'package:buddypartner/features/withdraw/application/withdraw_controller.dart';
-import 'package:buddypartner/features/home/presentation/providers/matched_users_provider.dart';
-import 'package:buddypartner/features/history/data/call_history_provider.dart';
-import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
-import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 
 class CustomUser {
   final String id;
@@ -289,22 +278,6 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
       await apiClient.deleteUserSessionJson();
     }
     state = AsyncData(user);
-    if (user != null) {
-      Future.microtask(() {
-        ref.invalidate(conversationsProvider);
-        ref.invalidate(presenceProvider);
-        ref.invalidate(matchedUsersProvider);
-        ref.invalidate(favoriteUsersProvider);
-        ref.invalidate(callHistoryProvider);
-        ref.invalidate(userProfileProvider);
-        ref.invalidate(subscriptionStatusProvider);
-        ref.invalidate(walletBalanceProvider);
-        ref.invalidate(instantConnectControllerProvider);
-        ref.invalidate(lastCallSummaryProvider);
-        ref.invalidate(withdrawalHistoryProvider);
-        ref.invalidate(withdrawControllerProvider);
-      });
-    }
   }
 
   /// Clears the session and disconnects real-time socket & presence states
@@ -318,24 +291,6 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
 
       // 3. Immediately set session state to null so GoRouter navigates instantly (0ms latency)
       state = const AsyncData(null);
-
-      // 4. Invalidate all user-specific provider caches safely in microtask
-      Future.microtask(() {
-        ref.invalidate(socketProvider);
-        ref.invalidate(presenceProvider);
-        ref.invalidate(conversationsProvider);
-        ref.invalidate(userProfileProvider);
-        ref.invalidate(subscriptionStatusProvider);
-        ref.invalidate(matchmakingControllerProvider);
-        ref.invalidate(lastCallSummaryProvider);
-        ref.invalidate(instantConnectControllerProvider);
-        ref.invalidate(walletBalanceProvider);
-        ref.invalidate(withdrawalHistoryProvider);
-        ref.invalidate(withdrawControllerProvider);
-        ref.invalidate(matchedUsersProvider);
-        ref.invalidate(favoriteUsersProvider);
-        ref.invalidate(callHistoryProvider);
-      });
     } catch (e) {
       state = const AsyncData(null);
     }

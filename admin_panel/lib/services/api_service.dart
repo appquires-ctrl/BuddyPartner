@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   static String baseUrl = const String.fromEnvironment(
     'ADMIN_BACKEND_URL',
-    defaultValue: 'https://dating-app-chir.onrender.com/api/admin',
+    defaultValue: 'https://buddypartner.onrender.com/api/admin',
   );
 
   static Future<String?> getToken() async {
