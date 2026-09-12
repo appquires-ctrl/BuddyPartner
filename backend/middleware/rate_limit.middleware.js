@@ -1,4 +1,4 @@
-const { rateLimit } = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const { RedisStore } = require('rate-limit-redis');
 const redis = require('../redis');
 
@@ -62,8 +62,46 @@ const callRateLimiter = rateLimit({
   },
 });
 
+/**
+ * Username availability check limiter: 20 requests per minute per IP
+ */
+const usernameCheckLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  skip: () => process.env.DISABLE_RATE_LIMIT === 'true',
+  store: getStore('username_check'),
+  message: {
+    available: false,
+    error: 'TOO_MANY_REQUESTS',
+    message: 'Too many username checks. Please wait a moment.',
+  },
+});
+
+/**
+ * User search limiter: 30 requests per minute per authenticated user (falls back to IP)
+ */
+const userSearchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  keyGenerator: (req) => (req.user && req.user.id ? req.user.id : ipKeyGenerator(req.ip)),
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  skip: () => process.env.DISABLE_RATE_LIMIT === 'true',
+  store: getStore('user_search'),
+  statusCode: 429,
+  message: {
+    error: 'TOO_MANY_REQUESTS',
+    message: 'Too many searches. Please wait a moment before trying again.',
+  },
+});
+
 module.exports = {
   apiGlobalLimiter,
   otpRateLimiter,
   callRateLimiter,
+  usernameCheckLimiter,
+  userSearchLimiter,
 };
+

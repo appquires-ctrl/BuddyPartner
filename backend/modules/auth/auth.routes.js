@@ -7,7 +7,47 @@ const db = require('../../db');
 const redis = require('../../redis');
 const { authMiddleware } = require('../../middleware/auth.middleware');
 const { cacheService } = require('../../services/cache.service');
+const { usernameCheckLimiter, userSearchLimiter } = require('../../middleware/rate_limit.middleware');
 const { generateOTP, sanitizePhoneInputs, sendWhatsAppOtp } = require('./otpService');
+
+const RESERVED_USERNAMES = new Set([
+  'admin', 'administrator', 'support', 'help', 'buddypartner', 
+  'official', 'null', 'undefined', 'system', 'root', 'moderator',
+  'api', 'auth', 'user', 'users', 'me'
+]);
+
+/**
+ * Validates username per Instagram-style format and reserved words
+ * - 3–20 characters
+ * - Letters, numbers, underscores, periods ([a-z0-9._])
+ * - Must start and end with alphanumeric
+ * - No consecutive periods or underscores
+ */
+function validateUsername(username) {
+  if (!username || typeof username !== 'string') {
+    return { valid: false, message: 'Username is required.' };
+  }
+  const normalized = username.trim().toLowerCase();
+  if (normalized.length < 3 || normalized.length > 20) {
+    return { valid: false, message: 'Username must be between 3 and 20 characters.' };
+  }
+  if (!/^[a-z0-9]/.test(normalized)) {
+    return { valid: false, message: 'Username must start with a letter or number.' };
+  }
+  if (!/[a-z0-9]$/.test(normalized)) {
+    return { valid: false, message: 'Username must end with a letter or number.' };
+  }
+  if (!/^[a-z0-9._]+$/.test(normalized)) {
+    return { valid: false, message: 'Username can only contain letters, numbers, . and _' };
+  }
+  if (/[._]{2,}/.test(normalized)) {
+    return { valid: false, message: 'Username cannot contain consecutive dots or underscores.' };
+  }
+  if (RESERVED_USERNAMES.has(normalized)) {
+    return { valid: false, isReserved: true, message: 'it already exist fix it' };
+  }
+  return { valid: true, normalized };
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || 'buddypartner_fallback_jwt_secret_key_change_me_in_prod';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'buddypartner_fallback_jwt_refresh_secret_key';
@@ -18,6 +58,136 @@ const SEND_LIMIT_MAX = 3; // Max 3 sends per 10 min
 const SEND_LIMIT_WINDOW = 600; // 10 minutes
 const VERIFY_ATTEMPTS_MAX = 5; // Max 5 wrong attempts before lockout
 const VERIFY_LOCKOUT_WINDOW = 600; // 10 minutes lockout
+
+/**
+ * Endpoint: GET /api/auth/username-available?user_name=<value>
+ * Checks if a requested username is valid and available.
+ * Rate limited to 20 requests per minute per IP.
+ */
+router.get('/username-available', usernameCheckLimiter, async (req, res) => {
+  const rawUserName = req.query.user_name || req.query.username;
+  if (!rawUserName) {
+    return res.status(400).json({ available: false, error: 'INVALID_FORMAT', message: 'Username is required.' });
+  }
+
+  const validation = validateUsername(rawUserName);
+  if (!validation.valid) {
+    if (validation.isReserved) {
+      return res.json({ available: false, message: 'it already exist fix it' });
+    }
+    return res.status(400).json({ available: false, error: 'INVALID_FORMAT', message: validation.message });
+  }
+
+  try {
+    const checkRes = await db.query(
+      `SELECT 1 FROM public.users WHERE LOWER(user_name) = $1 LIMIT 1`,
+      [validation.normalized]
+    );
+
+    if (checkRes.rows.length > 0) {
+      return res.json({ available: false, message: 'it already exist fix it' });
+    }
+
+    return res.json({ available: true });
+  } catch (err) {
+    console.error('Error checking username availability:', err.message);
+    return res.status(500).json({ available: false, error: 'SERVER_ERROR', message: 'Unable to check username availability.' });
+  }
+});
+
+/**
+ * Endpoint: GET /api/users/search?query=<partial_or_full_user_name>&limit=20
+ * (Also accessible at /api/auth/search?query=...)
+ * Auth-protected: requires valid JWT.
+ * Rate limited to 30 requests per minute per authenticated user (keyed by user.id).
+ * B-tree prefix search against idx_users_user_name_lower.
+ * Excludes requesting user and banned users.
+ * Minimal public fields only (never sensitive details like phone/email).
+ * Cached in Redis with a 15-second TTL.
+ */
+router.get('/search', authMiddleware, userSearchLimiter, async (req, res) => {
+  // Canonical endpoint is GET /api/users/search. Since authRoutes is mounted at both
+  // /api/auth and /api/users in server.js, explicitly restrict /search to /api/users
+  // to avoid route duplication and confusion.
+  if (req.baseUrl !== '/api/users') {
+    return res.status(404).json({
+      success: false,
+      error: 'NOT_FOUND',
+      message: 'Canonical search route is GET /api/users/search',
+    });
+  }
+
+  const currentUserId = req.user.id;
+  const rawQuery = (req.query.query || req.query.q || req.query.username || req.query.user_name || '').toString().trim();
+
+  if (!rawQuery || rawQuery.length < 2) {
+    return res.status(400).json({
+      success: false,
+      error: 'INVALID_QUERY',
+      message: 'Search query must be at least 2 characters long.',
+      users: [],
+    });
+  }
+
+  // Sanitize query: strip leading '@' if entered by user, normalize to lowercase
+  const cleanQuery = rawQuery.startsWith('@') ? rawQuery.slice(1).toLowerCase() : rawQuery.toLowerCase();
+  if (cleanQuery.length < 2) {
+    return res.status(400).json({
+      success: false,
+      error: 'INVALID_QUERY',
+      message: 'Search query must be at least 2 characters long.',
+      users: [],
+    });
+  }
+
+  // Hard-cap server-side limit to prevent large payload dumps
+  const parsedLimit = parseInt(req.query.limit, 10);
+  const limit = (!isNaN(parsedLimit) && parsedLimit > 0) ? Math.min(parsedLimit, 25) : 20;
+
+  // Cache is keyed by user ID to guarantee requesting user is never included from a shared cache
+  const cacheKey = `search:users:${currentUserId}:${cleanQuery}:${limit}`;
+
+  try {
+    const cachedUsers = await cacheService.getOrSet(cacheKey, 15, async () => {
+      const searchRes = await db.query(
+        `SELECT id, full_name, user_name, avatar_seed, avatar_style, gender, is_telecaller
+         FROM public.users
+         WHERE LOWER(user_name) LIKE LOWER($1) || '%'
+           AND (is_banned IS NOT TRUE)
+           AND id != $2::UUID
+         ORDER BY LOWER(user_name) ASC
+         LIMIT $3`,
+        [cleanQuery, currentUserId, limit]
+      );
+
+      return searchRes.rows.map((row) => ({
+        id: row.id,
+        fullName: row.full_name || 'User',
+        userName: row.user_name || null,
+        avatarSeed: row.avatar_seed || null,
+        avatarStyle: row.avatar_style || 'avataaars',
+        gender: row.gender || null,
+        isTelecaller: row.is_telecaller || false,
+        isOnline: false,
+        isFavorite: false,
+      }));
+    });
+
+    return res.json({
+      success: true,
+      query: cleanQuery,
+      users: cachedUsers || [],
+    });
+  } catch (err) {
+    console.error('❌ Error executing user search:', err.message);
+    return res.status(500).json({
+      success: false,
+      error: 'SERVER_ERROR',
+      message: 'An error occurred while searching for users.',
+      users: [],
+    });
+  }
+});
 
 // Google Play Review / Demo Test Account credentials
 const DEMO_TEST_COUNTRY_CODE = process.env.DEMO_TEST_COUNTRY_CODE || '91';
@@ -158,7 +328,7 @@ router.post('/otp/verify', async (req, res) => {
 
     // 5. Query user or run atomic transaction to create user + wallet
     let userResult = await db.query(
-      `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.dob, u.gender, u.language, 
+      `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.dob, u.gender, u.language, 
               u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, 
               u.country, u.state, u.city, u.latitude, u.longitude, w.balance 
        FROM public.users u
@@ -180,20 +350,20 @@ router.post('/otp/verify', async (req, res) => {
           // Pre-populate reviewer profile so reviewer directly accesses app features
           insertUserRes = await client.query(
             `INSERT INTO public.users (
-               country_code, mobile, phone_number, full_name, dob, gender, language, avatar_seed, avatar_style, country, state, city
+               country_code, mobile, phone_number, full_name, user_name, dob, gender, language, avatar_seed, avatar_style, country, state, city
              ) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
-             RETURNING id, country_code, mobile, phone_number, full_name, dob, gender, language, avatar_seed, avatar_style, is_telecaller, has_claimed_intro_offer, country, state, city, latitude, longitude`,
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
+             RETURNING id, country_code, mobile, phone_number, full_name, user_name, dob, gender, language, avatar_seed, avatar_style, is_telecaller, has_claimed_intro_offer, country, state, city, latitude, longitude`,
             [
               cleanCountryCode, cleanMobile, fullPhoneNumber,
-              'Google Reviewer', '1998-01-01', 'Male', 'English', 'male_2f', 'avataaars', 'India', 'Delhi', 'New Delhi'
+              'Google Reviewer', 'googlereviewer', '1998-01-01', 'Male', 'English', 'male_2f', 'avataaars', 'India', 'Delhi', 'New Delhi'
             ]
           );
         } else {
           insertUserRes = await client.query(
             `INSERT INTO public.users (country_code, mobile, phone_number, avatar_seed, avatar_style) 
              VALUES ($1, $2, $3, 'male_2f', 'avataaars') 
-             RETURNING id, country_code, mobile, phone_number, full_name, dob, gender, language, avatar_seed, avatar_style, is_telecaller, has_claimed_intro_offer, country, state, city, latitude, longitude`,
+             RETURNING id, country_code, mobile, phone_number, full_name, user_name, dob, gender, language, avatar_seed, avatar_style, is_telecaller, has_claimed_intro_offer, country, state, city, latitude, longitude`,
             [cleanCountryCode, cleanMobile, fullPhoneNumber]
           );
         }
@@ -306,6 +476,7 @@ router.post('/otp/verify', async (req, res) => {
         mobile: user.mobile || cleanMobile,
         phoneNumber: user.phone_number || fullPhoneNumber,
         fullName: user.full_name || '',
+        userName: user.user_name || null,
         dob: user.dob ? user.dob.toISOString() : null,
         gender: user.gender || 'Male',
         language: user.language || 'English',
@@ -554,9 +725,38 @@ router.all(['/delete-account', '/delete', '/me'], authMiddleware, async (req, re
 });
 router.post('/profile', authMiddleware, async (req, res) => {
   const userId = req.user.id;
-  const { fullName, dob, gender, language, avatarSeed, avatarStyle, isTelecaller, country, state, city, latitude, longitude } = req.body;
+  const { 
+    fullName, 
+    userName, 
+    user_name, 
+    dob, 
+    gender, 
+    language, 
+    avatarSeed, 
+    avatarStyle, 
+    isTelecaller, 
+    country, 
+    state, 
+    city, 
+    latitude, 
+    longitude 
+  } = req.body;
 
   try {
+    const rawUserName = userName !== undefined ? userName : user_name;
+    let cleanUserName = null;
+
+    if (rawUserName !== undefined && rawUserName !== null && rawUserName !== '') {
+      const valRes = validateUsername(rawUserName);
+      if (!valRes.valid) {
+        if (valRes.isReserved) {
+          return res.status(409).json({ error: 'USERNAME_TAKEN', message: 'it already exist fix it' });
+        }
+        return res.status(400).json({ error: 'INVALID_FORMAT', message: valRes.message });
+      }
+      cleanUserName = valRes.normalized;
+    }
+
     if (dob) {
       const birthDate = new Date(dob);
       if (isNaN(birthDate.getTime())) {
@@ -573,7 +773,7 @@ router.post('/profile', authMiddleware, async (req, res) => {
       }
     }
 
-    if (fullName || avatarSeed || gender || language || dob) {
+    if (fullName || cleanUserName || avatarSeed || gender || language || dob) {
       const cleanGender = (gender || '').toLowerCase();
       const isFemale = cleanGender === 'female' || cleanGender === 'girl' || cleanGender === 'woman';
       const telecallerVal = isFemale ? (typeof isTelecaller === 'boolean' ? isTelecaller : null) : null;
@@ -586,9 +786,20 @@ router.post('/profile', authMiddleware, async (req, res) => {
              language = COALESCE($4::TEXT, language), 
              avatar_seed = COALESCE($5::TEXT, avatar_seed), 
              avatar_style = COALESCE($6::TEXT, avatar_style), 
-             is_telecaller = COALESCE($7::BOOLEAN, is_telecaller) 
-         WHERE id = $8::UUID`,
-        [fullName || null, dob || null, gender || null, language || null, avatarSeed || null, avatarStyle || 'avataaars', telecallerVal, userId]
+             is_telecaller = COALESCE($7::BOOLEAN, is_telecaller),
+             user_name = COALESCE($8::VARCHAR, user_name)
+         WHERE id = $9::UUID`,
+        [
+          fullName || null, 
+          dob || null, 
+          gender || null, 
+          language || null, 
+          avatarSeed || null, 
+          avatarStyle || 'avataaars', 
+          telecallerVal, 
+          cleanUserName, 
+          userId
+        ]
       );
     }
 
@@ -604,8 +815,43 @@ router.post('/profile', authMiddleware, async (req, res) => {
     // Invalidate cached user profile in Redis
     await cacheService.invalidate(`user:profile:${userId}`);
 
-    res.json({ success: true, message: 'Profile updated successfully.' });
+    // Fetch and return the updated user object (including user_name)
+    const updatedUserRes = await db.query(
+      `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, w.balance 
+       FROM public.users u
+       LEFT JOIN public.wallets w ON w.user_id = u.id
+       WHERE u.id = $1`,
+      [userId]
+    );
+
+    const userRow = updatedUserRes.rows[0];
+    const userObj = userRow ? {
+      id: userRow.id,
+      countryCode: userRow.country_code || '',
+      mobile: userRow.mobile || '',
+      phoneNumber: userRow.phone_number || `+${userRow.country_code || ''}${userRow.mobile || ''}`,
+      fullName: userRow.full_name || '',
+      userName: userRow.user_name || null,
+      dob: userRow.dob || null,
+      gender: userRow.gender || '',
+      language: userRow.language || '',
+      avatarSeed: userRow.avatar_seed || '',
+      avatarStyle: userRow.avatar_style || 'avataaars',
+      isTelecaller: userRow.is_telecaller || false,
+      hasClaimedIntroOffer: userRow.has_claimed_intro_offer || false,
+      country: userRow.country || null,
+      state: userRow.state || null,
+      city: userRow.city || null,
+      latitude: userRow.latitude ? parseFloat(userRow.latitude) : null,
+      longitude: userRow.longitude ? parseFloat(userRow.longitude) : null,
+      balance: userRow.balance !== null && userRow.balance !== undefined ? parseFloat(userRow.balance) : 0,
+    } : null;
+
+    res.json({ success: true, message: 'Profile updated successfully.', user: userObj });
   } catch (err) {
+    if (err.code === '23505' && (err.constraint === 'idx_users_user_name_lower' || (err.detail && err.detail.includes('user_name')))) {
+      return res.status(409).json({ error: 'USERNAME_TAKEN', message: 'it already exist fix it' });
+    }
     console.error('Error updating profile:', err.message);
     res.status(500).json({ error: 'Failed to update user profile.' });
   }
@@ -622,7 +868,7 @@ router.get('/me', authMiddleware, async (req, res) => {
   try {
     const userRow = await cacheService.getOrSet(`user:profile:${userId}`, 60, async () => {
       const result = await db.query(
-        `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, w.balance 
+        `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, w.balance 
          FROM public.users u
          LEFT JOIN public.wallets w ON w.user_id = u.id
          WHERE u.id = $1`,
@@ -643,6 +889,7 @@ router.get('/me', authMiddleware, async (req, res) => {
         mobile: userRow.mobile || '',
         phoneNumber: userRow.phone_number || `+${userRow.country_code || ''}${userRow.mobile || ''}`,
         fullName: userRow.full_name || '',
+        userName: userRow.user_name || null,
         dob: userRow.dob || null,
         gender: userRow.gender || '',
         language: userRow.language || '',

@@ -22,6 +22,7 @@ class CustomUser {
   final bool isProfileComplete;
   final String gender;
   final String? fullName;
+  final String? userName;
   final String? avatarSeed;
   final String? avatarStyle;
   final bool? isTelecaller;
@@ -40,6 +41,7 @@ class CustomUser {
     required this.isProfileComplete,
     required this.gender,
     this.fullName,
+    this.userName,
     this.avatarSeed,
     this.avatarStyle,
     this.isTelecaller,
@@ -60,6 +62,7 @@ class CustomUser {
       'isProfileComplete': isProfileComplete,
       'gender': gender,
       'fullName': fullName,
+      'userName': userName,
       'avatarSeed': avatarSeed,
       'avatarStyle': avatarStyle,
       'isTelecaller': isTelecaller,
@@ -81,6 +84,7 @@ class CustomUser {
       isProfileComplete: json['isProfileComplete'] as bool? ?? false,
       gender: json['gender'] as String? ?? 'Male',
       fullName: json['fullName'] as String?,
+      userName: (json['userName'] ?? json['user_name']) as String?,
       avatarSeed: json['avatarSeed'] as String?,
       avatarStyle: json['avatarStyle'] as String? ?? 'avataaars',
       isTelecaller: json['isTelecaller'] as bool?,
@@ -102,6 +106,7 @@ class CustomUser {
     bool isProfileComplete = false,
     String? fallbackPhone,
     String? fallbackFullName,
+    String? fallbackUserName,
     String? fallbackGender,
     DateTime? fallbackDob,
     String? fallbackLanguage,
@@ -110,6 +115,7 @@ class CustomUser {
     bool? fallbackIsTelecaller,
   }) {
     final rawFullName = (userMap['fullName'] as String? ?? fallbackFullName ?? '').trim();
+    final rawUserName = (userMap['userName'] ?? userMap['user_name'] ?? fallbackUserName) as String?;
     final rawPhone = userMap['phoneNumber'] as String? ?? fallbackPhone ?? '';
     final parsedDob = DateTime.tryParse(userMap['dob'] as String? ?? '') ?? fallbackDob;
 
@@ -119,6 +125,7 @@ class CustomUser {
       isProfileComplete: isProfileComplete,
       gender: userMap['gender'] as String? ?? fallbackGender ?? 'Male',
       fullName: rawFullName.isNotEmpty ? rawFullName : null,
+      userName: rawUserName != null && rawUserName.trim().isNotEmpty ? rawUserName.trim().toLowerCase() : null,
       avatarSeed: userMap['avatarSeed'] as String? ?? fallbackAvatarSeed,
       avatarStyle: userMap['avatarStyle'] as String? ?? fallbackAvatarStyle ?? 'avataaars',
       isTelecaller: userMap['isTelecaller'] as bool? ?? fallbackIsTelecaller,
@@ -150,6 +157,7 @@ class CustomUser {
     bool? isProfileComplete,
     String? gender,
     String? fullName,
+    String? userName,
     String? avatarSeed,
     String? avatarStyle,
     bool? isTelecaller,
@@ -168,6 +176,7 @@ class CustomUser {
       isProfileComplete: isProfileComplete ?? this.isProfileComplete,
       gender: gender ?? this.gender,
       fullName: fullName ?? this.fullName,
+      userName: userName ?? this.userName,
       avatarSeed: avatarSeed ?? this.avatarSeed,
       avatarStyle: avatarStyle ?? this.avatarStyle,
       isTelecaller: isTelecaller ?? this.isTelecaller,

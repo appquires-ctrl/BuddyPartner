@@ -129,15 +129,34 @@ class _FavoriteUserCardState extends ConsumerState<FavoriteUserCard> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        widget.user.fullName,
-                        style: typography.bodyMedium.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: colors.textPrimary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              widget.user.fullName,
+                              style: typography.bodyMedium.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: colors.textPrimary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (widget.user.userName != null && widget.user.userName!.isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              '@${widget.user.userName!}',
+                              style: typography.bodySmall.copyWith(
+                                color: colors.primary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Row(

@@ -5,6 +5,7 @@ import 'package:buddypartner/features/auth/application/auth_state_provider.dart'
 class MatchedUser {
   final String id;
   final String fullName;
+  final String? userName;
   final bool isOnline;
   final bool isFavorite;
   final String? avatarSeed;
@@ -14,6 +15,7 @@ class MatchedUser {
   MatchedUser({
     required this.id,
     required this.fullName,
+    this.userName,
     required this.isOnline,
     required this.isFavorite,
     this.avatarSeed,
@@ -25,6 +27,7 @@ class MatchedUser {
     return MatchedUser(
       id: json['id'] as String? ?? '',
       fullName: json['fullName'] as String? ?? 'User',
+      userName: (json['userName'] ?? json['user_name']) as String?,
       isOnline: json['isOnline'] as bool? ?? false,
       isFavorite: json['isFavorite'] as bool? ?? false,
       avatarSeed: (json['avatarSeed'] ?? json['avatar_seed']) as String?,
@@ -36,6 +39,7 @@ class MatchedUser {
   MatchedUser copyWith({
     String? id,
     String? fullName,
+    String? userName,
     bool? isOnline,
     bool? isFavorite,
     String? avatarSeed,
@@ -45,6 +49,7 @@ class MatchedUser {
     return MatchedUser(
       id: id ?? this.id,
       fullName: fullName ?? this.fullName,
+      userName: userName ?? this.userName,
       isOnline: isOnline ?? this.isOnline,
       isFavorite: isFavorite ?? this.isFavorite,
       avatarSeed: avatarSeed ?? this.avatarSeed,

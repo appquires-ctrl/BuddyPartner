@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
@@ -21,6 +22,44 @@ import 'package:buddypartner/core/utils/app_snack_bar.dart';
 class SignupPage extends ConsumerStatefulWidget {
   const SignupPage({super.key});
 
+  static final RegExp usernameAllowedRegex = RegExp(r'^[a-z0-9._]+$');
+  static final RegExp consecutiveSymbolsRegex = RegExp(r'[._]{2,}');
+  static final Set<String> reservedUsernames = {
+    'admin', 'administrator', 'support', 'help', 'buddypartner',
+    'official', 'null', 'undefined', 'system', 'root', 'moderator',
+    'api', 'auth', 'user', 'users', 'me'
+  };
+
+  /// Validates format according to Instagram username conventions.
+  static String? validateUsernameFormat(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Please choose a username';
+    }
+    final normalized = value.trim().toLowerCase();
+    if (normalized.length < 3) {
+      return 'Username must be at least 3 characters';
+    }
+    if (normalized.length > 20) {
+      return 'Username must be at most 20 characters';
+    }
+    if (!RegExp(r'^[a-z0-9]').hasMatch(normalized)) {
+      return 'Username must start with a letter or number';
+    }
+    if (!RegExp(r'[a-z0-9]$').hasMatch(normalized)) {
+      return 'Username must end with a letter or number';
+    }
+    if (!usernameAllowedRegex.hasMatch(normalized)) {
+      return 'Username can only contain letters, numbers, . and _';
+    }
+    if (consecutiveSymbolsRegex.hasMatch(normalized)) {
+      return 'Username cannot contain consecutive dots or underscores';
+    }
+    if (reservedUsernames.contains(normalized)) {
+      return 'it already exist fix it';
+    }
+    return null;
+  }
+
   @override
   ConsumerState<SignupPage> createState() => _SignupPageState();
 }
@@ -31,6 +70,10 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   int _currentStep = 1; // 1 = Profile Details, 2 = Avatar Selection, 3 = Telecaller Opt-In
 
   final _fullNameController = TextEditingController();
+  final _userNameController = TextEditingController();
+  String? _userNameInlineError;
+  bool _isCheckingUsername = false;
+
   DateTime? _selectedDob;
   String? _selectedGender;
   String? _selectedLanguage;
@@ -47,8 +90,11 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   @override
   void dispose() {
     _fullNameController.dispose();
+    _userNameController.dispose();
     super.dispose();
   }
+
+  String? _validateUsernameFormat(String? value) => SignupPage.validateUsernameFormat(value);
 
   int _calculateAge(DateTime dob) {
     final now = DateTime.now();
@@ -86,6 +132,8 @@ class _SignupPageState extends ConsumerState<SignupPage> {
       },
     );
 
+    if (!mounted) return;
+
     if (picked != null) {
       if (_calculateAge(picked) < 18) {
         AppSnackBar.showError(context, 'You must be 18 years or older to use this app.');
@@ -97,10 +145,18 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     }
   }
 
-  void _handleNextToAvatarStep() {
+  Future<void> _handleNextToAvatarStep() async {
     AppLogger.button('Next Step: Choose Avatar', screen: 'SignUpPage');
     if (!_formKey.currentState!.validate()) return;
     
+    final formatErr = _validateUsernameFormat(_userNameController.text);
+    if (formatErr != null) {
+      setState(() {
+        _userNameInlineError = formatErr;
+      });
+      return;
+    }
+
     if (_selectedDob == null) {
       AppSnackBar.showError(context, 'Please select your date of birth');
       return;
@@ -139,6 +195,29 @@ class _SignupPageState extends ConsumerState<SignupPage> {
       return;
     }
 
+    // Check username availability against backend API before advancing
+    setState(() {
+      _isCheckingUsername = true;
+      _userNameInlineError = null;
+    });
+
+    final checkResult = await ref
+        .read(authControllerProvider.notifier)
+        .checkUsernameAvailable(_userNameController.text.trim().toLowerCase());
+
+    if (!mounted) return;
+
+    setState(() {
+      _isCheckingUsername = false;
+    });
+
+    if (checkResult['available'] != true) {
+      setState(() {
+        _userNameInlineError = checkResult['message'] as String? ?? 'it already exist fix it';
+      });
+      return;
+    }
+
     // Set default avatar seed for the chosen gender if not selected yet
     final availableSeeds = AvatarCatalog.getSeedsForGender(_selectedGender);
     if (_selectedAvatarSeed == null || !availableSeeds.contains(_selectedAvatarSeed)) {
@@ -146,6 +225,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     }
 
     setState(() {
+      _userNameInlineError = null;
       _currentStep = 2;
     });
   }
@@ -171,6 +251,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
 
     final success = await ref.read(authControllerProvider.notifier).completeProfile(
           fullName: _fullNameController.text.trim(),
+          userName: _userNameController.text.trim().toLowerCase(),
           dob: _selectedDob!,
           gender: _selectedGender!,
           language: _selectedLanguage!,
@@ -181,6 +262,16 @@ class _SignupPageState extends ConsumerState<SignupPage> {
 
     if (success && mounted) {
       context.go(RouteNames.home);
+    } else if (mounted) {
+      // If error was username collision, return to Step 1 and highlight inline error
+      final authError = ref.read(authControllerProvider).error;
+      final errorMsg = authError?.toString() ?? '';
+      if (errorMsg.contains('it already exist fix it') || errorMsg.contains('USERNAME_TAKEN')) {
+        setState(() {
+          _currentStep = 1;
+          _userNameInlineError = 'it already exist fix it';
+        });
+      }
     }
   }
 
@@ -388,6 +479,107 @@ class _SignupPageState extends ConsumerState<SignupPage> {
           ),
           const SizedBox(height: AppSpacing.space20),
 
+          // Username Field (Instagram-style)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Username',
+                style: typography.bodySmall.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colors.textPrimary,
+                ),
+              ),
+              Text(
+                'Unique handle',
+                style: typography.bodySmall.copyWith(
+                  fontSize: 11.0,
+                  color: colors.textSecondary.withValues(alpha: 0.8),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _userNameController,
+            style: typography.bodyMedium,
+            textInputAction: TextInputAction.next,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9._]')),
+              LengthLimitingTextInputFormatter(20),
+              TextInputFormatter.withFunction((oldVal, newVal) {
+                return newVal.copyWith(text: newVal.text.toLowerCase());
+              }),
+            ],
+            onChanged: (_) {
+              if (_userNameInlineError != null) {
+                setState(() => _userNameInlineError = null);
+              }
+            },
+            decoration: InputDecoration(
+              hintText: 'Choose a username',
+              hintStyle: typography.bodySmall.copyWith(color: colors.textSecondary.withValues(alpha: 0.6)),
+              prefixIcon: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+                child: Text(
+                  '@',
+                  style: typography.bodyMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colors.primary,
+                  ),
+                ),
+              ),
+              prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+              filled: true,
+              fillColor: colors.surface,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.space16,
+                vertical: AppSpacing.space12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide: BorderSide(
+                  color: _userNameInlineError != null ? const Color(0xFFEF4444) : colors.border,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide: BorderSide(
+                  color: _userNameInlineError != null ? const Color(0xFFEF4444) : colors.border,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide: BorderSide(
+                  color: _userNameInlineError != null ? const Color(0xFFEF4444) : colors.primary,
+                  width: 1.5,
+                ),
+              ),
+            ),
+            validator: _validateUsernameFormat,
+          ),
+          if (_userNameInlineError != null) ...[
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.only(left: 4.0),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline_rounded, size: 14, color: Color(0xFFEF4444)),
+                  const SizedBox(width: 4),
+                  Text(
+                    _userNameInlineError!,
+                    style: typography.bodySmall.copyWith(
+                      color: const Color(0xFFEF4444),
+                      fontSize: 12.0,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.space20),
+
           // Date of Birth
           Text(
             'Date of Birth',
@@ -438,7 +630,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            value: _selectedGender,
+            initialValue: _selectedGender,
             style: typography.bodyMedium.copyWith(color: colors.textPrimary),
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.transgender_outlined, size: 20),
@@ -486,7 +678,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            value: _selectedLanguage,
+            initialValue: _selectedLanguage,
             style: typography.bodyMedium.copyWith(color: colors.textPrimary),
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.language_outlined, size: 20),
@@ -580,7 +772,8 @@ class _SignupPageState extends ConsumerState<SignupPage> {
 
           AppPrimaryButton(
             text: 'Continue to Avatar Selection',
-            onPressed: _handleNextToAvatarStep,
+            isLoading: _isCheckingUsername,
+            onPressed: _isCheckingUsername ? null : _handleNextToAvatarStep,
           ),
         ],
       ),

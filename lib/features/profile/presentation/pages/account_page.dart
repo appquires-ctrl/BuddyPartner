@@ -33,6 +33,7 @@ class AccountPage extends ConsumerWidget {
             ? currentUser.fullName!.trim()
             : 'User');
     final String phoneNumber = currentUser?.phoneNumber ?? '';
+    final String? userName = currentUser?.userName;
     final String initials = getInitials(fullName);
     final String gender = profile?.gender.toUpperCase() ?? 'OTHER';
     
@@ -105,6 +106,17 @@ class AccountPage extends ConsumerWidget {
                   color: colors.textPrimary,
                 ),
               ),
+              if (userName != null && userName.trim().isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  '@${userName.trim().toLowerCase()}',
+                  style: TextStyle(
+                    color: colors.primary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
               const SizedBox(height: 4),
               Text(
                 phoneNumber,

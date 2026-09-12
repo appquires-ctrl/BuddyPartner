@@ -31,6 +31,7 @@ class ProfilePage extends ConsumerWidget {
             ? currentUser.fullName!.trim()
             : 'User');
     final String phoneNumber = currentUser?.phoneNumber ?? '';
+    final String? userName = currentUser?.userName;
     final String initials = getInitials(fullName);
 
     return Scaffold(
@@ -101,6 +102,17 @@ class ProfilePage extends ConsumerWidget {
                                 fontSize: 18,
                               ),
                             ),
+                            if (userName != null && userName.trim().isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                '@${userName.trim().toLowerCase()}',
+                                style: TextStyle(
+                                  color: colors.primary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 6),
                             // Email pill badge
                             Container(

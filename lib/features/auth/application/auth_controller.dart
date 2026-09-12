@@ -119,9 +119,54 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
     }
   }
 
+  /// Checks whether a chosen username is available and valid.
+  Future<Map<String, dynamic>> checkUsernameAvailable(String userName) async {
+    final apiClient = ref.read(apiClientProvider);
+    final cleanUsername = userName.trim().toLowerCase();
+
+    try {
+      final response = await apiClient.dio.get(
+        '/api/auth/username-available',
+        queryParameters: {'user_name': cleanUsername},
+      );
+
+      if (response.statusCode == 200 && response.data is Map) {
+        final data = response.data as Map<String, dynamic>;
+        final isAvailable = data['available'] == true;
+        return {
+          'available': isAvailable,
+          'message': data['message'] as String?,
+        };
+      }
+
+      return {
+        'available': false,
+        'message': response.data?['message'] ?? 'Unable to verify username.',
+      };
+    } on DioException catch (e) {
+      if (e.response?.data is Map) {
+        final data = e.response!.data as Map<String, dynamic>;
+        return {
+          'available': false,
+          'message': data['message'] ?? data['error'] ?? 'Username is not available.',
+        };
+      }
+      return {
+        'available': false,
+        'message': 'Network error checking username. Please try again.',
+      };
+    } catch (_) {
+      return {
+        'available': false,
+        'message': 'Failed to check username availability.',
+      };
+    }
+  }
+
   /// Update profile metadata for onboarding completion.
   Future<bool> completeProfile({
     required String fullName,
+    String? userName,
     required DateTime dob,
     required String gender,
     required String language,
@@ -133,31 +178,52 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
     final apiClient = ref.read(apiClientProvider);
 
     final result = await AsyncValue.guard(() async {
-      final response = await apiClient.dio.post(
-        '/api/auth/profile',
-        data: {
-          'fullName': fullName,
-          'dob': dob.toIso8601String(),
-          'gender': gender,
-          'language': language,
-          'avatarSeed': avatarSeed,
-          'avatarStyle': avatarStyle ?? 'avataaars',
-          'isTelecaller': isTelecaller,
-        },
-      );
+      Map<String, dynamic>? userMap;
+      try {
+        final response = await apiClient.dio.post(
+          '/api/auth/profile',
+          data: {
+            'fullName': fullName,
+            if (userName != null && userName.trim().isNotEmpty)
+              'userName': userName.trim().toLowerCase(),
+            'dob': dob.toIso8601String(),
+            'gender': gender,
+            'language': language,
+            'avatarSeed': avatarSeed,
+            'avatarStyle': avatarStyle ?? 'avataaars',
+            'isTelecaller': isTelecaller,
+          },
+        );
 
-      if (response.statusCode != 200) {
-        throw Exception(response.data['error'] ?? 'Failed to update profile.');
+        if (response.statusCode != 200) {
+          throw Exception(response.data?['message'] ?? response.data?['error'] ?? 'Failed to update profile.');
+        }
+
+        if (response.data is Map && response.data['user'] is Map) {
+          userMap = response.data['user'] as Map<String, dynamic>;
+        }
+      } on DioException catch (dioErr) {
+        final data = dioErr.response?.data;
+        if (data is Map) {
+          throw Exception(data['message'] ?? data['error'] ?? 'Failed to update profile.');
+        }
+        rethrow;
       }
 
-      // Fetch updated profile state and update session notifier
-      final userProfileResponse = await apiClient.dio.get('/api/auth/me');
-      if (userProfileResponse.statusCode == 200 && userProfileResponse.data != null) {
-        final userMap = userProfileResponse.data['user'] as Map<String, dynamic>? ?? {};
+      // Fetch updated profile state if not returned directly from profile response
+      if (userMap == null) {
+        final userProfileResponse = await apiClient.dio.get('/api/auth/me');
+        if (userProfileResponse.statusCode == 200 && userProfileResponse.data != null) {
+          userMap = userProfileResponse.data['user'] as Map<String, dynamic>?;
+        }
+      }
+
+      if (userMap != null) {
         final user = CustomUser.fromBackendUserMap(
           userMap,
           isProfileComplete: true,
           fallbackFullName: fullName,
+          fallbackUserName: userName,
           fallbackGender: gender,
           fallbackDob: dob,
           fallbackLanguage: language,
