@@ -6,6 +6,7 @@ const { activeInstantCalls, endInstantCallHelper } = require('../instant_connect
 const { sendPushNotification } = require('../../services/firebase.service');
 const { cacheService } = require('../../services/cache.service');
 const db = require('../../db');
+const redis = require('../../redis');
 
 // In-memory map of active calls: callId → { userA: { userId, socketId, gender }, userB: { userId, socketId, gender } }
 const activeCalls = new Map();
@@ -332,7 +333,6 @@ function registerMatchmakingHandlers(io, socket, redis) {
             console.warn(`⚠️ Unauthorized attempt to switch instant call to voice by ${userId}`);
             return;
           }
-          await callsService.downgradeToVoice(callId);
           otherSocketId = instantCall.maleUserId === userId ? instantCall.femaleSocketId : instantCall.maleSocketId;
         }
       }

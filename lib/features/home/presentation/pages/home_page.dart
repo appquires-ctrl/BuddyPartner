@@ -28,6 +28,11 @@ import 'package:buddypartner/features/call/application/instant_connect_controlle
 import 'package:buddypartner/features/home/presentation/widgets/instant_connect_sheet.dart';
 import 'package:buddypartner/features/home/presentation/widgets/incoming_paid_calls_banner.dart';
 import 'package:buddypartner/features/chat/application/presence_provider.dart';
+import 'package:buddypartner/features/buddy/presentation/widgets/buddy_sticker_carousel.dart';
+import 'package:buddypartner/features/buddy/presentation/widgets/active_buddy_status_banner.dart';
+import 'package:buddypartner/features/buddy/application/buddy_controller.dart';
+import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
+import 'package:buddypartner/features/buddy/presentation/widgets/initiator_otp_modal.dart';
 
 /// HomePage renders the primary "stranger search" radar screen.
 /// Matches screenshots/home.jpeg exactly.
@@ -174,6 +179,17 @@ class _HomePageState extends ConsumerState<HomePage> {
       if (list.isNotEmpty) {
         final userIds = list.map((u) => u.id).toList();
         ref.read(presenceProvider.notifier).subscribeToUsers(userIds);
+      }
+    });
+
+    ref.listen<BuddyState>(buddyControllerProvider, (prev, next) {
+      if (next.activeInitiatorRequest != null &&
+          (prev == null ||
+              prev.activeInitiatorRequest?.id != next.activeInitiatorRequest?.id ||
+              prev.activeInitiatorRequest?.status != next.activeInitiatorRequest?.status)) {
+        if (next.activeInitiatorRequest!.status == BuddyRequestStatus.accepted) {
+          InitiatorOtpModal.show(context, request: next.activeInitiatorRequest!);
+        }
       }
     });
 
@@ -827,6 +843,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                             ),
                           ),
                       ],
+                const ActiveBuddyStatusBanner(),
+                const SizedBox(height: 20),
+                const BuddyStickerCarousel(),
                 const SizedBox(height: 24),
 
                 // DISCOVER and History Row

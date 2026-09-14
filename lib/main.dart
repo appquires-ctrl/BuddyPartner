@@ -114,8 +114,9 @@ Future<void> main() async {
     );
   };
 
-  // Enable global anti-screenshot and screen recording protection
-  await ScreenProtectionService.enableGlobalProtection();
+  // Ensure screenshot protection is off on startup so users can screenshot UI freely.
+  // Protection is dynamically activated strictly during active voice and video calls.
+  await ScreenProtectionService.disableCallProtection(force: true);
 
   runApp(const ProviderScope(child: BuddyPartnerApp()));
 }

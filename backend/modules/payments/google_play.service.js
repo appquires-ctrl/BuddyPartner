@@ -5,8 +5,16 @@ const { cacheService } = require('../../services/cache.service');
 
 const ANDROID_PACKAGE_NAME = process.env.ANDROID_PACKAGE_NAME || 'com.buddypartner.app';
 
-// Google Play In-App Product Catalog (Coin Packs: 1 INR = 1 Coin base rate + bonuses)
+// Google Play In-App Product Catalog (Coin Packs: Option B with 18% GST included in Google Play Console)
 const GOOGLE_PLAY_COIN_PRODUCTS = {
+  // Active pricing tiers (Base price + 18% GST = Customer price in Google Play)
+  plan_49: { id: 'plan_49', coins: 49, bonusCoins: 0, basePriceRupees: 49, gstRupees: 9, priceRupees: 58, type: 'inapp' },
+  plan_99: { id: 'plan_99', coins: 99, bonusCoins: 0, basePriceRupees: 99, gstRupees: 18, priceRupees: 117, type: 'inapp' },
+  plan_199: { id: 'plan_199', coins: 199, bonusCoins: 0, basePriceRupees: 199, gstRupees: 36, priceRupees: 235, type: 'inapp' },
+  plan_499: { id: 'plan_499', coins: 499, bonusCoins: 50, basePriceRupees: 499, gstRupees: 90, priceRupees: 589, type: 'inapp' },
+  plan_999: { id: 'plan_999', coins: 999, bonusCoins: 100, basePriceRupees: 999, gstRupees: 180, priceRupees: 1179, type: 'inapp' },
+
+  // Legacy tiers maintained for backward compatibility with in-flight transactions
   plan_20: { id: 'plan_20', coins: 20, bonusCoins: 0, priceRupees: 20, type: 'inapp' },
   plan_50: { id: 'plan_50', coins: 50, bonusCoins: 0, priceRupees: 50, type: 'inapp' },
   plan_100: { id: 'plan_100', coins: 100, bonusCoins: 10, priceRupees: 100, type: 'inapp' },
@@ -16,12 +24,27 @@ const GOOGLE_PLAY_COIN_PRODUCTS = {
   plan_2000: { id: 'plan_2000', coins: 2000, bonusCoins: 800, priceRupees: 2000, type: 'inapp' },
 };
 
-// Google Play Subscription / Pass Catalog
+// Google Play Subscription / Membership Catalog (Customer-facing tax-inclusive prices set in Google Play Console)
 const GOOGLE_PLAY_SUBSCRIPTION_PRODUCTS = {
-  pass_1_day: { id: 'pass_1_day', planId: '1_day', durationDays: 1, priceRupees: 9, type: 'subs' },
-  pass_7_days: { id: 'pass_7_days', planId: '7_days', durationDays: 7, priceRupees: 59, type: 'subs' },
-  pass_1_month: { id: 'pass_1_month', planId: '1_month', durationDays: 30, priceRupees: 199, type: 'subs' },
-  pass_1_year: { id: 'pass_1_year', planId: '1_year', durationDays: 365, priceRupees: 1999, type: 'subs' },
+  // Active membership plans (Option B: ₹199 + 18% GST = ₹235, ₹399 + 18% GST = ₹471, ₹699 + 18% GST = ₹825)
+  membership_1_month: { id: 'membership_1_month', planId: '1_month', durationDays: 30, basePriceRupees: 199, gstRupees: 36, priceRupees: 235, type: 'subs' },
+  membership_6_months: { id: 'membership_6_months', planId: '6_months', durationDays: 180, basePriceRupees: 399, gstRupees: 72, priceRupees: 471, type: 'subs' },
+  membership_1_year: { id: 'membership_1_year', planId: '1_year', durationDays: 365, basePriceRupees: 699, gstRupees: 126, priceRupees: 825, type: 'subs' },
+
+  // Pass aliases / direct planId mapping
+  pass_1_month: { id: 'pass_1_month', planId: '1_month', durationDays: 30, basePriceRupees: 199, gstRupees: 36, priceRupees: 235, type: 'subs' },
+  pass_6_months: { id: 'pass_6_months', planId: '6_months', durationDays: 180, basePriceRupees: 399, gstRupees: 72, priceRupees: 471, type: 'subs' },
+  pass_1_year: { id: 'pass_1_year', planId: '1_year', durationDays: 365, basePriceRupees: 699, gstRupees: 126, priceRupees: 825, type: 'subs' },
+
+  '1_month': { id: '1_month', planId: '1_month', durationDays: 30, basePriceRupees: 199, gstRupees: 36, priceRupees: 235, type: 'subs' },
+  '6_months': { id: '6_months', planId: '6_months', durationDays: 180, basePriceRupees: 399, gstRupees: 72, priceRupees: 471, type: 'subs' },
+  '1_year': { id: '1_year', planId: '1_year', durationDays: 365, basePriceRupees: 699, gstRupees: 126, priceRupees: 825, type: 'subs' },
+
+  // Legacy tiers maintained for backward compatibility with in-flight transactions
+  pass_1_day: { id: 'pass_1_day', planId: '1_day', durationDays: 1, basePriceRupees: 9, gstRupees: 0, priceRupees: 9, type: 'subs' },
+  pass_7_days: { id: 'pass_7_days', planId: '7_days', durationDays: 7, basePriceRupees: 59, gstRupees: 0, priceRupees: 59, type: 'subs' },
+  '1_day': { id: '1_day', planId: '1_day', durationDays: 1, basePriceRupees: 9, gstRupees: 0, priceRupees: 9, type: 'subs' },
+  '7_days': { id: '7_days', planId: '7_days', durationDays: 7, basePriceRupees: 59, gstRupees: 0, priceRupees: 59, type: 'subs' },
 };
 
 class GooglePlayService {
@@ -390,8 +413,10 @@ class GooglePlayService {
       throw err;
     }
 
-    // Compare verified productId against the client-claimed subProduct.id
-    if (verifiedProductId !== subProduct.id) {
+    // Compare verified productId against client-claimed subProduct (accept exact match or equivalent plan alias)
+    const verifiedProductDef = GOOGLE_PLAY_SUBSCRIPTION_PRODUCTS[verifiedProductId];
+    const isPlanMatch = verifiedProductDef && (verifiedProductDef.planId === subProduct.planId);
+    if (verifiedProductId !== subProduct.id && !isPlanMatch) {
       console.error(`❌ [Google Play Security] Product identity mismatch! Client claimed: ${subProduct.id}, Google verified: ${verifiedProductId}`);
       const err = new Error(`Product mismatch: token belongs to product "${verifiedProductId}" but client claimed "${subProduct.id}".`);
       err.statusCode = 400;
@@ -461,6 +486,7 @@ class GooglePlayService {
         success: true,
         purchaseType: 'subs',
         productId: verifiedProductId,
+        durationDays: subProduct.durationDays,
         subscription,
         status,
         orderId: resolvedOrderId,

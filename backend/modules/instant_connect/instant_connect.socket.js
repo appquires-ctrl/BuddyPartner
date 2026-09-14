@@ -5,6 +5,7 @@ const { PresenceService } = require('../presence/presence.service');
 const { subscriptionsService } = require('../subscriptions/subscriptions.service');
 const { sendMulticastPushNotification } = require('../../services/firebase.service');
 const db = require('../../db');
+const redis = require('../../redis');
 
 const AGORA_APP_ID = process.env.AGORA_APP_ID || '';
 const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE || '';

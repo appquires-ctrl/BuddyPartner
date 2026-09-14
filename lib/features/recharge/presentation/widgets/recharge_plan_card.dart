@@ -118,7 +118,7 @@ class RechargePlanCard extends StatelessWidget {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      '₹${plan.price.toStringAsFixed(0)}',
+                      '₹${plan.basePriceRupees}',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w900,

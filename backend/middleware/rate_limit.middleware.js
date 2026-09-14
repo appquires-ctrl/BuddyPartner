@@ -53,6 +53,7 @@ const otpRateLimiter = rateLimit({
 const callRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 30,
+  keyGenerator: (req) => (req.user && req.user.id ? req.user.id : ipKeyGenerator(req.ip)),
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   skip: () => process.env.DISABLE_RATE_LIMIT === 'true',

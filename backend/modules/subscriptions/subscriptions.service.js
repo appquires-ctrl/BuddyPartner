@@ -2,10 +2,9 @@ const db = require('../../db');
 const { cacheService } = require('../../services/cache.service');
 
 const SUBSCRIPTION_PLANS = [
-  { id: '1_day', durationDays: 1, amountPaid: 9, label: '1 Day Pass' },
-  { id: '7_days', durationDays: 7, amountPaid: 59, label: '1 Week Pass' },
-  { id: '1_month', durationDays: 30, amountPaid: 199, label: '1 Month Pass' },
-  { id: '1_year', durationDays: 365, amountPaid: 1999, label: '1 Year VIP' },
+  { id: '1_month', durationDays: 30, basePrice: 199, gstAmount: 36, amountPaid: 235, label: '1 Month Membership' },
+  { id: '6_months', durationDays: 180, basePrice: 399, gstAmount: 72, amountPaid: 471, label: '6 Months Membership' },
+  { id: '1_year', durationDays: 365, basePrice: 699, gstAmount: 126, amountPaid: 825, label: '1 Year Membership' },
 ];
 
 class SubscriptionsService {

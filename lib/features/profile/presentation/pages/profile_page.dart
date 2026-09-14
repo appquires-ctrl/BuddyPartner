@@ -212,8 +212,8 @@ class ProfilePage extends ConsumerWidget {
                       icon: Icons.card_membership_outlined,
                       iconBgColor: const Color(0xFFF5E6FF),
                       iconColor: const Color(0xFF8B5CF6),
-                      title: 'My Subscription',
-                      subtitle: 'Manage subscription plans & duration',
+                      title: 'VIP Membership',
+                      subtitle: 'Manage membership plans & VIP benefits',
                       onTap: () {
                         context.push(RouteNames.subscribe);
                       },
@@ -239,7 +239,6 @@ class ProfilePage extends ConsumerWidget {
                       title: 'Call History',
                       subtitle: 'View your recent calls',
                       onTap: () {
-                        // Navigate to history page path
                         context.push(RouteNames.history);
                       },
                     ),
@@ -261,8 +260,8 @@ class ProfilePage extends ConsumerWidget {
                       icon: Icons.receipt_long_outlined,
                       iconBgColor: const Color(0xFFEAF5FF),
                       iconColor: const Color(0xFF3B82F6),
-                      title: 'Subscription History',
-                      subtitle: 'View your subscription payments',
+                      title: 'Membership History',
+                      subtitle: 'View your membership payments',
                       onTap: () {
                         context.push(RouteNames.subscriptionHistory);
                       },

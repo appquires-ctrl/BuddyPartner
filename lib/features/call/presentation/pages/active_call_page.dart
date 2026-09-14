@@ -14,6 +14,7 @@ import 'package:buddypartner/features/call/presentation/widgets/scratch_card_dia
 
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/core/widgets/app_avatar.dart';
+import 'package:buddypartner/core/services/screen_protection_service.dart';
 
 /// ActiveCallPage displays the active voice call interface.
 /// Wired to the MatchmakingController for real Agora audio/video and
@@ -29,6 +30,8 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
   @override
   void initState() {
     super.initState();
+    // Strictly restrict screenshot and screen recording during active call
+    ScreenProtectionService.enableCallProtection();
     Future.microtask(() {
       if (mounted) {
         ref.read(matchmakingControllerProvider.notifier).restoreCall();
@@ -38,6 +41,8 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
 
   @override
   void dispose() {
+    // Lift screenshot restriction when leaving active call
+    ScreenProtectionService.disableCallProtection();
     super.dispose();
   }
 

@@ -150,16 +150,28 @@ class MatchmakingService {
    * @param {string} userId
    */
   async _removeFromAllQueues(userId) {
-    for (const queueKey of [MALE_QUEUE_KEY, FEMALE_QUEUE_KEY]) {
-      const members = await this.redis.zrangebyscore(queueKey, '-inf', '+inf');
-      for (const member of members) {
-        if (member.startsWith(`${userId}:`)) {
-          await this.redis.zrem(queueKey, member);
+    const socketId = await this.redis.hget(USER_SOCKET_MAP_KEY, userId);
+    if (socketId) {
+      const member = `${userId}:${socketId}`;
+      await Promise.all([
+        this.redis.zrem(MALE_QUEUE_KEY, member),
+        this.redis.zrem(FEMALE_QUEUE_KEY, member),
+      ]);
+    } else {
+      // Fallback in case socketId was cleared prematurely
+      for (const queueKey of [MALE_QUEUE_KEY, FEMALE_QUEUE_KEY]) {
+        const members = await this.redis.zrangebyscore(queueKey, '-inf', '+inf');
+        for (const member of members) {
+          if (member.startsWith(`${userId}:`)) {
+            await this.redis.zrem(queueKey, member);
+          }
         }
       }
     }
-    await this.redis.hdel(USER_SOCKET_MAP_KEY, userId);
-    await this.redis.hdel(USER_GENDER_MAP_KEY, userId);
+    await Promise.all([
+      this.redis.hdel(USER_SOCKET_MAP_KEY, userId),
+      this.redis.hdel(USER_GENDER_MAP_KEY, userId),
+    ]);
   }
 
   /**

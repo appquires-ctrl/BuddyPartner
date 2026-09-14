@@ -3,6 +3,7 @@ const db = require('../../db');
 
 const CALL_DURATION_MS = 24 * 60 * 60 * 1000; // Unlimited calls (24h token safety cap)
 const TOKEN_EXPIRY_SECONDS = 24 * 60 * 60;     // 24 hours token lifetime
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 class CallsService {
   constructor() {
@@ -88,6 +89,7 @@ class CallsService {
    * @param {string} callId
    */
   async upgradeToVideo(callId) {
+    if (!callId || !UUID_REGEX.test(callId)) return;
     try {
       await db.query(
         "UPDATE public.calls SET call_type = 'video' WHERE id = $1",
@@ -104,9 +106,10 @@ class CallsService {
    * @param {string} callId
    */
   async downgradeToVoice(callId) {
+    if (!callId || !UUID_REGEX.test(callId)) return;
     try {
       await db.query(
-        "UPDATE public.calls SET call_type = 'audio' WHERE id = $1",
+        "UPDATE public.calls SET call_type = 'voice' WHERE id = $1",
         [callId]
       );
     } catch (err) {

@@ -12,6 +12,7 @@ import 'package:buddypartner/features/call/application/instant_connect_controlle
 import 'package:buddypartner/features/call/presentation/widgets/incoming_paid_call_dialog.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
+import 'package:buddypartner/core/services/screen_protection_service.dart';
 import 'package:buddypartner/features/call/presentation/widgets/floating_minimized_call_overlay.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
@@ -80,6 +81,9 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
   Widget build(BuildContext context) {
     // Keep global app lifecycle presence service alive
     ref.watch(appLifecycleServiceProvider);
+
+    // Keep dynamic call screen protection service active
+    ref.watch(screenProtectionServiceProvider);
 
     // Listen to Auth State to keep FCM Token registered upon login
     ref.listen<AsyncValue<CustomUser?>>(authStateProvider, (prev, next) {

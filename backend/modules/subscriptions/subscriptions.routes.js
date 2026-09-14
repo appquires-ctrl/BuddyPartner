@@ -12,9 +12,7 @@ router.get('/status', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const data = await cacheService.getOrSet(`subscription_status:${userId}`, 30, async () => {
       const statusInfo = await subscriptionsService.getSubscriptionStatus(userId);
-      const availablePlans = statusInfo.hasClaimedIntroOffer
-        ? SUBSCRIPTION_PLANS.filter((p) => p.id !== '1_day')
-        : SUBSCRIPTION_PLANS;
+      const availablePlans = SUBSCRIPTION_PLANS;
 
       return {
         ...statusInfo,

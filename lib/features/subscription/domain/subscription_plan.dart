@@ -4,7 +4,9 @@ import 'package:flutter/foundation.dart';
 class SubscriptionPlan {
   final String id;
   final int durationDays;
-  final int priceRupees;
+  final int basePriceRupees;
+  final int gstRupees;
+  final int totalPriceRupees;
   final String title;
   final String description;
   final String? badge;
@@ -12,42 +14,45 @@ class SubscriptionPlan {
   const SubscriptionPlan({
     required this.id,
     required this.durationDays,
-    required this.priceRupees,
+    required this.basePriceRupees,
+    required this.gstRupees,
+    required this.totalPriceRupees,
     required this.title,
     required this.description,
     this.badge,
   });
 
+  /// The total customer-facing amount charged via Google Play (inclusive of 18% GST)
+  int get priceRupees => totalPriceRupees;
+
   static const List<SubscriptionPlan> defaultPlans = [
-    SubscriptionPlan(
-      id: '1_day',
-      durationDays: 1,
-      priceRupees: 9,
-      title: '1 Day Pass',
-      description: '24-hour unlimited access — One-time intro offer',
-      badge: 'INTRO OFFER',
-    ),
-    SubscriptionPlan(
-      id: '7_days',
-      durationDays: 7,
-      priceRupees: 59,
-      title: '1 Week Pass',
-      description: '7 days full access',
-      badge: 'POPULAR',
-    ),
     SubscriptionPlan(
       id: '1_month',
       durationDays: 30,
-      priceRupees: 199,
-      title: '1 Month Pass',
-      description: '30 days full access — Best value for regular users',
+      basePriceRupees: 199,
+      gstRupees: 36,
+      totalPriceRupees: 235,
+      title: '1 Month Membership',
+      description: '30 days unlimited voice & video calls',
+      badge: 'POPULAR',
+    ),
+    SubscriptionPlan(
+      id: '6_months',
+      durationDays: 180,
+      basePriceRupees: 399,
+      gstRupees: 72,
+      totalPriceRupees: 471,
+      title: '6 Months Membership',
+      description: '180 days full access — Great value for regular members',
       badge: 'BEST VALUE',
     ),
     SubscriptionPlan(
       id: '1_year',
       durationDays: 365,
-      priceRupees: 1999,
-      title: '1 Year VIP',
+      basePriceRupees: 699,
+      gstRupees: 126,
+      totalPriceRupees: 825,
+      title: '1 Year Membership',
       description: '365 days full access — Maximum savings',
       badge: 'MAX SAVINGS',
     ),

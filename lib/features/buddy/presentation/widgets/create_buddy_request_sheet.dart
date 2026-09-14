@@ -1,0 +1,595 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:buddypartner/core/extensions/context_extensions.dart';
+import 'package:buddypartner/core/utils/app_snack_bar.dart';
+import 'package:buddypartner/core/widgets/coins/app_coin_icon.dart';
+import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
+import 'package:buddypartner/features/buddy/application/buddy_controller.dart';
+import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
+import 'package:buddypartner/features/buddy/presentation/widgets/initiator_otp_modal.dart';
+
+/// Top Indian cities for the quick selector
+const List<String> kIndianCities = [
+  'Mumbai',
+  'Delhi',
+  'Bengaluru',
+  'Hyderabad',
+  'Ahmedabad',
+  'Chennai',
+  'Kolkata',
+  'Surat',
+  'Pune',
+  'Jaipur',
+  'Lucknow',
+  'Chandigarh',
+  'Indore',
+  'Bhopal',
+  'Patna',
+  'Nagpur',
+  'Visakhapatnam',
+  'Noida',
+  'Gurgaon',
+  'Goa',
+  'Kochi',
+  'Varanasi',
+  'Agra',
+];
+
+/// Bottom sheet to customize and broadcast a new Buddy Request.
+class CreateBuddyRequestSheet extends ConsumerStatefulWidget {
+  final BuddyType buddyType;
+
+  const CreateBuddyRequestSheet({super.key, required this.buddyType});
+
+  static Future<void> show(BuildContext context, BuddyType buddyType) {
+    return showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => CreateBuddyRequestSheet(buddyType: buddyType),
+    );
+  }
+
+  @override
+  ConsumerState<CreateBuddyRequestSheet> createState() => _CreateBuddyRequestSheetState();
+}
+
+class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestSheet> {
+  late String _selectedCity;
+  BuddyTargetGender _selectedGender = BuddyTargetGender.all;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final profile = ref.read(userProfileProvider);
+    final authUser = ref.read(authStateProvider).value;
+    final defaultCity = profile?.city ?? authUser?.city;
+    _selectedCity = (defaultCity != null && defaultCity.trim().isNotEmpty)
+        ? defaultCity.trim()
+        : 'Mumbai';
+  }
+
+  void _openCityPicker() {
+    showModalBottomSheet<String>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _CityPickerSheet(currentCity: _selectedCity),
+    ).then((chosenCity) {
+      if (chosenCity != null && chosenCity.isNotEmpty) {
+        setState(() {
+          _selectedCity = chosenCity;
+        });
+      }
+    });
+  }
+
+  Future<void> _submitRequest() async {
+    if (_isSubmitting) return;
+    setState(() => _isSubmitting = true);
+
+    try {
+      final newReq = await ref.read(buddyControllerProvider.notifier).createBuddyRequest(
+        type: widget.buddyType,
+        city: _selectedCity,
+        targetGender: _selectedGender,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close create sheet
+
+      AppSnackBar.showSuccess(
+        context,
+        '${widget.buddyType.title} broadcast is live in $_selectedCity!',
+      );
+
+      // Open waiting modal for the initiator
+      if (mounted) {
+        InitiatorOtpModal.show(context, request: newReq);
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.showError(
+          context,
+          e.toString().replaceAll('Exception: ', ''),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final typography = context.typography;
+    final type = widget.buddyType;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 24,
+            offset: const Offset(0, -6),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 14,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Drag Handle
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: colors.border.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          // Header with Sticker & Title
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: type.gradientColors,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Image.asset(
+                    type.stickerAsset,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, error, stack) => const Icon(
+                      Icons.local_activity_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      type.title,
+                      style: typography.titleCard.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 19,
+                        color: colors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      type.subtitle,
+                      style: typography.bodySmall.copyWith(
+                        color: colors.textSecondary,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: Icon(Icons.close, color: colors.textSecondary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // 1. City Selector
+          Text(
+            'BROADCAST LOCATION',
+            style: typography.bodySmall.copyWith(
+              color: colors.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 8),
+          InkWell(
+            onTap: _openCityPicker,
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+              decoration: BoxDecoration(
+                color: colors.surfaceMuted,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colors.cardBorder),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: type.accentColor.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.location_on_rounded,
+                      color: type.accentColor,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _selectedCity,
+                          style: typography.bodyMedium.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: colors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          'Tap to change target city',
+                          style: typography.bodySmall.copyWith(
+                            fontSize: 11,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: colors.textSecondary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          // 2. Target Gender Selector
+          Text(
+            'LOOKING FOR',
+            style: typography.bodySmall.copyWith(
+              color: colors.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: BuddyTargetGender.values.map((g) {
+              final isSelected = _selectedGender == g;
+              final icon = g == BuddyTargetGender.female
+                  ? Icons.female_rounded
+                  : (g == BuddyTargetGender.male ? Icons.male_rounded : Icons.people_alt_rounded);
+
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                  child: InkWell(
+                    onTap: () => setState(() => _selectedGender = g),
+                    borderRadius: BorderRadius.circular(14),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? type.accentColor.withValues(alpha: 0.12)
+                            : colors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isSelected ? type.accentColor : colors.cardBorder,
+                          width: isSelected ? 1.6 : 1.0,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            icon,
+                            size: 20,
+                            color: isSelected ? type.accentColor : colors.textSecondary,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            g.label,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              color: isSelected ? type.accentColor : colors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 18),
+
+          // 3. Pricing & Info Card
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFFDE68A)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const AppCoinIcon(size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Cost: 100 Coins',
+                      style: typography.bodyMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: const Color(0xFF92400E),
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'Charged on Submit',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFB45309),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '• First person in $_selectedCity to accept will get 50 🪙 upon OTP verification.\n'
+                  '• You will receive a secret 6-digit OTP code to share with your buddy in person to unlock chat & calls.',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: Color(0xFF78350F),
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // 4. Submit CTA Button
+          SizedBox(
+            height: 52,
+            child: ElevatedButton(
+              onPressed: _isSubmitting ? null : _submitRequest,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: type.accentColor,
+                elevation: 3,
+                shadowColor: type.accentColor.withValues(alpha: 0.4),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: _isSubmitting
+                  ? const AppLoadingIndicator(size: 22, color: Colors.white)
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const AppCoinIcon(size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Broadcast Request (100 Coins)',
+                          style: typography.bodyMedium.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Searchable Sheet for selecting Indian cities
+class _CityPickerSheet extends StatefulWidget {
+  final String currentCity;
+
+  const _CityPickerSheet({required this.currentCity});
+
+  @override
+  State<_CityPickerSheet> createState() => _CityPickerSheetState();
+}
+
+class _CityPickerSheetState extends State<_CityPickerSheet> {
+  late TextEditingController _searchController;
+  late List<String> _filteredCities;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    _filteredCities = List.from(kIndianCities);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filter(String query) {
+    setState(() {
+      if (query.trim().isEmpty) {
+        _filteredCities = List.from(kIndianCities);
+      } else {
+        _filteredCities = kIndianCities
+            .where((c) => c.toLowerCase().contains(query.toLowerCase().trim()))
+            .toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final typography = context.typography;
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.72,
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: colors.border.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Select City',
+            style: typography.titleCard.copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: colors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _searchController,
+            onChanged: _filter,
+            decoration: InputDecoration(
+              hintText: 'Search or type your city...',
+              prefixIcon: const Icon(Icons.search_rounded, size: 20),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () {
+                        _searchController.clear();
+                        _filter('');
+                      },
+                    )
+                  : null,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              filled: true,
+              fillColor: colors.surfaceMuted,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: ListView.separated(
+              itemCount: _filteredCities.length + (_searchController.text.trim().isNotEmpty && !_filteredCities.contains(_searchController.text.trim()) ? 1 : 0),
+              separatorBuilder: (_, index) => Divider(height: 1, color: colors.border.withValues(alpha: 0.5)),
+              itemBuilder: (context, index) {
+                if (index < _filteredCities.length) {
+                  final city = _filteredCities[index];
+                  final isSelected = city.toLowerCase() == widget.currentCity.toLowerCase();
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    title: Text(
+                      city,
+                      style: TextStyle(
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        color: isSelected ? colors.primary : colors.textPrimary,
+                      ),
+                    ),
+                    trailing: isSelected ? Icon(Icons.check_circle_rounded, color: colors.primary) : null,
+                    onTap: () => Navigator.of(context).pop(city),
+                  );
+                } else {
+                  // Option to use whatever custom text was entered
+                  final customCity = _searchController.text.trim();
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    leading: Icon(Icons.add_location_alt_rounded, color: colors.primary),
+                    title: Text(
+                      'Use "$customCity"',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: colors.primary,
+                      ),
+                    ),
+                    onTap: () => Navigator.of(context).pop(customCity),
+                  );
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -65,6 +65,7 @@ const instantConnectRoutes = require('./modules/instant_connect/instant_connect.
 const supportRoutes = require('./modules/support/support.routes');
 const googlePlayRoutes = require('./modules/payments/google_play.routes');
 const { GooglePlayService } = require('./modules/payments/google_play.service');
+const buddyRoutes = require('./modules/buddy/buddy.routes');
 
 // Serve uploaded images statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -94,6 +95,7 @@ app.use('/api/admin/advertisements', advertisementsRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/app', supportRoutes);
 app.use('/api/payments/google-play', googlePlayRoutes);
+app.use('/api/buddy', buddyRoutes);
 
 // Initialize Admin, App Config & Google Play tables
 adminService.initAdminConfig();
@@ -353,6 +355,7 @@ const { registerMatchmakingHandlers } = require('./modules/matchmaking/matchmaki
 const { registerMessagingHandlers } = require('./modules/messaging/messaging.socket');
 const { registerInstantConnectHandlers } = require('./modules/instant_connect/instant_connect.socket');
 const { registerPresenceHandlers } = require('./modules/presence/presence.socket');
+const { registerBuddyHandlers } = require('./modules/buddy/buddy.socket');
 
 io.on('connection', (socket) => {
   console.log(`🔌 User connected: ${socket.userId} (socket: ${socket.id})`);
@@ -367,6 +370,18 @@ io.on('connection', (socket) => {
   registerMessagingHandlers(io, socket, redis);
   registerInstantConnectHandlers(io, socket, redis);
   registerPresenceHandlers(io, socket, redis);
+  registerBuddyHandlers(io, socket, redis);
+
+  // Auto-join user's city buddy room if profile city is set
+  db.query('SELECT city FROM public.users WHERE id = $1', [socket.userId])
+    .then((res) => {
+      const city = res.rows[0]?.city;
+      if (city) {
+        const room = `city:${city.trim().toLowerCase()}:buddy`;
+        socket.join(room);
+      }
+    })
+    .catch(() => {});
 
   socket.on('disconnect', (reason) => {
     console.log(`🔌 User disconnected: ${socket.userId} — ${reason}`);

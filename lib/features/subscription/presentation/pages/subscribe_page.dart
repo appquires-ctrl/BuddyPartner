@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/features/subscription/domain/subscription_plan.dart';
-import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
 import 'package:buddypartner/core/services/google_play_purchase_service.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
@@ -18,13 +17,45 @@ class SubscribePage extends ConsumerStatefulWidget {
 }
 
 class _SubscribePageState extends ConsumerState<SubscribePage> {
-  String _selectedPlanId = '1_day';
+  String _selectedPlanId = '1_month';
+
+  String _getFormattedPrice(SubscriptionPlan plan, GooglePlayState gpState) {
+    final p = gpState.products['membership_${plan.id}'] ??
+        gpState.products['pass_${plan.id}'] ??
+        gpState.products[plan.id];
+    return p?.price ?? '₹${plan.totalPriceRupees}';
+  }
 
   Future<void> _handleSubscribe(SubscriptionPlan plan) async {
+    final gpState = ref.read(googlePlayPurchaseProvider);
+    final membershipId = 'membership_${plan.id}';
     final passId = 'pass_${plan.id}';
-    AppLogger.button('Google Play Subscribe: ${plan.title} ($passId - ₹${plan.priceRupees})', screen: 'SubscribePage');
 
-    await ref.read(googlePlayPurchaseProvider.notifier).buyProduct(passId, isConsumable: false);
+    final productId = gpState.products.containsKey(membershipId)
+        ? membershipId
+        : (gpState.products.containsKey(passId)
+            ? passId
+            : (gpState.products.containsKey(plan.id) ? plan.id : membershipId));
+
+    final displayPrice = _getFormattedPrice(plan, gpState);
+    AppLogger.button(
+      'Google Play Membership: ${plan.title} ($productId - $displayPrice)',
+      screen: 'SubscribePage',
+    );
+
+    await ref.read(googlePlayPurchaseProvider.notifier).buyProduct(productId, isConsumable: false);
+  }
+
+  void _showOrderSummaryBottomSheet(BuildContext context, SubscriptionPlan plan) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (bottomSheetContext) => _MembershipOrderSummarySheet(
+        plan: plan,
+        onPay: () => _handleSubscribe(plan),
+      ),
+    );
   }
 
   @override
@@ -39,6 +70,9 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
       if (next.status == GooglePlayPurchaseStatus.success && next.successMessage != null) {
         AppSnackBar.showSuccess(context, next.successMessage!);
         ref.read(googlePlayPurchaseProvider.notifier).resetStatus();
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
         if (context.canPop()) {
           context.pop();
         } else {
@@ -56,21 +90,13 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
 
     final colors = context.colors;
     final typography = context.typography;
-    final authUser = ref.watch(authStateProvider).value;
     final subState = ref.watch(subscriptionStatusProvider).value;
-
-    final hasClaimedIntroOffer =
-        (authUser?.hasClaimedIntroOffer ?? false) ||
-        (subState?.hasClaimedIntroOffer ?? false);
 
     final allPlans = SubscriptionPlan.defaultPlans;
 
-    // Ensure selected plan exists and is available for purchase
-    if (!allPlans.any((p) => p.id == _selectedPlanId) ||
-        (_selectedPlanId == '1_day' && hasClaimedIntroOffer)) {
-      _selectedPlanId = allPlans
-          .firstWhere((p) => p.id != '1_day', orElse: () => allPlans.first)
-          .id;
+    // Ensure selected plan exists in allPlans
+    if (!allPlans.any((p) => p.id == _selectedPlanId)) {
+      _selectedPlanId = allPlans.first.id;
     }
 
     final selectedPlan = allPlans.firstWhere(
@@ -93,7 +119,7 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
         title: Column(
           children: [
             Text(
-              'Choose Subscription',
+              'Choose Membership Plan',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
@@ -102,7 +128,7 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
             ),
             const SizedBox(height: 2),
             Text(
-              'Select an access plan',
+              'Select an access tier',
               style: typography.bodySmall.copyWith(
                 fontSize: 12,
                 color: colors.textSecondary,
@@ -127,7 +153,9 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
           child: SizedBox(
             height: 50,
             child: ElevatedButton(
-              onPressed: isPurchasing ? null : () => _handleSubscribe(selectedPlan),
+              onPressed: isPurchasing
+                  ? null
+                  : () => _showOrderSummaryBottomSheet(context, selectedPlan),
               style: ElevatedButton.styleFrom(
                 backgroundColor: colors.primary,
                 foregroundColor: Colors.white,
@@ -135,27 +163,21 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 elevation: 4,
               ),
-              child: isPurchasing
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.lock_open_rounded, size: 20, color: Colors.white),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Subscribe with Google Play (₹${selectedPlan.priceRupees})',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Continue (₹${selectedPlan.basePriceRupees})',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: Colors.white,
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.arrow_forward_rounded, size: 19, color: Colors.white),
+                ],
+              ),
             ),
           ),
         ),
@@ -171,63 +193,38 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
 
               const SizedBox(height: 20),
 
-              // Section Heading + Current Active Plan pill
+              // Section Heading
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Select a Plan',
+                    'Select a Membership Plan',
                     style: typography.titleCard.copyWith(
                       color: colors.textPrimary,
                       fontSize: 19,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  // if (subState?.isSubscribed ?? false)
-                  //   Container(
-                  //     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  //     decoration: BoxDecoration(
-                  //       color: colors.primary.withValues(alpha: 0.12),
-                  //       borderRadius: BorderRadius.circular(12),
-                  //       border: Border.all(color: colors.primary.withValues(alpha: 0.3)),
-                  //     ),
-                  //     child: Row(
-                  //       mainAxisSize: MainAxisSize.min,
-                  //       children: [
-                  //         Icon(Icons.stars_rounded, color: colors.primary, size: 14),
-                  //         const SizedBox(width: 4),
-                  //         Text(
-                  //           'Active: ${subState!.formattedLabel}',
-                  //           style: TextStyle(
-                  //             color: colors.primary,
-                  //             fontSize: 11.5,
-                  //             fontWeight: FontWeight.bold,
-                  //           ),
-                  //         ),
-                  //       ],
-                  //     ),
-                  //   ),
                 ],
               ),
 
               const SizedBox(height: 14),
 
-              // Plan Cards List (Includes ₹9 1-Day Pass)
+              // Plan Cards List
               ...allPlans.map((plan) {
                 final isSelected = plan.id == _selectedPlanId;
                 final isCurrentActivePlan =
                     (subState?.isSubscribed ?? false) &&
                     (subState?.planDurationDays == plan.durationDays);
-                final isClaimed = (plan.id == '1_day') && hasClaimedIntroOffer;
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),
                   child: _buildPlanCard(
                     context,
                     plan,
+                    gpState,
                     isSelected: isSelected,
                     isCurrentActivePlan: isCurrentActivePlan,
-                    isClaimed: isClaimed,
                     activeLabel: isCurrentActivePlan
                         ? subState?.formattedLabel
                         : null,
@@ -283,116 +280,35 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
 
   Widget _buildPlanCard(
     BuildContext context,
-    SubscriptionPlan plan, {
+    SubscriptionPlan plan,
+    GooglePlayState gpState, {
     required bool isSelected,
     required bool isCurrentActivePlan,
-    required bool isClaimed,
     String? activeLabel,
   }) {
     final colors = context.colors;
     final typography = context.typography;
 
-    if (isClaimed) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 16.0),
-        decoration: BoxDecoration(
-          color: colors.surfaceMuted.withValues(alpha: 1),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: colors.textSecondary.withValues(alpha: 0.1),
-            width: 1.0,
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        plan.title,
-                        style: typography.bodyMedium.copyWith(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: colors.textSecondary.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colors.textSecondary.withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Text(
-                          'CLAIMED',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'One-time intro offer already claimed',
-                    style: typography.bodySmall.copyWith(
-                      fontSize: 12.0,
-                      color: colors.textSecondary.withValues(alpha: 0.5),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '₹${plan.priceRupees}',
-                  style: typography.titleCard.copyWith(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: colors.textSecondary.withValues(alpha: 0.4),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Claimed',
-                  style: typography.bodySmall.copyWith(
-                    fontSize: 11.5,
-                    color: colors.textSecondary.withValues(alpha: 0.4),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      );
-    }
-
     final border = isCurrentActivePlan
         ? Border.all(color: colors.primary, width: 2.0)
-        : Border.all(color: Colors.transparent, width: 0.0);
+        : (isSelected
+            ? Border.all(color: colors.primary, width: 2.0)
+            : Border.all(color: Colors.transparent, width: 0.0));
 
-    final backgroundColor = isCurrentActivePlan
+    final backgroundColor = isCurrentActivePlan || isSelected
         ? colors.primary.withValues(alpha: 0.08)
         : colors.surface;
 
     return GestureDetector(
       onTap: () {
         AppLogger.click('Select Plan: ${plan.title}', screen: 'SubscribePage');
-        setState(() {
-          _selectedPlanId = plan.id;
-        });
+        if (_selectedPlanId == plan.id) {
+          _showOrderSummaryBottomSheet(context, plan);
+        } else {
+          setState(() {
+            _selectedPlanId = plan.id;
+          });
+        }
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -404,9 +320,9 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
           boxShadow: [
             BoxShadow(
               color: colors.primary.withValues(
-                alpha: isCurrentActivePlan ? 0.15 : 0.06,
+                alpha: isCurrentActivePlan || isSelected ? 0.15 : 0.06,
               ),
-              blurRadius: isCurrentActivePlan ? 12 : 8,
+              blurRadius: isCurrentActivePlan || isSelected ? 12 : 8,
               offset: const Offset(0, 3),
             ),
           ],
@@ -487,7 +403,7 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '₹${plan.priceRupees}',
+                  '₹${plan.basePriceRupees}',
                   style: typography.titleCard.copyWith(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -498,7 +414,9 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
                 Text(
                   isCurrentActivePlan
                       ? (activeLabel ?? 'Active')
-                      : '${plan.durationDays} ${plan.durationDays == 1 ? 'day' : 'days'}',
+                      : (plan.durationDays >= 365
+                          ? '365 days'
+                          : (plan.durationDays >= 180 ? '180 days' : '30 days')),
                   style: typography.bodySmall.copyWith(
                     fontSize: 11.5,
                     fontWeight: isCurrentActivePlan
@@ -601,6 +519,381 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MembershipOrderSummarySheet extends ConsumerWidget {
+  final SubscriptionPlan plan;
+  final VoidCallback onPay;
+
+  const _MembershipOrderSummarySheet({
+    required this.plan,
+    required this.onPay,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final typography = context.typography;
+    final gpState = ref.watch(googlePlayPurchaseProvider);
+    final isPurchasing = gpState.status == GooglePlayPurchaseStatus.purchasing ||
+        gpState.status == GooglePlayPurchaseStatus.verifying;
+
+    final p = gpState.products['membership_${plan.id}'] ??
+        gpState.products['pass_${plan.id}'] ??
+        gpState.products[plan.id];
+    final totalDisplay = p?.price ?? '₹${plan.totalPriceRupees}';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        12,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Top Drag Handle
+            Center(
+              child: Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colors.textSecondary.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Sheet Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: colors.primary.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.receipt_long_rounded,
+                        color: colors.primary,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Order Summary',
+                      style: typography.titleCard.copyWith(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: colors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                IconButton(
+                  icon: Icon(Icons.close_rounded, color: colors.textSecondary),
+                  onPressed: () => Navigator.of(context).pop(),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Plan Summary Box
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: colors.surfaceMuted,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: colors.primary.withValues(alpha: 0.25),
+                  width: 1.2,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: colors.primary,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.workspace_premium_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              plan.title,
+                              style: typography.bodyMedium.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: colors.textPrimary,
+                              ),
+                            ),
+                            if (plan.badge != null) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colors.primary,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  plan.badge!,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          plan.description,
+                          style: typography.bodySmall.copyWith(
+                            fontSize: 12,
+                            color: colors.textSecondary,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // GST Breakdown Table
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: colors.surfaceMuted,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  // Base Price
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Base Membership Price',
+                        style: typography.bodyMedium.copyWith(
+                          fontSize: 14,
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        '₹${plan.basePriceRupees}.00',
+                        style: typography.bodyMedium.copyWith(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // 18% GST
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Goods & Services Tax (18% GST)',
+                            style: typography.bodyMedium.copyWith(
+                              fontSize: 14,
+                              color: colors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        '+ ₹${plan.gstRupees}.00',
+                        style: typography.bodyMedium.copyWith(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: colors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 10),
+                    child: Divider(height: 1, thickness: 1),
+                  ),
+
+                  // Total Amount
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Total Payable',
+                            style: typography.bodyMedium.copyWith(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: colors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Inclusive of all taxes',
+                            style: typography.bodySmall.copyWith(
+                              fontSize: 11,
+                              color: colors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        totalDisplay,
+                        style: typography.titleCard.copyWith(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: colors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Indian Tax Note
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: colors.primary.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 16,
+                    color: colors.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '₹${plan.basePriceRupees} + 18% GST (₹${plan.gstRupees}) = ₹${plan.totalPriceRupees}. Billed securely through Google Play.',
+                      style: typography.bodySmall.copyWith(
+                        fontSize: 11.5,
+                        color: colors.textSecondary,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            // Pay CTA Button
+            SizedBox(
+              height: 52,
+              child: ElevatedButton(
+                onPressed: isPurchasing ? null : onPay,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colors.primary,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: colors.primary.withValues(alpha: 0.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 3,
+                ),
+                child: isPurchasing
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.lock_rounded,
+                            size: 19,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Pay $totalDisplay with Google Play',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15.5,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Security reassurance
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.shield_outlined,
+                  size: 13,
+                  color: colors.textSecondary,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  '100% Secure Payment • Cancel anytime in Google Play',
+                  style: typography.bodySmall.copyWith(
+                    fontSize: 11,
+                    color: colors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

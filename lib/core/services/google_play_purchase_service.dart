@@ -13,6 +13,11 @@ const bool kEnableSandboxVerify = bool.fromEnvironment('ENABLE_SANDBOX_VERIFY', 
 
 /// Product IDs for Google Play Consumable Coin Packs
 const Set<String> kGooglePlayCoinProductIds = {
+  'plan_49',
+  'plan_99',
+  'plan_199',
+  'plan_499',
+  'plan_999',
   'plan_20',
   'plan_50',
   'plan_100',
@@ -22,16 +27,21 @@ const Set<String> kGooglePlayCoinProductIds = {
   'plan_2000',
 };
 
-/// Product IDs for Google Play Subscriptions & Passes
+/// Product IDs for Google Play Subscriptions & Membership Passes
 const Set<String> kGooglePlaySubscriptionProductIds = {
+  'membership_1_month',
+  'membership_6_months',
+  'membership_1_year',
+  'pass_1_month',
+  'pass_6_months',
+  'pass_1_year',
+  '1_month',
+  '6_months',
+  '1_year',
   'pass_1_day',
   'pass_7_days',
-  'pass_1_month',
-  'pass_1_year',
   '1_day',
   '7_days',
-  '1_month',
-  '1_year',
 };
 
 enum GooglePlayPurchaseStatus {

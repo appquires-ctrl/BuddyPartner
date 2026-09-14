@@ -7,13 +7,14 @@ import 'package:buddypartner/app/theme/app_spacing.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/core/widgets/coins/app_coin_balance_card.dart';
+import 'package:buddypartner/core/widgets/coins/app_coin_icon.dart';
 import 'package:buddypartner/features/recharge/presentation/providers/recharge_providers.dart';
 import 'package:buddypartner/features/recharge/presentation/widgets/recharge_plan_card.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 import 'package:buddypartner/core/services/google_play_purchase_service.dart';
 
 /// Professional, state-of-the-art Recharge Store screen
-/// Based on Google Play In-App Billing & 1 Rupee = 1 Coin base pricing model.
+/// Based on Google Play In-App Billing & Option B (Base price + 18% GST) pricing model.
 class RechargePage extends ConsumerStatefulWidget {
   const RechargePage({super.key});
 
@@ -23,7 +24,7 @@ class RechargePage extends ConsumerStatefulWidget {
 
 class _RechargePageState extends ConsumerState<RechargePage> {
   final TextEditingController _customController = TextEditingController();
-  String? _selectedPlanId = 'plan_100'; // Default selected ₹100 pack
+  String? _selectedPlanId = 'plan_99'; // Default selected ₹99 pack
 
   @override
   void dispose() {
@@ -31,50 +32,59 @@ class _RechargePageState extends ConsumerState<RechargePage> {
     super.dispose();
   }
 
+  RechargePlanUiModel get _selectedPlan {
+    final plans = ref.read(rechargePlansProvider);
+    if (_selectedPlanId != null) {
+      return plans.firstWhere(
+        (p) => p.id == _selectedPlanId,
+        orElse: () => plans[1], // default plan_99
+      );
+    }
+    // If custom amount was typed, match nearest or default
+    final customVal = int.tryParse(_customController.text.trim()) ?? 99;
+    return plans.firstWhere(
+      (p) => p.coins == customVal,
+      orElse: () => plans.firstWhere((p) => p.id == 'plan_99', orElse: () => plans.first),
+    );
+  }
+
   int get _calculatedCoins {
-    final plans = ref.read(rechargePlansProvider);
     if (_selectedPlanId != null) {
-      final selectedPlan = plans.firstWhere(
-        (p) => p.id == _selectedPlanId,
-        orElse: () => plans.first,
-      );
-      return selectedPlan.totalCoins;
+      return _selectedPlan.totalCoins;
     }
     final customVal = int.tryParse(_customController.text.trim()) ?? 0;
-    return customVal;
+    return customVal > 0 ? customVal : _selectedPlan.totalCoins;
   }
 
-  int get _calculatedPrice {
-    final plans = ref.read(rechargePlansProvider);
+  int get _calculatedBasePrice {
     if (_selectedPlanId != null) {
-      final selectedPlan = plans.firstWhere(
-        (p) => p.id == _selectedPlanId,
-        orElse: () => plans.first,
-      );
-      return selectedPlan.price.toInt();
+      return _selectedPlan.basePriceRupees;
     }
     final customVal = int.tryParse(_customController.text.trim()) ?? 0;
-    return customVal;
+    return customVal > 0 ? customVal : _selectedPlan.basePriceRupees;
   }
 
-  Future<void> _handleRecharge() async {
-    final coinsToCredit = _calculatedCoins;
-    final priceToPay = _calculatedPrice;
-    final planId = _selectedPlanId ?? 'plan_100';
-
-    if (coinsToCredit < 10 || priceToPay < 10) {
-      AppSnackBar.showError(context, 'Minimum recharge amount is ₹10 (10 Coins).');
-      return;
-    }
-
+  Future<void> _handleRecharge(RechargePlanUiModel plan) async {
     HapticFeedback.mediumImpact();
     AppLogger.button(
-      'Google Play In-App Purchase: $planId ($coinsToCredit Coins - ₹$priceToPay)',
+      'Google Play In-App Purchase: ${plan.id} (${plan.totalCoins} Coins - ₹${plan.totalPriceRupees})',
       screen: 'RechargePage',
     );
 
     // Initiate native Google Play In-App Purchase flow
-    await ref.read(googlePlayPurchaseProvider.notifier).buyProduct(planId, isConsumable: true);
+    await ref.read(googlePlayPurchaseProvider.notifier).buyProduct(plan.id, isConsumable: true);
+  }
+
+  void _showOrderSummaryBottomSheet(BuildContext context, RechargePlanUiModel plan) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (bottomSheetContext) => _CoinOrderSummarySheet(
+        plan: plan,
+        onPay: () => _handleRecharge(plan),
+      ),
+    );
   }
 
   @override
@@ -83,6 +93,9 @@ class _RechargePageState extends ConsumerState<RechargePage> {
       if (next.status == GooglePlayPurchaseStatus.success && next.successMessage != null) {
         AppSnackBar.showSuccess(context, next.successMessage!);
         ref.read(googlePlayPurchaseProvider.notifier).resetStatus();
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
       } else if (next.status == GooglePlayPurchaseStatus.error && next.errorMessage != null) {
         AppSnackBar.showError(context, next.errorMessage!);
         ref.read(googlePlayPurchaseProvider.notifier).resetStatus();
@@ -99,6 +112,8 @@ class _RechargePageState extends ConsumerState<RechargePage> {
     final isBalanceLoading = balanceAsync.isLoading && balanceAsync.value == null;
     final balance = balanceAsync.value ?? 0;
     final plans = ref.watch(rechargePlansProvider);
+
+    final selectedPlan = _selectedPlan;
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF13101E) : const Color(0xFFF9F8FD),
@@ -187,10 +202,14 @@ class _RechargePageState extends ConsumerState<RechargePage> {
                           isSelected: isSelected,
                           onTap: () {
                             HapticFeedback.selectionClick();
-                            setState(() {
-                              _selectedPlanId = plan.id;
-                              _customController.clear();
-                            });
+                            if (_selectedPlanId == plan.id) {
+                              _showOrderSummaryBottomSheet(context, plan);
+                            } else {
+                              setState(() {
+                                _selectedPlanId = plan.id;
+                                _customController.clear();
+                              });
+                            }
                           },
                         );
                       },
@@ -223,14 +242,8 @@ class _RechargePageState extends ConsumerState<RechargePage> {
                         children: [
                           Row(
                             children: [
-                              // const Icon(
-                              //   Icons.edit_note_rounded,
-                              //   color: Color(0xFF7C6AEF),
-                              //   size: 20,
-                              // ),
-                              // const SizedBox(width: 8),
                               const Text(
-                                'Or Enter Custom Amount',
+                                'Or Select by Amount',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
@@ -271,7 +284,7 @@ class _RechargePageState extends ConsumerState<RechargePage> {
                                 ),
                               ),
                               prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-                              hintText: 'Enter amount (e.g. 150)',
+                              hintText: 'Enter amount (e.g. 99)',
                               hintStyle: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.normal,
@@ -292,14 +305,18 @@ class _RechargePageState extends ConsumerState<RechargePage> {
                               ),
                             ),
                             onChanged: (val) {
-                              if (val.isNotEmpty) {
-                                setState(() => _selectedPlanId = null);
+                              final amount = int.tryParse(val.trim());
+                              if (amount != null) {
+                                final matchingPlan = plans.where((p) => p.coins == amount);
+                                if (matchingPlan.isNotEmpty) {
+                                  setState(() => _selectedPlanId = matchingPlan.first.id);
+                                } else {
+                                  setState(() => _selectedPlanId = null);
+                                }
                               }
                             },
                           ),
                           const SizedBox(height: 10),
-
-                          
                         ],
                       ),
                     ),
@@ -335,7 +352,7 @@ class _RechargePageState extends ConsumerState<RechargePage> {
                                   ),
                                 ),
                                 Text(
-                                  'Supports UPI, Cards & NetBanking • 256-Bit SSL Encrypted',
+                                  'Supports UPI, Cards & NetBanking • 100% Google Play Protected',
                                   style: TextStyle(
                                     color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                                     fontSize: 10.5,
@@ -375,7 +392,7 @@ class _RechargePageState extends ConsumerState<RechargePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '₹$_calculatedPrice',
+                          '₹$_calculatedBasePrice',
                           style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w900,
@@ -397,7 +414,9 @@ class _RechargePageState extends ConsumerState<RechargePage> {
                   SizedBox(
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: isPurchasing ? null : _handleRecharge,
+                      onPressed: isPurchasing
+                          ? null
+                          : () => _showOrderSummaryBottomSheet(context, selectedPlan),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF18181B),
                         foregroundColor: Colors.white,
@@ -434,6 +453,364 @@ class _RechargePageState extends ConsumerState<RechargePage> {
                   ),
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CoinOrderSummarySheet extends ConsumerWidget {
+  final RechargePlanUiModel plan;
+  final VoidCallback onPay;
+
+  const _CoinOrderSummarySheet({
+    required this.plan,
+    required this.onPay,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final gpState = ref.watch(googlePlayPurchaseProvider);
+    final isPurchasing = gpState.status == GooglePlayPurchaseStatus.purchasing ||
+        gpState.status == GooglePlayPurchaseStatus.verifying;
+
+    final p = gpState.products[plan.id];
+    final totalDisplay = p?.price ?? '₹${plan.totalPriceRupees}';
+
+    final surfaceColor = isDark ? const Color(0xFF1E1A2E) : Colors.white;
+    final mutedColor = isDark ? const Color(0xFF28233C) : const Color(0xFFF7F6FC);
+    final textColor = isDark ? Colors.white : const Color(0xFF18181B);
+    final textMuted = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        12,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Drag Handle
+            Center(
+              child: Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: textMuted.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Sheet Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.receipt_long_rounded,
+                        color: Color(0xFFF59E0B),
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Order Summary',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: textColor,
+                      ),
+                    ),
+                  ],
+                ),
+                IconButton(
+                  icon: Icon(Icons.close_rounded, color: textMuted),
+                  onPressed: () => Navigator.of(context).pop(),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Coin Pack Summary Box
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: mutedColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
+                  width: 1.2,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const AppCoinIcon(size: 38, withGlow: true),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              '${plan.totalCoins} Coins',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: textColor,
+                              ),
+                            ),
+                            if (plan.bonusCoins > 0) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  '+${plan.bonusCoins} Free',
+                                  style: const TextStyle(
+                                    color: Color(0xFF059669),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'Instant 1:1 wallet crediting • Never expires',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // GST Breakdown Table
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: mutedColor,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  // Base Price
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Coin Pack Base Price',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: textMuted,
+                        ),
+                      ),
+                      Text(
+                        '₹${plan.basePriceRupees}.00',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: textColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // 18% GST
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Goods & Services Tax (18% GST)',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: textMuted,
+                        ),
+                      ),
+                      Text(
+                        '+ ₹${plan.gstRupees}.00',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFF59E0B),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 10),
+                    child: Divider(height: 1, thickness: 1),
+                  ),
+
+                  // Total Amount
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Total Payable',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: textColor,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Inclusive of all taxes',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        totalDisplay,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFF59E0B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Regulatory Note
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_outline_rounded,
+                    size: 16,
+                    color: Color(0xFFF59E0B),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '₹${plan.basePriceRupees} + 18% GST (₹${plan.gstRupees}) = ₹${plan.totalPriceRupees}. Billed securely through Google Play.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: textMuted,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            // Pay CTA Button
+            SizedBox(
+              height: 52,
+              child: ElevatedButton(
+                onPressed: isPurchasing ? null : onPay,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF18181B),
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: const Color(0xFF27272A),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 3,
+                ),
+                child: isPurchasing
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.lock_rounded,
+                            size: 19,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Pay $totalDisplay with Google Play',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15.5,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Security reassurance
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.shield_outlined,
+                  size: 13,
+                  color: textMuted,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  '100% Secure Payment • Instant Coin Delivery',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: textMuted,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
