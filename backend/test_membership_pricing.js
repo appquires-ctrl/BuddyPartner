@@ -197,7 +197,7 @@ async function testMembershipPricing() {
   GooglePlayService.setPublisherClientOverride(null);
 
   console.log('\n====================================================');
-  console.log('🎉 ALL BACKEND MEMBERSHIP PRICING TESTS PASSED!');
+  console.log(' ALL BACKEND MEMBERSHIP PRICING TESTS PASSED!');
   console.log('====================================================');
 }
 

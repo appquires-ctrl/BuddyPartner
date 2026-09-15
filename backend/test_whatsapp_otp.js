@@ -218,7 +218,7 @@ async function testAuthkeyOtpFlow() {
       console.log('✅ Session revoked on logout.');
     }
 
-    console.log('\n🎉 ALL BACKEND AUTHKEY WHATSAPP OTP TESTS PASSED SUCCESSFULLY!\n');
+    console.log('\n ALL BACKEND AUTHKEY WHATSAPP OTP TESTS PASSED SUCCESSFULLY!\n');
 
     // Cleanup test user
     await db.query(`DELETE FROM public.users WHERE mobile = $1`, [testMobile]);

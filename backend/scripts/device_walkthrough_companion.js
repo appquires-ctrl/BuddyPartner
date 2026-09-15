@@ -103,7 +103,7 @@ async function startCompanion() {
     );
     console.log(`   ✅ OTP Verified! Conversation ID: ${verifyRes.data.conversationId}`);
     console.log(`   ✅ Account B Credited: ${verifyRes.data.rewardCoins} coins (New Balance: ${verifyRes.data.newBalance})`);
-    console.log('\n🎉 Real-time Handshake complete! Check emulator for unlocked Chat & Call screen.');
+    console.log('\n Real-time Handshake complete! Check emulator for unlocked Chat & Call screen.');
     process.exit(0);
   });
 }

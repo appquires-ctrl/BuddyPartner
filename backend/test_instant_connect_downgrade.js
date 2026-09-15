@@ -79,7 +79,7 @@ async function runTest() {
     console.log('✅ callsService directly rejected non-UUID string safely with 0 Postgres errors');
 
     console.log('\n================================================================');
-    console.log('🎉 ALL INSTANT CONNECT VIDEO->VOICE DOWNGRADE TESTS PASSED!');
+    console.log(' ALL INSTANT CONNECT VIDEO->VOICE DOWNGRADE TESTS PASSED!');
     console.log('================================================================\n');
   } catch (err) {
     console.error('❌ TEST FAILED:', err);

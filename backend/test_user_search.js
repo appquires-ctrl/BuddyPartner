@@ -248,7 +248,7 @@ async function runSearchTests() {
     console.log('  ✅ Rate limiter correctly kicked in and returned 429 under rapid requests');
 
     console.log('\n=========================================');
-    console.log('🎉 ALL USER SEARCH FUNCTIONAL & SECURITY TESTS PASSED!');
+    console.log(' ALL USER SEARCH FUNCTIONAL & SECURITY TESTS PASSED!');
     console.log('=========================================');
   } catch (err) {
     console.error('❌ Search test suite failed:', err.response?.data || err);

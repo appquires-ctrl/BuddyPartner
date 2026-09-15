@@ -98,7 +98,6 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
     final dualWalletAsync = ref.watch(dualWalletProvider);
     final walletState = dualWalletAsync.value ?? const UserWalletState();
     final earnedBalance = walletState.earnedBalance;
-    final spendableBalance = walletState.spendableBalance;
     final isBalanceLoading = dualWalletAsync.isLoading && dualWalletAsync.value == null;
     final instantState = ref.watch(instantConnectControllerProvider);
     final unscratchedCards = instantState.scratchCards.where((c) => !c.isScratched).toList();
@@ -345,35 +344,6 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                           ),
                         ),
 
-                        if (spendableBalance > 0) ...[
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.info_outline_rounded, color: Color(0xFFFBBF24), size: 14),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    '₹$spendableBalance non-withdrawable (purchased/promo coins). Spendable on Buddy requests & calls.',
-                                    style: const TextStyle(
-                                      color: Color(0xFFFDE68A),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
 
                         const SizedBox(height: 18),
                         Divider(color: Colors.white.withValues(alpha: 0.12), height: 1),

@@ -126,7 +126,7 @@ async function runLoadAndExplainTests() {
     // Clean up
     await db.query('DELETE FROM public.users WHERE id = $1', [benchUserId]);
 
-    console.log('🎉 5,000 CCU BENCHMARK & EXPLAIN ANALYZE COMPLETED SUCCESSFULLY!');
+    console.log(' 5,000 CCU BENCHMARK & EXPLAIN ANALYZE COMPLETED SUCCESSFULLY!');
     process.exit(0);
   } catch (err) {
     console.error('❌ Benchmark failed:', err);

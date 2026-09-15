@@ -50,7 +50,7 @@ function testDobValidation() {
     throw new Error('Age calculation allowed person who turns 18 tomorrow!');
   }
 
-  console.log('🎉 All DOB & 18+ Age Validation Tests Passed Successfully!');
+  console.log(' All DOB & 18+ Age Validation Tests Passed Successfully!');
   process.exit(0);
 }
 

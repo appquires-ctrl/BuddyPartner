@@ -228,13 +228,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'ChatPage',
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>? ?? {};
-          final conversationId = extra['conversationId'] as String? ?? '';
-          final userId = extra['userId'] as String? ?? 'priya_1';
-          final userName = extra['userName'] as String? ?? 'Priya';
-          final userAvatar = extra['userAvatar'] as String?;
-          final avatarSeed = extra['avatarSeed'] as String?;
-          final avatarStyle = extra['avatarStyle'] as String?;
-          final gender = extra['gender'] as String?;
+          final qParams = state.uri.queryParameters;
+          final conversationId = (extra['conversationId'] ?? qParams['conversationId'] ?? '').toString();
+          final userId = (extra['userId'] ?? qParams['userId'] ?? '').toString();
+          final userName = (extra['userName'] ?? qParams['userName'] ?? '').toString();
+          final userAvatar = extra['userAvatar'] as String? ?? qParams['userAvatar'];
+          final avatarSeed = extra['avatarSeed'] as String? ?? qParams['avatarSeed'];
+          final avatarStyle = extra['avatarStyle'] as String? ?? qParams['avatarStyle'];
+          final gender = extra['gender'] as String? ?? qParams['gender'];
           return ChatPage(
             conversationId: conversationId,
             userId: userId,

@@ -248,7 +248,7 @@ async function runTests() {
     console.log('✅ Test data cleaned up.');
 
     console.log('\n================================================================');
-    console.log('🎉 ALL 5,000 CCU BUDDY BACKEND PRODUCTION CHECKS PASSED!');
+    console.log(' ALL 5,000 CCU BUDDY BACKEND PRODUCTION CHECKS PASSED!');
     console.log('================================================================');
     process.exit(0);
   } catch (err) {

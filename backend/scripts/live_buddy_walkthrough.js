@@ -125,7 +125,7 @@ async function runLiveWalkthrough() {
     // Setup listener for Account A to capture handshake verified event
     let receivedVerifiedPromise = new Promise((resolve) => {
       socketA.on('buddy_request_verified', (data) => {
-        console.log(`🎉 [Account A Socket] Received 'buddy_request_verified':`, {
+        console.log(` [Account A Socket] Received 'buddy_request_verified':`, {
           requestId: data.requestId,
           conversationId: data.conversationId,
           accepter: data.accepter?.fullName,
@@ -281,7 +281,7 @@ async function runLiveWalkthrough() {
     console.log('   ✅ Chat and Call channels verified active and accessible for both users.');
 
     console.log('\n================================================================');
-    console.log('🎉 LIVE TWO-ACCOUNT WALKTHROUGH COMPLETED WITH ZERO ERRORS!');
+    console.log(' LIVE TWO-ACCOUNT WALKTHROUGH COMPLETED WITH ZERO ERRORS!');
     console.log('================================================================');
     process.exit(0);
   } catch (err) {

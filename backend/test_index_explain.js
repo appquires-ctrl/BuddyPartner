@@ -53,7 +53,7 @@ async function testIndexExplain() {
 
     const usesIndex = planLines.some((line) => line.includes('idx_users_user_name_lower'));
     if (usesIndex) {
-      console.log('🎉 CONFIRMED: Query Planner used Index Scan on idx_users_user_name_lower against 5,000+ rows!');
+      console.log(' CONFIRMED: Query Planner used Index Scan on idx_users_user_name_lower against 5,000+ rows!');
     } else {
       console.warn('⚠️ Query did not use idx_users_user_name_lower.');
     }

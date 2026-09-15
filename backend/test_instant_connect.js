@@ -161,7 +161,7 @@ async function runTests() {
     // Cleanup test users
     await db.query(`DELETE FROM public.users WHERE phone_number IN ($1, $2)`, [malePhone, femalePhone]);
 
-    console.log('🎉 ALL INSTANT CONNECT BACKEND TESTS PASSED SUCCESSFULLY! 🚀');
+    console.log(' ALL INSTANT CONNECT BACKEND TESTS PASSED SUCCESSFULLY! 🚀');
     process.exit(0);
   } catch (err) {
     console.error('❌ Test failed with error:', err);

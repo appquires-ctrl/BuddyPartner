@@ -200,7 +200,7 @@ async function runDistinctReporterBanTests() {
     console.log('✅ TEST 4 PASSED: Manual admin unban SQL successfully cleared ban status & report history, restoring API access!');
 
     console.log('\n====================================================');
-    console.log('🎉 ALL DISTINCT REPORTER BAN VERIFICATION TESTS PASSED!');
+    console.log(' ALL DISTINCT REPORTER BAN VERIFICATION TESTS PASSED!');
     console.log('====================================================\n');
 
   } catch (err) {

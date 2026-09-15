@@ -21,6 +21,11 @@ import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/core/widgets/feedback/in_app_notification_banner.dart';
+import 'package:buddypartner/core/widgets/coins/app_coin_icon.dart';
+import 'package:buddypartner/features/buddy/application/buddy_controller.dart';
+import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
+import 'package:buddypartner/features/buddy/presentation/widgets/accepter_otp_dialog.dart';
+import 'package:buddypartner/features/buddy/presentation/widgets/initiator_otp_modal.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   final String conversationId;
@@ -118,13 +123,54 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final typography = context.typography;
-    final initials = getInitials(widget.userName);
 
     final chatState = ref.watch(chatControllerProvider(_effectiveConversationId));
     final currentUser = ref.watch(authStateProvider).value;
     final isOnline = ref.watch(presenceProvider)[widget.userId] ?? false;
     final isSubscribed = ref.watch(subscriptionStatusProvider).value?.isSubscribed ?? false;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final conversations = ref.watch(conversationsProvider).value ?? [];
+    final matchingConv = conversations.where((c) =>
+      (widget.conversationId.isNotEmpty && c.id == widget.conversationId) ||
+      (widget.userId.isNotEmpty && c.otherUserId == widget.userId)
+    ).firstOrNull;
+
+    final buddyState = ref.watch(buddyControllerProvider);
+    final matchingBuddyReq = buddyState.myRequests.where((r) =>
+      (widget.conversationId.isNotEmpty && r.conversationId == widget.conversationId) ||
+      (widget.userId.isNotEmpty && (r.initiatorId == widget.userId || r.accepterId == widget.userId))
+    ).firstOrNull;
+
+    final buddyPartner = matchingBuddyReq != null
+        ? (matchingBuddyReq.initiatorId == currentUser?.id ? matchingBuddyReq.accepter : matchingBuddyReq.initiator)
+        : null;
+
+    bool isPlaceholderName(String? name) {
+      if (name == null || name.trim().isEmpty) return true;
+      final lower = name.trim().toLowerCase();
+      return lower == 'user' || lower == 'priya' || lower == 'buddy partner' || lower == 'someone';
+    }
+
+    String resolvedName = widget.userName;
+    if (isPlaceholderName(resolvedName)) {
+      if (buddyPartner?.fullName != null && !isPlaceholderName(buddyPartner!.fullName)) {
+        resolvedName = buddyPartner.fullName;
+      } else if (matchingConv?.otherUserName != null && !isPlaceholderName(matchingConv!.otherUserName)) {
+        resolvedName = matchingConv.otherUserName;
+      }
+    }
+
+    String? resolvedAvatarSeed = widget.avatarSeed;
+    if (resolvedAvatarSeed == null || resolvedAvatarSeed.isEmpty) {
+      resolvedAvatarSeed = buddyPartner?.avatarSeed ?? matchingConv?.otherUserAvatarSeed;
+    }
+
+    String resolvedAvatarStyle = widget.avatarStyle ?? buddyPartner?.avatarStyle ?? matchingConv?.otherUserAvatarStyle ?? 'avataaars';
+    String? resolvedGender = widget.gender ?? buddyPartner?.gender ?? matchingConv?.otherUserGender;
+    String? resolvedUserAvatar = widget.userAvatar ?? matchingConv?.otherUserAvatar;
+
+    final initials = getInitials(resolvedName);
 
     return Stack(
       fit: StackFit.expand,
@@ -147,10 +193,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               children: [
                 GradientAvatar(
                   initials: initials,
-                  avatarSeed: widget.avatarSeed,
-                  avatarStyle: widget.avatarStyle,
-                  gender: widget.gender,
-                  userAvatar: widget.userAvatar,
+                  avatarSeed: resolvedAvatarSeed,
+                  avatarStyle: resolvedAvatarStyle,
+                  gender: resolvedGender,
+                  userAvatar: resolvedUserAvatar,
                   radius: 19,
                   showStatus: true,
                   isOnline: isOnline,
@@ -161,7 +207,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.userName,
+                      resolvedName,
                       style: typography.bodyMedium.copyWith(
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
@@ -222,7 +268,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
                   ref.read(matchmakingControllerProvider.notifier).callUser(
                         targetUserId: widget.userId,
-                        targetUserName: widget.userName,
+                        targetUserName: resolvedName,
                       );
                 },
               ),
@@ -243,13 +289,22 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           ),
           body: Column(
             children: [
+              _buildBuddyHandshakeBanner(context, partnerName: resolvedName),
               Expanded(
                 child: chatState.isLoading && chatState.messages.isEmpty
                     ? const ChatMessageSkeleton()
                     : (chatState.errorMessage != null && chatState.messages.isEmpty)
                         ? _buildErrorEmptyState(context, isDark, chatState.errorMessage!)
                         : (chatState.messages.isEmpty)
-                            ? _buildIcebreakerEmptyState(context, isDark)
+                            ? _buildIcebreakerEmptyState(
+                                context,
+                                isDark,
+                                partnerName: resolvedName,
+                                avatarSeed: resolvedAvatarSeed,
+                                avatarStyle: resolvedAvatarStyle,
+                                gender: resolvedGender,
+                                userAvatar: resolvedUserAvatar,
+                              )
                             : ListView.builder(
                                 controller: _scrollController,
                                 reverse: true, // newest messages at the bottom
@@ -283,10 +338,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                         if (!isMe) ...[
                                           GradientAvatar(
                                             initials: initials,
-                                            avatarSeed: widget.avatarSeed,
-                                            avatarStyle: widget.avatarStyle,
-                                            gender: widget.gender,
-                                            userAvatar: widget.userAvatar,
+                                            avatarSeed: resolvedAvatarSeed,
+                                            avatarStyle: resolvedAvatarStyle,
+                                            gender: resolvedGender,
+                                            userAvatar: resolvedUserAvatar,
                                             radius: 14,
                                           ),
                                           const SizedBox(width: 8),
@@ -534,10 +589,18 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   /// Icebreaker Match Empty State
-  Widget _buildIcebreakerEmptyState(BuildContext context, bool isDark) {
+  Widget _buildIcebreakerEmptyState(
+    BuildContext context,
+    bool isDark, {
+    required String partnerName,
+    String? avatarSeed,
+    String? avatarStyle,
+    String? gender,
+    String? userAvatar,
+  }) {
     final colors = context.colors;
-    final initials = getInitials(widget.userName);
-    final firstName = widget.userName.split(' ').first;
+    final initials = getInitials(partnerName);
+    final firstName = partnerName.split(' ').first;
 
     return Center(
       child: SingleChildScrollView(
@@ -565,10 +628,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               ),
               child: GradientAvatar(
                 initials: initials,
-                avatarSeed: widget.avatarSeed,
-                avatarStyle: widget.avatarStyle,
-                gender: widget.gender,
-                userAvatar: widget.userAvatar,
+                avatarSeed: avatarSeed,
+                avatarStyle: avatarStyle,
+                gender: gender,
+                userAvatar: userAvatar,
                 radius: 40,
               ),
             ),
@@ -744,5 +807,179 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         ),
       ),
     );
+  }
+
+  Widget _buildBuddyHandshakeBanner(BuildContext context, {required String partnerName}) {
+    final buddyState = ref.watch(buddyControllerProvider);
+    final currentUserId = ref.watch(authStateProvider).value?.id;
+    if (currentUserId == null) return const SizedBox.shrink();
+
+    final activeBuddyRequest = buddyState.myRequests.where((r) {
+      if (r.status != BuddyRequestStatus.accepted) return false;
+      final matchesConv = r.conversationId != null &&
+          r.conversationId!.isNotEmpty &&
+          r.conversationId == widget.conversationId;
+      final matchesUser = (r.initiatorId == widget.userId || r.accepterId == widget.userId);
+      return matchesConv || matchesUser;
+    }).firstOrNull;
+
+    if (activeBuddyRequest == null) return const SizedBox.shrink();
+
+    final isAccepter = activeBuddyRequest.accepterId == currentUserId;
+    final type = activeBuddyRequest.buddyType;
+
+    if (isAccepter) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFECFDF5),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.5), width: 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF10B981).withValues(alpha: 0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: const BoxDecoration(
+                color: Color(0xFF10B981),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.lock_open_rounded, color: Colors.white, size: 16),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        'Meetup Handshake',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Color(0xFF047857),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const AppCoinIcon(size: 13),
+                      const SizedBox(width: 2),
+                      const Text(
+                        '+50',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF047857),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'Enter OTP from $partnerName to claim coins',
+                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF065F46)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: () => AccepterOtpDialog.show(context, request: activeBuddyRequest),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('Enter OTP', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              type.accentColor.withValues(alpha: 0.15),
+              type.accentColor.withValues(alpha: 0.05),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: type.accentColor.withValues(alpha: 0.4), width: 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: type.accentColor.withValues(alpha: 0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: type.accentColor,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.key_rounded, color: Colors.white, size: 16),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Meetup OTP Ready',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: type.accentColor,
+                    ),
+                  ),
+                  Text(
+                    'Share your code with $partnerName when you meet',
+                    style: TextStyle(fontSize: 11.5, color: context.colors.textSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: () => InitiatorOtpModal.show(context, request: activeBuddyRequest),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: type.accentColor,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('View OTP', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    }
   }
 }

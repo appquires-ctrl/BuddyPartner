@@ -620,7 +620,7 @@ function registerInstantConnectHandlers(io, socket, redis) {
 
       // Start 10-minute (600-second) server-authoritative milestone timer
       const milestoneTimer = setTimeout(async () => {
-        console.log(`🎉 [Instant Connect] 10-Minute Milestone reached for session ${sessionId}! Unlocking scratch card.`);
+        console.log(` [Instant Connect] 10-Minute Milestone reached for session ${sessionId}! Unlocking scratch card.`);
         const scratchCard = await instantConnectService.trigger10MinuteMilestone(sessionId);
         if (scratchCard) {
           const liveMaleSocket = getSocketForUser(io, maleUserId);
@@ -935,7 +935,7 @@ function registerInstantConnectHandlers(io, socket, redis) {
 
       // 11. Start 10-minute milestone timer for scratch card reward (600 seconds)
       const milestoneTimer = setTimeout(async () => {
-        console.log(`🎉 [Instant Connect] 10-Minute Milestone reached for session ${sessionId}! Unlocking scratch card.`);
+        console.log(` [Instant Connect] 10-Minute Milestone reached for session ${sessionId}! Unlocking scratch card.`);
         const scratchCard = await instantConnectService.trigger10MinuteMilestone(sessionId);
         if (scratchCard) {
           const liveMaleSocket = getSocketForUser(io, maleUserId);

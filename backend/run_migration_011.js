@@ -32,7 +32,7 @@ async function runMigration() {
     }
 
     const duration = Date.now() - startTime;
-    console.log(`\n🎉 Migration 011 completed successfully in ${duration}ms!`);
+    console.log(`\n Migration 011 completed successfully in ${duration}ms!`);
   } catch (err) {
     console.error('\n❌ Migration 011 failed:', err.message);
     process.exit(1);

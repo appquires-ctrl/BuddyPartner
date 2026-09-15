@@ -153,7 +153,7 @@ async function testPricingTiers() {
   GooglePlayService.setPublisherClientOverride(null);
 
   console.log('\n====================================================');
-  console.log('🎉 ALL PRICING VERIFICATION CHECKS PASSED!');
+  console.log(' ALL PRICING VERIFICATION CHECKS PASSED!');
   console.log('====================================================');
 }
 

@@ -103,7 +103,7 @@ async function runE2ETests() {
     console.log('Final User B status:', statusB);
     if (!statusB.isBanned || !statusB.isBlocked) throw new Error('User B must be permanently banned');
 
-    console.log('\n🎉 TEST 1 PASSED: 3-Strike moderation escalation sequence fully verified!\n');
+    console.log('\n TEST 1 PASSED: 3-Strike moderation escalation sequence fully verified!\n');
 
     // Reset User B for remaining socket tests
     await db.query(`UPDATE public.users SET strike_count = 0, suspended_until = NULL, is_banned = FALSE WHERE id = $1`, [userBId]);
@@ -194,7 +194,7 @@ async function runE2ETests() {
     }
     console.log('✅ Message read receipt verified: delivered -> read tick triggered!');
 
-    console.log('\n🎉 TEST 2 PASSED: Real two-device socket message ticks fully verified!\n');
+    console.log('\n TEST 2 PASSED: Real two-device socket message ticks fully verified!\n');
 
     // ────────────────────────────────────────────────────────────────────────
     // TEST 3: Real Presence Events & GET /api/presence Batch Endpoint
@@ -231,7 +231,7 @@ async function runE2ETests() {
     }
     console.log('✅ Live presence emission verified: User B updated to offline on socket disconnect!');
 
-    console.log('\n🎉 TEST 3 PASSED: Presence events & batch querying fully verified!\n');
+    console.log('\n TEST 3 PASSED: Presence events & batch querying fully verified!\n');
 
     socketA.disconnect();
 

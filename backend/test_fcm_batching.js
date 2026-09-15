@@ -117,7 +117,7 @@ async function runFcmBatchingTests() {
     }
 
     console.log('================================================================');
-    console.log('🎉 ALL FCM MULTICAST BATCHING TESTS PASSED!');
+    console.log(' ALL FCM MULTICAST BATCHING TESTS PASSED!');
     console.log('================================================================');
     process.exit(0);
   } catch (err) {

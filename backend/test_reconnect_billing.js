@@ -88,7 +88,7 @@ async function testReconnectBilling() {
   console.log('🧹 Cleaned up test data.');
 
   if (orphanTxRes.rows.length === 0 && isIntervalCleared && isTimerCleared) {
-    console.log('🎉 TEST PASSED! ZERO transactions created after call ended_at.');
+    console.log(' TEST PASSED! ZERO transactions created after call ended_at.');
     process.exit(0);
   } else {
     console.error('❌ TEST FAILED! Found orphaned transactions or uncleared intervals.');

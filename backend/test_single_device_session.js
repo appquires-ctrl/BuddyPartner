@@ -131,7 +131,7 @@ async function runSessionTests() {
     const redisSession = await redis.get(`user_active_session:${testUserId}`);
     assert(redisSession === null, 'Session key cleanly removed from Redis on logout');
 
-    console.log(`\n🎉 All ${passedTests}/${totalTests} Single Active Device Login tests passed successfully!`);
+    console.log(`\n All ${passedTests}/${totalTests} Single Active Device Login tests passed successfully!`);
   } catch (err) {
     console.error('❌ Test suite failed:', err);
     process.exitCode = 1;

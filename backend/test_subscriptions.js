@@ -70,7 +70,7 @@ async function testSubscriptions() {
 
     // Clean up test user subscriptions
     await subscriptionsService.expireSubscription(testUserId);
-    console.log('🎉 All Subscription & Intro Offer Enforcement Tests Passed Successfully!');
+    console.log(' All Subscription & Intro Offer Enforcement Tests Passed Successfully!');
     process.exit(0);
   } catch (err) {
     console.error('❌ Subscription Test Failed:', err.message);

@@ -152,7 +152,7 @@ async function runInsufficientBalanceTests() {
     console.log('✅ Test data cleaned up.');
 
     console.log('\n================================================================');
-    console.log('🎉 ALL INSUFFICIENT BALANCE TESTS PASSED!');
+    console.log(' ALL INSUFFICIENT BALANCE TESTS PASSED!');
     console.log('================================================================');
     process.exit(0);
   } catch (err) {

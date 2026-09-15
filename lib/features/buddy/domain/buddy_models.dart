@@ -130,6 +130,8 @@ enum BuddyTargetGender {
 enum BuddyRequestStatus {
   open(id: 'open', label: 'Looking for partner'),
   accepted(id: 'accepted', label: 'Accepted — Handshake in progress'),
+  completed(id: 'completed', label: 'Meetup Completed'),
+  cancelled(id: 'cancelled', label: 'Cancelled'),
   otpVerified(id: 'otp_verified', label: 'Verified & Connected');
 
   final String id;

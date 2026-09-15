@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/core/widgets/gradient_avatar.dart';
@@ -154,7 +156,7 @@ class _InitiatorOtpModalState extends ConsumerState<InitiatorOtpModal> {
             const SizedBox(height: 18),
 
             Text(
-              'Broadcast Live in ${currentReq.city} 🚀',
+              'Broadcast Live in ${currentReq.city}',
               style: typography.titleCard.copyWith(
                 fontWeight: FontWeight.bold,
                 fontSize: 20,
@@ -253,7 +255,7 @@ class _InitiatorOtpModalState extends ConsumerState<InitiatorOtpModal> {
             const SizedBox(height: 12),
 
             Text(
-              'Buddy Found! 🎉',
+              'Buddy Found!',
               style: typography.titleCard.copyWith(
                 fontWeight: FontWeight.bold,
                 fontSize: 22,
@@ -323,6 +325,42 @@ class _InitiatorOtpModalState extends ConsumerState<InitiatorOtpModal> {
                       ),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    final partner = currentReq.accepter;
+                    context.push(
+                      RouteNames.chat,
+                      extra: {
+                        'conversationId': currentReq.conversationId ?? '',
+                        'userId': partner?.id ?? currentReq.accepterId ?? '',
+                        'userName': (partner?.fullName.isNotEmpty ?? false) ? partner!.fullName : 'Buddy Partner',
+                        'avatarSeed': partner?.avatarSeed,
+                        'avatarStyle': partner?.avatarStyle,
+                        'gender': partner?.gender,
+                      },
+                    );
+                  },
+                  icon: const Icon(Icons.chat_bubble_rounded, size: 18, color: Colors.white),
+                  label: Text(
+                    'Chat with ${currentReq.accepter?.fullName ?? "Buddy"}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14.5,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: type.accentColor,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
                 ),
               ),
             ],
@@ -438,7 +476,7 @@ class _InitiatorOtpModalState extends ConsumerState<InitiatorOtpModal> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Share this 6-digit code with your buddy when you meet in person. Entering this code verifies your meetup and awards them their 50 🪙 reward!',
+                      'Share this 6-digit code with your buddy when you meet in person. Entering this code verifies your meetup',
                       style: typography.bodySmall.copyWith(
                         fontSize: 12,
                         color: colors.textSecondary,

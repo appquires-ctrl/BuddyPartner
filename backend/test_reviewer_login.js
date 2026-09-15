@@ -53,7 +53,7 @@ async function testReviewerLogin() {
     console.log('- Token Present:', !!verifyRes.data.token);
 
     if (verifyRes.data.success && verifyRes.data.token && verifyRes.data.isProfileComplete) {
-      console.log('\n🎉 ALL TESTS PASSED! Google Play reviewer can seamlessly log in.');
+      console.log('\n ALL TESTS PASSED! Google Play reviewer can seamlessly log in.');
     } else {
       throw new Error('Verification response did not meet expectations');
     }

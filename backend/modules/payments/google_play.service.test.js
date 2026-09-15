@@ -719,7 +719,7 @@ async function runGooglePlaySecurityTests() {
   }
 
   console.log(`=========================================`);
-  console.log(`🎉 ALL ${testsPassed} / ${testsTotal} TESTS PASSED SUCCESSFULLY!`);
+  console.log(` ALL ${testsPassed} / ${testsTotal} TESTS PASSED SUCCESSFULLY!`);
   console.log(`=========================================`);
 }
 

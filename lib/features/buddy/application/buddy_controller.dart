@@ -10,7 +10,6 @@ import 'package:buddypartner/app/router/app_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:go_router/go_router.dart';
-import 'package:buddypartner/features/buddy/presentation/widgets/accepter_otp_dialog.dart';
 
 class BuddyState {
   final List<BuddyRequest> openRequests;
@@ -194,7 +193,25 @@ class BuddyController extends Notifier<BuddyState> {
                 acceptBuddyRequest(request.id).then((accepted) {
                   final ctx = rootNavigatorKey.currentContext;
                   if (ctx != null && ctx.mounted) {
-                    AccepterOtpDialog.show(ctx, request: accepted);
+                    final partner = accepted.initiator;
+                    final convId = accepted.conversationId;
+                    if (convId != null && convId.isNotEmpty) {
+                      ctx.push(
+                        RouteNames.chat,
+                        extra: {
+                          'conversationId': convId,
+                          'userId': partner?.id ?? accepted.initiatorId,
+                          'userName': (partner?.fullName.isNotEmpty ?? false) ? partner!.fullName : 'Buddy Partner',
+                          'avatarSeed': partner?.avatarSeed,
+                          'avatarStyle': partner?.avatarStyle,
+                          'gender': partner?.gender,
+                        },
+                      );
+                    }
+                    AppSnackBar.showSuccess(
+                      ctx,
+                      'Request accepted! Chat is now unlocked. Meet up in person to verify with OTP!',
+                    );
                   }
                 }).catchError((err) {
                   final ctx = rootNavigatorKey.currentContext;
@@ -233,6 +250,7 @@ class BuddyController extends Notifier<BuddyState> {
       final requestData = Map<String, dynamic>.from(data);
       final requestId = requestData['requestId'] as String?;
       final otpCode = requestData['otpCode'] as String?;
+      final conversationId = (requestData['conversationId'] ?? requestData['conversation_id']) as String?;
       final accepterJson = requestData['accepter'] as Map<String, dynamic>?;
 
       if (requestId == null) return;
@@ -243,40 +261,41 @@ class BuddyController extends Notifier<BuddyState> {
       }
 
       // Update in myRequests
-      final updatedMyRequests = state.myRequests.map((r) {
-        if (r.id == requestId) {
-          return r.copyWith(
+      final hasMatching = state.myRequests.any((r) => r.id == requestId);
+      final List<BuddyRequest> updatedMyRequests;
+      if (hasMatching) {
+        updatedMyRequests = state.myRequests.map((r) {
+          if (r.id == requestId) {
+            return r.copyWith(
+              status: BuddyRequestStatus.accepted,
+              otpCode: otpCode,
+              conversationId: conversationId ?? r.conversationId,
+              accepter: accepterSummary,
+              accepterId: accepterSummary?.id,
+            );
+          }
+          return r;
+        }).toList();
+      } else {
+        updatedMyRequests = [
+          BuddyRequest(
+            id: requestId,
+            initiatorId: currentUserId ?? '',
+            buddyType: BuddyType.movie,
+            city: '',
+            targetGender: BuddyTargetGender.all,
             status: BuddyRequestStatus.accepted,
             otpCode: otpCode,
+            conversationId: conversationId,
             accepter: accepterSummary,
             accepterId: accepterSummary?.id,
-          );
-        }
-        return r;
-      }).toList();
+            createdAt: DateTime.now(),
+          ),
+          ...state.myRequests,
+        ];
+      }
 
-      final matchingReq = state.myRequests.firstWhere(
-        (r) => r.id == requestId,
-        orElse: () => BuddyRequest(
-          id: requestId,
-          initiatorId: currentUserId ?? '',
-          buddyType: BuddyType.movie,
-          city: '',
-          targetGender: BuddyTargetGender.all,
-          status: BuddyRequestStatus.accepted,
-          otpCode: otpCode,
-          accepter: accepterSummary,
-          accepterId: accepterSummary?.id,
-          createdAt: DateTime.now(),
-        ),
-      );
-
-      final acceptedReq = matchingReq.copyWith(
-        status: BuddyRequestStatus.accepted,
-        otpCode: otpCode,
-        accepter: accepterSummary,
-        accepterId: accepterSummary?.id,
-      );
+      final acceptedReq = updatedMyRequests.firstWhere((r) => r.id == requestId);
 
       state = state.copyWith(
         myRequests: updatedMyRequests,
@@ -288,7 +307,7 @@ class BuddyController extends Notifier<BuddyState> {
       if (context != null && context.mounted) {
         AppSnackBar.showSuccess(
           context,
-          '${accepterSummary?.fullName ?? "Someone"} accepted your ${acceptedReq.buddyType.title}! Share your OTP to verify.',
+          '${accepterSummary?.fullName ?? "Someone"} accepted your ${acceptedReq.buddyType.title}! Chat unlocked.',
         );
       }
     } catch (e) {
@@ -299,10 +318,6 @@ class BuddyController extends Notifier<BuddyState> {
   void _handleBuddyRequestVerified(dynamic data) {
     if (data == null || data is! Map) return;
     try {
-      final map = Map<String, dynamic>.from(data);
-      final conversationId = map['conversationId'] as String?;
-      final accepter = map['accepter'] as Map<String, dynamic>?;
-
       // Clear active initiator modal
       state = state.copyWith(
         clearActiveInitiatorRequest: true,
@@ -310,24 +325,10 @@ class BuddyController extends Notifier<BuddyState> {
 
       fetchMyRequests();
 
-      // Navigate to chat
-      if (conversationId != null && conversationId.isNotEmpty) {
-        final context = rootNavigatorKey.currentContext;
-        if (context != null && context.mounted) {
-          AppSnackBar.showSuccess(context, 'Handshake verified! Chat unlocked.');
-          Navigator.of(context, rootNavigator: true).popUntil((route) => route is! PopupRoute);
-          context.push(
-            RouteNames.chat,
-            extra: {
-              'conversationId': conversationId,
-              'userId': accepter?['id'] ?? '',
-              'userName': accepter?['fullName'] ?? 'Buddy Partner',
-              'avatarSeed': accepter?['avatarSeed'],
-              'avatarStyle': accepter?['avatarStyle'],
-              'gender': accepter?['gender'],
-            },
-          );
-        }
+      final context = rootNavigatorKey.currentContext;
+      if (context != null && context.mounted) {
+        AppSnackBar.showSuccess(context, 'Meetup verified! Meetup completed successfully.');
+        Navigator.of(context, rootNavigator: true).popUntil((route) => route is! PopupRoute);
       }
     } catch (e) {
       debugPrint('[BuddyController] Error handling buddy_request_verified: $e');
@@ -379,7 +380,7 @@ class BuddyController extends Notifier<BuddyState> {
       // Update state
       state = state.copyWith(
         isLoading: false,
-        myRequests: [newRequest, ...state.myRequests],
+        myRequests: [newRequest, ...state.myRequests.where((r) => r.id != newRequest.id)],
       );
 
       return newRequest;
@@ -401,7 +402,7 @@ class BuddyController extends Notifier<BuddyState> {
       state = state.copyWith(
         isLoading: false,
         openRequests: updatedOpen,
-        myRequests: [accepted, ...state.myRequests],
+        myRequests: [accepted, ...state.myRequests.where((r) => r.id != accepted.id)],
         activeAccepterRequest: accepted,
       );
 

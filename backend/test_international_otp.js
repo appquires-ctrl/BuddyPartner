@@ -23,7 +23,7 @@ function testInternationalOtp() {
     }
   }
 
-  console.log('🎉 All International Country Code Tests Passed Successfully!');
+  console.log(' All International Country Code Tests Passed Successfully!');
   process.exit(0);
 }
 

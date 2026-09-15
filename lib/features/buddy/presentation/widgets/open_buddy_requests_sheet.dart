@@ -53,20 +53,26 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
 
       AppSnackBar.showSuccess(
         context,
-        '🎉 Request accepted! Chat is now unlocked. Meet up in person and enter their OTP to claim 50 🪙 reward!',
+        'Request accepted! Chat is now unlocked. Meet up in person and enter their OTP to claim reward!',
       );
 
       // Navigate directly to chat
-      if (acceptedReq.conversationId != null && acceptedReq.conversationId!.isNotEmpty) {
+      final convId = acceptedReq.conversationId ?? request.conversationId;
+      final initiatorInfo = acceptedReq.initiator ?? request.initiator;
+      final initiatorName = (initiatorInfo?.fullName != null && initiatorInfo!.fullName.isNotEmpty && initiatorInfo.fullName != 'User')
+          ? initiatorInfo.fullName
+          : ((request.initiator?.fullName.isNotEmpty ?? false) ? request.initiator!.fullName : 'Buddy Partner');
+
+      if (convId != null && convId.isNotEmpty) {
         context.push(
           RouteNames.chat,
           extra: {
-            'conversationId': acceptedReq.conversationId,
-            'userId': acceptedReq.initiator?.id ?? acceptedReq.initiatorId,
-            'userName': acceptedReq.initiator?.fullName ?? 'Buddy Partner',
-            'avatarSeed': acceptedReq.initiator?.avatarSeed,
-            'avatarStyle': acceptedReq.initiator?.avatarStyle,
-            'gender': acceptedReq.initiator?.gender,
+            'conversationId': convId,
+            'userId': initiatorInfo?.id ?? request.initiatorId,
+            'userName': initiatorName,
+            'avatarSeed': initiatorInfo?.avatarSeed ?? request.initiator?.avatarSeed,
+            'avatarStyle': initiatorInfo?.avatarStyle ?? request.initiator?.avatarStyle,
+            'gender': initiatorInfo?.gender ?? request.initiator?.gender,
           },
         );
       }
@@ -334,15 +340,6 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          'Target: ${req.targetGender.label}',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: type.accentColor,
-                                            fontWeight: FontWeight.w600,
-                                          ),
                                         ),
                                       ],
                                     ),

@@ -33,7 +33,7 @@ async function resetAllWallets() {
     console.log(`📊 Verification: Total wallets = ${checkResult.rows[0].total}, Non-zero wallets = ${checkResult.rows[0].non_zero}`);
 
     if (parseInt(checkResult.rows[0].non_zero, 10) === 0) {
-      console.log('🎉 All user wallets have been successfully verified as 0 coins!');
+      console.log(' All user wallets have been successfully verified as 0 coins!');
     } else {
       console.error('⚠️ Warning: Some wallets still have non-zero balance.');
     }

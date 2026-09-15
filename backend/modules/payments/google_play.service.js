@@ -322,7 +322,7 @@ class GooglePlayService {
 
       await client.query('COMMIT');
 
-      console.log(`🎉 [Google Play Verified & Credited] ${totalCoins} coins (₹${coinProduct.priceRupees}) credited to user ${userId}. New balance: ${newBalance}`);
+      console.log(` [Google Play Verified & Credited] ${totalCoins} coins (₹${coinProduct.priceRupees}) credited to user ${userId}. New balance: ${newBalance}`);
 
       return {
         success: true,
@@ -484,7 +484,7 @@ class GooglePlayService {
 
       const status = await subscriptionsService.getTimeRemaining(userId);
 
-      console.log(`🎉 [Google Play Verified & Activated] ${subProduct.durationDays}-day pass (${verifiedProductId}) activated for user ${userId}`);
+      console.log(` [Google Play Verified & Activated] ${subProduct.durationDays}-day pass (${verifiedProductId}) activated for user ${userId}`);
 
       return {
         success: true,

@@ -191,7 +191,7 @@ async function runSearchLoadTest() {
     }
 
     console.log('\n======================================================');
-    console.log('🎉 LOAD TEST PASSED: Sub-200ms latency, zero connection pool starvation, and 0 server errors across 25, 50, and 100 CCU!');
+    console.log(' LOAD TEST PASSED: Sub-200ms latency, zero connection pool starvation, and 0 server errors across 25, 50, and 100 CCU!');
     console.log('======================================================');
   } catch (err) {
     console.error('❌ Load test failed:', err.message);

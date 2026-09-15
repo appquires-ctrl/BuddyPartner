@@ -218,6 +218,7 @@ router.post(['/requests/:id/complete', '/requests/:id/verify-otp', '/verify-otp'
       success: true,
       conversationId: result.conversationId,
       otherUser: result.initiator,
+      partner: result.initiator,
       rewardCoins: result.rewardCoins,
       earnedBalance: result.earnedBalance,
       spendableBalance: result.spendableBalance,

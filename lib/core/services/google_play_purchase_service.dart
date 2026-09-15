@@ -9,7 +9,10 @@ import 'package:buddypartner/features/wallet/application/wallet_balance_provider
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
 
 /// Compile-time flag for development sandbox verification (strictly false by default)
-const bool kEnableSandboxVerify = bool.fromEnvironment('ENABLE_SANDBOX_VERIFY', defaultValue: false);
+const bool kEnableSandboxVerify = bool.fromEnvironment(
+  'ENABLE_SANDBOX_VERIFY',
+  defaultValue: false,
+);
 
 /// Product IDs for Google Play Consumable Coin Packs
 const Set<String> kGooglePlayCoinProductIds = {
@@ -117,13 +120,20 @@ class GooglePlayPurchaseNotifier extends StateNotifier<GooglePlayState> {
     try {
       final isAvailable = await _iap.isAvailable();
       if (!isAvailable) {
-        debugPrint('⚠️ [Google Play] In-App Billing is not available on this device.');
+        debugPrint(
+          '⚠️ [Google Play] In-App Billing is not available on this device.',
+        );
         state = state.copyWith(isAvailable: false);
         return;
       }
 
-      final allIds = {...kGooglePlayCoinProductIds, ...kGooglePlaySubscriptionProductIds};
-      final ProductDetailsResponse response = await _iap.queryProductDetails(allIds);
+      final allIds = {
+        ...kGooglePlayCoinProductIds,
+        ...kGooglePlaySubscriptionProductIds,
+      };
+      final ProductDetailsResponse response = await _iap.queryProductDetails(
+        allIds,
+      );
 
       if (response.error != null) {
         debugPrint('❌ [Google Play Query Error]: ${response.error?.message}');
@@ -132,13 +142,12 @@ class GooglePlayPurchaseNotifier extends StateNotifier<GooglePlayState> {
       final productMap = <String, ProductDetails>{};
       for (final p in response.productDetails) {
         productMap[p.id] = p;
-        debugPrint('🛍️ [Google Play Product Found]: ${p.id} - ${p.title} (${p.price})');
+        debugPrint(
+          '🛍️ [Google Play Product Found]: ${p.id} - ${p.title} (${p.price})',
+        );
       }
 
-      state = state.copyWith(
-        isAvailable: true,
-        products: productMap,
-      );
+      state = state.copyWith(isAvailable: true, products: productMap);
     } catch (e) {
       debugPrint('❌ [Google Play Init Exception]: $e');
       state = state.copyWith(isAvailable: false);
@@ -147,7 +156,10 @@ class GooglePlayPurchaseNotifier extends StateNotifier<GooglePlayState> {
 
   /// Initiate purchase for a specific product ID (Coin pack or Subscription pass)
   Future<bool> buyProduct(String productId, {bool isConsumable = true}) async {
-    AppLogger.button('Buy Google Play Product: $productId', screen: 'GooglePlayPurchaseService');
+    AppLogger.button(
+      'Buy Google Play Product: $productId',
+      screen: 'GooglePlayPurchaseService',
+    );
 
     // 1. Try to find product details from Google Play Store query
     ProductDetails? product = state.products[productId];
@@ -164,10 +176,13 @@ class GooglePlayPurchaseNotifier extends StateNotifier<GooglePlayState> {
     }
 
     if (product == null) {
-      debugPrint('❌ [Google Play] Product $productId not found in Google Play Console.');
+      debugPrint(
+        '❌ [Google Play] Product $productId not found in Google Play Console.',
+      );
       state = state.copyWith(
         status: GooglePlayPurchaseStatus.error,
-        errorMessage: 'This product is currently unavailable on Google Play Store.',
+        errorMessage:
+            'This product is currently unavailable on Google Play Store.',
       );
       return false;
     }
@@ -175,7 +190,9 @@ class GooglePlayPurchaseNotifier extends StateNotifier<GooglePlayState> {
     state = state.copyWith(status: GooglePlayPurchaseStatus.purchasing);
 
     try {
-      final PurchaseParam purchaseParam = PurchaseParam(productDetails: product);
+      final PurchaseParam purchaseParam = PurchaseParam(
+        productDetails: product,
+      );
       if (isConsumable) {
         return await _iap.buyConsumable(purchaseParam: purchaseParam);
       } else {
@@ -192,26 +209,35 @@ class GooglePlayPurchaseNotifier extends StateNotifier<GooglePlayState> {
   }
 
   /// Listen for purchase state updates from Google Play Billing
-  Future<void> _onPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) async {
+  Future<void> _onPurchaseUpdated(
+    List<PurchaseDetails> purchaseDetailsList,
+  ) async {
     for (final purchase in purchaseDetailsList) {
       switch (purchase.status) {
         case PurchaseStatus.pending:
-          debugPrint('⏳ [Google Play] Purchase Pending for ${purchase.productID}...');
+          debugPrint(
+            '⏳ [Google Play] Purchase Pending for ${purchase.productID}...',
+          );
           state = state.copyWith(status: GooglePlayPurchaseStatus.purchasing);
           break;
 
         case PurchaseStatus.purchased:
         case PurchaseStatus.restored:
-          debugPrint('✅ [Google Play] Purchase Success for ${purchase.productID}. Verifying on backend...');
+          debugPrint(
+            '✅ [Google Play] Purchase Success for ${purchase.productID}. Verifying on backend...',
+          );
           state = state.copyWith(status: GooglePlayPurchaseStatus.verifying);
           await _verifyPurchaseWithBackend(purchase);
           break;
 
         case PurchaseStatus.error:
-          debugPrint('❌ [Google Play] Purchase Error: ${purchase.error?.message}');
+          debugPrint(
+            '❌ [Google Play] Purchase Error: ${purchase.error?.message}',
+          );
           state = state.copyWith(
             status: GooglePlayPurchaseStatus.error,
-            errorMessage: purchase.error?.message ?? 'Payment failed or was declined.',
+            errorMessage:
+                purchase.error?.message ?? 'Payment failed or was declined.',
           );
           if (purchase.pendingCompletePurchase) {
             await _iap.completePurchase(purchase);
@@ -230,12 +256,15 @@ class GooglePlayPurchaseNotifier extends StateNotifier<GooglePlayState> {
   Future<void> _verifyPurchaseWithBackend(PurchaseDetails purchase) async {
     try {
       final apiClient = _ref.read(apiClientProvider);
-      final purchaseToken = purchase.verificationData.serverVerificationData.trim();
+      final purchaseToken = purchase.verificationData.serverVerificationData
+          .trim();
       final productId = purchase.productID;
       final orderId = purchase.purchaseID;
 
       if (purchaseToken.isEmpty) {
-        debugPrint('❌ [Google Play Security] Empty serverVerificationData in purchase receipt.');
+        debugPrint(
+          '❌ [Google Play Security] Empty serverVerificationData in purchase receipt.',
+        );
         state = state.copyWith(
           status: GooglePlayPurchaseStatus.error,
           errorMessage: 'Purchase token missing from Google Play receipt.',
@@ -261,7 +290,7 @@ class GooglePlayPurchaseNotifier extends StateNotifier<GooglePlayState> {
 
       if (response.statusCode == 200 && response.data?['success'] == true) {
         final data = response.data as Map<String, dynamic>;
-        debugPrint('🎉 [Google Play Server Verified]: $data');
+        debugPrint(' [Google Play Server Verified]: $data');
 
         // Complete purchase with Google Play to acknowledge & consume
         if (purchase.pendingCompletePurchase) {
@@ -282,7 +311,9 @@ class GooglePlayPurchaseNotifier extends StateNotifier<GooglePlayState> {
           successMessage: msg,
         );
       } else {
-        final errorMsg = response.data?['message'] ?? 'Failed to verify purchase with server.';
+        final errorMsg =
+            response.data?['message'] ??
+            'Failed to verify purchase with server.';
         state = state.copyWith(
           status: GooglePlayPurchaseStatus.error,
           errorMessage: errorMsg.toString(),
@@ -294,7 +325,11 @@ class GooglePlayPurchaseNotifier extends StateNotifier<GooglePlayState> {
       if (e is DioException) {
         final resData = e.response?.data;
         if (resData is Map) {
-          displayError = resData['message'] ?? resData['error'] ?? e.message ?? 'Server verification failed';
+          displayError =
+              resData['message'] ??
+              resData['error'] ??
+              e.message ??
+              'Server verification failed';
         } else if (e.message != null) {
           displayError = e.message!;
         }
@@ -307,7 +342,11 @@ class GooglePlayPurchaseNotifier extends StateNotifier<GooglePlayState> {
   }
 
   void resetStatus() {
-    state = state.copyWith(status: GooglePlayPurchaseStatus.idle, errorMessage: null, successMessage: null);
+    state = state.copyWith(
+      status: GooglePlayPurchaseStatus.idle,
+      errorMessage: null,
+      successMessage: null,
+    );
   }
 
   @override
@@ -317,6 +356,7 @@ class GooglePlayPurchaseNotifier extends StateNotifier<GooglePlayState> {
   }
 }
 
-final googlePlayPurchaseProvider = StateNotifierProvider<GooglePlayPurchaseNotifier, GooglePlayState>((ref) {
-  return GooglePlayPurchaseNotifier(ref);
-});
+final googlePlayPurchaseProvider =
+    StateNotifierProvider<GooglePlayPurchaseNotifier, GooglePlayState>((ref) {
+      return GooglePlayPurchaseNotifier(ref);
+    });

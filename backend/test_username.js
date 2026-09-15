@@ -189,7 +189,7 @@ async function runTests() {
     console.log(`  ✅ GET /api/auth/me returned userName: ${resMe.data.user.userName}`);
 
     console.log('\n=========================================');
-    console.log('🎉 ALL USERNAME DATABASE, HTTP & ROUTE TESTS PASSED!');
+    console.log(' ALL USERNAME DATABASE, HTTP & ROUTE TESTS PASSED!');
     console.log('=========================================');
   } catch (err) {
     console.error('❌ Test failed:', err.response?.data || err.message);

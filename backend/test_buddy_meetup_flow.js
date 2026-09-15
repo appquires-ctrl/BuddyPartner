@@ -238,7 +238,7 @@ async function runBuddyMeetupFlowTests() {
     assert.strictEqual(initBalPostCancel.balance, 0, 'Balance must remain 0: strictly NO refund on cancellation');
     console.log('✅ STEP 6 PASSED: Admin cancellation executed with zero refunds.');
 
-    console.log('\n🎉 ALL BUDDY MEETUP FLOW TESTS PASSED SUCCESSFULLY!');
+    console.log('\n ALL BUDDY MEETUP FLOW TESTS PASSED SUCCESSFULLY!');
     process.exit(0);
   } catch (err) {
     console.error('❌ Buddy Meetup Flow Test Failed:', err);

@@ -234,7 +234,7 @@ async function runDualBalanceTests() {
     }
     console.log('✅ TEST 6 PASSED: Seeded accounts reconciled across all dual-balance permutations.');
 
-    console.log('\n🎉 ALL 6 DUAL-BALANCE LEDGER TESTS PASSED SUCCESSFULLY!');
+    console.log('\n ALL 6 DUAL-BALANCE LEDGER TESTS PASSED SUCCESSFULLY!');
   } finally {
     await cleanupTestUser(testUser);
   }

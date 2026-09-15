@@ -376,7 +376,7 @@ router.post('/otp/verify', async (req, res) => {
         );
 
         await client.query('COMMIT');
-        console.log(`🎉 New user created: ID ${user.id}, mobile +${cleanCountryCode}${cleanMobile}${isTestAccount ? ' [TEST ACCOUNT]' : ''}`);
+        console.log(` New user created: ID ${user.id}, mobile +${cleanCountryCode}${cleanMobile}${isTestAccount ? ' [TEST ACCOUNT]' : ''}`);
       } catch (txErr) {
         await client.query('ROLLBACK');
         throw txErr;

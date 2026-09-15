@@ -154,7 +154,7 @@ function notifyInitiatorVerified(io, { initiatorId, requestId, conversationId, a
     conversationId,
     accepter,
   });
-  console.log(`🎉 [Buddy Socket] Notified initiator ${initiatorId} that request ${requestId} is completed!`);
+  console.log(` [Buddy Socket] Notified initiator ${initiatorId} that request ${requestId} is completed!`);
 }
 
 module.exports = {

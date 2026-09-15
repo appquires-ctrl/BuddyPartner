@@ -294,17 +294,25 @@ class BuddyService {
       initiator: {
         id: initiator.id,
         fullName: initiator.full_name || 'User',
+        full_name: initiator.full_name || 'User',
         userName: initiator.user_name || null,
+        user_name: initiator.user_name || null,
         avatarSeed: initiator.avatar_seed || null,
+        avatar_seed: initiator.avatar_seed || null,
         avatarStyle: initiator.avatar_style || 'avataaars',
+        avatar_style: initiator.avatar_style || 'avataaars',
         gender: initiator.gender || null,
       },
       accepter: {
         id: accepter.id,
         fullName: accepter.full_name || 'User',
+        full_name: accepter.full_name || 'User',
         userName: accepter.user_name || null,
+        user_name: accepter.user_name || null,
         avatarSeed: accepter.avatar_seed || null,
+        avatar_seed: accepter.avatar_seed || null,
         avatarStyle: accepter.avatar_style || 'avataaars',
+        avatar_style: accepter.avatar_style || 'avataaars',
         gender: accepter.gender || null,
       },
     };
@@ -514,6 +522,35 @@ class BuddyService {
         db.query(`SELECT id, full_name, user_name, avatar_seed, avatar_style, gender FROM public.users WHERE id = $1`, [accepterId]),
       ]);
 
+      const initRow = initiatorRes.rows[0] || {};
+      const accRow = accepterRes.rows[0] || {};
+
+      const initiatorData = {
+        id: initRow.id,
+        fullName: initRow.full_name || 'User',
+        full_name: initRow.full_name || 'User',
+        userName: initRow.user_name || null,
+        user_name: initRow.user_name || null,
+        avatarSeed: initRow.avatar_seed || null,
+        avatar_seed: initRow.avatar_seed || null,
+        avatarStyle: initRow.avatar_style || 'avataaars',
+        avatar_style: initRow.avatar_style || 'avataaars',
+        gender: initRow.gender || null,
+      };
+
+      const accepterData = {
+        id: accRow.id,
+        fullName: accRow.full_name || 'User',
+        full_name: accRow.full_name || 'User',
+        userName: accRow.user_name || null,
+        user_name: accRow.user_name || null,
+        avatarSeed: accRow.avatar_seed || null,
+        avatar_seed: accRow.avatar_seed || null,
+        avatarStyle: accRow.avatar_style || 'avataaars',
+        avatar_style: accRow.avatar_style || 'avataaars',
+        gender: accRow.gender || null,
+      };
+
       return {
         success: true,
         conversationId: request.conversation_id,
@@ -522,8 +559,8 @@ class BuddyService {
         spendableBalance: creditRes.spendableBalance,
         balance: creditRes.balance,
         request: completedRequest,
-        initiator: initiatorRes.rows[0] || {},
-        accepter: accepterRes.rows[0] || {},
+        initiator: initiatorData,
+        accepter: accepterData,
       };
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});
@@ -631,9 +668,13 @@ class BuddyService {
       initiator: {
         id: row.initiator_id,
         fullName: row.initiator_name || 'User',
+        full_name: row.initiator_name || 'User',
         userName: row.initiator_username || null,
+        user_name: row.initiator_username || null,
         avatarSeed: row.initiator_avatar_seed || null,
+        avatar_seed: row.initiator_avatar_seed || null,
         avatarStyle: row.initiator_avatar_style || 'avataaars',
+        avatar_style: row.initiator_avatar_style || 'avataaars',
         gender: row.initiator_gender || null,
       },
     }));
@@ -689,39 +730,57 @@ class BuddyService {
       params
     );
 
-    const requests = result.rows.map(row => ({
-      id: row.id,
-      initiatorId: row.initiator_id,
-      buddyType: row.buddy_type,
-      city: row.city,
-      targetGender: row.target_gender,
-      status: row.status,
-      accepterId: row.accepter_id,
-      acceptedAt: row.accepted_at,
-      completedAt: row.completed_at,
-      cancelledAt: row.cancelled_at,
-      conversationId: row.conversation_id,
-      initiatorCoinCost: row.initiator_coin_cost,
-      accepterCoinReward: row.accepter_coin_reward,
-      createdAt: row.created_at,
-      isInitiator: row.initiator_id === userId,
-      initiator: {
-        id: row.initiator_id,
-        fullName: row.initiator_name || 'User',
-        userName: row.initiator_username || null,
-        avatarSeed: row.initiator_avatar_seed || null,
-        avatarStyle: row.initiator_avatar_style || 'avataaars',
-        gender: row.initiator_gender || null,
-      },
-      accepter: row.accepter_id ? {
-        id: row.accepter_id,
-        fullName: row.accepter_name || 'User',
-        userName: row.accepter_username || null,
-        avatarSeed: row.accepter_avatar_seed || null,
-        avatarStyle: row.accepter_avatar_style || 'avataaars',
-        gender: row.accepter_gender || null,
-      } : null,
-    }));
+    const requests = result.rows.map(row => {
+      let otpCode = null;
+      if (row.initiator_id === userId && row.status === 'accepted' && row.otp_encrypted) {
+        try {
+          otpCode = decryptOtp(row.otp_encrypted);
+        } catch (_) {}
+      }
+
+      return {
+        id: row.id,
+        initiatorId: row.initiator_id,
+        buddyType: row.buddy_type,
+        city: row.city,
+        targetGender: row.target_gender,
+        status: row.status,
+        accepterId: row.accepter_id,
+        acceptedAt: row.accepted_at,
+        completedAt: row.completed_at,
+        cancelledAt: row.cancelled_at,
+        conversationId: row.conversation_id,
+        initiatorCoinCost: row.initiator_coin_cost,
+        accepterCoinReward: row.accepter_coin_reward,
+        createdAt: row.created_at,
+        isInitiator: row.initiator_id === userId,
+        otpCode,
+        initiator: {
+          id: row.initiator_id,
+          fullName: row.initiator_name || 'User',
+          full_name: row.initiator_name || 'User',
+          userName: row.initiator_username || null,
+          user_name: row.initiator_username || null,
+          avatarSeed: row.initiator_avatar_seed || null,
+          avatar_seed: row.initiator_avatar_seed || null,
+          avatarStyle: row.initiator_avatar_style || 'avataaars',
+          avatar_style: row.initiator_avatar_style || 'avataaars',
+          gender: row.initiator_gender || null,
+        },
+        accepter: row.accepter_id ? {
+          id: row.accepter_id,
+          fullName: row.accepter_name || 'User',
+          full_name: row.accepter_name || 'User',
+          userName: row.accepter_username || null,
+          user_name: row.accepter_username || null,
+          avatarSeed: row.accepter_avatar_seed || null,
+          avatar_seed: row.accepter_avatar_seed || null,
+          avatarStyle: row.accepter_avatar_style || 'avataaars',
+          avatar_style: row.accepter_avatar_style || 'avataaars',
+          gender: row.accepter_gender || null,
+        } : null,
+      };
+    });
 
     return {
       requests,

@@ -64,7 +64,7 @@ class _AccepterOtpDialogState extends ConsumerState<AccepterOtpDialog> {
     });
 
     try {
-      final res = await ref.read(buddyControllerProvider.notifier).verifyBuddyOtp(
+      await ref.read(buddyControllerProvider.notifier).verifyBuddyOtp(
         requestId: widget.request.id,
         otpCode: code,
       );
@@ -74,25 +74,10 @@ class _AccepterOtpDialogState extends ConsumerState<AccepterOtpDialog> {
 
       AppSnackBar.showSuccess(
         context,
-        'Handshake verified! +50 coins added to your wallet. Chat unlocked!',
+        'Meetup verified! +50 coins added to your wallet.',
       );
 
-      final convId = res['conversationId']?.toString() ?? widget.request.conversationId;
-      final partner = res['partner'] as Map<String, dynamic>?;
 
-      if (convId != null && convId.isNotEmpty) {
-        context.push(
-          RouteNames.chat,
-          extra: {
-            'conversationId': convId,
-            'userId': partner?['id'] ?? widget.request.initiatorId,
-            'userName': partner?['fullName'] ?? widget.request.initiator?.fullName ?? 'Buddy Partner',
-            'avatarSeed': partner?['avatarSeed'] ?? widget.request.initiator?.avatarSeed,
-            'avatarStyle': partner?['avatarStyle'] ?? widget.request.initiator?.avatarStyle,
-            'gender': partner?['gender'] ?? widget.request.initiator?.gender,
-          },
-        );
-      }
     } catch (e) {
       if (mounted) {
         final errText = e.toString().replaceAll('Exception: ', '');
@@ -201,7 +186,46 @@ class _AccepterOtpDialogState extends ConsumerState<AccepterOtpDialog> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 14),
+
+          // Direct Chat button
+          SizedBox(
+            height: 44,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                final initiator = widget.request.initiator;
+                context.push(
+                  RouteNames.chat,
+                  extra: {
+                    'conversationId': widget.request.conversationId ?? '',
+                    'userId': initiator?.id ?? widget.request.initiatorId,
+                    'userName': (initiator?.fullName != null && initiator!.fullName.isNotEmpty && initiator.fullName != 'User')
+                        ? initiator.fullName
+                        : 'Buddy Partner',
+                    'avatarSeed': initiator?.avatarSeed,
+                    'avatarStyle': initiator?.avatarStyle,
+                    'gender': initiator?.gender,
+                  },
+                );
+              },
+              icon: const Icon(Icons.chat_bubble_rounded, size: 18, color: Colors.white),
+              label: Text(
+                'Chat with $initiatorName',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: type.accentColor,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
 
           // Reward Banner
           Container(
@@ -362,7 +386,7 @@ class _AccepterOtpDialogState extends ConsumerState<AccepterOtpDialog> {
                         const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          'Verify & Unlock Chat (+50 🪙)',
+                          'Verify Meetup (+50 🪙)',
                           style: typography.bodyMedium.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
