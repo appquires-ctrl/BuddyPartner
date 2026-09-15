@@ -1,5 +1,6 @@
 const db = require('../../db');
 const { subscriptionsService } = require('../subscriptions/subscriptions.service');
+const { WalletService } = require('../wallet/wallet.service');
 
 class InstantConnectService {
   /**
@@ -144,23 +145,27 @@ class InstantConnectService {
         [cardId]
       );
 
-      // Credit wallet
+      // Credit wallet earned_balance (scratch rewards are earned host income)
       const walletRes = await client.query(
-        `INSERT INTO public.wallets (user_id, balance)
-         VALUES ($1, $2)
+        `INSERT INTO public.wallets (user_id, spendable_balance, earned_balance)
+         VALUES ($1, 0, $2)
          ON CONFLICT (user_id) 
-         DO UPDATE SET balance = public.wallets.balance + $2
-         RETURNING balance`,
+         DO UPDATE SET 
+           earned_balance = public.wallets.earned_balance + $2,
+           updated_at = NOW()
+         RETURNING spendable_balance, earned_balance`,
         [userId, reward]
       );
 
-      const newBalance = walletRes.rows[0].balance;
+      const sBal = Number(walletRes.rows[0].spendable_balance);
+      const eBal = Number(walletRes.rows[0].earned_balance);
+      const newBalance = sBal + eBal;
 
       // Log wallet credit transaction
       await client.query(
-        `INSERT INTO public.wallet_transactions (user_id, amount, type, reason, reference_id)
-         VALUES ($1, $2, 'credit', 'instant_call_scratch_reward', $3)`,
-        [userId, reward, cardId]
+        `INSERT INTO public.wallet_transactions (user_id, spendable_delta, earned_delta, idempotency_key, reason, reference_id)
+         VALUES ($1, 0, $2, $3, 'instant_call_scratch_reward', $4)`,
+        [userId, reward, `scratch_${cardId}`, cardId]
       );
 
       await client.query('COMMIT');
@@ -198,15 +203,14 @@ class InstantConnectService {
     try {
       await client.query('BEGIN');
 
-      const walletRes = await client.query(
-        `UPDATE public.wallets
-         SET balance = balance - $1
-         WHERE user_id = $2 AND balance >= $1
-         RETURNING balance`,
-        [amount, userId]
-      );
+      const debitRes = await WalletService.debitCoins({
+        userId,
+        amount,
+        reason: 'instant_call_escrow',
+        client,
+      });
 
-      if (walletRes.rows.length === 0) {
+      if (!debitRes.success) {
         await client.query('ROLLBACK');
         return {
           success: false,
@@ -215,16 +219,8 @@ class InstantConnectService {
         };
       }
 
-      const newBalance = walletRes.rows[0].balance;
-
-      await client.query(
-        `INSERT INTO public.wallet_transactions (user_id, amount, type, reason)
-         VALUES ($1, $2, 'debit', 'instant_call_escrow')`,
-        [userId, amount]
-      );
-
       await client.query('COMMIT');
-      return { success: true, newBalance };
+      return { success: true, newBalance: debitRes.balance };
     } catch (err) {
       await client.query('ROLLBACK');
       console.error(`Error escrowing coins for user ${userId}:`, err.message);
@@ -246,21 +242,16 @@ class InstantConnectService {
     try {
       await client.query('BEGIN');
 
-      const walletRes = await client.query(
-        `UPDATE public.wallets
-         SET balance = balance + $1
-         WHERE user_id = $2
-         RETURNING balance`,
-        [amount, userId]
-      );
+      const creditRes = await WalletService.creditCoins({
+        userId,
+        spendable: amount,
+        earned: 0,
+        reason: 'instant_call_refund',
+        referenceId: sessionId || null,
+        client,
+      });
 
-      const newBalance = walletRes.rows[0]?.balance || 0;
-
-      await client.query(
-        `INSERT INTO public.wallet_transactions (user_id, amount, type, reason, reference_id)
-         VALUES ($1, $2, 'credit', 'instant_call_refund', $3)`,
-        [userId, amount, sessionId || null]
-      );
+      const newBalance = creditRes.balance;
 
       if (sessionId) {
         await client.query(

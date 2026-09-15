@@ -280,22 +280,26 @@ class GooglePlayService {
     try {
       await client.query('BEGIN');
 
-      // 1. Credit wallet
+      // 1. Credit wallet spendable_balance (purchased coins are non-withdrawable)
       const walletRes = await client.query(
-        `INSERT INTO public.wallets (user_id, balance)
-         VALUES ($1, $2)
+        `INSERT INTO public.wallets (user_id, spendable_balance, earned_balance)
+         VALUES ($1, $2, 0)
          ON CONFLICT (user_id)
-         DO UPDATE SET balance = public.wallets.balance + $2
-         RETURNING balance`,
+         DO UPDATE SET 
+           spendable_balance = public.wallets.spendable_balance + $2,
+           updated_at = NOW()
+         RETURNING spendable_balance, earned_balance`,
         [userId, totalCoins]
       );
-      const newBalance = walletRes.rows[0].balance;
+      const sBal = Number(walletRes.rows[0].spendable_balance);
+      const eBal = Number(walletRes.rows[0].earned_balance);
+      const newBalance = sBal + eBal;
 
-      // 2. Insert wallet transaction
+      // 2. Insert wallet transaction with idempotency key
       await client.query(
-        `INSERT INTO public.wallet_transactions (user_id, amount, type, reason, reference_id)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [userId, totalCoins, 'credit', 'recharge', resolvedOrderId]
+        `INSERT INTO public.wallet_transactions (user_id, spendable_delta, earned_delta, idempotency_key, reason, reference_id)
+         VALUES ($1, $2, 0, $3, 'iap_purchase', $4)`,
+        [userId, totalCoins, `gp_${purchaseToken}`, resolvedOrderId]
       );
 
       // 3. Record in google_play_purchases to guarantee anti-replay integrity
@@ -555,21 +559,24 @@ class GooglePlayService {
         let newBalance = 0;
 
         if (coinsToDeduct > 0) {
-          // Deduct from wallet balance (clamped to 0)
+          // Deduct from spendable_balance (clamped to 0)
           const walletRes = await client.query(
             `UPDATE public.wallets 
-             SET balance = GREATEST(0, balance - $1) 
+             SET spendable_balance = GREATEST(0, spendable_balance - $1),
+                 updated_at = NOW()
              WHERE user_id = $2 
-             RETURNING balance`,
+             RETURNING spendable_balance, earned_balance`,
             [coinsToDeduct, purchase.user_id]
           );
-          newBalance = walletRes.rows[0]?.balance ?? 0;
+          const sBal = Number(walletRes.rows[0]?.spendable_balance ?? 0);
+          const eBal = Number(walletRes.rows[0]?.earned_balance ?? 0);
+          newBalance = sBal + eBal;
 
           // Insert debit entry in wallet_transactions for audit history
           await client.query(
-            `INSERT INTO public.wallet_transactions (user_id, amount, type, reason, reference_id)
-             VALUES ($1, $2, $3, $4, $5)`,
-            [purchase.user_id, coinsToDeduct, 'debit', 'chargeback_reversal', purchase.order_id || purchase.id]
+            `INSERT INTO public.wallet_transactions (user_id, spendable_delta, earned_delta, idempotency_key, reason, reference_id)
+             VALUES ($1, $2, 0, $3, 'iap_purchase', $4)`,
+            [purchase.user_id, -coinsToDeduct, `rev_${purchase.order_id || purchase.id}`, purchase.order_id || purchase.id]
           );
         }
 

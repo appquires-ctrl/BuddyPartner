@@ -5,36 +5,43 @@ const { BUDDY_TYPES, BUDDY_LIMITS } = require('./buddy.config');
 /**
  * Socket.IO module for real-time Buddy Activity Requests.
  * Designed for 5,000 CCU scalability:
- * - O(1) room broadcasting (city:{city}:buddy) instead of iterating over individual sockets.
+ * - O(1) room broadcasting (buddy:city:{city}:{gender}) instead of iterating over individual sockets.
  * - Batched FCM multicast (500 tokens/batch) for offline users.
  */
 
 function registerBuddyHandlers(io, socket, redis) {
-  // Client can explicitly join their current city room
-  socket.on('join_buddy_city', ({ city }) => {
+  // Client explicitly joins city + gender rooms
+  socket.on('join_buddy_city', async ({ city, gender }) => {
     if (city && typeof city === 'string') {
       const normalizedCity = city.trim().toLowerCase();
-      const room = `city:${normalizedCity}:buddy`;
-      socket.join(room);
-      console.log(`📍 Socket ${socket.id} (user ${socket.userId}) joined buddy room: ${room}`);
+      const userGender = (gender || socket.userGender || 'all').trim().toLowerCase();
+      
+      const specificRoom = `buddy:city:${normalizedCity}:${userGender}`;
+      const allRoom = `buddy:city:${normalizedCity}:all`;
+      const legacyRoom = `city:${normalizedCity}:buddy`;
+
+      socket.join(specificRoom);
+      socket.join(allRoom);
+      socket.join(legacyRoom);
+      console.log(`📍 Socket ${socket.id} (user ${socket.userId}) joined buddy rooms: ${specificRoom}, ${allRoom}`);
     }
   });
 
-  socket.on('leave_buddy_city', ({ city }) => {
+  socket.on('leave_buddy_city', ({ city, gender }) => {
     if (city && typeof city === 'string') {
       const normalizedCity = city.trim().toLowerCase();
-      const room = `city:${normalizedCity}:buddy`;
-      socket.leave(room);
-      console.log(`📍 Socket ${socket.id} left buddy room: ${room}`);
+      const userGender = (gender || socket.userGender || 'all').trim().toLowerCase();
+      
+      socket.leave(`buddy:city:${normalizedCity}:${userGender}`);
+      socket.leave(`buddy:city:${normalizedCity}:all`);
+      socket.leave(`city:${normalizedCity}:buddy`);
+      console.log(`📍 Socket ${socket.id} left buddy rooms for city: ${normalizedCity}`);
     }
   });
 }
 
 /**
- * Broadcast a newly created buddy request to all matching users in the city.
- * 
- * 1. Online users: Emits to room `city:{normalizedCity}:buddy` in a single O(1) operation.
- * 2. Offline users: Batched FCM multicast send (up to 500 per batch).
+ * Broadcast a newly created buddy request to matching online rooms and offline push tokens.
  * 
  * @param {Object} io - Socket.io Server instance
  * @param {Object} request - Created buddy request object with initiator details
@@ -43,24 +50,31 @@ async function broadcastNewBuddyRequest(io, request) {
   if (!io || !request || !request.city) return;
 
   const normalizedCity = request.city.trim().toLowerCase();
-  const room = `city:${normalizedCity}:buddy`;
+  const targetGender = (request.target_gender || 'all').trim().toLowerCase();
 
   // 1. O(1) Real-time Socket.io Room Broadcast
-  io.to(room).emit('new_buddy_request', request);
-  console.log(`📢 [Buddy Socket] Broadcasted new_${request.buddy_type} to room '${room}'`);
+  const targetRoom = `buddy:city:${normalizedCity}:${targetGender}`;
+  const allRoom = `buddy:city:${normalizedCity}:all`;
+  const legacyRoom = `city:${normalizedCity}:buddy`;
+
+  io.to(targetRoom).emit('new_buddy_request', request);
+  if (targetGender !== 'all') {
+    io.to(allRoom).emit('new_buddy_request', request);
+  }
+  io.to(legacyRoom).emit('new_buddy_request', request);
+
+  console.log(`📢 [Buddy Socket] Broadcasted new_${request.buddy_type} to room '${targetRoom}' and '${legacyRoom}'`);
 
   // 2. Batched FCM Multicast to Offline Users in Background
   setImmediate(async () => {
     try {
-      const targetGender = request.target_gender || 'all';
       const buddyInfo = BUDDY_TYPES[request.buddy_type] || { title: 'Buddy Activity' };
 
-      // Single indexed query retrieving device tokens of matching users in the city
       const fcmQuery = `
         SELECT u.id, u.fcm_token
         FROM public.users u
         WHERE LOWER(TRIM(u.city)) = $1
-          AND ($2 = 'all' OR u.gender = $2)
+          AND ($2 = 'all' OR LOWER(TRIM(u.gender)) = $2)
           AND u.id != $3
           AND (u.is_banned IS FALSE OR u.is_banned IS NULL)
           AND u.fcm_token IS NOT NULL
@@ -77,7 +91,6 @@ async function broadcastNewBuddyRequest(io, request) {
       if (fcmRes.rows.length === 0) return;
 
       const tokens = fcmRes.rows.map(r => r.fcm_token);
-
       const title = `New ${buddyInfo.title} in ${request.city}!`;
       const body = `${request.initiator?.fullName || 'Someone'} is looking for a ${buddyInfo.title} partner. Accept & earn 50 Coins!`;
 
@@ -105,23 +118,26 @@ async function broadcastNewBuddyRequest(io, request) {
 }
 
 /**
- * Broadcasts that a request was accepted so other users' UIs update to 'taken'.
+ * Broadcasts that a request was accepted so other users' feeds update to 'taken'.
  */
 function broadcastBuddyRequestTaken(io, { requestId, buddyType, city }) {
   if (!io || !city) return;
   const normalizedCity = city.trim().toLowerCase();
-  const room = `city:${normalizedCity}:buddy`;
-  io.to(room).emit('buddy_request_taken', { requestId, buddyType });
-  console.log(`📢 [Buddy Socket] Broadcasted buddy_request_taken (${requestId}) to room '${room}'`);
+  io.to(`buddy:city:${normalizedCity}:all`).emit('buddy_request_taken', { requestId, buddyType });
+  io.to(`buddy:city:${normalizedCity}:male`).emit('buddy_request_taken', { requestId, buddyType });
+  io.to(`buddy:city:${normalizedCity}:female`).emit('buddy_request_taken', { requestId, buddyType });
+  io.to(`city:${normalizedCity}:buddy`).emit('buddy_request_taken', { requestId, buddyType });
+  console.log(`📢 [Buddy Socket] Broadcasted buddy_request_taken (${requestId}) to city rooms '${normalizedCity}'`);
 }
 
 /**
- * Directly alerts the initiator that someone has accepted their request and shares the 6-digit OTP.
+ * Directly alerts the initiator that someone has accepted their request, chat is open, and provides OTP.
  */
-function notifyInitiatorAccepted(io, { initiatorId, requestId, accepter, otpCode }) {
+function notifyInitiatorAccepted(io, { initiatorId, requestId, conversationId, accepter, otpCode }) {
   if (!io || !initiatorId) return;
   io.to(initiatorId).emit('buddy_request_accepted', {
     requestId,
+    conversationId,
     accepter,
     otpCode,
   });
@@ -129,7 +145,7 @@ function notifyInitiatorAccepted(io, { initiatorId, requestId, accepter, otpCode
 }
 
 /**
- * Directly alerts the initiator that OTP handshake was verified and chat is unlocked.
+ * Directly alerts the initiator that OTP handshake was verified and reward was credited.
  */
 function notifyInitiatorVerified(io, { initiatorId, requestId, conversationId, accepter }) {
   if (!io || !initiatorId) return;
@@ -138,7 +154,7 @@ function notifyInitiatorVerified(io, { initiatorId, requestId, conversationId, a
     conversationId,
     accepter,
   });
-  console.log(`🎉 [Buddy Socket] Notified initiator ${initiatorId} that request ${requestId} is verified!`);
+  console.log(`🎉 [Buddy Socket] Notified initiator ${initiatorId} that request ${requestId} is completed!`);
 }
 
 module.exports = {

@@ -326,7 +326,8 @@ router.post('/otp/verify', async (req, res) => {
     let userResult = await db.query(
       `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.dob, u.gender, u.language, 
               u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, 
-              u.country, u.state, u.city, u.latitude, u.longitude, w.balance 
+              u.country, u.state, u.city, u.latitude, u.longitude, 
+              w.spendable_balance, w.earned_balance, (COALESCE(w.spendable_balance, 0) + COALESCE(w.earned_balance, 0)) AS balance 
        FROM public.users u
        LEFT JOIN public.wallets w ON w.user_id = u.id
        WHERE (u.country_code = $1 AND u.mobile = $2) OR u.phone_number = $3`,
@@ -365,12 +366,12 @@ router.post('/otp/verify', async (req, res) => {
         }
         user = insertUserRes.rows[0];
 
-        // Provision wallet (preloaded with 100 coins for reviewer to test calls, 0 for standard users)
+        // Provision wallet (preloaded with 100 spendable coins for reviewer to test calls, 0 for standard users)
         const initialBalance = isTestAccount ? 100 : 0;
         await client.query(
-          `INSERT INTO public.wallets (user_id, balance) 
-           VALUES ($1, $2) 
-           ON CONFLICT (user_id) DO UPDATE SET balance = GREATEST(wallets.balance, $2)`,
+          `INSERT INTO public.wallets (user_id, spendable_balance, earned_balance) 
+           VALUES ($1, $2, 0) 
+           ON CONFLICT (user_id) DO UPDATE SET spendable_balance = GREATEST(wallets.spendable_balance, $2)`,
           [user.id, initialBalance]
         );
 
@@ -399,9 +400,10 @@ router.post('/otp/verify', async (req, res) => {
         }
         if ((parseFloat(user.balance) || 0) < 50) {
           await db.query(
-            `INSERT INTO public.wallets (user_id, balance) VALUES ($1, 100) ON CONFLICT (user_id) DO UPDATE SET balance = 100`,
+            `INSERT INTO public.wallets (user_id, spendable_balance, earned_balance) VALUES ($1, 100, 0) ON CONFLICT (user_id) DO UPDATE SET spendable_balance = 100`,
             [user.id]
           );
+          user.spendable_balance = 100;
           user.balance = 100;
         }
       }
@@ -813,7 +815,8 @@ router.post('/profile', authMiddleware, async (req, res) => {
 
     // Fetch and return the updated user object (including user_name)
     const updatedUserRes = await db.query(
-      `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, w.balance 
+      `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, 
+              w.spendable_balance, w.earned_balance, (COALESCE(w.spendable_balance, 0) + COALESCE(w.earned_balance, 0)) AS balance 
        FROM public.users u
        LEFT JOIN public.wallets w ON w.user_id = u.id
        WHERE u.id = $1`,
@@ -821,6 +824,8 @@ router.post('/profile', authMiddleware, async (req, res) => {
     );
 
     const userRow = updatedUserRes.rows[0];
+    const sBal = parseFloat(userRow?.spendable_balance) || 0;
+    const eBal = parseFloat(userRow?.earned_balance) || 0;
     const userObj = userRow ? {
       id: userRow.id,
       countryCode: userRow.country_code || '',
@@ -840,7 +845,9 @@ router.post('/profile', authMiddleware, async (req, res) => {
       city: userRow.city || null,
       latitude: userRow.latitude ? parseFloat(userRow.latitude) : null,
       longitude: userRow.longitude ? parseFloat(userRow.longitude) : null,
-      balance: userRow.balance !== null && userRow.balance !== undefined ? parseFloat(userRow.balance) : 0,
+      spendableBalance: sBal,
+      earnedBalance: eBal,
+      balance: sBal + eBal,
     } : null;
 
     res.json({ success: true, message: 'Profile updated successfully.', user: userObj });
@@ -864,7 +871,8 @@ router.get('/me', authMiddleware, async (req, res) => {
   try {
     const userRow = await cacheService.getOrSet(`user:profile:${userId}`, 60, async () => {
       const result = await db.query(
-        `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, w.balance 
+        `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, 
+                w.spendable_balance, w.earned_balance, (COALESCE(w.spendable_balance, 0) + COALESCE(w.earned_balance, 0)) AS balance 
          FROM public.users u
          LEFT JOIN public.wallets w ON w.user_id = u.id
          WHERE u.id = $1`,
@@ -876,6 +884,9 @@ router.get('/me', authMiddleware, async (req, res) => {
     if (!userRow) {
       return res.status(404).json({ error: 'User profile not found.' });
     }
+
+    const sBal = Number(userRow.spendable_balance) || 0;
+    const eBal = Number(userRow.earned_balance) || 0;
 
     res.json({
       success: true,
@@ -898,7 +909,10 @@ router.get('/me', authMiddleware, async (req, res) => {
         city: userRow.city || null,
         latitude: userRow.latitude !== null ? parseFloat(userRow.latitude) : null,
         longitude: userRow.longitude !== null ? parseFloat(userRow.longitude) : null,
-        walletBalance: userRow.balance || 0,
+        spendableBalance: sBal,
+        earnedBalance: eBal,
+        walletBalance: sBal + eBal,
+        balance: sBal + eBal,
       },
     });
   } catch (err) {

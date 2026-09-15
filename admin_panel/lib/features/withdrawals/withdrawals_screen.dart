@@ -35,7 +35,7 @@ class WithdrawalsScreen extends ConsumerWidget {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'Review and process creator rose payout requests',
+                    'Review and process creator earned coin payout requests',
                     style: TextStyle(
                       fontSize: 13,
                       color: AdminColors.textSecondary,
@@ -140,7 +140,7 @@ class WithdrawalsScreen extends ConsumerWidget {
                                         ),
                                         children: [
                                           _buildHeaderCell('USER'),
-                                          _buildHeaderCell('COINS'),
+                                          _buildHeaderCell('EARNED COINS'),
                                           _buildHeaderCell('RUPEE AMOUNT'),
                                           _buildHeaderCell('REQUESTED DATE'),
                                           _buildHeaderCell('STATUS'),
@@ -181,7 +181,7 @@ class WithdrawalsScreen extends ConsumerWidget {
                                             // COINS
                                             Padding(
                                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                              child: Text('🪙 $coinAmount', style: AdminTheme.tabularNumeralStyle.copyWith(color: const Color(0xFFD97706))),
+                                              child: Text('🪙 $coinAmount earned', style: AdminTheme.tabularNumeralStyle.copyWith(color: const Color(0xFFD97706), fontWeight: FontWeight.bold)),
                                             ),
 
                                             // RUPEE AMOUNT

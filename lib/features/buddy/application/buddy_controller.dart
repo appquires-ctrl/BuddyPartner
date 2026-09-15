@@ -442,6 +442,31 @@ class BuddyController extends Notifier<BuddyState> {
     }
   }
 
+  /// Fetch initiator OTP from authenticated REST endpoint
+  Future<String> fetchInitiatorOtp(String requestId) async {
+    try {
+      final otp = await ref.read(buddyServiceProvider).getInitiatorOtp(requestId);
+      if (otp.isNotEmpty) {
+        final updatedMy = state.myRequests.map((r) {
+          if (r.id == requestId) {
+            return r.copyWith(otpCode: otp);
+          }
+          return r;
+        }).toList();
+        final currentActive = state.activeInitiatorRequest;
+        final updatedActive = currentActive?.id == requestId ? currentActive?.copyWith(otpCode: otp) : currentActive;
+        state = state.copyWith(
+          myRequests: updatedMy,
+          activeInitiatorRequest: updatedActive,
+        );
+      }
+      return otp;
+    } catch (e) {
+      debugPrint('[BuddyController] Error fetching OTP: $e');
+      rethrow;
+    }
+  }
+
   void dismissInitiatorOtpModal() {
     state = state.copyWith(clearActiveInitiatorRequest: true);
   }

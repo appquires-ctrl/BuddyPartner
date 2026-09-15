@@ -2,53 +2,53 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../../middleware/auth.middleware');
 const { WithdrawalsService } = require('./withdrawals.service');
-const db = require('../../db');
 
 /**
  * POST /api/withdrawals
- * Request a withdrawal (girl-only).
- * Body: { roseAmount: number }
+ * Request a withdrawal from earned_balance.
+ * Body: { amount: number, payoutMethod?: string, payoutDetails?: object, idempotencyKey?: string }
  */
 router.post('/withdrawals', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
-
-    // Check gender & telecaller status — withdrawals are female-telecaller only
-    const userResult = await db.query(
-      'SELECT gender, is_telecaller FROM public.users WHERE id = $1',
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found.' });
-    }
-
-    const userRow = userResult.rows[0];
-    const gender = (userRow.gender || '').toLowerCase();
-    if (gender !== 'female' && gender !== 'girl' && gender !== 'woman') {
-      return res.status(403).json({ error: 'Withdrawals are only available for female users.' });
-    }
-
-    const rawAmount = req.body.amount || req.body.coinAmount || req.body.roseAmount;
+    const rawAmount = req.body.amount || req.body.coinAmount;
     const amount = parseInt(rawAmount, 10);
     if (!amount || amount <= 0) {
-      return res.status(400).json({ error: 'Invalid withdrawal amount. Must be a positive number.' });
+      return res.status(400).json({ success: false, error: 'Invalid withdrawal amount. Must be a positive integer.' });
     }
 
-    const result = await WithdrawalsService.requestWithdrawal(userId, amount);
+    const idempotencyKey = req.body.idempotencyKey || req.headers['x-idempotency-key'] || null;
+    const payoutMethod = req.body.payoutMethod || 'upi';
+    const payoutDetails = req.body.payoutDetails || {};
+
+    const result = await WithdrawalsService.requestWithdrawal({
+      userId,
+      amount,
+      payoutMethod,
+      payoutDetails,
+      idempotencyKey,
+    });
 
     if (!result.success) {
-      return res.status(400).json({ error: result.error });
+      const statusCode = result.code === 'CONCURRENT_PENDING_NOT_ALLOWED' ? 409 : 400;
+      return res.status(statusCode).json({
+        success: false,
+        error: result.error,
+        code: result.code,
+      });
     }
 
-    res.json({
+    res.status(201).json({
       success: true,
       withdrawal: result.withdrawal,
-      newBalance: result.newBalance,
+      spendableBalance: result.spendableBalance,
+      earnedBalance: result.earnedBalance,
+      balance: result.balance,
+      alreadyProcessed: result.alreadyProcessed || false,
     });
   } catch (err) {
-    console.error('Error in POST /withdrawals:', err.message);
-    res.status(500).json({ error: 'Internal server error.' });
+    console.error('❌ Error in POST /withdrawals:', err.message);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 
@@ -62,8 +62,8 @@ router.get('/withdrawals', authMiddleware, async (req, res) => {
     const withdrawals = await WithdrawalsService.getWithdrawals(userId);
     res.json({ success: true, withdrawals });
   } catch (err) {
-    console.error('Error in GET /withdrawals:', err.message);
-    res.status(500).json({ error: 'Internal server error.' });
+    console.error('❌ Error in GET /withdrawals:', err.message);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 

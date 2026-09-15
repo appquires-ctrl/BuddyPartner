@@ -3,29 +3,33 @@ const router = express.Router();
 const { authMiddleware } = require('../../middleware/auth.middleware');
 const { WalletService } = require('./wallet.service');
 const { cacheService } = require('../../services/cache.service');
-const db = require('../../db');
 
 /**
  * GET /api/wallet/balance
- * Returns the current coin balance for the authenticated user.
+ * Returns the current dual coin balance for the authenticated user.
  * Cached in Redis for 15s to support rapid polling/home refresh without DB spikes.
  */
 router.get('/wallet/balance', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
-    const balance = await cacheService.getOrSet(`user:balance:${userId}`, 15, async () => {
-      const result = await db.query(
-        'SELECT balance FROM public.wallets WHERE user_id = $1',
-        [userId]
-      );
-      return result.rows.length > 0 ? result.rows[0].balance : 0;
+    const balanceData = await cacheService.getOrSet(`user:balance:${userId}`, 15, async () => {
+      return await WalletService.getBalance(userId);
     });
 
-    res.json({ success: true, balance });
+    res.json({
+      success: true,
+      spendableBalance: balanceData.spendableBalance || 0,
+      earnedBalance: balanceData.earnedBalance || 0,
+      balance: balanceData.balance || 0,
+    });
   } catch (err) {
-    console.error('Error fetching wallet balance:', err.message);
-    // Return 0 balance on transient DB errors instead of 500
-    res.json({ success: true, balance: 0 });
+    console.error('❌ Error fetching wallet balance:', err.message);
+    res.json({
+      success: true,
+      spendableBalance: 0,
+      earnedBalance: 0,
+      balance: 0,
+    });
   }
 });
 
@@ -39,14 +43,15 @@ router.get('/wallet/transactions', authMiddleware, async (req, res) => {
     const result = await WalletService.getTransactions(req.user.id, cursor || null, limit || 20);
     res.json(result);
   } catch (err) {
-    console.error('Error fetching wallet transactions:', err.message);
+    console.error('❌ Error fetching wallet transactions:', err.message);
     res.status(500).json({ error: 'Failed to fetch wallet transactions' });
   }
 });
 
 /**
  * POST /api/wallet/recharge
- * Credits coins to user's wallet (e.g. 50, 100, 200, 500 coins).
+ * Credits coins to user's spendable_balance (purchased coins are non-withdrawable).
+ * Supports idempotencyKey via body or x-idempotency-key header.
  */
 router.post('/wallet/recharge', authMiddleware, async (req, res) => {
   try {
@@ -56,48 +61,28 @@ router.post('/wallet/recharge', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Valid amount is required.' });
     }
 
-    const client = await db.pool.connect();
-    try {
-      await client.query('BEGIN');
+    const idempotencyKey = req.body.idempotencyKey || req.headers['x-idempotency-key'] || null;
+    const paymentReference = req.body.paymentReference ? String(req.body.paymentReference) : null;
 
-      const walletRes = await client.query(
-        `INSERT INTO public.wallets (user_id, balance)
-         VALUES ($1, $2)
-         ON CONFLICT (user_id)
-         DO UPDATE SET balance = public.wallets.balance + $2
-         RETURNING balance`,
-        [userId, amount]
-      );
+    const result = await WalletService.creditCoins({
+      userId,
+      spendable: amount,
+      earned: 0,
+      reason: 'recharge',
+      referenceId: paymentReference,
+      idempotencyKey,
+    });
 
-      const newBalance = walletRes.rows[0].balance;
-      const refId = req.body.paymentReference ? String(req.body.paymentReference) : null;
-
-      try {
-        await client.query(
-          `INSERT INTO public.wallet_transactions (user_id, amount, type, reason, reference_id)
-           VALUES ($1, $2, 'credit', 'recharge', $3)`,
-          [userId, amount, refId]
-        );
-      } catch (txErr) {
-        console.warn('⚠️ wallet_transactions insert with reference_id failed, falling back to NULL reference_id:', txErr.message);
-        await client.query(
-          `INSERT INTO public.wallet_transactions (user_id, amount, type, reason, reference_id)
-           VALUES ($1, $2, 'credit', 'recharge', NULL)`,
-          [userId, amount]
-        );
-      }
-
-      await client.query('COMMIT');
-      await cacheService.invalidate(`user:balance:${userId}`);
-      res.json({ success: true, amount, newBalance, paymentReference: refId });
-    } catch (dbErr) {
-      await client.query('ROLLBACK');
-      throw dbErr;
-    } finally {
-      client.release();
-    }
+    res.json({
+      success: true,
+      amount,
+      spendableBalance: result.spendableBalance,
+      earnedBalance: result.earnedBalance,
+      balance: result.balance,
+      paymentReference,
+    });
   } catch (err) {
-    console.error('Error in POST /api/wallet/recharge:', err.message);
+    console.error('❌ Error in POST /api/wallet/recharge:', err.message);
     res.status(500).json({ error: 'Failed to recharge wallet: ' + err.message });
   }
 });

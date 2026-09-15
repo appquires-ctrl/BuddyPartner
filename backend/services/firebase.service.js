@@ -96,6 +96,13 @@ async function sendPushNotification({ token, title, body, tag, data = {} }) {
     return response;
   } catch (err) {
     console.error(`❌ [FCM Push Error] Failed to send push to ${token.substring(0, 10)}...:`, err.message);
+    if (
+      err.code === 'messaging/registration-token-not-registered' ||
+      err.code === 'messaging/invalid-registration-token'
+    ) {
+      const db = require('../db');
+      db.query('UPDATE public.users SET fcm_token = NULL WHERE fcm_token = $1', [token]).catch(() => {});
+    }
     return null;
   }
 }
@@ -121,6 +128,7 @@ function chunkTokens(tokens, chunkSize = 500) {
 /**
  * Sends Multicast FCM Push Notifications to multiple device tokens.
  * Automatically chunks tokens into batches of <= 500 to adhere to Firebase Admin SDK limits.
+ * Prunes tokens that come back as invalid or unregistered.
  */
 async function sendMulticastPushNotification({ tokens = [], title, body, tag, data = {} }) {
   const validTokens = Array.from(new Set(tokens.filter((t) => typeof t === 'string' && t.trim().length > 0)));
@@ -149,6 +157,7 @@ async function sendMulticastPushNotification({ tokens = [], title, body, tag, da
     let totalSuccess = 0;
     let totalFailure = 0;
     const allResponses = [];
+    const tokensToPrune = [];
 
     for (let batchIndex = 0; batchIndex < chunks.length; batchIndex++) {
       const batchTokens = chunks[batchIndex];
@@ -175,7 +184,34 @@ async function sendMulticastPushNotification({ tokens = [], title, body, tag, da
       totalFailure += (response.failureCount || 0);
       allResponses.push(response);
 
+      if (response.failureCount > 0 && response.responses) {
+        response.responses.forEach((resp, idx) => {
+          if (!resp.success && resp.error) {
+            const code = resp.error.code;
+            if (
+              code === 'messaging/registration-token-not-registered' ||
+              code === 'messaging/invalid-registration-token' ||
+              code === 'messaging/invalid-argument'
+            ) {
+              tokensToPrune.push(batchTokens[idx]);
+            }
+          }
+        });
+      }
+
       console.log(`🔔 [FCM Multicast Batch ${batchIndex + 1}/${chunks.length}] Dispatched to ${batchTokens.length} devices (tag: ${notifTag}, ${response.successCount} succeeded, ${response.failureCount} failed)`);
+    }
+
+    // Prune invalid or unregistered tokens from database
+    if (tokensToPrune.length > 0) {
+      const db = require('../db');
+      db.query('UPDATE public.users SET fcm_token = NULL WHERE fcm_token = ANY($1)', [tokensToPrune])
+        .then((pruneRes) => {
+          console.log(`🧹 [FCM Prune] Pruned ${pruneRes.rowCount} invalid/unregistered FCM tokens from database.`);
+        })
+        .catch((err) => {
+          console.warn('⚠️ [FCM Prune Error]:', err.message);
+        });
     }
 
     console.log(`🔔 [FCM Multicast Complete] Total ${validTokens.length} devices across ${chunks.length} batches: ${totalSuccess} succeeded, ${totalFailure} failed`);
@@ -198,4 +234,3 @@ module.exports = {
   sendMulticastPushNotification,
   chunkTokens,
 };
-

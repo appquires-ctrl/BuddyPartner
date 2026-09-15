@@ -1,5 +1,6 @@
-const db = require('../../db');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
+const db = require('../../db');
 const { cacheService } = require('../../services/cache.service');
 
 class AdminService {
@@ -53,7 +54,7 @@ class AdminService {
   }
 
   /**
-   * Fetch aggregated dashboard statistics.
+   * High-level platform statistics for the Admin Dashboard.
    */
   async getDashboardStats() {
     try {
@@ -67,7 +68,7 @@ class AdminService {
 
       const withdrawalRes = await db.query(`
         SELECT COUNT(*)::int AS pending_withdrawals
-        FROM public.withdrawal_requests
+        FROM public.withdrawals
         WHERE status = 'pending'
       `).catch(() => ({ rows: [{ pending_withdrawals: 0 }] }));
 
@@ -79,22 +80,22 @@ class AdminService {
       `).catch(() => ({ rows: [{ reports_today: 0, reports_week: 0 }] }));
 
       const coinsRes = await db.query(`
-        SELECT COALESCE(SUM(amount), 0)::int AS total_recharged
+        SELECT COALESCE(SUM(spendable_delta), 0)::int AS total_recharged
         FROM public.wallet_transactions
-        WHERE type = 'credit' AND reason LIKE '%recharge%'
+        WHERE reason IN ('recharge', 'iap_purchase', 'razorpay_purchase')
       `).catch(() => ({ rows: [{ total_recharged: 0 }] }));
 
-      const rosesRes = await db.query(`
-        SELECT COALESCE(SUM(rose_amount), 0)::int AS total_roses_paid
-        FROM public.withdrawal_requests
+      const payoutsRes = await db.query(`
+        SELECT COALESCE(SUM(amount), 0)::int AS total_payouts
+        FROM public.withdrawals
         WHERE status IN ('approved', 'paid')
-      `).catch(() => ({ rows: [{ total_roses_paid: 0 }] }));
+      `).catch(() => ({ rows: [{ total_payouts: 0 }] }));
 
       const u = usersRes.rows[0] || {};
       const w = withdrawalRes.rows[0] || {};
       const r = reportsRes.rows[0] || {};
       const c = coinsRes.rows[0] || {};
-      const ro = rosesRes.rows[0] || {};
+      const p = payoutsRes.rows[0] || {};
 
       return {
         totalUsers: u.total_users || 0,
@@ -104,26 +105,27 @@ class AdminService {
         reportsToday: r.reports_today || 0,
         reportsThisWeek: r.reports_week || 0,
         totalCoinsRecharged: c.total_recharged || 0,
-        totalRosesPaidOut: ro.total_roses_paid || 0,
+        totalPayoutsPaidOut: p.total_payouts || 0,
       };
     } catch (err) {
-      console.error('Error fetching admin dashboard stats:', err.message);
+      console.error('❌ Error fetching admin dashboard stats:', err.message);
       throw err;
     }
   }
 
   /**
-   * Searchable and paginated user management table.
+   * Paginated, searchable, filterable list of users with dual-balance breakdown.
    */
   async getUsers({ search = '', gender = 'all', isBanned = 'all', page = 1, limit = 20 }) {
     try {
       const offset = (page - 1) * limit;
-      const params = [];
       const conditions = [];
+      const params = [];
 
-      if (search.trim()) {
-        params.push(`%${search.trim().toLowerCase()}%`);
-        conditions.push(`(LOWER(COALESCE(u.full_name, '')) LIKE $${params.length} OR LOWER(COALESCE(u.phone_number, '')) LIKE $${params.length})`);
+      if (search) {
+        params.push(`%${search.toLowerCase()}%`);
+        const idx = params.length;
+        conditions.push(`(LOWER(u.full_name) LIKE $${idx} OR u.phone_number LIKE $${idx} OR LOWER(u.user_name) LIKE $${idx})`);
       }
 
       if (gender !== 'all') {
@@ -131,10 +133,10 @@ class AdminService {
         conditions.push(`LOWER(u.gender) = $${params.length}`);
       }
 
-      if (isBanned === 'true' || isBanned === 'banned') {
-        conditions.push(`u.is_banned = TRUE`);
-      } else if (isBanned === 'false' || isBanned === 'active') {
-        conditions.push(`(u.is_banned IS FALSE OR u.is_banned IS NULL)`);
+      if (isBanned !== 'all') {
+        const bannedBool = isBanned === 'true';
+        params.push(bannedBool);
+        conditions.push(`COALESCE(u.is_banned, FALSE) = $${params.length}`);
       }
 
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -157,7 +159,9 @@ class AdminService {
           COALESCE(u.is_banned, FALSE) AS is_banned, 
           COALESCE(u.strike_count, 0) AS strike_count,
           COALESCE(u.created_at, NOW()) AS signup_date,
-          COALESCE(w.balance, 0)::int AS coin_balance,
+          COALESCE(w.spendable_balance, 0)::int AS spendable_balance,
+          COALESCE(w.earned_balance, 0)::int AS earned_balance,
+          (COALESCE(w.spendable_balance, 0) + COALESCE(w.earned_balance, 0))::int AS coin_balance,
           sub.expires_at AS subscription_expires_at,
           CASE WHEN sub.expires_at > NOW() THEN TRUE ELSE FALSE END AS is_subscribed,
           (SELECT COUNT(*)::int FROM public.reports r WHERE r.reported_user_id = u.id) AS report_count
@@ -184,7 +188,7 @@ class AdminService {
         totalPages: Math.ceil(total / limit) || 1,
       };
     } catch (err) {
-      console.error('Error fetching users for admin:', err.message);
+      console.error('❌ Error fetching users for admin:', err.message);
       throw err;
     }
   }
@@ -202,12 +206,15 @@ class AdminService {
 
       const user = userRes.rows[0];
 
-      // Wallet balance
+      // Wallet dual balances
       const walletRes = await db.query(
-        'SELECT balance FROM public.wallets WHERE user_id = $1',
+        'SELECT spendable_balance, earned_balance FROM public.wallets WHERE user_id = $1',
         [userId]
       ).catch(() => ({ rows: [] }));
-      const coinBalance = walletRes.rows[0]?.balance || 0;
+
+      const spendableBalance = Number(walletRes.rows[0]?.spendable_balance || 0);
+      const earnedBalance = Number(walletRes.rows[0]?.earned_balance || 0);
+      const coinBalance = spendableBalance + earnedBalance;
 
       // Active & recent subscriptions
       const subRes = await db.query(
@@ -232,84 +239,40 @@ class AdminService {
         [userId]
       ).catch(() => ({ rows: [] }));
 
-      // Call history summary
-      const callsRes = await db.query(
-        `SELECT COUNT(*)::int AS total_calls, COALESCE(SUM(duration_seconds), 0)::int AS total_duration
-         FROM public.call_history
-         WHERE caller_id = $1 OR callee_id = $1`,
-        [userId]
-      ).catch(() => ({ rows: [{ total_calls: 0, total_duration: 0 }] }));
-
-      const callStats = callsRes.rows[0] || { total_calls: 0, total_duration: 0 };
-
       return {
         ...user,
+        spendableBalance,
+        earnedBalance,
         coinBalance,
         activeSubscription: activeSub,
         subscriptionHistory: subRes.rows,
         reports: reportsRes.rows,
-        callStats,
       };
     } catch (err) {
-      console.error(`Error fetching detail for user ${userId}:`, err.message);
+      console.error('❌ Error fetching user details for admin:', err.message);
       throw err;
     }
   }
 
   /**
-   * Set user ban status.
+   * Ban or unban a user.
    */
-  async setBanStatus(userId, isBanned) {
+  async setBanStatus(userId, isBanned, reason = '') {
     try {
       const res = await db.query(
-        `UPDATE public.users SET is_banned = $1 WHERE id = $2 RETURNING id, full_name AS name, is_banned`,
-        [Boolean(isBanned), userId]
+        `UPDATE public.users SET is_banned = $1 WHERE id = $2 RETURNING id, full_name, is_banned`,
+        [isBanned, userId]
       );
-      if (res.rows.length === 0) {
-        throw new Error('User not found');
-      }
+      if (res.rows.length === 0) throw new Error('User not found');
       return res.rows[0];
     } catch (err) {
-      console.error(`Error toggling ban for user ${userId}:`, err.message);
+      console.error(`❌ Error setting ban status for user ${userId}:`, err.message);
       throw err;
     }
   }
 
   /**
-   * Get filed reports queue.
-   */
-  async getReports({ page = 1, limit = 20 }) {
-    try {
-      const offset = (page - 1) * limit;
-      const countRes = await db.query(`SELECT COUNT(*)::int AS total FROM public.reports`).catch(() => ({ rows: [{ total: 0 }] }));
-      const total = countRes.rows[0]?.total || 0;
-
-      const reportsRes = await db.query(`
-        SELECT 
-          r.id, r.reason, r.description, r.created_at,
-          r.reporter_id, COALESCE(u_rep.full_name, 'Anonymous') AS reporter_name, COALESCE(u_rep.phone_number, '') AS reporter_phone,
-          r.reported_user_id, COALESCE(u_target.full_name, 'User') AS reported_name, COALESCE(u_target.phone_number, '') AS reported_phone, COALESCE(u_target.is_banned, FALSE) AS reported_is_banned
-        FROM public.reports r
-        LEFT JOIN public.users u_rep ON r.reporter_id = u_rep.id
-        LEFT JOIN public.users u_target ON r.reported_user_id = u_target.id
-        ORDER BY r.created_at DESC
-        LIMIT $1 OFFSET $2
-      `, [limit, offset]).catch(() => ({ rows: [] }));
-
-      return {
-        reports: reportsRes.rows,
-        total,
-        page: Number(page),
-        totalPages: Math.ceil(total / limit) || 1,
-      };
-    } catch (err) {
-      console.error('Error fetching reports for admin:', err.message);
-      throw err;
-    }
-  }
-
-  /**
-   * Get withdrawal requests table.
+   * Get withdrawal requests table with earned balance provenance.
    */
   async getWithdrawals({ status = 'all', page = 1, limit = 20 }) {
     try {
@@ -322,7 +285,7 @@ class AdminService {
         whereClause = `WHERE w.status = $1`;
       }
 
-      const countSql = `SELECT COUNT(*)::int AS total FROM public.withdrawal_requests w ${whereClause}`;
+      const countSql = `SELECT COUNT(*)::int AS total FROM public.withdrawals w ${whereClause}`;
       const countRes = await db.query(countSql, params).catch(() => ({ rows: [{ total: 0 }] }));
       const total = countRes.rows[0]?.total || 0;
 
@@ -333,10 +296,13 @@ class AdminService {
 
       const sql = `
         SELECT 
-          w.id, w.user_id, w.rose_amount, w.rupee_amount, w.status, w.requested_at, w.processed_at,
-          COALESCE(u.full_name, 'Creator') AS user_name, COALESCE(u.phone_number, '') AS user_phone
-        FROM public.withdrawal_requests w
+          w.id, w.user_id, w.amount, w.rupee_amount, w.status, w.payout_method, w.payout_details, w.admin_note, w.requested_at, w.processed_at,
+          COALESCE(u.full_name, 'Creator') AS user_name, COALESCE(u.phone_number, '') AS user_phone,
+          COALESCE(wl.earned_balance, 0)::int AS current_earned_balance,
+          COALESCE(wl.spendable_balance, 0)::int AS current_spendable_balance
+        FROM public.withdrawals w
         LEFT JOIN public.users u ON w.user_id = u.id
+        LEFT JOIN public.wallets wl ON w.user_id = wl.user_id
         ${whereClause}
         ORDER BY w.requested_at DESC
         LIMIT $${limitIdx} OFFSET $${offsetIdx}
@@ -351,37 +317,91 @@ class AdminService {
         totalPages: Math.ceil(total / limit) || 1,
       };
     } catch (err) {
-      console.error('Error fetching withdrawal requests for admin:', err.message);
+      console.error('❌ Error fetching withdrawal requests for admin:', err.message);
       throw err;
     }
   }
 
   /**
    * Update status of withdrawal request (pending, approved, rejected, paid).
+   * On rejection: atomically credits earned_balance back and writes a compensating ledger row.
    */
-  async updateWithdrawalStatus(withdrawalId, status) {
+  async updateWithdrawalStatus(withdrawalId, status, adminNote = null) {
     const validStatuses = ['pending', 'approved', 'rejected', 'paid'];
     if (!validStatuses.includes(status)) {
       throw new Error(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
     }
 
+    const client = await db.pool.connect();
     try {
-      const res = await db.query(`
-        UPDATE public.withdrawal_requests
-        SET status = $1, processed_at = NOW()
-        WHERE id = $2
-        RETURNING *
-      `, [status, withdrawalId]);
+      await client.query('BEGIN');
 
-      if (res.rows.length === 0) {
+      const existingRes = await client.query(
+        'SELECT * FROM public.withdrawals WHERE id = $1 FOR UPDATE',
+        [withdrawalId]
+      );
+      if (existingRes.rows.length === 0) {
+        await client.query('ROLLBACK');
         throw new Error('Withdrawal request not found');
       }
 
+      const withdrawal = existingRes.rows[0];
+
+      if (withdrawal.status === status) {
+        await client.query('COMMIT');
+        return withdrawal;
+      }
+
+      // If rejecting a pending withdrawal, credit back the earned_balance
+      if (status === 'rejected' && withdrawal.status === 'pending') {
+        const refundAmount = Number(withdrawal.amount);
+        const userId = withdrawal.user_id;
+
+        await client.query(
+          `UPDATE public.wallets
+           SET earned_balance = earned_balance + $1::bigint,
+               updated_at = NOW()
+           WHERE user_id = $2`,
+          [refundAmount, userId]
+        );
+
+        const refKey = `refund_${withdrawal.id}`;
+        await client.query(
+          `INSERT INTO public.wallet_transactions (
+             user_id, spendable_delta, earned_delta, idempotency_key, reason, reference_id
+           ) VALUES ($1, 0, $2, $3, 'withdrawal_reject_refund', $4)`,
+          [userId, refundAmount, refKey, withdrawal.id]
+        );
+
+        await cacheService.invalidate(`user:balance:${userId}`).catch(() => {});
+        console.log(`↩️ [Admin] Refunded ${refundAmount} earned coins to user ${userId} for rejected withdrawal ${withdrawalId}`);
+      }
+
+      const res = await client.query(
+        `UPDATE public.withdrawals
+         SET status = $1, admin_note = COALESCE($2, admin_note), processed_at = NOW()
+         WHERE id = $3
+         RETURNING *`,
+        [status, adminNote, withdrawalId]
+      );
+
+      await client.query('COMMIT');
       return res.rows[0];
     } catch (err) {
-      console.error(`Error updating withdrawal status ${withdrawalId}:`, err.message);
+      await client.query('ROLLBACK').catch(() => {});
+      console.error(`❌ Error updating withdrawal status ${withdrawalId}:`, err.message);
       throw err;
+    } finally {
+      client.release();
     }
+  }
+
+  /**
+   * Cancel an open or accepted Buddy request by admin. Strictly no refunds.
+   */
+  async cancelBuddyRequest(requestId, adminId = null, reason = 'admin_action') {
+    const { buddyService } = require('../buddy/buddy.service');
+    return await buddyService.adminCancelRequest(requestId, adminId, reason);
   }
 
   /**
@@ -396,7 +416,10 @@ class AdminService {
 
       const res = await db.query(`
         SELECT 
-          t.id, t.user_id, t.amount, t.type, t.reason, t.created_at,
+          t.id, t.user_id, t.spendable_delta, t.earned_delta,
+          (t.spendable_delta + t.earned_delta) AS amount,
+          CASE WHEN (t.spendable_delta + t.earned_delta) >= 0 THEN 'credit' ELSE 'debit' END AS type,
+          t.reason, t.idempotency_key, t.reference_id, t.created_at,
           COALESCE(u.full_name, 'User') AS user_name, COALESCE(u.phone_number, '') AS user_phone
         FROM public.wallet_transactions t
         LEFT JOIN public.users u ON t.user_id = u.id
@@ -411,18 +434,16 @@ class AdminService {
         totalPages: Math.ceil(total / limit) || 1,
       };
     } catch (err) {
-      console.error('Error fetching transactions for admin:', err.message);
+      console.error('❌ Error fetching transactions for admin:', err.message);
       throw err;
     }
   }
 
   /**
-   * Directly grant coins to a user from admin.
-   * @param {string} userId
-   * @param {number} amount
-   * @param {string} reason
+   * Directly grant promotional coins to a user from admin.
+   * Credits spendable_balance (non-withdrawable).
    */
-  async giveCoins(userId, amount, reason = 'admin_gift') {
+  async giveCoins(userId, amount, reason = 'admin_grant') {
     const coinAmount = parseInt(amount, 10);
     if (isNaN(coinAmount) || coinAmount <= 0) {
       const err = new Error('Amount must be a positive integer');
@@ -437,41 +458,45 @@ class AdminService {
       throw err;
     }
 
+    const refId = `ADMIN_GIFT_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
 
       const walletRes = await client.query(
-        `INSERT INTO public.wallets (user_id, balance)
-         VALUES ($1, $2)
+        `INSERT INTO public.wallets (user_id, spendable_balance, earned_balance)
+         VALUES ($1, $2, 0)
          ON CONFLICT (user_id)
-         DO UPDATE SET balance = public.wallets.balance + $2
-         RETURNING balance`,
+         DO UPDATE SET 
+           spendable_balance = public.wallets.spendable_balance + $2,
+           updated_at = NOW()
+         RETURNING spendable_balance, earned_balance`,
         [userId, coinAmount]
       );
-      const newBalance = walletRes.rows[0].balance;
 
-      const refId = `ADMIN_GIFT_${Date.now()}`;
+      const sBal = Number(walletRes.rows[0].spendable_balance);
+      const eBal = Number(walletRes.rows[0].earned_balance);
+
       await client.query(
-        `INSERT INTO public.wallet_transactions (user_id, amount, type, reason, reference_id)
-         VALUES ($1, $2, 'credit', $3, $4)`,
-        [userId, coinAmount, reason, refId]
+        `INSERT INTO public.wallet_transactions (user_id, spendable_delta, earned_delta, idempotency_key, reason, reference_id)
+         VALUES ($1, $2, 0, $3, 'admin_grant', $3)`,
+        [userId, coinAmount, refId]
       );
 
       await client.query('COMMIT');
-
-      // Invalidate Redis/memory balance cache
-      await cacheService.invalidate(`user:balance:${userId}`);
+      await cacheService.invalidate(`user:balance:${userId}`).catch(() => {});
 
       return {
         userId,
-        newBalance,
+        spendableBalance: sBal,
+        earnedBalance: eBal,
+        newBalance: sBal + eBal,
         creditedAmount: coinAmount,
         reason,
       };
     } catch (err) {
-      await client.query('ROLLBACK');
-      console.error(`Error granting coins to user ${userId}:`, err.message);
+      await client.query('ROLLBACK').catch(() => {});
+      console.error(`❌ Error granting coins to user ${userId}:`, err.message);
       throw err;
     } finally {
       client.release();
@@ -525,8 +550,8 @@ class AdminService {
       [userId, days, expiresAt.toISOString(), paymentReference]
     );
 
-    // Invalidate Redis/memory subscription cache
-    await cacheService.invalidate(`subscription_status:${userId}`);
+    await cacheService.invalidate(`subscription_status:${userId}`).catch(() => {});
+    await cacheService.invalidate(`sub:active:${userId}`).catch(() => {});
 
     return {
       userId,
@@ -535,7 +560,10 @@ class AdminService {
       durationDays: days,
     };
   }
+
+  async grantSubscription(userId, planDurationDays = 365, reason = 'admin_gift') {
+    return this.giveSubscription(userId, planDurationDays, reason);
+  }
 }
 
 module.exports = new AdminService();
-

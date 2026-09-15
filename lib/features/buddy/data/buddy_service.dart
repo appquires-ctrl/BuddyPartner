@@ -133,4 +133,18 @@ class BuddyService {
       return [];
     }
   }
+
+  /// Fetch the 6-digit meetup OTP for the initiator via authenticated REST endpoint.
+  Future<String> getInitiatorOtp(String requestId) async {
+    try {
+      final response = await _apiClient.dio.get('/api/buddy/requests/$requestId/otp');
+      if (response.statusCode == 200 && response.data != null) {
+        return response.data['otpCode']?.toString() ?? '';
+      }
+      throw Exception(response.data?['message'] ?? 'Failed to fetch OTP');
+    } on DioException catch (e) {
+      final msg = e.response?.data?['message'] ?? e.message ?? 'Failed to fetch OTP';
+      throw Exception(msg);
+    }
+  }
 }

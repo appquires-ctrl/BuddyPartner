@@ -1,45 +1,61 @@
 const crypto = require('crypto');
 const db = require('../../db');
+const redis = require('../../redis');
 const { cacheService } = require('../../services/cache.service');
 const { subscriptionsService } = require('../subscriptions/subscriptions.service');
 const { MessagingService } = require('../messaging/messaging.service');
 const messagingService = new MessagingService();
 const { ModerationService } = require('../moderation/moderation.service');
-const { BUDDY_TYPES, BUDDY_PRICING, BUDDY_LIMITS } = require('./buddy.config');
+const { WalletService } = require('../wallet/wallet.service');
+const { BUDDY_TYPES, BUDDY_PRICING, BUDDY_LIMITS, BUDDY_STATUSES } = require('./buddy.config');
+
+function getPepper() {
+  return process.env.BUDDY_OTP_PEPPER || 'buddypartner_otp_secret_pepper_2026';
+}
+
+function hashOtp(otp) {
+  return crypto.createHmac('sha256', getPepper()).update(String(otp).trim()).digest('hex');
+}
+
+function encryptOtp(otp) {
+  const key = crypto.scryptSync(getPepper(), 'buddy_salt_2026', 32);
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  let encrypted = cipher.update(String(otp).trim(), 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const tag = cipher.getAuthTag().toString('hex');
+  return `${iv.toString('hex')}:${tag}:${encrypted}`;
+}
+
+function decryptOtp(encryptedStr) {
+  if (!encryptedStr) return null;
+  const parts = encryptedStr.split(':');
+  if (parts.length !== 3) return null;
+  const [ivHex, tagHex, cipherHex] = parts;
+  const key = crypto.scryptSync(getPepper(), 'buddy_salt_2026', 32);
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'));
+  decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+  let decrypted = decipher.update(cipherHex, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+}
 
 class BuddyService {
-  /**
-   * Normalizes city strings for consistent lookup.
-   */
   _normalizeCity(city) {
     if (!city || typeof city !== 'string') return '';
     return city.trim().toLowerCase();
   }
 
-  /**
-   * Validates standard UUID string format.
-   */
   _isValidUUID(uuid) {
     return typeof uuid === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(uuid);
   }
 
   /**
    * Creates a new broadcast Buddy Activity Request.
-   * 
-   * Transactional:
-   * 1. Validates active subscription (initiator must be subscribed).
-   * 2. Deducts 100 coins atomically from initiator's wallet.
-   * 3. Inserts debit audit row into wallet_transactions.
-   * 4. Inserts row into buddy_requests.
-   * 
-   * @param {Object} params
-   * @param {string} params.initiatorId
-   * @param {string} params.buddyType
-   * @param {string} params.city
-   * @param {string} params.targetGender
-   * @returns {Promise<Object>} Created request row with initiator info
+   * Debits 100 coins immediately (spendable first, then earned).
+   * If total across both buckets is under 100, rejects with 400 INSUFFICIENT_COINS and writes zero rows.
    */
-  async createRequest({ initiatorId, buddyType, city, targetGender }) {
+  async createRequest({ initiatorId, buddyType, city, targetGender, idempotencyKey = null, correlationId = null }) {
     if (!this._isValidUUID(initiatorId)) {
       const err = new Error('Invalid initiator ID');
       err.statusCode = 400;
@@ -67,7 +83,7 @@ class BuddyService {
       throw err;
     }
 
-    // 1. Check Moderation (banned or suspended users cannot initiate requests)
+    // Check Moderation
     const modStatus = await ModerationService.isUserBlocked(initiatorId);
     if (modStatus.isBanned || modStatus.isSuspended) {
       const err = new Error('Account is restricted from creating requests');
@@ -75,7 +91,7 @@ class BuddyService {
       throw err;
     }
 
-    // 2. Check Subscription (initiator must have an active subscription)
+    // Check Subscription
     const activeSub = await subscriptionsService.getActiveSubscription(initiatorId);
     if (!activeSub) {
       const err = new Error('An active membership subscription is required to post buddy requests');
@@ -86,68 +102,74 @@ class BuddyService {
 
     const coinCost = BUDDY_PRICING.INITIATOR_COIN_COST;
     const coinReward = BUDDY_PRICING.ACCEPTER_COIN_REWARD;
+    const cid = correlationId || `buddy_create_${crypto.randomBytes(8).toString('hex')}`;
 
-    // 3. Transactional execution: Deduct coins + create request
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
 
-      // Check current wallet balance with row-level lock
-      const walletRes = await client.query(
-        'SELECT balance FROM public.wallets WHERE user_id = $1 FOR UPDATE',
-        [initiatorId]
-      );
-      const currentBalance = walletRes.rows[0] ? Number(walletRes.rows[0].balance) : 0;
-      if (currentBalance < coinCost) {
+      // 1. Check idempotency if key provided
+      if (idempotencyKey) {
+        const existingReq = await client.query(
+          `SELECT * FROM public.buddy_requests WHERE idempotency_key = $1`,
+          [idempotencyKey]
+        );
+        if (existingReq.rows.length > 0) {
+          const req = existingReq.rows[0];
+          const bal = await WalletService.getBalance(initiatorId);
+          await client.query('COMMIT');
+          console.log(`🔁 [BuddyService.createRequest] Idempotency hit: ${idempotencyKey}`);
+          return {
+            ...req,
+            newBalance: bal.balance,
+            alreadyProcessed: true,
+          };
+        }
+      }
+
+      // 2. Atomic spendable-first coin deduction
+      const debitRes = await WalletService.debitCoins({
+        userId: initiatorId,
+        amount: coinCost,
+        reason: 'buddy_spend',
+        referenceId: idempotencyKey,
+        idempotencyKey: idempotencyKey ? `tx_${idempotencyKey}` : null,
+        correlationId: cid,
+        client,
+      });
+
+      if (!debitRes.success) {
         await client.query('ROLLBACK');
-        const err = new Error(`Insufficient balance: ${coinCost} coins required to create a buddy request (current balance: ${currentBalance} coins).`);
+        const bal = await WalletService.getBalance(initiatorId);
+        const err = new Error(`Insufficient coins: ${coinCost} coins required to create a buddy request (current balance: ${bal.balance} coins).`);
         err.code = 'INSUFFICIENT_COINS';
         err.statusCode = 400;
         throw err;
       }
 
-      // Deduct coins atomically from wallet
-      const deductRes = await client.query(
-        `UPDATE public.wallets
-         SET balance = balance - $1
-         WHERE user_id = $2 AND balance >= $1
-         RETURNING balance`,
-        [coinCost, initiatorId]
-      );
-
-      if (deductRes.rows.length === 0) {
-        await client.query('ROLLBACK');
-        const err = new Error(`Insufficient balance: ${coinCost} coins required to create a buddy request.`);
-        err.code = 'INSUFFICIENT_COINS';
-        err.statusCode = 400;
-        throw err;
-      }
-
-      const newBalance = deductRes.rows[0].balance;
-
-      // Insert buddy request
+      // 3. Insert buddy request
       const insertRes = await client.query(
         `INSERT INTO public.buddy_requests (
            initiator_id, buddy_type, city, target_gender,
-           initiator_coin_cost, accepter_coin_reward, status
-         ) VALUES ($1, $2, $3, $4, $5, $6, 'open')
+           initiator_coin_cost, accepter_coin_reward, status, idempotency_key
+         ) VALUES ($1, $2, $3, $4, $5, $6, 'open', $7)
          RETURNING *`,
-        [initiatorId, buddyType, normalizedCity, normalizedGender, coinCost, coinReward]
+        [initiatorId, buddyType, normalizedCity, normalizedGender, coinCost, coinReward, idempotencyKey]
       );
 
       const request = insertRes.rows[0];
 
-      // Record wallet transaction
-      await client.query(
-        `INSERT INTO public.wallet_transactions (user_id, amount, type, reason, reference_id)
-         VALUES ($1, $2, 'debit', 'buddy_request', $3)`,
-        [initiatorId, coinCost, request.id]
-      );
+      // Update reference_id on the debit ledger entry to point to this buddy request id
+      if (debitRes.transactionId) {
+        await client.query(
+          `UPDATE public.wallet_transactions
+           SET reference_id = $1
+           WHERE id = $2`,
+          [request.id, debitRes.transactionId]
+        );
+      }
 
       await client.query('COMMIT');
-
-      // Invalidate wallet cache
-      await cacheService.invalidate(`user:balance:${initiatorId}`);
 
       // Fetch public initiator details for broadcast
       const userRes = await db.query(
@@ -155,7 +177,6 @@ class BuddyService {
          FROM public.users WHERE id = $1`,
         [initiatorId]
       );
-
       const initiator = userRes.rows[0] || {};
 
       return {
@@ -168,10 +189,10 @@ class BuddyService {
           avatarStyle: initiator.avatar_style || 'avataaars',
           gender: initiator.gender || null,
         },
-        newBalance,
+        newBalance: debitRes.balance,
       };
     } catch (err) {
-      await client.query('ROLLBACK');
+      await client.query('ROLLBACK').catch(() => {});
       console.error(`❌ [BuddyService.createRequest] Error:`, err.message);
       throw err;
     } finally {
@@ -181,17 +202,9 @@ class BuddyService {
 
   /**
    * Atomically accepts an open buddy request.
-   * 
-   * Single-query atomic update:
-   * UPDATE ... WHERE id = $3 AND status = 'open' RETURNING *;
-   * 
-   * Guarantees that in a high-concurrency race condition with multiple
-   * simultaneous accepters, exactly ONE succeeds and all others receive ALREADY_ACCEPTED.
-   * 
-   * @param {Object} params
-   * @param {string} params.requestId
-   * @param {string} params.accepterId
-   * @returns {Promise<Object>} Updated request row with 6-digit OTP
+   * First accepter wins via atomic UPDATE ... WHERE id = $1 AND status = 'open'.
+   * Immediately unlocks chat: creates conversation row and links conversation_id.
+   * Generates CSPRNG 6-digit OTP, storing only its hash and encrypted token for REST retrieval.
    */
   async acceptRequest({ requestId, accepterId }) {
     if (!this._isValidUUID(requestId) || !this._isValidUUID(accepterId)) {
@@ -200,7 +213,6 @@ class BuddyService {
       throw err;
     }
 
-    // 1. Check Moderation
     const modStatus = await ModerationService.isUserBlocked(accepterId);
     if (modStatus.isBanned || modStatus.isSuspended) {
       const err = new Error('Account is restricted from accepting requests');
@@ -208,7 +220,6 @@ class BuddyService {
       throw err;
     }
 
-    // 2. Fetch existing request to verify it's not the initiator accepting their own request
     const existingCheck = await db.query(
       `SELECT initiator_id, status FROM public.buddy_requests WHERE id = $1`,
       [requestId]
@@ -233,25 +244,32 @@ class BuddyService {
       throw err;
     }
 
-    // 3. Generate secure 6-digit OTP (100000 - 999999)
-    const otpCode = crypto.randomInt(100000, 1000000).toString();
+    // 1. Create canonical conversation immediately to unlock chat
+    const conversation = await messagingService.findOrCreateConversation(
+      existingCheck.rows[0].initiator_id,
+      accepterId
+    );
 
-    // 4. Atomic single UPDATE query — the core race-prevention mechanism
+    // 2. Generate cryptographically secure 6-digit OTP
+    const otpCode = crypto.randomInt(100000, 1000000).toString();
+    const otpHash = hashOtp(otpCode);
+    const otpEncrypted = encryptOtp(otpCode);
+
+    // 3. Atomic single UPDATE query — the core race-prevention mechanism
     const updateRes = await db.query(
       `UPDATE public.buddy_requests
        SET status = 'accepted',
            accepter_id = $1,
-           accepted_at = NOW(),
-           otp_code = $2,
-           otp_generated_at = NOW(),
-           otp_attempts = 0
-       WHERE id = $3 AND status = 'open'
+           conversation_id = $2,
+           otp_hash = $3,
+           otp_encrypted = $4,
+           accepted_at = NOW()
+       WHERE id = $5 AND status = 'open'
        RETURNING *`,
-      [accepterId, otpCode, requestId]
+      [accepterId, conversation.id, otpHash, otpEncrypted, requestId]
     );
 
     if (updateRes.rows.length === 0) {
-      // Another concurrent user won the atomic race milliseconds earlier
       const err = new Error('This buddy request has already been accepted by another user');
       err.code = 'ALREADY_ACCEPTED';
       err.statusCode = 409;
@@ -260,7 +278,6 @@ class BuddyService {
 
     const acceptedRequest = updateRes.rows[0];
 
-    // Fetch accepter & initiator profile info
     const [initiatorRes, accepterRes] = await Promise.all([
       db.query(`SELECT id, full_name, user_name, avatar_seed, avatar_style, gender FROM public.users WHERE id = $1`, [acceptedRequest.initiator_id]),
       db.query(`SELECT id, full_name, user_name, avatar_seed, avatar_style, gender FROM public.users WHERE id = $1`, [accepterId]),
@@ -271,6 +288,9 @@ class BuddyService {
 
     return {
       ...acceptedRequest,
+      otpCode, // Returned strictly for socket notification convenience to initiator
+      otp_code: otpCode,
+      conversationId: conversation.id,
       initiator: {
         id: initiator.id,
         fullName: initiator.full_name || 'User',
@@ -291,25 +311,57 @@ class BuddyService {
   }
 
   /**
-   * Verifies the 6-digit handshake OTP submitted by the accepter.
-   * 
-   * Security & Rate-limiting:
-   * - Max 5 attempts per request before lockout (HTTP 429).
-   * - Requires matching accepter_id and status = 'accepted'.
-   * 
-   * Transactional:
-   * - Transitions request status to 'otp_verified'.
-   * - Credits 50 coins to accepter's wallet.
-   * - Records wallet_transactions credit audit row.
-   * - Unlocks / creates conversation row via messagingService.findOrCreateConversation.
-   * 
-   * @param {Object} params
-   * @param {string} params.requestId
-   * @param {string} params.accepterId
-   * @param {string} params.otpCode
-   * @returns {Promise<Object>} Result with unlocked conversationId and updated request
+   * Retrieves plaintext OTP for the initiator via authenticated REST endpoint.
+   * Reconstructs OTP by decrypting AES-256-GCM encrypted token.
    */
-  async verifyOtp({ requestId, accepterId, otpCode }) {
+  async getInitiatorOtp(requestId, userId) {
+    if (!this._isValidUUID(requestId)) {
+      const err = new Error('Invalid request ID');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const result = await db.query(
+      `SELECT initiator_id, status, otp_encrypted FROM public.buddy_requests WHERE id = $1`,
+      [requestId]
+    );
+
+    if (result.rows.length === 0) {
+      const err = new Error('Buddy request not found');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const row = result.rows[0];
+    if (row.initiator_id !== userId) {
+      const err = new Error('Only the initiator can view the meetup OTP');
+      err.statusCode = 403;
+      throw err;
+    }
+
+    if (row.status !== 'accepted') {
+      const err = new Error(`OTP is not available in status '${row.status}'. It is only available when accepted and awaiting meetup.`);
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const otpCode = decryptOtp(row.otp_encrypted);
+    if (!otpCode) {
+      const err = new Error('OTP is unavailable or has expired');
+      err.statusCode = 500;
+      throw err;
+    }
+
+    return { otpCode };
+  }
+
+  /**
+   * Completes the Buddy request when accepter submits the 6-digit in-person OTP.
+   * Rate limited via Redis: max 5 attempts, then 15-minute lockout.
+   * Fail-closed if Redis is offline.
+   * Atomically transitions status to 'completed' and credits 50 coins to accepter's earned_balance.
+   */
+  async completeRequest({ requestId, accepterId, otpCode, idempotencyKey = null }) {
     if (!this._isValidUUID(requestId) || !this._isValidUUID(accepterId)) {
       const err = new Error('Invalid request or accepter ID format');
       err.statusCode = 400;
@@ -339,154 +391,143 @@ class BuddyService {
     const request = reqRes.rows[0];
 
     if (request.accepter_id !== accepterId) {
-      const err = new Error('Only the user who accepted this request can verify the OTP');
+      const err = new Error('Only the user who accepted this request can submit the meetup OTP');
       err.statusCode = 403;
       throw err;
     }
 
-    if (request.status === 'otp_verified') {
-      // Already completed handshake: return existing conversation
+    if (request.status === 'completed') {
       return {
         success: true,
-        alreadyVerified: true,
+        alreadyCompleted: true,
         conversationId: request.conversation_id,
         request,
       };
     }
 
     if (request.status !== 'accepted') {
-      const err = new Error(`Request is in status '${request.status}' and cannot be verified`);
+      const err = new Error(`Request is in status '${request.status}' and cannot be completed`);
       err.statusCode = 400;
       throw err;
     }
 
-    // 2. Check 5-attempt rate-limiting lockout
-    if (request.otp_attempts >= BUDDY_LIMITS.MAX_OTP_ATTEMPTS) {
-      const err = new Error('Too many failed OTP attempts. This request has been locked for security.');
-      err.code = 'TOO_MANY_ATTEMPTS';
-      err.statusCode = 429;
-      throw err;
-    }
+    // 2. Redis Rate Limiting & Lockout Check (Fail-closed)
+    const lockoutKey = `buddy:otp:lockout:${requestId}`;
+    const attemptsKey = `buddy:otp:attempts:${requestId}`;
 
-    // 3. Verify OTP Match
-    if (request.otp_code !== cleanOtp) {
-      // Increment attempt count
-      const incRes = await db.query(
-        `UPDATE public.buddy_requests
-         SET otp_attempts = otp_attempts + 1
-         WHERE id = $1
-         RETURNING otp_attempts`,
-        [requestId]
-      );
-
-      const attemptsUsed = incRes.rows[0].otp_attempts;
-      const remainingAttempts = Math.max(0, BUDDY_LIMITS.MAX_OTP_ATTEMPTS - attemptsUsed);
-
-      if (remainingAttempts === 0) {
-        const err = new Error('Too many failed OTP attempts. This request is now locked.');
+    try {
+      const isLocked = await redis.get(lockoutKey);
+      if (isLocked) {
+        const ttl = await redis.ttl(lockoutKey);
+        const mins = Math.max(1, Math.ceil(ttl / 60));
+        const err = new Error(`Too many failed OTP attempts. This request is locked for security. Please try again in ${mins} minute(s).`);
         err.code = 'TOO_MANY_ATTEMPTS';
         err.statusCode = 429;
         throw err;
       }
+    } catch (redisErr) {
+      if (redisErr.statusCode === 429) throw redisErr;
+      console.error('❌ [BuddyService.completeRequest] Redis lockout check failed (fail-closed):', redisErr.message);
+      const err = new Error('Security rate limiting service unavailable. Please try again in a few moments.');
+      err.statusCode = 503;
+      throw err;
+    }
 
-      const err = new Error(`Incorrect OTP code. ${remainingAttempts} attempts remaining.`);
+    // 3. Verify OTP Hash
+    const submittedHash = hashOtp(cleanOtp);
+    if (submittedHash !== request.otp_hash) {
+      let remainingAttempts = BUDDY_LIMITS.MAX_OTP_ATTEMPTS - 1;
+      try {
+        const attempts = await redis.incr(attemptsKey);
+        await redis.expire(attemptsKey, BUDDY_LIMITS.OTP_LOCKOUT_SECONDS);
+        remainingAttempts = Math.max(0, BUDDY_LIMITS.MAX_OTP_ATTEMPTS - attempts);
+
+        if (attempts >= BUDDY_LIMITS.MAX_OTP_ATTEMPTS) {
+          await redis.set(lockoutKey, '1', 'EX', BUDDY_LIMITS.OTP_LOCKOUT_SECONDS);
+          await redis.del(attemptsKey);
+          console.warn(`🔒 [BuddyService] Request ${requestId} locked for 15 minutes due to 5 failed OTP attempts.`);
+          const err = new Error('Too many failed OTP attempts. This request is now locked for 15 minutes.');
+          err.code = 'TOO_MANY_ATTEMPTS';
+          err.statusCode = 429;
+          throw err;
+        }
+      } catch (redisErr) {
+        if (redisErr.statusCode === 429) throw redisErr;
+        console.error('❌ Redis increment error on failed OTP:', redisErr.message);
+      }
+
+      const err = new Error(`Incorrect OTP code. ${remainingAttempts} attempt(s) remaining.`);
       err.code = 'INVALID_OTP';
       err.statusCode = 400;
       err.remainingAttempts = remainingAttempts;
       throw err;
     }
 
-    // 4. OTP Matches: Execute transactional unlock & reward
+    // Clean up Redis lockout/attempts keys upon successful match
+    await Promise.all([
+      redis.del(lockoutKey).catch(() => {}),
+      redis.del(attemptsKey).catch(() => {}),
+    ]);
+
+    // 4. Atomic Transaction: Transition to 'completed' + Credit 50 earned coins
     const rewardCoins = request.accepter_coin_reward || BUDDY_PRICING.ACCEPTER_COIN_REWARD;
     const client = await db.pool.connect();
 
     try {
       await client.query('BEGIN');
 
-      // Create or fetch canonical conversation between initiator and accepter
-      const conversation = await messagingService.findOrCreateConversation(
-        request.initiator_id,
-        request.accepter_id
-      );
-
-      // Transition request status to otp_verified and link conversation
       const updateRes = await client.query(
         `UPDATE public.buddy_requests
-         SET status = 'otp_verified',
-             verified_at = NOW(),
-             conversation_id = $1
-         WHERE id = $2 AND status = 'accepted'
+         SET status = 'completed',
+             completed_at = NOW()
+         WHERE id = $1 AND status = 'accepted'
          RETURNING *`,
-        [conversation.id, requestId]
+        [requestId]
       );
 
       if (updateRes.rows.length === 0) {
         await client.query('ROLLBACK');
-        const err = new Error('Failed to verify request — invalid state transition');
+        const err = new Error('Failed to complete request — invalid state transition');
         err.statusCode = 409;
         throw err;
       }
 
-      const verifiedRequest = updateRes.rows[0];
+      const completedRequest = updateRes.rows[0];
 
-      // Credit 50 reward coins to accepter's wallet
-      const creditRes = await client.query(
-        `UPDATE public.wallets
-         SET balance = balance + $1
-         WHERE user_id = $2
-         RETURNING balance`,
-        [rewardCoins, accepterId]
-      );
-
-      const newAccepterBalance = creditRes.rows.length > 0 ? creditRes.rows[0].balance : 0;
-
-      // Log reward transaction
-      await client.query(
-        `INSERT INTO public.wallet_transactions (user_id, amount, type, reason, reference_id)
-         VALUES ($1, $2, 'credit', 'buddy_reward', $3)`,
-        [accepterId, rewardCoins, requestId]
-      );
+      // Credit 50 coins directly to earned_balance
+      const creditRes = await WalletService.creditCoins({
+        userId: accepterId,
+        spendable: 0,
+        earned: rewardCoins,
+        reason: 'buddy_reward',
+        referenceId: requestId,
+        idempotencyKey: idempotencyKey || `buddy_reward_${requestId}`,
+        correlationId: `reward_${requestId}`,
+        client,
+      });
 
       await client.query('COMMIT');
 
-      // Invalidate accepter wallet cache
-      await cacheService.invalidate(`user:balance:${accepterId}`);
-
-      // Fetch other user profiles for client navigation
+      // Fetch user profiles for response
       const [initiatorRes, accepterRes] = await Promise.all([
         db.query(`SELECT id, full_name, user_name, avatar_seed, avatar_style, gender FROM public.users WHERE id = $1`, [request.initiator_id]),
         db.query(`SELECT id, full_name, user_name, avatar_seed, avatar_style, gender FROM public.users WHERE id = $1`, [accepterId]),
       ]);
 
-      const initiator = initiatorRes.rows[0] || {};
-      const accepter = accepterRes.rows[0] || {};
-
       return {
         success: true,
-        conversationId: conversation.id,
+        conversationId: request.conversation_id,
         rewardCoins,
-        newBalance: newAccepterBalance,
-        request: verifiedRequest,
-        initiator: {
-          id: initiator.id,
-          fullName: initiator.full_name || 'User',
-          userName: initiator.user_name || null,
-          avatarSeed: initiator.avatar_seed || null,
-          avatarStyle: initiator.avatar_style || 'avataaars',
-          gender: initiator.gender || null,
-        },
-        accepter: {
-          id: accepter.id,
-          fullName: accepter.full_name || 'User',
-          userName: accepter.user_name || null,
-          avatarSeed: accepter.avatar_seed || null,
-          avatarStyle: accepter.avatar_style || 'avataaars',
-          gender: accepter.gender || null,
-        },
+        earnedBalance: creditRes.earnedBalance,
+        spendableBalance: creditRes.spendableBalance,
+        balance: creditRes.balance,
+        request: completedRequest,
+        initiator: initiatorRes.rows[0] || {},
+        accepter: accepterRes.rows[0] || {},
       };
     } catch (err) {
-      await client.query('ROLLBACK');
-      console.error(`❌ [BuddyService.verifyOtp] Error:`, err.message);
+      await client.query('ROLLBACK').catch(() => {});
+      console.error(`❌ [BuddyService.completeRequest] Atomic transaction error:`, err.message);
       throw err;
     } finally {
       client.release();
@@ -494,8 +535,45 @@ class BuddyService {
   }
 
   /**
+   * Alias for completeRequest to support backward compatibility.
+   */
+  async verifyOtp(params) {
+    return this.completeRequest(params);
+  }
+
+  /**
+   * Admin-only cancellation of an open or accepted request.
+   * Strictly no refunds per product policy.
+   */
+  async adminCancelRequest(requestId, adminId = null, reason = 'admin_action') {
+    if (!this._isValidUUID(requestId)) {
+      const err = new Error('Invalid request ID');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const res = await db.query(
+      `UPDATE public.buddy_requests
+       SET status = 'cancelled',
+           cancelled_at = NOW()
+       WHERE id = $1 AND status IN ('open', 'accepted')
+       RETURNING *`,
+      [requestId]
+    );
+
+    if (res.rows.length === 0) {
+      const err = new Error('Request not found or cannot be cancelled (already completed or cancelled)');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    console.log(`🛡️ [Admin] Buddy request ${requestId} cancelled by admin ${adminId}. Reason: ${reason}`);
+    return res.rows[0];
+  }
+
+  /**
    * Retrieves open requests in a city matching the requesting user's profile.
-   * Utilizes the idx_buddy_requests_open_city_gender partial index.
+   * Utilizes idx_buddy_requests_status_city_gender.
    */
   async listOpenRequests({ city, userGender, buddyType, userId, limit = 20, offset = 0 }) {
     const normalizedCity = this._normalizeCity(city);
@@ -517,19 +595,16 @@ class BuddyService {
         AND r.status = 'open'
     `;
 
-    // Filter by target gender if userGender provided
     if (userGender) {
       params.push(userGender.toLowerCase().trim());
       query += ` AND (r.target_gender = $${params.length} OR r.target_gender = 'all')`;
     }
 
-    // Exclude initiator's own requests
     if (userId) {
       params.push(userId);
       query += ` AND r.initiator_id != $${params.length}`;
     }
 
-    // Optional buddy_type filter
     if (buddyType && BUDDY_TYPES[buddyType]) {
       params.push(buddyType);
       query += ` AND r.buddy_type = $${params.length}`;
@@ -565,10 +640,33 @@ class BuddyService {
   }
 
   /**
-   * Retrieves all active or recent requests involving the specified user.
+   * Retrieves paginated requests involving the specified user (as initiator or accepter).
    */
-  async getUserRequests(userId) {
-    if (!this._isValidUUID(userId)) return [];
+  async getUserRequests(userId, { page = 1, limit = 20, status = 'all' } = {}) {
+    if (!this._isValidUUID(userId)) return { requests: [], total: 0, page: 1, totalPages: 1 };
+
+    const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 50);
+    const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
+    const offset = (parsedPage - 1) * parsedLimit;
+
+    const params = [userId];
+    let whereClause = `WHERE (r.initiator_id = $1 OR r.accepter_id = $1)`;
+
+    if (status !== 'all') {
+      params.push(status);
+      whereClause += ` AND r.status = $${params.length}`;
+    }
+
+    const countRes = await db.query(
+      `SELECT COUNT(*)::int AS total FROM public.buddy_requests r ${whereClause}`,
+      params
+    );
+    const total = countRes.rows[0]?.total || 0;
+
+    params.push(parsedLimit);
+    const limitIdx = params.length;
+    params.push(offset);
+    const offsetIdx = params.length;
 
     const result = await db.query(
       `SELECT r.*,
@@ -585,13 +683,13 @@ class BuddyService {
        FROM public.buddy_requests r
        JOIN public.users u_init ON u_init.id = r.initiator_id
        LEFT JOIN public.users u_acc ON u_acc.id = r.accepter_id
-       WHERE r.initiator_id = $1 OR r.accepter_id = $1
+       ${whereClause}
        ORDER BY r.created_at DESC
-       LIMIT 30;`,
-      [userId]
+       LIMIT $${limitIdx} OFFSET $${offsetIdx};`,
+      params
     );
 
-    return result.rows.map(row => ({
+    const requests = result.rows.map(row => ({
       id: row.id,
       initiatorId: row.initiator_id,
       buddyType: row.buddy_type,
@@ -599,10 +697,9 @@ class BuddyService {
       targetGender: row.target_gender,
       status: row.status,
       accepterId: row.accepter_id,
-      otpCode: row.initiator_id === userId ? row.otp_code : null, // Only initiator sees plain OTP
-      otpAttempts: row.otp_attempts,
       acceptedAt: row.accepted_at,
-      verifiedAt: row.verified_at,
+      completedAt: row.completed_at,
+      cancelledAt: row.cancelled_at,
       conversationId: row.conversation_id,
       initiatorCoinCost: row.initiator_coin_cost,
       accepterCoinReward: row.accepter_coin_reward,
@@ -625,6 +722,13 @@ class BuddyService {
         gender: row.accepter_gender || null,
       } : null,
     }));
+
+    return {
+      requests,
+      total,
+      page: parsedPage,
+      totalPages: Math.ceil(total / parsedLimit) || 1,
+    };
   }
 }
 

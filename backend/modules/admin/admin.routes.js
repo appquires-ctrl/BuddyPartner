@@ -166,14 +166,25 @@ router.get('/withdrawals', adminAuth, async (req, res) => {
 
 router.patch('/withdrawals/:id/status', adminAuth, async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, adminNote } = req.body;
     if (!status) {
       return res.status(400).json({ success: false, message: 'Status is required' });
     }
-    const updated = await adminService.updateWithdrawalStatus(req.params.id, status);
+    const updated = await adminService.updateWithdrawalStatus(req.params.id, status, adminNote);
     return res.json({ success: true, message: 'Withdrawal status updated', withdrawal: updated });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── 6. Buddy Requests Admin Controls ─────────────────────────────────────────
+router.patch('/buddy/requests/:id/cancel', adminAuth, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const cancelled = await adminService.cancelBuddyRequest(req.params.id, req.admin?.id, reason);
+    return res.json({ success: true, message: 'Buddy request cancelled by admin', request: cancelled });
+  } catch (err) {
+    return res.status(400).json({ success: false, message: err.message });
   }
 });
 

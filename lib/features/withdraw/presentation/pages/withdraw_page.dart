@@ -54,7 +54,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
     super.dispose();
   }
 
-  void _submitWithdrawal(int maxCoins) {
+  void _submitWithdrawal(int maxEarnedCoins) {
     AppLogger.button('Submit Withdrawal Request', screen: 'WithdrawPage');
     final amount = int.tryParse(_amountController.text.trim()) ?? 0;
     if (amount <= 0) {
@@ -62,8 +62,8 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
       return;
     }
 
-    if (amount > maxCoins) {
-      AppSnackBar.showError(context, 'You cannot withdraw more than your available balance of $maxCoins coins.');
+    if (amount > maxEarnedCoins) {
+      AppSnackBar.showError(context, 'You cannot withdraw more than your available earned balance of $maxEarnedCoins coins. Note: Purchased coins are non-withdrawable.');
       return;
     }
 
@@ -71,6 +71,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
       if (success && mounted) {
         _amountController.clear();
         AppSnackBar.showSuccess(context, 'Withdrawal request submitted successfully!');
+        ref.invalidate(dualWalletProvider);
         ref.invalidate(walletBalanceProvider);
         ref.invalidate(withdrawalHistoryProvider);
       }
@@ -94,9 +95,11 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
 
     final historyAsync = ref.watch(withdrawalHistoryProvider);
     final withdrawState = ref.watch(withdrawControllerProvider);
-    final walletBalanceAsync = ref.watch(walletBalanceProvider);
-    final isBalanceLoading = walletBalanceAsync.isLoading && walletBalanceAsync.value == null;
-    final walletBalance = walletBalanceAsync.value ?? 0;
+    final dualWalletAsync = ref.watch(dualWalletProvider);
+    final walletState = dualWalletAsync.value ?? const UserWalletState();
+    final earnedBalance = walletState.earnedBalance;
+    final spendableBalance = walletState.spendableBalance;
+    final isBalanceLoading = dualWalletAsync.isLoading && dualWalletAsync.value == null;
     final instantState = ref.watch(instantConnectControllerProvider);
     final unscratchedCards = instantState.scratchCards.where((c) => !c.isScratched).toList();
 
@@ -285,12 +288,12 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                                   ),
                                 )
                               : Row(
-                                  key: ValueKey('withdraw_balance_$walletBalance'),
+                                  key: ValueKey('withdraw_balance_$earnedBalance'),
                                   crossAxisAlignment: CrossAxisAlignment.baseline,
                                   textBaseline: TextBaseline.alphabetic,
                                   children: [
                                     Text(
-                                      '₹$walletBalance',
+                                      '₹$earnedBalance',
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 38,
@@ -308,8 +311,8 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                                     ),
                                     const Spacer(),
                                     AppCoinBadge(
-                                      coins: '$walletBalance',
-                                      suffix: 'Coins',
+                                      coins: '$earnedBalance',
+                                      suffix: 'Earned',
                                       variant: AppCoinBadgeVariant.glass,
                                       iconSize: 16,
                                     ),
@@ -319,7 +322,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
 
                         const SizedBox(height: 12),
 
-                        // Guaranteed Conversion Rate Pill
+                        // Guaranteed Conversion Rate Pill & Spendable Notice
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                           decoration: BoxDecoration(
@@ -330,10 +333,8 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: const [
-                              // Icon(Icons.bolt_rounded, color: Color(0xFFFFD54F), size: 16),
-                              // SizedBox(width: 6),
                               Text(
-                                '1 Coin = ₹1.00 INR (Direct UPI / Bank Payout)',
+                                '1 Earned Coin = ₹1.00 INR (Direct UPI / Bank Payout)',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 11.5,
@@ -343,6 +344,36 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                             ],
                           ),
                         ),
+
+                        if (spendableBalance > 0) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.info_outline_rounded, color: Color(0xFFFBBF24), size: 14),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    '₹$spendableBalance non-withdrawable (purchased/promo coins). Spendable on Buddy requests & calls.',
+                                    style: const TextStyle(
+                                      color: Color(0xFFFDE68A),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
 
                         const SizedBox(height: 18),
                         Divider(color: Colors.white.withValues(alpha: 0.12), height: 1),
@@ -738,7 +769,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                   GestureDetector(
                     onTap: withdrawState.isLoading || _enteredCoins <= 0
                         ? null
-                        : () => _submitWithdrawal(walletBalance),
+                        : () => _submitWithdrawal(earnedBalance),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       width: double.infinity,

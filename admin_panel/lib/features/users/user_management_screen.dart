@@ -235,7 +235,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                                       0: FlexColumnWidth(2.6), // USER
                                       1: FlexColumnWidth(1.2), // GENDER
                                       2: FlexColumnWidth(2.0), // PHONE / EMAIL
-                                      3: FlexColumnWidth(1.4), // COINS
+                                      3: FlexColumnWidth(1.8), // COINS
                                       4: FlexColumnWidth(1.6), // MEMBERSHIP
                                       5: FlexColumnWidth(1.2), // STATUS
                                       6: FlexColumnWidth(3.4), // ACTIONS
@@ -251,7 +251,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                                           _buildHeaderCell('USER'),
                                           _buildHeaderCell('GENDER'),
                                           _buildHeaderCell('PHONE / EMAIL'),
-                                          _buildHeaderCell('COINS'),
+                                          _buildHeaderCell('COINS (S / E)'),
                                           _buildHeaderCell('MEMBERSHIP'),
                                           _buildHeaderCell('STATUS'),
                                           _buildHeaderCell('ACTIONS'),
@@ -265,6 +265,8 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                                         final phone = user['phone'] ?? user['email'] ?? 'N/A';
                                         final gender = (user['gender'] ?? 'N/A').toString().toUpperCase();
                                         final coinBalance = user['coin_balance'] ?? 0;
+                                        final spendableBalance = user['spendable_balance'] ?? 0;
+                                        final earnedBalance = user['earned_balance'] ?? 0;
                                         final isSubscribed = user['is_subscribed'] == true;
                                         final expiresAtStr = user['subscription_expires_at'] as String?;
                                         String? expiryFormatted;
@@ -343,17 +345,32 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                                             // COINS
                                             Padding(
                                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                              child: Row(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  const Icon(Icons.monetization_on_rounded, size: 16, color: Color(0xFFF59E0B)),
-                                                  const SizedBox(width: 6),
+                                                  Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(Icons.monetization_on_rounded, size: 16, color: Color(0xFFF59E0B)),
+                                                      const SizedBox(width: 6),
+                                                      Text(
+                                                        '$coinBalance',
+                                                        style: const TextStyle(
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 13,
+                                                          color: AdminColors.textPrimary,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 2),
                                                   Text(
-                                                    '$coinBalance',
+                                                    '${spendableBalance}s • ${earnedBalance}e',
                                                     style: const TextStyle(
-                                                      fontWeight: FontWeight.bold,
-                                                      fontSize: 13,
-                                                      color: AdminColors.textPrimary,
+                                                      fontSize: 11,
+                                                      color: AdminColors.textSecondary,
+                                                      fontWeight: FontWeight.w500,
                                                     ),
                                                   ),
                                                 ],
@@ -903,13 +920,48 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Row(
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Icon(Icons.monetization_on_rounded, size: 18, color: Color(0xFFF59E0B)),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'Balance: $coinBal coins',
-                                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.monetization_on_rounded, size: 18, color: Color(0xFFF59E0B)),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'Balance: $coinBal coins',
+                                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFEFF6FF),
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(color: const Color(0xFFBFDBFE)),
+                                              ),
+                                              child: Text(
+                                                'Spendable: ${user['spendableBalance'] ?? userSummary['spendable_balance'] ?? 0}',
+                                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1D4ED8)),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFECFDF5),
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(color: const Color(0xFFA7F3D0)),
+                                              ),
+                                              child: Text(
+                                                'Earned: ${user['earnedBalance'] ?? userSummary['earned_balance'] ?? 0}',
+                                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF047857)),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),

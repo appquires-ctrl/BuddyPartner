@@ -8,7 +8,7 @@ import 'package:buddypartner/features/buddy/application/buddy_controller.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
 
 /// Modal dialog shown to the initiator when broadcasting or when someone accepts.
-class InitiatorOtpModal extends ConsumerWidget {
+class InitiatorOtpModal extends ConsumerStatefulWidget {
   final BuddyRequest request;
 
   const InitiatorOtpModal({super.key, required this.request});
@@ -24,16 +24,44 @@ class InitiatorOtpModal extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<InitiatorOtpModal> createState() => _InitiatorOtpModalState();
+}
+
+class _InitiatorOtpModalState extends ConsumerState<InitiatorOtpModal> {
+  @override
+  void initState() {
+    super.initState();
+    _checkAndFetchOtp();
+  }
+
+  void _checkAndFetchOtp() {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final buddyState = ref.read(buddyControllerProvider);
+      final currentReq = buddyState.myRequests.firstWhere(
+        (r) => r.id == widget.request.id,
+        orElse: () => widget.request,
+      );
+      if (currentReq.status == BuddyRequestStatus.accepted &&
+          (currentReq.otpCode == null || currentReq.otpCode!.isEmpty)) {
+        try {
+          await ref.read(buddyControllerProvider.notifier).fetchInitiatorOtp(widget.request.id);
+        } catch (_) {}
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.colors;
     final typography = context.typography;
-    final type = request.buddyType;
+    final type = widget.request.buddyType;
 
     // Check if live state has updated
     final buddyState = ref.watch(buddyControllerProvider);
     final currentReq = buddyState.myRequests.firstWhere(
-      (r) => r.id == request.id,
-      orElse: () => request,
+      (r) => r.id == widget.request.id,
+      orElse: () => widget.request,
     );
 
     final isAccepted = currentReq.status == BuddyRequestStatus.accepted ||
@@ -410,7 +438,7 @@ class InitiatorOtpModal extends ConsumerWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Share this 6-digit code with your buddy in person. Once they enter it, your private chat and audio/video calls will unlock instantly!',
+                      'Share this 6-digit code with your buddy when you meet in person. Entering this code verifies your meetup and awards them their 50 🪙 reward!',
                       style: typography.bodySmall.copyWith(
                         fontSize: 12,
                         color: colors.textSecondary,

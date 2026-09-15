@@ -123,12 +123,11 @@ db.query(`
 
 // ── Auto-ensure wallet_transactions and wallet defaults ────────────────────
 db.query(`
-  ALTER TABLE public.wallets ALTER COLUMN balance SET DEFAULT 0;
   CREATE OR REPLACE FUNCTION public.create_wallet_for_new_user()
   RETURNS TRIGGER AS $$
   BEGIN
-    INSERT INTO public.wallets (user_id, balance)
-    VALUES (NEW.id, 0)
+    INSERT INTO public.wallets (user_id, spendable_balance, earned_balance)
+    VALUES (NEW.id, 0, 0)
     ON CONFLICT (user_id) DO NOTHING;
     RETURN NEW;
   END;
@@ -137,16 +136,16 @@ db.query(`
   CREATE TABLE IF NOT EXISTS public.wallet_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-    amount INTEGER NOT NULL,
-    type TEXT CHECK (type IN ('credit', 'debit')) NOT NULL,
+    spendable_delta BIGINT NOT NULL DEFAULT 0,
+    earned_delta BIGINT NOT NULL DEFAULT 0,
+    idempotency_key TEXT UNIQUE,
     reason TEXT NOT NULL,
     reference_id TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
   );
-  ALTER TABLE public.wallet_transactions ALTER COLUMN reference_id TYPE TEXT;
-  CREATE INDEX IF NOT EXISTS idx_wallet_tx_user ON public.wallet_transactions(user_id);
+  CREATE INDEX IF NOT EXISTS idx_wallet_tx_user_created ON public.wallet_transactions(user_id, created_at DESC);
 `).then(() => {
-  console.log('✅ Wallets default (0) and wallet_transactions table checked/initialized.');
+  console.log('✅ Dual-balance wallets trigger and wallet_transactions table checked/initialized.');
 }).catch((err) => {
   console.error('❌ Failed to initialize wallet_transactions table:', err.message);
 });
@@ -207,22 +206,27 @@ db.query(`
 });
 
 
-// Auto-ensure withdrawal tables exist
+// Auto-ensure withdrawals table exists
 db.query(`
-  CREATE TABLE IF NOT EXISTS public.withdrawal_requests (
+  CREATE TABLE IF NOT EXISTS public.withdrawals (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-    rose_amount INTEGER NOT NULL,
-    rupee_amount INTEGER NOT NULL,
+    amount BIGINT NOT NULL CHECK (amount > 0),
+    rupee_amount BIGINT NOT NULL CHECK (rupee_amount > 0),
     status TEXT CHECK (status IN ('pending', 'approved', 'rejected', 'paid')) NOT NULL DEFAULT 'pending',
+    idempotency_key TEXT UNIQUE,
+    payout_method TEXT DEFAULT 'upi',
+    payout_details JSONB,
+    admin_note TEXT,
     requested_at TIMESTAMPTZ DEFAULT NOW(),
     processed_at TIMESTAMPTZ
   );
-  CREATE INDEX IF NOT EXISTS idx_withdrawal_user ON public.withdrawal_requests(user_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_withdrawals_single_pending ON public.withdrawals(user_id) WHERE status = 'pending';
+  CREATE INDEX IF NOT EXISTS idx_withdrawals_user_status ON public.withdrawals(user_id, status);
 `).then(() => {
-  console.log('✅ Withdrawal tables checked/initialized.');
+  console.log('✅ Withdrawals table checked/initialized.');
 }).catch((err) => {
-  console.error('❌ Failed to initialize withdrawal tables:', err.message);
+  console.error('❌ Failed to initialize withdrawals table:', err.message);
 });
 
 // Auto-ensure bug reports and account deletion survey tables exist

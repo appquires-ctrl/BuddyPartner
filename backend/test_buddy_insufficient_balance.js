@@ -34,9 +34,9 @@ async function runInsufficientBalanceTests() {
     `, [testUserId, testPhone]);
 
     await db.query(`
-      INSERT INTO public.wallets (user_id, balance)
-      VALUES ($1, 45)
-      ON CONFLICT (user_id) DO UPDATE SET balance = 45;
+      INSERT INTO public.wallets (user_id, spendable_balance, earned_balance)
+      VALUES ($1, 45, 0)
+      ON CONFLICT (user_id) DO UPDATE SET spendable_balance = 45, earned_balance = 0;
     `, [testUserId]);
 
     // Active subscription so only coin balance is tested
@@ -46,7 +46,7 @@ async function runInsufficientBalanceTests() {
       ON CONFLICT DO NOTHING;
     `, [testUserId]);
 
-    const initialWallet = (await db.query('SELECT balance FROM public.wallets WHERE user_id = $1', [testUserId])).rows[0].balance;
+    const initialWallet = Number((await db.query('SELECT (spendable_balance + earned_balance) AS balance FROM public.wallets WHERE user_id = $1', [testUserId])).rows[0].balance);
     console.log(`   Initial balance confirmed: ${initialWallet} coins\n`);
 
     // ── Test 1: Attempt creation with 45 coins ──────────────────────────────────
@@ -93,7 +93,7 @@ async function runInsufficientBalanceTests() {
     }
 
     // Check 3: Balance unchanged
-    const balanceAfter = (await db.query('SELECT balance FROM public.wallets WHERE user_id = $1', [testUserId])).rows[0].balance;
+    const balanceAfter = Number((await db.query('SELECT (spendable_balance + earned_balance) AS balance FROM public.wallets WHERE user_id = $1', [testUserId])).rows[0].balance);
     console.log(`   Balance after failed attempt: ${balanceAfter} (Expected: 45)`);
     if (balanceAfter !== 45) {
       throw new Error(`Balance changed! Was 45, now ${balanceAfter}`);
@@ -102,7 +102,7 @@ async function runInsufficientBalanceTests() {
 
     // ── Test 2: Boundary check at 99 coins ─────────────────────────────────────
     console.log('4. Testing boundary condition: 99 coins...');
-    await db.query('UPDATE public.wallets SET balance = 99 WHERE user_id = $1', [testUserId]);
+    await db.query('UPDATE public.wallets SET spendable_balance = 99, earned_balance = 0 WHERE user_id = $1', [testUserId]);
 
     try {
       await buddyService.createRequest({
@@ -123,7 +123,7 @@ async function runInsufficientBalanceTests() {
 
     // ── Test 3: Success path when balance is 100 coins ──────────────────────────
     console.log('5. Testing success path when balance is exactly 100 coins...');
-    await db.query('UPDATE public.wallets SET balance = 100 WHERE user_id = $1', [testUserId]);
+    await db.query('UPDATE public.wallets SET spendable_balance = 100, earned_balance = 0 WHERE user_id = $1', [testUserId]);
 
     const createdReq = await buddyService.createRequest({
       initiatorId: testUserId,
@@ -133,14 +133,14 @@ async function runInsufficientBalanceTests() {
     });
 
     console.log(`   Successfully created request: ${createdReq.id}`);
-    const balanceAfterSuccess = (await db.query('SELECT balance FROM public.wallets WHERE user_id = $1', [testUserId])).rows[0].balance;
+    const balanceAfterSuccess = Number((await db.query('SELECT (spendable_balance + earned_balance) AS balance FROM public.wallets WHERE user_id = $1', [testUserId])).rows[0].balance);
     console.log(`   Balance after 100-coin deduction: ${balanceAfterSuccess} (Expected: 0)`);
     if (balanceAfterSuccess !== 0) {
       throw new Error(`Expected balance 0 after 100 coin deduction, got ${balanceAfterSuccess}`);
     }
 
     const txSuccess = await db.query('SELECT * FROM public.wallet_transactions WHERE reference_id = $1', [createdReq.id]);
-    if (txSuccess.rows.length !== 1 || txSuccess.rows[0].amount !== 100 || txSuccess.rows[0].type !== 'debit') {
+    if (txSuccess.rows.length !== 1 || Number(txSuccess.rows[0].spendable_delta) !== -100) {
       throw new Error('Audit transaction mismatch on valid creation');
     }
     console.log('✅ Valid balance (100 coins) succeeded with exact 100 deduction and audit record.\n');

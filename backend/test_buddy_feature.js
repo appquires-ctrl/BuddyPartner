@@ -38,9 +38,9 @@ async function runTests() {
     `, [initiatorId, initiatorPhone]);
 
     await db.query(`
-      INSERT INTO public.wallets (user_id, balance)
-      VALUES ($1, 250)
-      ON CONFLICT (user_id) DO UPDATE SET balance = 250;
+      INSERT INTO public.wallets (user_id, spendable_balance, earned_balance)
+      VALUES ($1, 250, 0)
+      ON CONFLICT (user_id) DO UPDATE SET spendable_balance = 250, earned_balance = 0;
     `, [initiatorId]);
 
     await db.query(`
@@ -62,16 +62,16 @@ async function runTests() {
       `, [id, phone, `Accepter ${i}`]);
 
       await db.query(`
-        INSERT INTO public.wallets (user_id, balance)
-        VALUES ($1, 0)
-        ON CONFLICT (user_id) DO UPDATE SET balance = 0;
+        INSERT INTO public.wallets (user_id, spendable_balance, earned_balance)
+        VALUES ($1, 0, 0)
+        ON CONFLICT (user_id) DO UPDATE SET spendable_balance = 0, earned_balance = 0;
       `, [id]);
     }
     console.log('✅ Initiator and 50 candidate accepter users ready.\n');
 
     // ── Test 1: Transactional Coin Deduction on Creation ───────────────────────
     console.log('2. Testing transactional coin deduction on request creation...');
-    const initBalanceBefore = (await db.query('SELECT balance FROM public.wallets WHERE user_id = $1', [initiatorId])).rows[0].balance;
+    const initBalanceBefore = Number((await db.query('SELECT (spendable_balance + earned_balance) AS balance FROM public.wallets WHERE user_id = $1', [initiatorId])).rows[0].balance);
     console.log(`   Initiator balance before: ${initBalanceBefore} coins`);
 
     const createdRequest = await buddyService.createRequest({
@@ -81,7 +81,7 @@ async function runTests() {
       targetGender: 'female',
     });
 
-    const initBalanceAfter = (await db.query('SELECT balance FROM public.wallets WHERE user_id = $1', [initiatorId])).rows[0].balance;
+    const initBalanceAfter = Number((await db.query('SELECT (spendable_balance + earned_balance) AS balance FROM public.wallets WHERE user_id = $1', [initiatorId])).rows[0].balance);
     console.log(`   Initiator balance after: ${initBalanceAfter} coins`);
 
     if (initBalanceBefore - initBalanceAfter !== BUDDY_PRICING.INITIATOR_COIN_COST) {
@@ -89,10 +89,10 @@ async function runTests() {
     }
 
     const txDebit = await db.query(
-      `SELECT * FROM public.wallet_transactions WHERE reference_id = $1 AND type = 'debit'`,
+      `SELECT * FROM public.wallet_transactions WHERE reference_id = $1`,
       [createdRequest.id]
     );
-    if (txDebit.rows.length !== 1 || txDebit.rows[0].amount !== 100) {
+    if (txDebit.rows.length !== 1 || Number(txDebit.rows[0].spendable_delta) !== -100) {
       throw new Error('Wallet debit audit transaction missing or incorrect');
     }
     console.log('✅ Coin deduction (100 coins) and wallet audit transaction verified!\n');
@@ -213,7 +213,7 @@ async function runTests() {
       accepterId: candidateAccepterIds[0],
     });
 
-    const accepterBalanceBefore = (await db.query('SELECT balance FROM public.wallets WHERE user_id = $1', [candidateAccepterIds[0]])).rows[0].balance;
+    const accepterBalanceBefore = Number((await db.query('SELECT earned_balance FROM public.wallets WHERE user_id = $1', [candidateAccepterIds[0]])).rows[0].earned_balance);
     console.log(`   Accepter balance before OTP: ${accepterBalanceBefore}`);
 
     const verifyRes = await buddyService.verifyOtp({
@@ -226,7 +226,7 @@ async function runTests() {
       throw new Error('Verification failed to return success or conversationId');
     }
 
-    const accepterBalanceAfter = (await db.query('SELECT balance FROM public.wallets WHERE user_id = $1', [candidateAccepterIds[0]])).rows[0].balance;
+    const accepterBalanceAfter = Number((await db.query('SELECT earned_balance FROM public.wallets WHERE user_id = $1', [candidateAccepterIds[0]])).rows[0].earned_balance);
     console.log(`   Accepter balance after OTP: ${accepterBalanceAfter}`);
 
     if (accepterBalanceAfter - accepterBalanceBefore !== BUDDY_PRICING.ACCEPTER_COIN_REWARD) {

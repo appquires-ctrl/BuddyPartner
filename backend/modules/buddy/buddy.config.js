@@ -73,15 +73,23 @@ const BUDDY_PRICING = Object.freeze({
 
 const BUDDY_LIMITS = Object.freeze({
   MAX_OTP_ATTEMPTS: 5,
+  OTP_LOCKOUT_SECONDS: 900, // 15 minutes lockout
   MAX_FCM_BATCH_SIZE: 500,
   MAX_FCM_RECIPIENTS: 5000,
   DEFAULT_FEED_LIMIT: 20,
   MAX_FEED_LIMIT: 50,
 });
 
+const BUDDY_STATUSES = Object.freeze({
+  OPEN: 'open',
+  ACCEPTED: 'accepted',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+});
 
 module.exports = {
   BUDDY_TYPES,
   BUDDY_PRICING,
   BUDDY_LIMITS,
+  BUDDY_STATUSES,
 };

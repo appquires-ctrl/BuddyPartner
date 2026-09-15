@@ -14,13 +14,15 @@ const router = express.Router();
 /**
  * POST /api/buddy/request
  * Create a new broadcast buddy request.
- * Requires active subscription. Deducts 100 coins immediately.
+ * Requires active subscription. Deducts 100 coins immediately (spendable first, then earned).
+ * Supports idempotencyKey via body or x-idempotency-key header.
  */
 router.post('/request', authMiddleware, async (req, res) => {
   try {
     const { buddyType, city, targetGender } = req.body;
+    const idempotencyKey = req.body.idempotencyKey || req.headers['x-idempotency-key'] || null;
 
-    // If city is omitted in body, default to user's registered profile city
+    // Default to user's registered profile city if omitted
     let targetCity = city;
     if (!targetCity) {
       const userRes = await db.query('SELECT city FROM public.users WHERE id = $1', [req.user.id]);
@@ -36,6 +38,7 @@ router.post('/request', authMiddleware, async (req, res) => {
       buddyType,
       city: targetCity,
       targetGender: targetGender || 'all',
+      idempotencyKey,
     });
 
     // Broadcast in real-time to city room & queue FCM push to offline users
@@ -49,7 +52,7 @@ router.post('/request', authMiddleware, async (req, res) => {
       request,
     });
   } catch (err) {
-    console.error('Error in POST /api/buddy/request:', err.message);
+    console.error('❌ Error in POST /api/buddy/request:', err.message);
     const status = err.statusCode || 500;
     res.status(status).json({
       error: err.code || 'FAILED_TO_CREATE_REQUEST',
@@ -67,7 +70,6 @@ router.get(['/requests', '/open'], authMiddleware, async (req, res) => {
   try {
     let { city, buddyType, limit, offset } = req.query;
 
-    // Default to user's city and gender if not provided
     const userRes = await db.query('SELECT city, gender FROM public.users WHERE id = $1', [req.user.id]);
     const user = userRes.rows[0] || {};
 
@@ -90,7 +92,7 @@ router.get(['/requests', '/open'], authMiddleware, async (req, res) => {
       requests,
     });
   } catch (err) {
-    console.error('Error in GET /api/buddy/requests:', err.message);
+    console.error('❌ Error in GET /api/buddy/requests:', err.message);
     res.status(500).json({
       error: 'FAILED_TO_LIST_REQUESTS',
       message: err.message || 'Failed to list buddy requests',
@@ -101,7 +103,7 @@ router.get(['/requests', '/open'], authMiddleware, async (req, res) => {
 /**
  * POST /api/buddy/requests/:id/accept & /api/buddy/accept/:id
  * Atomic accept by first responding user.
- * Returns OTP challenge state or ALREADY_ACCEPTED 409 conflict.
+ * Immediately unlocks chat (creates conversation) and generates 6-digit OTP.
  */
 router.post(['/requests/:id/accept', '/accept/:id'], authMiddleware, async (req, res) => {
   try {
@@ -122,28 +124,33 @@ router.post(['/requests/:id/accept', '/accept/:id'], authMiddleware, async (req,
         city: request.city,
       });
 
-      // 2. Alert initiator with 6-digit OTP
+      // 2. Alert initiator with 6-digit OTP convenience push
       notifyInitiatorAccepted(io, {
         initiatorId: request.initiator_id,
         requestId: request.id,
+        conversationId: request.conversationId,
         accepter: request.accepter,
-        otpCode: request.otp_code,
+        otpCode: request.otpCode,
       });
     }
 
-    // Do NOT return the plain OTP to the accepter (initiator holds the secret)
+    // Never return the OTP to the accepter
     const sanitizedRequest = {
       ...request,
+      otpCode: undefined,
       otp_code: undefined,
+      otp_hash: undefined,
+      otp_encrypted: undefined,
     };
 
     res.json({
       success: true,
       request: sanitizedRequest,
-      message: 'Request accepted! Ask the initiator for their 6-digit verification OTP.',
+      conversationId: request.conversationId,
+      message: 'Request accepted! Chat is now unlocked. Meet in person and share your OTP.',
     });
   } catch (err) {
-    console.error(`Error in POST accept buddy request:`, err.message);
+    console.error(`❌ Error in POST accept buddy request:`, err.message);
     const status = err.statusCode || 500;
     res.status(status).json({
       error: err.code || 'FAILED_TO_ACCEPT_REQUEST',
@@ -153,20 +160,48 @@ router.post(['/requests/:id/accept', '/accept/:id'], authMiddleware, async (req,
 });
 
 /**
- * POST /api/buddy/requests/:id/verify-otp & /api/buddy/verify-otp
- * Accepter submits the 6-digit handshake OTP.
- * On success, credits 50 coins to accepter and unlocks conversation.
+ * GET /api/buddy/requests/:id/otp
+ * Authenticated REST endpoint for the initiator to retrieve their 6-digit meetup OTP.
+ * Source of truth if socket connection was dropped.
  */
-router.post(['/requests/:id/verify-otp', '/verify-otp'], authMiddleware, async (req, res) => {
+router.get('/requests/:id/otp', authMiddleware, async (req, res) => {
+  try {
+    const requestId = req.params.id;
+    const userId = req.user.id;
+
+    const result = await buddyService.getInitiatorOtp(requestId, userId);
+    res.json({
+      success: true,
+      otpCode: result.otpCode,
+    });
+  } catch (err) {
+    console.error(`❌ Error in GET /api/buddy/requests/${req.params.id}/otp:`, err.message);
+    const status = err.statusCode || 500;
+    res.status(status).json({
+      error: err.code || 'FAILED_TO_FETCH_OTP',
+      message: err.message || 'Failed to fetch meetup OTP',
+    });
+  }
+});
+
+/**
+ * POST /api/buddy/requests/:id/complete & /api/buddy/requests/:id/verify-otp
+ * Accepter submits the 6-digit in-person meetup OTP.
+ * Rate limited to 5 attempts, then 15-minute lockout in Redis.
+ * Atomically transitions to 'completed' and credits 50 coins to accepter's earned_balance.
+ */
+router.post(['/requests/:id/complete', '/requests/:id/verify-otp', '/verify-otp'], authMiddleware, async (req, res) => {
   try {
     const requestId = req.params.id || req.body.requestId;
     const accepterId = req.user.id;
     const { otpCode } = req.body;
+    const idempotencyKey = req.body.idempotencyKey || req.headers['x-idempotency-key'] || null;
 
-    const result = await buddyService.verifyOtp({
+    const result = await buddyService.completeRequest({
       requestId,
       accepterId,
       otpCode,
+      idempotencyKey,
     });
 
     const io = req.app.get('io');
@@ -184,33 +219,37 @@ router.post(['/requests/:id/verify-otp', '/verify-otp'], authMiddleware, async (
       conversationId: result.conversationId,
       otherUser: result.initiator,
       rewardCoins: result.rewardCoins,
-      newBalance: result.newBalance,
-      message: 'OTP verified! Chat unlocked and 50 coins rewarded.',
+      earnedBalance: result.earnedBalance,
+      spendableBalance: result.spendableBalance,
+      balance: result.balance,
+      message: 'Meetup verified successfully! 50 earned coins credited.',
     });
   } catch (err) {
-    console.error(`Error in POST /api/buddy/requests/${req.params.id}/verify-otp:`, err.message);
+    console.error(`❌ Error in POST complete buddy request:`, err.message);
     const status = err.statusCode || 500;
     res.status(status).json({
-      error: err.code || 'FAILED_TO_VERIFY_OTP',
-      message: err.message || 'Failed to verify OTP',
+      error: err.code || 'FAILED_TO_COMPLETE_REQUEST',
+      message: err.message || 'Failed to complete buddy request',
       remainingAttempts: err.remainingAttempts,
     });
   }
 });
 
 /**
- * GET /api/buddy/requests/my
- * Returns active and recent requests initiated or accepted by current user.
+ * GET /api/buddy/requests/my & /api/buddy/my-requests
+ * Paginated list of requests initiated or accepted by current user.
+ * Query: ?page=1&limit=20&status=all
  */
-router.get('/requests/my', authMiddleware, async (req, res) => {
+router.get(['/requests/my', '/my-requests'], authMiddleware, async (req, res) => {
   try {
-    const requests = await buddyService.getUserRequests(req.user.id);
+    const { page, limit, status } = req.query;
+    const data = await buddyService.getUserRequests(req.user.id, { page, limit, status });
     res.json({
       success: true,
-      requests,
+      ...data,
     });
   } catch (err) {
-    console.error('Error in GET /api/buddy/requests/my:', err.message);
+    console.error('❌ Error in GET /api/buddy/requests/my:', err.message);
     res.status(500).json({
       error: 'FAILED_TO_FETCH_MY_REQUESTS',
       message: err.message || 'Failed to fetch user requests',

@@ -6,8 +6,9 @@ import 'package:buddypartner/core/widgets/coins/app_coin_icon.dart';
 import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/features/buddy/application/buddy_controller.dart';
+import 'package:go_router/go_router.dart';
+import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
-import 'package:buddypartner/features/buddy/presentation/widgets/accepter_otp_dialog.dart';
 
 /// Bottom sheet to view and accept live open Buddy Requests in the user's city.
 class OpenBuddyRequestsSheet extends ConsumerStatefulWidget {
@@ -50,8 +51,25 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
       if (!mounted) return;
       Navigator.of(context).pop(); // Close open requests list
 
-      // Show accepter OTP dialog immediately
-      AccepterOtpDialog.show(context, request: acceptedReq);
+      AppSnackBar.showSuccess(
+        context,
+        '🎉 Request accepted! Chat is now unlocked. Meet up in person and enter their OTP to claim 50 🪙 reward!',
+      );
+
+      // Navigate directly to chat
+      if (acceptedReq.conversationId != null && acceptedReq.conversationId!.isNotEmpty) {
+        context.push(
+          RouteNames.chat,
+          extra: {
+            'conversationId': acceptedReq.conversationId,
+            'userId': acceptedReq.initiator?.id ?? acceptedReq.initiatorId,
+            'userName': acceptedReq.initiator?.fullName ?? 'Buddy Partner',
+            'avatarSeed': acceptedReq.initiator?.avatarSeed,
+            'avatarStyle': acceptedReq.initiator?.avatarStyle,
+            'gender': acceptedReq.initiator?.gender,
+          },
+        );
+      }
     } catch (e) {
       if (mounted) {
         final err = e.toString().replaceAll('Exception: ', '');

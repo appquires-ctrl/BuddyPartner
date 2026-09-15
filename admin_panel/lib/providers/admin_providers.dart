@@ -334,3 +334,14 @@ final appConfigProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref)
   final res = await ApiService.get('/app-config');
   return res['config'] as Map<String, dynamic>;
 });
+
+// ── Buddy Requests Admin Provider / Action ──────────────────────────────────
+Future<bool> adminCancelBuddyRequest(String requestId, {String reason = 'admin_action'}) async {
+  try {
+    await ApiService.patch('/buddy/requests/$requestId/cancel', body: {'reason': reason});
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+

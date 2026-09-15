@@ -52,6 +52,7 @@ class WithdrawController extends Notifier<WithdrawState> {
 
       if (response.statusCode == 200 && response.data != null && response.data['success'] == true) {
         ref.invalidate(withdrawalHistoryProvider);
+        ref.invalidate(dualWalletProvider);
         ref.invalidate(walletBalanceProvider);
 
         state = state.copyWith(

@@ -410,8 +410,8 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '• First person in $_selectedCity to accept will get 50 🪙 upon OTP verification.\n'
-                  '• You will receive a secret 6-digit OTP code to share with your buddy in person to unlock chat & calls.',
+                  '• The first person in $_selectedCity to accept will unlock chat with you immediately.\n'
+                  '• When you meet in person, share your 6-digit verification code with your buddy to grant them their 50 🪙 reward.',
                   style: const TextStyle(
                     fontSize: 11.5,
                     color: Color(0xFF78350F),

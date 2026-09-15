@@ -76,7 +76,7 @@ class DashboardScreen extends ConsumerWidget {
               final reportsToday = stats['reportsToday'] as int? ?? 0;
               final reportsWeek = stats['reportsThisWeek'] as int? ?? 0;
               final coinsRecharged = stats['totalCoinsRecharged'] as int? ?? 0;
-              final rosesPaid = stats['totalRosesPaidOut'] as int? ?? 0;
+              final coinsPaid = stats['totalPayoutsPaidOut'] as int? ?? stats['totalRosesPaidOut'] as int? ?? 0;
 
               return LayoutBuilder(
                 builder: (context, constraints) {
@@ -132,7 +132,7 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                       StatCard(
                         title: 'Coins Paid Out',
-                        value: '🪙 ${formatter.format(rosesPaid)}',
+                        value: '🪙 ${formatter.format(coinsPaid)}',
                         trendLabel: 'Approved Payouts',
                         subtitle: 'Creator earnings',
                         icon: Icons.payments_rounded,
