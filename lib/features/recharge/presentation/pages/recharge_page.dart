@@ -478,8 +478,7 @@ class _CoinOrderSummarySheet extends ConsumerWidget {
     final isPurchasing = gpState.status == GooglePlayPurchaseStatus.purchasing ||
         gpState.status == GooglePlayPurchaseStatus.verifying;
 
-    final p = gpState.products[plan.id];
-    final totalDisplay = p?.price ?? '₹${plan.totalPriceRupees}';
+    final totalDisplay = '₹${plan.totalPriceRupees}.00';
 
     final surfaceColor = isDark ? const Color(0xFF1E1A2E) : Colors.white;
     final mutedColor = isDark ? const Color(0xFF28233C) : const Color(0xFFF7F6FC);

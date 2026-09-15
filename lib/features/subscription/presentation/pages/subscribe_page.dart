@@ -541,10 +541,7 @@ class _MembershipOrderSummarySheet extends ConsumerWidget {
     final isPurchasing = gpState.status == GooglePlayPurchaseStatus.purchasing ||
         gpState.status == GooglePlayPurchaseStatus.verifying;
 
-    final p = gpState.products['membership_${plan.id}'] ??
-        gpState.products['pass_${plan.id}'] ??
-        gpState.products[plan.id];
-    final totalDisplay = p?.price ?? '₹${plan.totalPriceRupees}';
+    final totalDisplay = '₹${plan.totalPriceRupees}.00';
 
     return Container(
       decoration: BoxDecoration(

@@ -92,6 +92,20 @@ class BuddyService {
     try {
       await client.query('BEGIN');
 
+      // Check current wallet balance with row-level lock
+      const walletRes = await client.query(
+        'SELECT balance FROM public.wallets WHERE user_id = $1 FOR UPDATE',
+        [initiatorId]
+      );
+      const currentBalance = walletRes.rows[0] ? Number(walletRes.rows[0].balance) : 0;
+      if (currentBalance < coinCost) {
+        await client.query('ROLLBACK');
+        const err = new Error(`Insufficient balance: ${coinCost} coins required to create a buddy request (current balance: ${currentBalance} coins).`);
+        err.code = 'INSUFFICIENT_COINS';
+        err.statusCode = 400;
+        throw err;
+      }
+
       // Deduct coins atomically from wallet
       const deductRes = await client.query(
         `UPDATE public.wallets
@@ -103,7 +117,7 @@ class BuddyService {
 
       if (deductRes.rows.length === 0) {
         await client.query('ROLLBACK');
-        const err = new Error(`Insufficient coins. ${coinCost} coins required to create a buddy request.`);
+        const err = new Error(`Insufficient balance: ${coinCost} coins required to create a buddy request.`);
         err.code = 'INSUFFICIENT_COINS';
         err.statusCode = 400;
         throw err;

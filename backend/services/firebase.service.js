@@ -101,15 +101,41 @@ async function sendPushNotification({ token, title, body, tag, data = {} }) {
 }
 
 /**
- * Sends Multicast FCM Push Notifications to multiple device tokens (e.g. 1:10 instant call surge)
+ * Slices an array of tokens into batches of up to chunkSize (default 500).
+ * Required by Firebase Admin SDK which limits sendEachForMulticast to 500 tokens per request.
+ * 
+ * @param {string[]} tokens
+ * @param {number} [chunkSize=500]
+ * @returns {string[][]} Array of token chunks
+ */
+function chunkTokens(tokens, chunkSize = 500) {
+  if (!Array.isArray(tokens) || tokens.length === 0) return [];
+  const size = Math.max(1, chunkSize);
+  const chunks = [];
+  for (let i = 0; i < tokens.length; i += size) {
+    chunks.push(tokens.slice(i, i + size));
+  }
+  return chunks;
+}
+
+/**
+ * Sends Multicast FCM Push Notifications to multiple device tokens.
+ * Automatically chunks tokens into batches of <= 500 to adhere to Firebase Admin SDK limits.
  */
 async function sendMulticastPushNotification({ tokens = [], title, body, tag, data = {} }) {
   const validTokens = Array.from(new Set(tokens.filter((t) => typeof t === 'string' && t.trim().length > 0)));
   if (validTokens.length === 0) return null;
 
+  const chunks = chunkTokens(validTokens, 500);
+
   if (!isInitialized) {
-    console.log(`[FCM Mock] Multicast push to ${validTokens.length} devices | ${title}: ${body}`);
-    return null;
+    console.log(`[FCM Mock] Multicast push to ${validTokens.length} devices in ${chunks.length} batches of <= 500 | ${title}: ${body}`);
+    return {
+      successCount: validTokens.length,
+      failureCount: 0,
+      batchCount: chunks.length,
+      responses: [],
+    };
   }
 
   try {
@@ -120,27 +146,45 @@ async function sendMulticastPushNotification({ tokens = [], title, body, tag, da
 
     const notifTag = tag || (stringData.sessionId ? `instant_${stringData.sessionId}` : 'instant_call');
 
-    const response = await admin.messaging().sendEachForMulticast({
-      tokens: validTokens,
-      notification: {
-        title,
-        body,
-      },
-      data: stringData,
-      android: {
-        priority: 'high',
-        notification: {
-          channelId: 'buddypartner_notifications',
-          priority: 'max',
-          tag: notifTag,
-          defaultSound: true,
-          defaultVibrateTimings: true,
-        },
-      },
-    });
+    let totalSuccess = 0;
+    let totalFailure = 0;
+    const allResponses = [];
 
-    console.log(`🔔 [FCM Multicast] Dispatched to ${validTokens.length} devices (tag: ${notifTag}, ${response.successCount} succeeded, ${response.failureCount} failed)`);
-    return response;
+    for (let batchIndex = 0; batchIndex < chunks.length; batchIndex++) {
+      const batchTokens = chunks[batchIndex];
+      const response = await admin.messaging().sendEachForMulticast({
+        tokens: batchTokens,
+        notification: {
+          title,
+          body,
+        },
+        data: stringData,
+        android: {
+          priority: 'high',
+          notification: {
+            channelId: 'buddypartner_notifications',
+            priority: 'max',
+            tag: notifTag,
+            defaultSound: true,
+            defaultVibrateTimings: true,
+          },
+        },
+      });
+
+      totalSuccess += (response.successCount || 0);
+      totalFailure += (response.failureCount || 0);
+      allResponses.push(response);
+
+      console.log(`🔔 [FCM Multicast Batch ${batchIndex + 1}/${chunks.length}] Dispatched to ${batchTokens.length} devices (tag: ${notifTag}, ${response.successCount} succeeded, ${response.failureCount} failed)`);
+    }
+
+    console.log(`🔔 [FCM Multicast Complete] Total ${validTokens.length} devices across ${chunks.length} batches: ${totalSuccess} succeeded, ${totalFailure} failed`);
+    return {
+      successCount: totalSuccess,
+      failureCount: totalFailure,
+      batchCount: chunks.length,
+      responses: allResponses,
+    };
   } catch (err) {
     console.error('❌ [FCM Multicast Error]:', err.message);
     return null;
@@ -152,4 +196,6 @@ module.exports = {
   initFirebase,
   sendPushNotification,
   sendMulticastPushNotification,
+  chunkTokens,
 };
+

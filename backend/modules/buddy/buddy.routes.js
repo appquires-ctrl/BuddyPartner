@@ -59,11 +59,11 @@ router.post('/request', authMiddleware, async (req, res) => {
 });
 
 /**
- * GET /api/buddy/requests
+ * GET /api/buddy/requests & /api/buddy/open
  * List open buddy requests in a city visible to the user.
  * Query: ?city=&buddyType=&limit=&offset=
  */
-router.get('/requests', authMiddleware, async (req, res) => {
+router.get(['/requests', '/open'], authMiddleware, async (req, res) => {
   try {
     let { city, buddyType, limit, offset } = req.query;
 
@@ -99,11 +99,11 @@ router.get('/requests', authMiddleware, async (req, res) => {
 });
 
 /**
- * POST /api/buddy/requests/:id/accept
+ * POST /api/buddy/requests/:id/accept & /api/buddy/accept/:id
  * Atomic accept by first responding user.
  * Returns OTP challenge state or ALREADY_ACCEPTED 409 conflict.
  */
-router.post('/requests/:id/accept', authMiddleware, async (req, res) => {
+router.post(['/requests/:id/accept', '/accept/:id'], authMiddleware, async (req, res) => {
   try {
     const requestId = req.params.id;
     const accepterId = req.user.id;
@@ -143,7 +143,7 @@ router.post('/requests/:id/accept', authMiddleware, async (req, res) => {
       message: 'Request accepted! Ask the initiator for their 6-digit verification OTP.',
     });
   } catch (err) {
-    console.error(`Error in POST /api/buddy/requests/${req.params.id}/accept:`, err.message);
+    console.error(`Error in POST accept buddy request:`, err.message);
     const status = err.statusCode || 500;
     res.status(status).json({
       error: err.code || 'FAILED_TO_ACCEPT_REQUEST',
@@ -153,13 +153,13 @@ router.post('/requests/:id/accept', authMiddleware, async (req, res) => {
 });
 
 /**
- * POST /api/buddy/requests/:id/verify-otp
+ * POST /api/buddy/requests/:id/verify-otp & /api/buddy/verify-otp
  * Accepter submits the 6-digit handshake OTP.
  * On success, credits 50 coins to accepter and unlocks conversation.
  */
-router.post('/requests/:id/verify-otp', authMiddleware, async (req, res) => {
+router.post(['/requests/:id/verify-otp', '/verify-otp'], authMiddleware, async (req, res) => {
   try {
-    const requestId = req.params.id;
+    const requestId = req.params.id || req.body.requestId;
     const accepterId = req.user.id;
     const { otpCode } = req.body;
 

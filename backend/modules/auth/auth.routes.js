@@ -187,7 +187,7 @@ router.get('/search', authMiddleware, userSearchLimiter, async (req, res) => {
 
 // Google Play Review / Demo Test Account credentials
 const DEMO_TEST_COUNTRY_CODE = process.env.DEMO_TEST_COUNTRY_CODE || '91';
-const DEMO_TEST_MOBILE = process.env.DEMO_TEST_MOBILE || '9999999999';
+const DEMO_TEST_MOBILES = new Set(['9999999999', '8888888888', '7777777777']);
 const DEMO_TEST_OTP = process.env.DEMO_TEST_OTP || '123456';
 
 /**
@@ -205,8 +205,8 @@ router.post('/otp/send', async (req, res) => {
   }
 
   try {
-    // Check if this is the Google Play Reviewer / Demo Test Account
-    const isTestAccount = (cleanMobile === DEMO_TEST_MOBILE && cleanCountryCode === DEMO_TEST_COUNTRY_CODE);
+    // Check if this is a Google Play Reviewer / Demo Test Account
+    const isTestAccount = (DEMO_TEST_MOBILES.has(cleanMobile) && cleanCountryCode === DEMO_TEST_COUNTRY_CODE);
 
     if (isTestAccount) {
       // Demo test account: Store fixed OTP hash in Redis, skip external WhatsApp API call
@@ -279,7 +279,7 @@ router.post('/otp/verify', async (req, res) => {
   }
 
   try {
-    const isTestAccount = (cleanMobile === DEMO_TEST_MOBILE && cleanCountryCode === DEMO_TEST_COUNTRY_CODE);
+    const isTestAccount = (DEMO_TEST_MOBILES.has(cleanMobile) && cleanCountryCode === DEMO_TEST_COUNTRY_CODE);
     const otpRedisKey = `otp:${cleanCountryCode}${cleanMobile}`;
     const attemptsKey = `otp_verify_attempts:${cleanMobile}`;
 

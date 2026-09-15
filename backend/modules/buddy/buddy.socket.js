@@ -71,7 +71,7 @@ async function broadcastNewBuddyRequest(io, request) {
         normalizedCity,
         targetGender,
         request.initiator_id,
-        BUDDY_LIMITS.MAX_FCM_BATCH_SIZE,
+        BUDDY_LIMITS.MAX_FCM_RECIPIENTS,
       ]);
 
       if (fcmRes.rows.length === 0) return;

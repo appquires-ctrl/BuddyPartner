@@ -74,9 +74,11 @@ const BUDDY_PRICING = Object.freeze({
 const BUDDY_LIMITS = Object.freeze({
   MAX_OTP_ATTEMPTS: 5,
   MAX_FCM_BATCH_SIZE: 500,
+  MAX_FCM_RECIPIENTS: 5000,
   DEFAULT_FEED_LIMIT: 20,
   MAX_FEED_LIMIT: 50,
 });
+
 
 module.exports = {
   BUDDY_TYPES,

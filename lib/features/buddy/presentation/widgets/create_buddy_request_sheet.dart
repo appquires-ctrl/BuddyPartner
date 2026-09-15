@@ -8,6 +8,7 @@ import 'package:buddypartner/features/auth/application/auth_state_provider.dart'
 import 'package:buddypartner/features/buddy/application/buddy_controller.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/initiator_otp_modal.dart';
+import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 
 /// Top Indian cities for the quick selector
 const List<String> kIndianCities = [
@@ -90,6 +91,16 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
 
   Future<void> _submitRequest() async {
     if (_isSubmitting) return;
+
+    final currentCoins = ref.read(walletBalanceProvider).value ?? 0;
+    if (currentCoins < 100) {
+      AppSnackBar.showError(
+        context,
+        'Insufficient balance: 100 coins required (current balance: $currentCoins coins). Please recharge your wallet.',
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
@@ -494,14 +505,15 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
     final colors = context.colors;
     final typography = context.typography;
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.72,
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      child: Column(
+    return Material(
+      color: colors.surface,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.72,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Center(
@@ -590,6 +602,8 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 }
