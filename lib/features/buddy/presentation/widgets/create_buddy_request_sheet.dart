@@ -563,7 +563,7 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
           const SizedBox(height: 12),
           Expanded(
             child: ListView.separated(
-              itemCount: _filteredCities.length + (_searchController.text.trim().isNotEmpty && !_filteredCities.contains(_searchController.text.trim()) ? 1 : 0),
+              itemCount: _filteredCities.length + (_searchController.text.trim().isNotEmpty && !_filteredCities.any((c) => c.toLowerCase() == _searchController.text.trim().toLowerCase()) ? 1 : 0),
               separatorBuilder: (_, index) => Divider(height: 1, color: colors.border.withValues(alpha: 0.5)),
               itemBuilder: (context, index) {
                 if (index < _filteredCities.length) {
