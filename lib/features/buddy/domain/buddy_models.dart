@@ -111,7 +111,7 @@ enum BuddyType {
 enum BuddyTargetGender {
   male(id: 'male', label: 'Male'),
   female(id: 'female', label: 'Female'),
-  all(id: 'all', label: 'All');
+  all(id: 'all', label: 'Both');
 
   final String id;
   final String label;

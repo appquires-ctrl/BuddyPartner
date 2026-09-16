@@ -8,7 +8,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
-
 class LocationService {
   static const _storage = FlutterSecureStorage();
   static const _lastLocationSyncKey = 'last_location_sync_timestamp';
@@ -68,7 +67,10 @@ class LocationService {
   /// and saves the result to the user's profile database silently in the background.
   ///
   /// Rate-limited to at most 1 time per day unless [force] is set to true or user has no location set yet.
-  static Future<String?> fetchAndSaveUserLocation(WidgetRef ref, {bool force = false}) async {
+  static Future<String?> fetchAndSaveUserLocation(
+    WidgetRef ref, {
+    bool force = false,
+  }) async {
     ApiClient? apiClient;
     UserProfile? profile;
     try {
@@ -76,13 +78,16 @@ class LocationService {
       profile = ref.read(userProfileProvider);
     } catch (_) {}
 
-    final hasExistingLocation = profile?.city != null && profile!.city!.trim().isNotEmpty;
+    final hasExistingLocation =
+        profile?.city != null && profile!.city!.trim().isNotEmpty;
 
     if (!force && hasExistingLocation) {
       final alreadyFetchedToday = await hasFetchedLocationToday();
       if (alreadyFetchedToday) {
         if (kDebugMode) {
-          debugPrint('📍 [LocationService] Location already fetched within the last 24 hours. Skipping.');
+          debugPrint(
+            ' [LocationService] Location already fetched within the last 24 hours. Skipping.',
+          );
         }
         return profile.city;
       }
@@ -160,15 +165,17 @@ class LocationService {
             try {
               final currentUser = ref.read(authStateProvider).value;
               if (currentUser != null) {
-                await ref.read(authStateProvider.notifier).setSession(
-                  currentUser.copyWith(
-                    country: country,
-                    state: state,
-                    city: city,
-                    latitude: position.latitude,
-                    longitude: position.longitude,
-                  ),
-                );
+                await ref
+                    .read(authStateProvider.notifier)
+                    .setSession(
+                      currentUser.copyWith(
+                        country: country,
+                        state: state,
+                        city: city,
+                        latitude: position.latitude,
+                        longitude: position.longitude,
+                      ),
+                    );
               }
             } catch (_) {}
           }
@@ -185,7 +192,10 @@ class LocationService {
 
   /// Automatically checks if location permission is granted.
   /// If granted, automatically fetches current position and updates user location on backend once per day.
-  static Future<String?> checkAndUpdateLocationIfGranted(WidgetRef ref, {bool force = false}) async {
+  static Future<String?> checkAndUpdateLocationIfGranted(
+    WidgetRef ref, {
+    bool force = false,
+  }) async {
     final granted = await isLocationPermissionGranted();
     if (!granted) return null;
     return await fetchAndSaveUserLocation(ref, force: force);

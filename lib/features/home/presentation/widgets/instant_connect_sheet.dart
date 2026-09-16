@@ -28,17 +28,17 @@ class InstantConnectSheet extends ConsumerStatefulWidget {
 }
 
 class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
-  final TextEditingController _amountController = TextEditingController(text: '20');
+  final TextEditingController _amountController = TextEditingController(text: '99');
   final FocusNode _focusNode = FocusNode();
-  int _selectedPreset = 20;
+  int _selectedPreset = 99;
   bool _isLoading = false;
 
   static const List<({int coins, String? badge})> _presets = [
-    (coins: 10, badge: 'ECO'),
-    (coins: 20, badge: 'POPULAR'),
-    (coins: 50, badge: 'FAST'),
-    (coins: 100, badge: 'TOP'),
-    (coins: 200, badge: 'VIP'),
+    (coins: 99, badge: 'POPULAR'),
+    (coins: 199, badge: 'FAST'),
+    (coins: 299, badge: 'VIP'),
+    (coins: 499, badge: 'TOP'),
+    (coins: 999, badge: 'MAX'),
   ];
 
   @override
@@ -73,7 +73,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
   void _adjustAmount(int delta) {
     HapticFeedback.lightImpact();
     final current = _currentAmount == 0 ? _selectedPreset : _currentAmount;
-    final newAmount = (current + delta).clamp(10, 10000);
+    final newAmount = (current + delta).clamp(99, 10000);
     setState(() {
       _selectedPreset = newAmount;
       _amountController.text = newAmount.toString();
@@ -81,15 +81,15 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
   }
 
   ({String title, String waitTime, double progress, Color color, IconData icon}) _getPriorityInfo(int amount) {
-    if (amount < 10) {
+    if (amount < 99) {
       return (
-        title: 'Minimum 10 Coins Required',
-        waitTime: 'Select coins ≥ 10',
+        title: 'Minimum 99 Coins Required',
+        waitTime: 'Select coins ≥ 99',
         progress: 0.0,
         color: const Color(0xFFE11D48),
         icon: Icons.info_outline_rounded,
       );
-    } else if (amount >= 100) {
+    } else if (amount >= 499) {
       return (
         title: 'Instant Top Match',
         waitTime: 'Est. wait: < 3s',
@@ -97,7 +97,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
         color: const Color(0xFFFF9100),
         icon: Icons.rocket_launch_rounded,
       );
-    } else if (amount >= 50) {
+    } else if (amount >= 299) {
       return (
         title: 'Turbo VIP Priority',
         waitTime: 'Est. wait: < 8s',
@@ -105,7 +105,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
         color: const Color(0xFF8B5CF6),
         icon: Icons.bolt_rounded,
       );
-    } else if (amount >= 20) {
+    } else if (amount >= 199) {
       return (
         title: 'High Queue Priority',
         waitTime: 'Est. wait: < 15s',
@@ -117,7 +117,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
       return (
         title: 'Standard VIP Priority',
         waitTime: 'Est. wait: ~20-30s',
-        progress: 0.3,
+        progress: 0.35,
         color: const Color(0xFF0EA5E9),
         icon: Icons.timer_outlined,
       );
@@ -136,7 +136,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
     }
 
     final amount = _currentAmount;
-    if (amount < 10) {
+    if (amount < 99) {
       _focusNode.requestFocus();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -147,7 +147,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
             children: [
               Icon(Icons.info_outline_rounded, color: Color(0xFFFFB74D), size: 20),
               SizedBox(width: 10),
-              Text('Minimum coin amount is 10 coins.', style: TextStyle(color: Colors.white)),
+              Text('Minimum coin amount is 99 coins.', style: TextStyle(color: Colors.white)),
             ],
           ),
         ),
@@ -252,7 +252,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
     final walletBalance = walletAsync.valueOrNull ?? 0;
     final isSubscribed = ref.watch(subscriptionStatusProvider).value?.isSubscribed ?? false;
     final amount = _currentAmount;
-    final isBelowMin = _amountController.text.trim().isNotEmpty && amount < 10;
+    final isBelowMin = _amountController.text.trim().isNotEmpty && amount < 99;
 
     // Only flag as insufficient when wallet balance has actually loaded and amount >= 10
     final isInsufficient = isSubscribed && walletAsync.hasValue && !isBelowMin && walletBalance < amount;
@@ -640,7 +640,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                isBelowMin ? 'Minimum 10 Coins Required' : 'Custom Amount (Min 10)',
+                                isBelowMin ? 'Minimum 99 Coins Required' : 'Custom Amount (Min 99)',
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
@@ -660,7 +660,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
                                 decoration: const InputDecoration(
                                   isDense: true,
                                   contentPadding: EdgeInsets.symmetric(vertical: 2),
-                                  hintText: '20',
+                                  hintText: '99',
                                   border: InputBorder.none,
                                 ),
                                 onChanged: (val) {
@@ -679,7 +679,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
                           children: [
                             _buildStepperBtn(
                               icon: Icons.remove_rounded,
-                              onTap: amount > 10 ? () => _adjustAmount(-10) : null,
+                              onTap: amount > 99 ? () => _adjustAmount(-10) : null,
                             ),
                             const SizedBox(width: 6),
                             _buildStepperBtn(
@@ -701,7 +701,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
                           Icon(Icons.error_outline_rounded, size: 14, color: Color(0xFFE11D48)),
                           SizedBox(width: 4),
                           Text(
-                            'Please enter at least 10 coins to proceed.',
+                            'Please enter at least 99 coins to proceed.',
                             style: TextStyle(
                               color: Color(0xFFE11D48),
                               fontSize: 11.5,
@@ -934,7 +934,7 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
                               const SizedBox(width: 8),
                               Text(
                                 isBelowMin
-                                    ? 'Minimum 10 Coins Required'
+                                    ? 'Minimum 99 Coins Required'
                                     : (!isSubscribed
                                         ? 'Unlock VIP to Connect'
                                         : (isInsufficient

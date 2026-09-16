@@ -48,7 +48,7 @@ async function startCompanion() {
   socketB.on('connect', () => {
     console.log(`🔌 [Account B Socket] Connected (ID: ${socketB.id})`);
     socketB.emit('join_buddy_city', { city: 'mumbai' });
-    console.log(`📍 [Account B Socket] Joined room: city:mumbai:buddy`);
+    console.log(` [Account B Socket] Joined room: city:mumbai:buddy`);
     console.log('⏳ Waiting for emulator to tap "Broadcast Request"...');
   });
 

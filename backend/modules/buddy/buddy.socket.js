@@ -23,7 +23,7 @@ function registerBuddyHandlers(io, socket, redis) {
       socket.join(specificRoom);
       socket.join(allRoom);
       socket.join(legacyRoom);
-      console.log(`📍 Socket ${socket.id} (user ${socket.userId}) joined buddy rooms: ${specificRoom}, ${allRoom}`);
+      console.log(` Socket ${socket.id} (user ${socket.userId}) joined buddy rooms: ${specificRoom}, ${allRoom}`);
     }
   });
 
@@ -35,7 +35,7 @@ function registerBuddyHandlers(io, socket, redis) {
       socket.leave(`buddy:city:${normalizedCity}:${userGender}`);
       socket.leave(`buddy:city:${normalizedCity}:all`);
       socket.leave(`city:${normalizedCity}:buddy`);
-      console.log(`📍 Socket ${socket.id} left buddy rooms for city: ${normalizedCity}`);
+      console.log(` Socket ${socket.id} left buddy rooms for city: ${normalizedCity}`);
     }
   });
 }

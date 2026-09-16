@@ -214,7 +214,7 @@ class InstantConnectController extends Notifier<InstantConnectState> {
   void _checkAndEmitPendingSurge(sio.Socket socket) {
     if (_pendingSurgeSessionId != null && _pendingSurgeSessionId!.isNotEmpty) {
       final sessId = _pendingSurgeSessionId!;
-      final bid = _pendingSurgeBidAmount ?? 10;
+      final bid = _pendingSurgeBidAmount ?? 99;
       _pendingSurgeSessionId = null;
       _pendingSurgeBidAmount = null;
       _coldStartConnectTimer?.cancel();

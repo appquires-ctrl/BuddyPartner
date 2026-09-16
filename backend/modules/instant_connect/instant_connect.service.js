@@ -186,8 +186,8 @@ class InstantConnectService {
    * @returns {Promise<{ success: boolean, newBalance?: number, error?: string, message?: string }>}
    */
   async escrowMaleCoins(userId, amount) {
-    if (!amount || amount < 10) {
-      return { success: false, error: 'INVALID_AMOUNT', message: 'Minimum bid amount is 10 coins.' };
+    if (!amount || amount < 99) {
+      return { success: false, error: 'INVALID_AMOUNT', message: 'Minimum bid amount is 99 coins.' };
     }
 
     const isSub = await subscriptionsService.isSubscribed(userId);

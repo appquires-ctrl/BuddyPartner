@@ -31,6 +31,7 @@ class RouteNames {
   static const String devSubscription = '/dev-subscription';
   static const String devRecharge = '/dev-recharge';
   static const String updateRequired = '/update-required';
+  static const String buddyActivity = '/buddy-activity';
 
   // Legal routes
   static const String termsOfService = '/legal/terms';

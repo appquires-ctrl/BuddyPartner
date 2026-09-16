@@ -53,13 +53,13 @@ async function runTests() {
 
     // Ensure wallets have coins
     await db.query(
-      `INSERT INTO public.wallets (user_id, balance) VALUES ($1, 200)
-       ON CONFLICT (user_id) DO UPDATE SET balance = 200`,
+      `INSERT INTO public.wallets (user_id, spendable_balance, earned_balance) VALUES ($1, 200, 0)
+       ON CONFLICT (user_id) DO UPDATE SET spendable_balance = 200, earned_balance = 0`,
       [maleId]
     );
     await db.query(
-      `INSERT INTO public.wallets (user_id, balance) VALUES ($1, 0)
-       ON CONFLICT (user_id) DO UPDATE SET balance = 0`,
+      `INSERT INTO public.wallets (user_id, spendable_balance, earned_balance) VALUES ($1, 0, 0)
+       ON CONFLICT (user_id) DO UPDATE SET spendable_balance = 0, earned_balance = 0`,
       [femaleId]
     );
 
@@ -74,23 +74,23 @@ async function runTests() {
 
     // 3. Test Male Coin Escrow & Minimum Amount Validation
     console.log('3️⃣ Testing Coin Escrow & Minimum Bid Validation...');
-    // Under minimum (< 10)
-    const lowBid = await instantConnectService.escrowMaleCoins(maleId, 5);
-    console.log('   Low bid (<10) rejected correctly:', !lowBid.success && lowBid.error === 'INVALID_AMOUNT');
+    // Under minimum (< 99)
+    const lowBid = await instantConnectService.escrowMaleCoins(maleId, 50);
+    console.log('   Low bid (<99) rejected correctly:', !lowBid.success && lowBid.error === 'INVALID_AMOUNT');
 
-    // Valid bid (20 coins)
-    const validEscrow = await instantConnectService.escrowMaleCoins(maleId, 20);
-    console.log('   Valid bid (20 coins) escrowed. New balance:', validEscrow.newBalance);
-    if (!validEscrow.success || validEscrow.newBalance !== 180) {
+    // Valid bid (99 coins)
+    const validEscrow = await instantConnectService.escrowMaleCoins(maleId, 99);
+    console.log('   Valid bid (99 coins) escrowed. New balance:', validEscrow.newBalance);
+    if (!validEscrow.success || validEscrow.newBalance !== 101) {
       throw new Error('Coin escrow balance check failed!');
     }
     console.log('   ✅ Coin escrow passed.\n');
 
     // 4. Test Queue Cancellation & 100% Refund
     console.log('4️⃣ Testing Queue Cancellation & 100% Refund...');
-    const session = await instantConnectService.createSession(maleId, 20);
-    const refund = await instantConnectService.refundEscrowedCoins(maleId, 20, session.id);
-    console.log('   Refunded 20 coins. Restored balance:', refund.newBalance);
+    const session = await instantConnectService.createSession(maleId, 99);
+    const refund = await instantConnectService.refundEscrowedCoins(maleId, 99, session.id);
+    console.log('   Refunded 99 coins. Restored balance:', refund.newBalance);
     if (refund.newBalance !== 200) {
       throw new Error('Refund balance mismatch!');
     }
@@ -98,20 +98,20 @@ async function runTests() {
 
     // 5. Test Call Session & 10-Minute Milestone Scratch Card Generation
     console.log('5️⃣ Testing 10-Minute Milestone & Scratch Card Reward...');
-    // Re-escrow 50 coins
-    await instantConnectService.escrowMaleCoins(maleId, 50);
-    const callSession = await instantConnectService.createSession(maleId, 50);
+    // Re-escrow 100 coins
+    await instantConnectService.escrowMaleCoins(maleId, 100);
+    const callSession = await instantConnectService.createSession(maleId, 100);
     await instantConnectService.startCallSession(callSession.id, femaleId, 'test_channel_123');
 
     // Trigger milestone
     const scratchCard = await instantConnectService.trigger10MinuteMilestone(callSession.id);
     console.log('   Scratch Card generated:', scratchCard);
 
-    // Bid was 50 -> reward should be between 35% (17) and 65% (32)
-    if (!scratchCard || scratchCard.coin_reward < 17 || scratchCard.coin_reward > 33) {
-      throw new Error(`Scratch card reward ${scratchCard?.coin_reward} outside expected margin range for bid 50!`);
+    // Bid was 100 -> reward should be between 35% (35) and 65% (65)
+    if (!scratchCard || scratchCard.coin_reward < 35 || scratchCard.coin_reward > 65) {
+      throw new Error(`Scratch card reward ${scratchCard?.coin_reward} outside expected margin range for bid 100!`);
     }
-    console.log(`   ✅ Scratch Card generated with ${scratchCard.coin_reward} coins reward (App margin: ${50 - scratchCard.coin_reward} coins).\n`);
+    console.log(`   ✅ Scratch Card generated with ${scratchCard.coin_reward} coins reward (App margin: ${100 - scratchCard.coin_reward} coins).\n`);
 
     // 6. Test Scratch Card Claiming & Female Wallet Credit
     console.log('6️⃣ Testing Scratch Card Claim & Wallet Credit...');

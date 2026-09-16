@@ -397,8 +397,8 @@ function registerInstantConnectHandlers(io, socket, redis) {
     const cb = typeof callback === 'function' ? callback : () => {};
     try {
       const bidAmount = parseInt(data?.bidAmount, 10);
-      if (!bidAmount || bidAmount < 10) {
-        cb({ success: false, error: 'INVALID_AMOUNT', message: 'Minimum bid amount is 10 coins.' });
+      if (!bidAmount || bidAmount < 99) {
+        cb({ success: false, error: 'INVALID_AMOUNT', message: 'Minimum bid amount is 99 coins.' });
         return;
       }
 

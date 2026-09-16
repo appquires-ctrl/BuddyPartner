@@ -41,6 +41,7 @@ import 'package:buddypartner/core/utils/app_navigation_observer.dart';
 
 import 'package:buddypartner/features/version/application/version_check_provider.dart';
 import 'package:buddypartner/features/version/presentation/pages/update_required_page.dart';
+import 'package:buddypartner/features/buddy/presentation/pages/my_buddy_activity_page.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
@@ -327,6 +328,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           final price = args['price'] as int? ?? 100;
           return DevRechargePage(coins: coins, price: price);
         },
+      ),
+      GoRoute(
+        path: RouteNames.buddyActivity,
+        name: 'MyBuddyActivityPage',
+        builder: (context, state) => const MyBuddyActivityPage(),
       ),
       // Stateful Nested Shell for Main Dashboard (4 core tabs)
       StatefulShellRoute.indexedStack(
