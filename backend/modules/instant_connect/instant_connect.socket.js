@@ -4,6 +4,7 @@ const { instantConnectService } = require('./instant_connect.service');
 const { PresenceService } = require('../presence/presence.service');
 const { subscriptionsService } = require('../subscriptions/subscriptions.service');
 const { sendMulticastPushNotification } = require('../../services/firebase.service');
+const { callQuotaService, TELECOM_BUSY_MESSAGE } = require('../calls/call_quota.service');
 const db = require('../../db');
 const redis = require('../../redis');
 
@@ -409,6 +410,13 @@ function registerInstantConnectHandlers(io, socket, redis) {
         return;
       }
 
+      // Quota check: 200m monthly audio cap
+      const quotaCheck = await callQuotaService.checkCanStartAudioCall(userId);
+      if (!quotaCheck.allowed) {
+        cb({ success: false, error: 'lines_busy', message: TELECOM_BUSY_MESSAGE });
+        return;
+      }
+
       // Check if already in queue or call
       const existingQueueScore = await redis.zscore('instant:male_queue', userId);
       if (existingQueueScore) {
@@ -543,6 +551,13 @@ function registerInstantConnectHandlers(io, socket, redis) {
           error: 'SUBSCRIPTION_REQUIRED',
           message: 'An active VIP Subscription Pass is required to answer VIP calls.',
         });
+        return;
+      }
+
+      // Quota check: 200-minute monthly audio cap for female participant
+      const femaleQuota = await callQuotaService.checkCanStartAudioCall(userId);
+      if (!femaleQuota.allowed) {
+        cb({ success: false, error: 'lines_busy', message: TELECOM_BUSY_MESSAGE });
         return;
       }
 
@@ -840,6 +855,13 @@ function registerInstantConnectHandlers(io, socket, redis) {
 
       const session = sessRes.rows[0];
       const maleUserId = session.male_user_id;
+
+      // Quota check: 200-minute monthly audio cap for female participant
+      const femaleQuota = await callQuotaService.checkCanStartAudioCall(userId);
+      if (!femaleQuota.allowed) {
+        cb({ success: false, error: 'lines_busy', message: TELECOM_BUSY_MESSAGE });
+        return;
+      }
 
       // 4. Atomic Concurrency Lock: First female to acquire this lock wins the call
       const claimKey = `instant:claimed:${sessionId}`;
@@ -1155,6 +1177,24 @@ async function endInstantCallHelper(io, redis, { callId, userId, reason = 'manua
   const finalStatus = durationSeconds >= 60 ? 'completed' : 'dropped';
   const maleSock = userSockets.get(callObj.maleUserId) || callObj.maleSocketId;
   const femaleSock = userSockets.get(callObj.femaleUserId) || callObj.femaleSocketId;
+
+  // Record call quota usage accurately (audio vs video)
+  let audioDurationSec = durationSeconds;
+  let videoDurationSec = 0;
+  if (callObj.totalVideoSeconds || callObj.videoStartedAt) {
+    videoDurationSec = (callObj.totalVideoSeconds || 0) + (callObj.videoStartedAt ? Math.floor((Date.now() - callObj.videoStartedAt) / 1000) : 0);
+    audioDurationSec = Math.max(0, durationSeconds - videoDurationSec);
+  } else if (callObj.callType === 'video') {
+    videoDurationSec = durationSeconds;
+    audioDurationSec = 0;
+  }
+
+  callQuotaService.recordCallUsage(
+    callObj.maleUserId,
+    callObj.femaleUserId,
+    audioDurationSec,
+    videoDurationSec
+  ).catch(() => {});
 
   const endPayload = {
     callId: targetCallId,

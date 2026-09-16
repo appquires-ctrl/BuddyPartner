@@ -119,6 +119,183 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
     }
   }
 
+  /// Log in using Username or Phone Number + Password (Zero SMS gateway cost).
+  Future<Map<String, dynamic>> loginWithPassword({
+    required String login,
+    required String password,
+  }) async {
+    state = const AsyncLoading();
+    final apiClient = ref.read(apiClientProvider);
+
+    try {
+      final response = await apiClient.dio.post(
+        '/api/auth/login',
+        data: {
+          'login': login.trim(),
+          'password': password,
+        },
+      );
+
+      if (response.statusCode == 200 && response.data != null && response.data['success'] == true) {
+        final token = response.data['token'] as String;
+        final refreshToken = response.data['refreshToken'] as String;
+        final isProfileComplete = response.data['isProfileComplete'] as bool? ?? false;
+
+        await apiClient.saveTokens(token: token, refreshToken: refreshToken);
+
+        final userMap = response.data['user'] as Map<String, dynamic>? ?? {};
+        final user = CustomUser.fromBackendUserMap(
+          userMap,
+          isProfileComplete: isProfileComplete,
+          fallbackPhone: login,
+        );
+
+        await ref.read(authStateProvider.notifier).setSession(user);
+
+        AppTroveService.trackLogin(
+          phoneNumber: user.phoneNumber,
+          userId: user.id,
+        );
+
+        state = const AsyncData(null);
+        return {
+          'success': true,
+          'isProfileComplete': isProfileComplete,
+        };
+      }
+
+      final errMsg = response.data?['message'] ?? response.data?['error'] ?? 'Login failed.';
+      final errorCode = response.data?['error'] as String?;
+      state = AsyncError(Exception(errMsg), StackTrace.current);
+      return {'success': false, 'error': errMsg, 'errorCode': errorCode};
+    } catch (e, stack) {
+      String errMsg = 'Failed to log in. Please check your credentials.';
+      String? errorCode;
+      if (e is DioException && e.response?.data is Map) {
+        errMsg = e.response?.data['message'] ?? e.response?.data['error'] ?? errMsg;
+        errorCode = e.response?.data['error'] as String?;
+      } else {
+        errMsg = e.toString();
+      }
+      state = AsyncError(Exception(errMsg), stack);
+      return {'success': false, 'error': errMsg, 'errorCode': errorCode};
+    }
+  }
+
+  /// Sets or updates password for the currently authenticated user.
+  Future<bool> setPassword(String password) async {
+    state = const AsyncLoading();
+    final apiClient = ref.read(apiClientProvider);
+
+    try {
+      final response = await apiClient.dio.post(
+        '/api/auth/set-password',
+        data: {'password': password},
+      );
+
+      if (response.statusCode == 200 && response.data != null && response.data['success'] == true) {
+        final currentUser = ref.read(authStateProvider).value;
+        if (currentUser != null) {
+          await ref.read(authStateProvider.notifier).setSession(
+            currentUser.copyWith(hasPassword: true),
+          );
+        }
+        state = const AsyncData(null);
+        return true;
+      }
+      final errMsg = response.data?['message'] ?? response.data?['error'] ?? 'Failed to set password.';
+      state = AsyncError(Exception(errMsg), StackTrace.current);
+      return false;
+    } catch (e, stack) {
+      final errMsg = (e is DioException && e.response?.data is Map)
+          ? e.response?.data['message'] ?? e.response?.data['error'] ?? 'Failed to set password.'
+          : e.toString();
+      state = AsyncError(Exception(errMsg), stack);
+      return false;
+    }
+  }
+
+  /// Request a 6-digit WhatsApp OTP for password recovery.
+  Future<Map<String, dynamic>> sendForgotPasswordOtp({
+    String? login,
+    String? countryCode,
+    String? mobile,
+  }) async {
+    state = const AsyncLoading();
+    final apiClient = ref.read(apiClientProvider);
+
+    try {
+      final response = await apiClient.dio.post(
+        '/api/auth/forgot-password/send-otp',
+        data: {
+          if (login != null && login.isNotEmpty) 'login': login.trim(),
+          if (countryCode != null) 'country_code': countryCode.trim().replaceAll('+', ''),
+          if (mobile != null) 'mobile': mobile.trim(),
+        },
+      );
+
+      if (response.statusCode == 200 && response.data != null && response.data['success'] == true) {
+        state = const AsyncData(null);
+        return {
+          'success': true,
+          'message': response.data['message'] as String? ?? 'Verification code sent.',
+          'countryCode': response.data['countryCode'] as String? ?? countryCode,
+          'mobile': response.data['mobile'] as String? ?? mobile,
+          'phoneHint': response.data['phoneHint'] as String?,
+        };
+      }
+      final errMsg = response.data?['message'] ?? response.data?['error'] ?? 'Failed to send reset code.';
+      state = AsyncError(Exception(errMsg), StackTrace.current);
+      return {'success': false, 'error': errMsg};
+    } catch (e, stack) {
+      final errMsg = (e is DioException && e.response?.data is Map)
+          ? e.response?.data['message'] ?? e.response?.data['error'] ?? 'Failed to send reset code.'
+          : e.toString();
+      state = AsyncError(Exception(errMsg), stack);
+      return {'success': false, 'error': errMsg};
+    }
+  }
+
+  /// Verify WhatsApp OTP and set new password.
+  Future<Map<String, dynamic>> resetPasswordWithOtp({
+    required String countryCode,
+    required String mobile,
+    required String otp,
+    required String newPassword,
+  }) async {
+    state = const AsyncLoading();
+    final apiClient = ref.read(apiClientProvider);
+
+    try {
+      final response = await apiClient.dio.post(
+        '/api/auth/forgot-password/reset',
+        data: {
+          'country_code': countryCode.trim().replaceAll('+', ''),
+          'mobile': mobile.trim(),
+          'otp': otp.trim(),
+          'new_password': newPassword,
+        },
+      );
+
+      if (response.statusCode == 200 && response.data != null && response.data['success'] == true) {
+        state = const AsyncData(null);
+        return {
+          'success': true,
+          'message': response.data['message'] as String? ?? 'Password reset successfully.',
+        };
+      }
+      final errMsg = response.data?['message'] ?? response.data?['error'] ?? 'Failed to reset password.';
+      state = AsyncError(Exception(errMsg), StackTrace.current);
+      return {'success': false, 'error': errMsg};
+    } catch (e, stack) {
+      final errMsg = (e is DioException && e.response?.data is Map)
+          ? e.response?.data['message'] ?? e.response?.data['error'] ?? 'Failed to reset password.'
+          : e.toString();
+      state = AsyncError(Exception(errMsg), stack);
+      return {'success': false, 'error': errMsg};
+    }
+  }
+
   /// Checks whether a chosen username is available and valid.
   Future<Map<String, dynamic>> checkUsernameAvailable(String userName) async {
     final apiClient = ref.read(apiClientProvider);
@@ -167,6 +344,7 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
   Future<bool> completeProfile({
     required String fullName,
     String? userName,
+    String? password,
     required DateTime dob,
     required String gender,
     required String language,
@@ -186,6 +364,8 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
             'fullName': fullName,
             if (userName != null && userName.trim().isNotEmpty)
               'userName': userName.trim().toLowerCase(),
+            if (password != null && password.trim().isNotEmpty)
+              'password': password,
             'dob': dob.toIso8601String(),
             'gender': gender,
             'language': language,

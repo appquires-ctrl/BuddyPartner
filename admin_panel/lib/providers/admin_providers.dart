@@ -142,6 +142,17 @@ class UsersNotifier extends StateNotifier<UsersState> {
       return false;
     }
   }
+
+  Future<bool> resetCallQuota(String userId) async {
+    try {
+      await ApiService.post('/users/$userId/reset-call-quota');
+      await fetchUsers();
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      return false;
+    }
+  }
 }
 
 

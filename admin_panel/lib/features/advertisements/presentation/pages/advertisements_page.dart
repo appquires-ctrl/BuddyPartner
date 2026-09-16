@@ -263,23 +263,25 @@ class _AdvertisementsPageState extends State<AdvertisementsPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Home Screen Advertisements',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF111827),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Home Screen Advertisements',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF111827),
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Manage dynamic ad banners shown at the bottom of the home screen.',
-                      style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
-                    ),
-                  ],
+                      SizedBox(height: 4),
+                      Text(
+                        'Manage dynamic ad banners shown at the bottom of the home screen.',
+                        style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+                      ),
+                    ],
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh),

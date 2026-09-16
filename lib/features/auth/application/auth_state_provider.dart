@@ -23,6 +23,7 @@ class CustomUser {
   final String? city;
   final double? latitude;
   final double? longitude;
+  final bool hasPassword;
 
   CustomUser({
     required this.id,
@@ -42,6 +43,7 @@ class CustomUser {
     this.city,
     this.latitude,
     this.longitude,
+    this.hasPassword = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -63,6 +65,7 @@ class CustomUser {
       'city': city,
       'latitude': latitude,
       'longitude': longitude,
+      'hasPassword': hasPassword,
     };
   }
 
@@ -85,6 +88,7 @@ class CustomUser {
       city: json['city'] as String?,
       latitude: (json['latitude'] != null) ? (json['latitude'] as num).toDouble() : null,
       longitude: (json['longitude'] != null) ? (json['longitude'] as num).toDouble() : null,
+      hasPassword: json['hasPassword'] as bool? ?? false,
     );
   }
 
@@ -126,6 +130,7 @@ class CustomUser {
       city: userMap['city'] as String?,
       latitude: (userMap['latitude'] != null) ? (userMap['latitude'] as num).toDouble() : null,
       longitude: (userMap['longitude'] != null) ? (userMap['longitude'] as num).toDouble() : null,
+      hasPassword: userMap['hasPassword'] as bool? ?? false,
     );
   }
 
@@ -158,6 +163,7 @@ class CustomUser {
     String? city,
     double? latitude,
     double? longitude,
+    bool? hasPassword,
   }) {
     return CustomUser(
       id: id ?? this.id,
@@ -177,6 +183,7 @@ class CustomUser {
       city: city ?? this.city,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
+      hasPassword: hasPassword ?? this.hasPassword,
     );
   }
 }
@@ -213,24 +220,9 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
       if (response.statusCode == 200 && response.data != null) {
         final userMap = response.data['user'];
         final fullName = userMap['fullName'] as String? ?? '';
-        final gender = userMap['gender'] as String? ?? 'Male';
-        final freshUser = CustomUser(
-          id: userMap['id'] as String,
-          phoneNumber: userMap['phoneNumber'] as String,
+        final freshUser = CustomUser.fromBackendUserMap(
+          userMap as Map<String, dynamic>,
           isProfileComplete: fullName.trim().isNotEmpty,
-          gender: gender,
-          fullName: fullName.trim().isNotEmpty ? fullName.trim() : null,
-          avatarSeed: userMap['avatarSeed'] as String?,
-          avatarStyle: userMap['avatarStyle'] as String? ?? 'avataaars',
-          isTelecaller: userMap['isTelecaller'] as bool?,
-          hasClaimedIntroOffer: userMap['hasClaimedIntroOffer'] as bool? ?? false,
-          dob: DateTime.tryParse(userMap['dob'] as String? ?? ''),
-          language: userMap['language'] as String? ?? 'English',
-          country: userMap['country'] as String?,
-          state: userMap['state'] as String?,
-          city: userMap['city'] as String?,
-          latitude: (userMap['latitude'] != null) ? (userMap['latitude'] as num).toDouble() : null,
-          longitude: (userMap['longitude'] != null) ? (userMap['longitude'] as num).toDouble() : null,
         );
 
         await apiClient.saveUserSessionJson(freshUser.toJson());

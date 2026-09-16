@@ -96,6 +96,401 @@ router.get('/username-available', usernameCheckLimiter, async (req, res) => {
 });
 
 /**
+ * Endpoint: POST /api/auth/login
+ * Production username/phone + password authentication (Zero SMS gateway cost).
+ * - Accepts { login, password }
+ * - Resolves user by case-insensitive user_name or phone
+ * - Enforces Redis brute-force rate limit: max 5 failed attempts per 15 minutes
+ * - Enforces Single-Device Policy (invalidates old session & emits session_terminated)
+ * - Issues Access Token (1d) and rotating Refresh Token (30d) in Redis
+ */
+router.post('/login', async (req, res) => {
+  const { login, password } = req.body || {};
+  const rawLogin = (login || '').toString().trim();
+  const rawPassword = (password || '').toString();
+
+  if (!rawLogin || !rawPassword) {
+    return res.status(400).json({ error: 'Username or phone number, and password are required.' });
+  }
+
+  const cleanLogin = rawLogin.startsWith('@') ? rawLogin.slice(1).trim().toLowerCase() : rawLogin.toLowerCase();
+  const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown_ip';
+
+  const lockoutWindow = 900; // 15 minutes
+  const maxAttempts = 5;
+  const loginAttemptsKey = `login_attempts:${cleanLogin}`;
+  const ipAttemptsKey = `login_attempts_ip:${ip}`;
+
+  try {
+    // 1. Check brute-force lockout counters
+    const [userAttempts, ipAttempts] = await Promise.all([
+      redis.get(loginAttemptsKey),
+      redis.get(ipAttemptsKey),
+    ]);
+
+    if ((userAttempts && parseInt(userAttempts, 10) >= maxAttempts) ||
+        (ipAttempts && parseInt(ipAttempts, 10) >= maxAttempts * 3)) {
+      return res.status(429).json({
+        error: 'TOO_MANY_ATTEMPTS',
+        message: 'Too many failed login attempts. Please wait 15 minutes or reset your password.',
+      });
+    }
+
+    // 2. Identify and fetch user (check by username or phone)
+    const phoneDigits = rawLogin.replace(/\D/g, '');
+    let userRes;
+
+    if (phoneDigits.length >= 7) {
+      userRes = await db.query(
+        `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.password_hash,
+                u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, 
+                u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, u.is_banned,
+                w.spendable_balance, w.earned_balance, (COALESCE(w.spendable_balance, 0) + COALESCE(w.earned_balance, 0)) AS balance
+         FROM public.users u
+         LEFT JOIN public.wallets w ON w.user_id = u.id
+         WHERE LOWER(u.user_name) = $1 
+            OR u.mobile = $2 
+            OR u.phone_number = $3 
+            OR u.phone_number = $4
+         LIMIT 1`,
+        [cleanLogin, phoneDigits, `+${phoneDigits}`, phoneDigits]
+      );
+    } else {
+      userRes = await db.query(
+        `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.password_hash,
+                u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, 
+                u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, u.is_banned,
+                w.spendable_balance, w.earned_balance, (COALESCE(w.spendable_balance, 0) + COALESCE(w.earned_balance, 0)) AS balance
+         FROM public.users u
+         LEFT JOIN public.wallets w ON w.user_id = u.id
+         WHERE LOWER(u.user_name) = $1
+         LIMIT 1`,
+        [cleanLogin]
+      );
+    }
+
+    if (userRes.rows.length === 0) {
+      const attempts = await redis.incr(loginAttemptsKey);
+      if (attempts === 1) await redis.expire(loginAttemptsKey, lockoutWindow);
+      await redis.incr(ipAttemptsKey);
+      await redis.expire(ipAttemptsKey, lockoutWindow);
+
+      return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid username or password.' });
+    }
+
+    const user = userRes.rows[0];
+
+    // 3. Check if account is banned
+    if (user.is_banned === true) {
+      return res.status(403).json({ error: 'ACCOUNT_BANNED', message: 'This account has been suspended or banned.' });
+    }
+
+    // 4. Check if password is set on this account
+    if (!user.password_hash) {
+      return res.status(400).json({
+        error: 'NO_PASSWORD_SET',
+        message: 'No password has been set for this account yet. Please log in using WhatsApp OTP once to create your password.',
+        phoneHint: user.phone_number ? `...${user.phone_number.slice(-4)}` : null,
+      });
+    }
+
+    // 5. Compare password hash
+    const isPasswordValid = await bcrypt.compare(rawPassword, user.password_hash);
+    if (!isPasswordValid) {
+      const attempts = await redis.incr(loginAttemptsKey);
+      if (attempts === 1) await redis.expire(loginAttemptsKey, lockoutWindow);
+      await redis.incr(ipAttemptsKey);
+      await redis.expire(ipAttemptsKey, lockoutWindow);
+
+      return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid username or password.' });
+    }
+
+    // 6. Login successful! Clear failed attempt keys
+    await Promise.all([
+      redis.del(loginAttemptsKey),
+      redis.del(ipAttemptsKey),
+    ]);
+
+    // 7. Enforce Single-Device Policy
+    const sessionId = crypto.randomUUID();
+    const io = req.app.get('io');
+    if (io) {
+      io.to(user.id).emit('session_terminated', {
+        reason: 'Your account was logged in from another device.',
+      });
+      setTimeout(() => {
+        try {
+          io.in(user.id).disconnectSockets(true);
+        } catch (_) {}
+      }, 500);
+    }
+
+    try {
+      const oldRefreshKeys = await redis.keys(`refresh:${user.id}:*`);
+      if (oldRefreshKeys && oldRefreshKeys.length > 0) {
+        await redis.del(...oldRefreshKeys);
+      }
+    } catch (_) {}
+
+    await redis.set(`user_active_session:${user.id}`, sessionId);
+
+    // 8. Generate Tokens
+    const jti = crypto.randomUUID();
+    const fullPhoneNumber = user.phone_number || `+${user.country_code}${user.mobile}`;
+    const payload = {
+      id: user.id,
+      phone: fullPhoneNumber,
+      countryCode: user.country_code,
+      mobile: user.mobile,
+      sessionId,
+    };
+
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
+    const refreshToken = jwt.sign({ id: user.id, jti, sessionId }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
+
+    await redis.set(`refresh:${user.id}:${jti}`, '1', 'EX', 30 * 24 * 60 * 60);
+
+    const isProfileComplete = Boolean(user.full_name && user.full_name.trim().length > 0);
+    const sBal = parseFloat(user.spendable_balance) || 0;
+    const eBal = parseFloat(user.earned_balance) || 0;
+
+    res.json({
+      success: true,
+      token,
+      refreshToken,
+      isProfileComplete,
+      user: {
+        id: user.id,
+        countryCode: user.country_code || '',
+        mobile: user.mobile || '',
+        phoneNumber: fullPhoneNumber,
+        fullName: user.full_name || '',
+        userName: user.user_name || null,
+        hasPassword: true,
+        dob: user.dob ? user.dob.toISOString() : null,
+        gender: user.gender || 'Male',
+        language: user.language || 'English',
+        avatarSeed: user.avatar_seed || null,
+        avatarStyle: user.avatar_style || 'avataaars',
+        isTelecaller: user.is_telecaller || false,
+        hasClaimedIntroOffer: user.has_claimed_intro_offer || false,
+        country: user.country || null,
+        state: user.state || null,
+        city: user.city || null,
+        latitude: user.latitude ? parseFloat(user.latitude) : null,
+        longitude: user.longitude ? parseFloat(user.longitude) : null,
+        spendableBalance: sBal,
+        earnedBalance: eBal,
+        balance: sBal + eBal,
+      },
+    });
+  } catch (err) {
+    console.error('❌ Error during password login:', err.message);
+    res.status(500).json({ error: 'Internal server error processing login.' });
+  }
+});
+
+/**
+ * Endpoint: POST /api/auth/set-password
+ * Allows an authenticated user to set or update their account password.
+ */
+router.post('/set-password', authMiddleware, async (req, res) => {
+  const userId = req.user?.id;
+  const { password } = req.body || {};
+
+  if (!password || typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({
+      error: 'INVALID_PASSWORD',
+      message: 'Password must be at least 8 characters long.',
+    });
+  }
+
+  try {
+    const passwordHash = await bcrypt.hash(password, 10);
+    await db.query(
+      `UPDATE public.users SET password_hash = $1 WHERE id = $2`,
+      [passwordHash, userId]
+    );
+
+    // Invalidate cached profile
+    await cacheService.invalidate(`user:profile:${userId}`);
+
+    res.json({
+      success: true,
+      message: 'Password created successfully. You can now log in using your username and password.',
+    });
+  } catch (err) {
+    console.error('❌ Error setting password:', err.message);
+    res.status(500).json({ error: 'Failed to set password.' });
+  }
+});
+
+/**
+ * Endpoint: POST /api/auth/forgot-password/send-otp
+ * Initiates password recovery by sending a 6-digit WhatsApp OTP to the user's verified phone.
+ */
+router.post('/forgot-password/send-otp', async (req, res) => {
+  const { login, country_code, mobile } = req.body || {};
+  let targetCountryCode = country_code;
+  let targetMobile = mobile;
+
+  try {
+    if (login) {
+      const cleanLogin = (login || '').toString().trim().replace(/^@/, '').toLowerCase();
+      const phoneDigits = cleanLogin.replace(/\D/g, '');
+
+      let userRes;
+      if (phoneDigits.length >= 7) {
+        userRes = await db.query(
+          `SELECT id, country_code, mobile, phone_number FROM public.users 
+           WHERE LOWER(user_name) = $1 OR mobile = $2 OR phone_number = $3 OR phone_number = $4 LIMIT 1`,
+          [cleanLogin, phoneDigits, `+${phoneDigits}`, phoneDigits]
+        );
+      } else {
+        userRes = await db.query(
+          `SELECT id, country_code, mobile, phone_number FROM public.users WHERE LOWER(user_name) = $1 LIMIT 1`,
+          [cleanLogin]
+        );
+      }
+
+      if (userRes.rows.length === 0) {
+        return res.status(404).json({ error: 'USER_NOT_FOUND', message: 'No account found with this username or phone number.' });
+      }
+
+      targetCountryCode = userRes.rows[0].country_code || '91';
+      targetMobile = userRes.rows[0].mobile;
+    }
+
+    const { cleanCountryCode, cleanMobile } = sanitizePhoneInputs(targetCountryCode, targetMobile);
+    if (!cleanCountryCode || !cleanMobile || cleanMobile.length < 7) {
+      return res.status(400).json({ error: 'Valid country code and mobile number are required.' });
+    }
+
+    const isTestAccount = (DEMO_TEST_MOBILES.has(cleanMobile) && cleanCountryCode === DEMO_TEST_COUNTRY_CODE);
+    const otpRedisKey = `otp_reset:${cleanCountryCode}${cleanMobile}`;
+
+    if (isTestAccount) {
+      const hashedOtp = await bcrypt.hash(DEMO_TEST_OTP, 10);
+      await redis.set(otpRedisKey, hashedOtp, 'EX', OTP_TTL_SECONDS);
+      return res.json({
+        success: true,
+        message: 'Password reset code sent.',
+        countryCode: cleanCountryCode,
+        mobile: cleanMobile,
+        phoneHint: `...${cleanMobile.slice(-4)}`,
+      });
+    }
+
+    // Rate limiting: max 3 reset OTPs per 10 minutes
+    const sendCountKey = `otp_reset_send_count:${cleanMobile}`;
+    const sendCount = await redis.incr(sendCountKey);
+    if (sendCount === 1) await redis.expire(sendCountKey, SEND_LIMIT_WINDOW);
+    else if (sendCount > SEND_LIMIT_MAX) {
+      return res.status(429).json({ error: 'Too many OTP requests. Please wait 10 minutes before trying again.' });
+    }
+
+    const otp = generateOTP();
+    const hashedOtp = await bcrypt.hash(otp, 10);
+    await redis.set(otpRedisKey, hashedOtp, 'EX', OTP_TTL_SECONDS);
+
+    const sendResult = await sendWhatsAppOtp(cleanCountryCode, cleanMobile, otp);
+    if (!sendResult.success) {
+      return res.status(500).json({ error: sendResult.message || 'Failed to send WhatsApp reset code.' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Password reset code sent via WhatsApp.',
+      countryCode: cleanCountryCode,
+      mobile: cleanMobile,
+      phoneHint: `...${cleanMobile.slice(-4)}`,
+    });
+  } catch (err) {
+    console.error('❌ Error in /forgot-password/send-otp:', err.message);
+    res.status(500).json({ error: 'Failed to send reset code.' });
+  }
+});
+
+/**
+ * Endpoint: POST /api/auth/forgot-password/reset
+ * Verifies the 6-digit WhatsApp OTP and sets the new password.
+ */
+router.post('/forgot-password/reset', async (req, res) => {
+  const { country_code, mobile, otp, new_password } = req.body || {};
+  const { cleanCountryCode, cleanMobile } = sanitizePhoneInputs(country_code, mobile);
+  const cleanOtp = (otp || '').toString().trim();
+  const rawPassword = (new_password || '').toString();
+
+  if (!cleanCountryCode || !cleanMobile || !cleanOtp || cleanOtp.length !== 6) {
+    return res.status(400).json({ error: 'Valid mobile number and 6-digit verification code are required.' });
+  }
+
+  if (!rawPassword || rawPassword.length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters long.' });
+  }
+
+  const isTestAccount = (DEMO_TEST_MOBILES.has(cleanMobile) && cleanCountryCode === DEMO_TEST_COUNTRY_CODE);
+  const otpRedisKey = `otp_reset:${cleanCountryCode}${cleanMobile}`;
+
+  try {
+    if (isTestAccount) {
+      if (cleanOtp !== DEMO_TEST_OTP) {
+        return res.status(400).json({ error: 'Invalid or expired verification code.' });
+      }
+    } else {
+      const storedHash = await redis.get(otpRedisKey);
+      if (!storedHash) {
+        return res.status(400).json({ error: 'Invalid or expired verification code.' });
+      }
+
+      const isMatch = await bcrypt.compare(cleanOtp, storedHash);
+      if (!isMatch) {
+        return res.status(400).json({ error: 'Invalid or expired verification code.' });
+      }
+    }
+
+    // OTP verified! Delete OTP key
+    await redis.del(otpRedisKey);
+
+    // Hash and persist new password
+    const newHash = await bcrypt.hash(rawPassword, 10);
+    const fullPhone = `+${cleanCountryCode}${cleanMobile}`;
+
+    const updateRes = await db.query(
+      `UPDATE public.users 
+       SET password_hash = $1 
+       WHERE (country_code = $2 AND mobile = $3) OR phone_number = $4
+       RETURNING id`,
+      [newHash, cleanCountryCode, cleanMobile, fullPhone]
+    );
+
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User account not found.' });
+    }
+
+    const userId = updateRes.rows[0].id;
+
+    // Purge cached profile & old sessions so user must log in fresh
+    await cacheService.invalidate(`user:profile:${userId}`);
+    await redis.del(`user_active_session:${userId}`);
+    try {
+      const oldRefreshKeys = await redis.keys(`refresh:${userId}:*`);
+      if (oldRefreshKeys && oldRefreshKeys.length > 0) {
+        await redis.del(...oldRefreshKeys);
+      }
+    } catch (_) {}
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully! You can now log in with your new password.',
+    });
+  } catch (err) {
+    console.error('❌ Error in /forgot-password/reset:', err.message);
+    res.status(500).json({ error: 'Failed to reset password.' });
+  }
+});
+
+/**
  * Endpoint: GET /api/users/search?query=<partial_or_full_user_name>&limit=20
  * (Also accessible at /api/auth/search?query=...)
  * Auth-protected: requires valid JWT.
@@ -324,7 +719,7 @@ router.post('/otp/verify', async (req, res) => {
 
     // 5. Query user or run atomic transaction to create user + wallet
     let userResult = await db.query(
-      `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.dob, u.gender, u.language, 
+      `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.password_hash, u.dob, u.gender, u.language, 
               u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, 
               u.country, u.state, u.city, u.latitude, u.longitude, 
               w.spendable_balance, w.earned_balance, (COALESCE(w.spendable_balance, 0) + COALESCE(w.earned_balance, 0)) AS balance 
@@ -475,6 +870,7 @@ router.post('/otp/verify', async (req, res) => {
         phoneNumber: user.phone_number || fullPhoneNumber,
         fullName: user.full_name || '',
         userName: user.user_name || null,
+        hasPassword: Boolean(user.password_hash),
         dob: user.dob ? user.dob.toISOString() : null,
         gender: user.gender || 'Male',
         language: user.language || 'English',
@@ -727,6 +1123,7 @@ router.post('/profile', authMiddleware, async (req, res) => {
     fullName, 
     userName, 
     user_name, 
+    password,
     dob, 
     gender, 
     language, 
@@ -755,6 +1152,14 @@ router.post('/profile', authMiddleware, async (req, res) => {
       cleanUserName = valRes.normalized;
     }
 
+    let cleanPasswordHash = null;
+    if (password) {
+      if (typeof password !== 'string' || password.length < 8) {
+        return res.status(400).json({ error: 'INVALID_PASSWORD', message: 'Password must be at least 8 characters long.' });
+      }
+      cleanPasswordHash = await bcrypt.hash(password, 10);
+    }
+
     if (dob) {
       const birthDate = new Date(dob);
       if (isNaN(birthDate.getTime())) {
@@ -771,7 +1176,7 @@ router.post('/profile', authMiddleware, async (req, res) => {
       }
     }
 
-    if (fullName || cleanUserName || avatarSeed || gender || language || dob) {
+    if (fullName || cleanUserName || cleanPasswordHash || avatarSeed || gender || language || dob) {
       const cleanGender = (gender || '').toLowerCase();
       const isFemale = cleanGender === 'female' || cleanGender === 'girl' || cleanGender === 'woman';
       const telecallerVal = isFemale ? (typeof isTelecaller === 'boolean' ? isTelecaller : null) : null;
@@ -785,8 +1190,9 @@ router.post('/profile', authMiddleware, async (req, res) => {
              avatar_seed = COALESCE($5::TEXT, avatar_seed), 
              avatar_style = COALESCE($6::TEXT, avatar_style), 
              is_telecaller = COALESCE($7::BOOLEAN, is_telecaller),
-             user_name = COALESCE($8::VARCHAR, user_name)
-         WHERE id = $9::UUID`,
+             user_name = COALESCE($8::VARCHAR, user_name),
+             password_hash = COALESCE($9::VARCHAR, password_hash)
+         WHERE id = $10::UUID`,
         [
           fullName || null, 
           dob || null, 
@@ -795,7 +1201,8 @@ router.post('/profile', authMiddleware, async (req, res) => {
           avatarSeed || null, 
           avatarStyle || 'avataaars', 
           telecallerVal, 
-          cleanUserName, 
+          cleanUserName,
+          cleanPasswordHash,
           userId
         ]
       );
@@ -813,9 +1220,9 @@ router.post('/profile', authMiddleware, async (req, res) => {
     // Invalidate cached user profile in Redis
     await cacheService.invalidate(`user:profile:${userId}`);
 
-    // Fetch and return the updated user object (including user_name)
+    // Fetch and return the updated user object (including user_name and password_hash)
     const updatedUserRes = await db.query(
-      `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, 
+      `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.password_hash, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, 
               w.spendable_balance, w.earned_balance, (COALESCE(w.spendable_balance, 0) + COALESCE(w.earned_balance, 0)) AS balance 
        FROM public.users u
        LEFT JOIN public.wallets w ON w.user_id = u.id
@@ -833,6 +1240,7 @@ router.post('/profile', authMiddleware, async (req, res) => {
       phoneNumber: userRow.phone_number || `+${userRow.country_code || ''}${userRow.mobile || ''}`,
       fullName: userRow.full_name || '',
       userName: userRow.user_name || null,
+      hasPassword: Boolean(userRow.password_hash),
       dob: userRow.dob || null,
       gender: userRow.gender || '',
       language: userRow.language || '',
@@ -871,7 +1279,7 @@ router.get('/me', authMiddleware, async (req, res) => {
   try {
     const userRow = await cacheService.getOrSet(`user:profile:${userId}`, 60, async () => {
       const result = await db.query(
-        `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, 
+        `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.password_hash, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, 
                 w.spendable_balance, w.earned_balance, (COALESCE(w.spendable_balance, 0) + COALESCE(w.earned_balance, 0)) AS balance 
          FROM public.users u
          LEFT JOIN public.wallets w ON w.user_id = u.id
@@ -897,6 +1305,7 @@ router.get('/me', authMiddleware, async (req, res) => {
         phoneNumber: userRow.phone_number || `+${userRow.country_code || ''}${userRow.mobile || ''}`,
         fullName: userRow.full_name || '',
         userName: userRow.user_name || null,
+        hasPassword: Boolean(userRow.password_hash),
         dob: userRow.dob || null,
         gender: userRow.gender || '',
         language: userRow.language || '',

@@ -21,27 +21,30 @@ class DashboardScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'Dashboard Overview',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: AdminColors.textPrimary,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Dashboard Overview',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AdminColors.textPrimary,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Real-time stats and metrics across BuddyPartner platform',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AdminColors.textSecondary,
+                    SizedBox(height: 4),
+                    Text(
+                      'Real-time stats and metrics across BuddyPartner platform',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AdminColors.textSecondary,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 16),
               ElevatedButton.icon(
                 onPressed: () {
                   ref.invalidate(dashboardStatsProvider);
@@ -62,21 +65,24 @@ class DashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
 
-          // Version Gate Management Card
-          // const VersionManagementCard(),
-          // const SizedBox(height: 24),
-
           // Stat Cards Grid
           statsAsync.when(
             data: (stats) {
-              final totalUsers = stats['totalUsers'] as int? ?? 0;
-              final maleUsers = stats['maleUsers'] as int? ?? 0;
-              final femaleUsers = stats['femaleUsers'] as int? ?? 0;
-              final pendingWithdrawals = stats['pendingWithdrawals'] as int? ?? 0;
-              final reportsToday = stats['reportsToday'] as int? ?? 0;
-              final reportsWeek = stats['reportsThisWeek'] as int? ?? 0;
-              final coinsRecharged = stats['totalCoinsRecharged'] as int? ?? 0;
-              final coinsPaid = stats['totalPayoutsPaidOut'] as int? ?? stats['totalRosesPaidOut'] as int? ?? 0;
+              num parseNum(dynamic val) {
+                if (val == null) return 0;
+                if (val is num) return val;
+                if (val is String) return num.tryParse(val) ?? 0;
+                return 0;
+              }
+
+              final totalUsers = parseNum(stats['totalUsers']);
+              final maleUsers = parseNum(stats['maleUsers']);
+              final femaleUsers = parseNum(stats['femaleUsers']);
+              final pendingWithdrawals = parseNum(stats['pendingWithdrawals']);
+              final reportsToday = parseNum(stats['reportsToday']);
+              final reportsWeek = parseNum(stats['reportsThisWeek']);
+              final coinsRecharged = parseNum(stats['totalCoinsRecharged']);
+              final coinsPaid = parseNum(stats['totalPayoutsPaidOut'] ?? stats['totalRosesPaidOut']);
 
               return LayoutBuilder(
                 builder: (context, constraints) {
@@ -90,7 +96,7 @@ class DashboardScreen extends ConsumerWidget {
                     crossAxisCount: crossAxisCount,
                     crossAxisSpacing: 18,
                     mainAxisSpacing: 18,
-                    childAspectRatio: 1.8,
+                    childAspectRatio: 2.2,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     children: [

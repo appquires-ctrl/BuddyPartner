@@ -22,27 +22,30 @@ class WithdrawalsScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'Withdrawal Requests',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: AdminColors.textPrimary,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Withdrawal Requests',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AdminColors.textPrimary,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Review and process creator earned coin payout requests',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AdminColors.textSecondary,
+                    SizedBox(height: 4),
+                    Text(
+                      'Review and process creator earned coin payout requests',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AdminColors.textSecondary,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 16),
               ElevatedButton.icon(
                 onPressed: () => withdrawalsNotifier.fetchWithdrawals(),
                 icon: const Icon(Icons.refresh_rounded, size: 18),
@@ -68,18 +71,21 @@ class WithdrawalsScreen extends ConsumerWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AdminColors.border),
             ),
-            child: Row(
-              children: [
-                _buildFilterTab(context, ref, title: 'All Requests', status: 'all', current: withdrawalsState.status),
-                const SizedBox(width: 8),
-                _buildFilterTab(context, ref, title: 'Pending Only', status: 'pending', current: withdrawalsState.status),
-                const SizedBox(width: 8),
-                _buildFilterTab(context, ref, title: 'Approved', status: 'approved', current: withdrawalsState.status),
-                const SizedBox(width: 8),
-                _buildFilterTab(context, ref, title: 'Paid Out', status: 'paid', current: withdrawalsState.status),
-                const SizedBox(width: 8),
-                _buildFilterTab(context, ref, title: 'Rejected', status: 'rejected', current: withdrawalsState.status),
-              ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildFilterTab(context, ref, title: 'All Requests', status: 'all', current: withdrawalsState.status),
+                  const SizedBox(width: 8),
+                  _buildFilterTab(context, ref, title: 'Pending Only', status: 'pending', current: withdrawalsState.status),
+                  const SizedBox(width: 8),
+                  _buildFilterTab(context, ref, title: 'Approved', status: 'approved', current: withdrawalsState.status),
+                  const SizedBox(width: 8),
+                  _buildFilterTab(context, ref, title: 'Paid Out', status: 'paid', current: withdrawalsState.status),
+                  const SizedBox(width: 8),
+                  _buildFilterTab(context, ref, title: 'Rejected', status: 'rejected', current: withdrawalsState.status),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -153,8 +159,8 @@ class WithdrawalsScreen extends ConsumerWidget {
                                         final id = item['id'];
                                         final userName = item['user_name'] ?? 'Unknown Creator';
                                         final userPhone = item['user_phone'] ?? '';
-                                        final coinAmount = item['rose_amount'] ?? item['coin_amount'] ?? 0;
-                                        final rupeeAmount = item['rupee_amount'] ?? 0;
+                                        final coinAmount = num.tryParse(item['rose_amount']?.toString() ?? item['coin_amount']?.toString() ?? '0') ?? 0;
+                                        final rupeeAmount = num.tryParse(item['rupee_amount']?.toString() ?? '0') ?? 0;
                                         final status = (item['status'] ?? 'pending').toString().toLowerCase();
                                         final dateStr = item['requested_at'] != null
                                             ? DateFormat('MMM dd, yyyy • hh:mm a').format(DateTime.parse(item['requested_at']))

@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const db = require('../../db');
 const { cacheService } = require('../../services/cache.service');
+const { callQuotaService } = require('../calls/call_quota.service');
 
 class AdminService {
   /**
@@ -149,6 +150,9 @@ class AdminService {
       const limitIdx = params.length;
       params.push(offset);
       const offsetIdx = params.length;
+      const currentYearMonth = callQuotaService.getCurrentYearMonth();
+      params.push(currentYearMonth);
+      const ymIdx = params.length;
 
       const dataSql = `
         SELECT 
@@ -162,11 +166,16 @@ class AdminService {
           COALESCE(w.spendable_balance, 0)::int AS spendable_balance,
           COALESCE(w.earned_balance, 0)::int AS earned_balance,
           (COALESCE(w.spendable_balance, 0) + COALESCE(w.earned_balance, 0))::int AS coin_balance,
+          COALESCE(q.audio_seconds, 0)::int AS audio_seconds,
+          COALESCE(q.video_seconds, 0)::int AS video_seconds,
+          (COALESCE(q.audio_seconds, 0) / 60)::int AS audio_minutes,
+          (COALESCE(q.video_seconds, 0) / 60)::int AS video_minutes,
           sub.expires_at AS subscription_expires_at,
           CASE WHEN sub.expires_at > NOW() THEN TRUE ELSE FALSE END AS is_subscribed,
           (SELECT COUNT(*)::int FROM public.reports r WHERE r.reported_user_id = u.id) AS report_count
         FROM public.users u
         LEFT JOIN public.wallets w ON w.user_id = u.id
+        LEFT JOIN public.user_monthly_call_usage q ON q.user_id = u.id AND q.year_month = $${ymIdx}
         LEFT JOIN LATERAL (
           SELECT expires_at
           FROM public.subscriptions
@@ -239,6 +248,9 @@ class AdminService {
         [userId]
       ).catch(() => ({ rows: [] }));
 
+      // Fetch real-time and monthly call usage
+      const callUsage = await callQuotaService.getUsage(userId);
+
       return {
         ...user,
         spendableBalance,
@@ -247,11 +259,43 @@ class AdminService {
         activeSubscription: activeSub,
         subscriptionHistory: subRes.rows,
         reports: reportsRes.rows,
+        callUsage,
       };
     } catch (err) {
       console.error('❌ Error fetching user details for admin:', err.message);
       throw err;
     }
+  }
+
+  /**
+   * Get detailed live and historical call usage for a user.
+   */
+  async getUserCallUsage(userId) {
+    const liveUsage = await callQuotaService.getUsage(userId);
+    const historyRes = await db.query(
+      `SELECT year_month, audio_seconds, video_seconds, audio_call_count, video_call_count, updated_at
+       FROM public.user_monthly_call_usage
+       WHERE user_id = $1
+       ORDER BY year_month DESC
+       LIMIT 12`,
+      [userId]
+    ).catch(() => ({ rows: [] }));
+
+    return {
+      liveUsage,
+      history: historyRes.rows.map((r) => ({
+        ...r,
+        audioMinutes: Math.floor(r.audio_seconds / 60),
+        videoMinutes: Math.floor(r.video_seconds / 60),
+      })),
+    };
+  }
+
+  /**
+   * Reset a user's monthly call quota.
+   */
+  async resetUserCallQuota(userId) {
+    return await callQuotaService.resetUserQuota(userId);
   }
 
   /**

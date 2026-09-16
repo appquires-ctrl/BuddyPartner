@@ -91,6 +91,24 @@ router.get('/users/:id/detail', adminAuth, async (req, res) => {
   }
 });
 
+router.get('/users/:id/call-usage', adminAuth, async (req, res) => {
+  try {
+    const usage = await adminService.getUserCallUsage(req.params.id);
+    return res.json({ success: true, data: usage });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/users/:id/reset-call-quota', adminAuth, async (req, res) => {
+  try {
+    const result = await adminService.resetUserCallQuota(req.params.id);
+    return res.json({ success: true, message: 'Call quota reset successfully', data: result });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 router.post('/users/:id/ban', adminAuth, async (req, res) => {
   try {
     const updated = await adminService.setBanStatus(req.params.id, true);

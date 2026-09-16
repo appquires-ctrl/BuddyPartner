@@ -15,8 +15,10 @@ import 'package:buddypartner/core/widgets/buttons/app_primary_button.dart';
 import 'package:buddypartner/core/constants/country_codes.dart';
 import 'package:buddypartner/core/widgets/country_code_picker_modal.dart';
 
-/// LoginPage handles phone number entry & 6-digit OTP verification
-/// matching the exact design mockup.
+enum LoginMethod { password, otp }
+
+/// LoginPage handles username/phone + password authentication as primary (0 SMS cost)
+/// and WhatsApp phone number + 6-digit OTP verification as fallback.
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
@@ -26,6 +28,11 @@ class LoginPage extends ConsumerStatefulWidget {
 
 class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
+  LoginMethod _loginMethod = LoginMethod.password;
+  final _loginController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
+
   final _phoneController = TextEditingController();
   CountryCode _selectedCountry = CountryCodes.defaultCountry;
   bool _otpSent = false;
@@ -47,6 +54,8 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _loginController.dispose();
+    _passwordController.dispose();
     _phoneController.dispose();
     for (final c in _otpControllers) {
       c.dispose();
@@ -127,6 +136,76 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
   }
 
   String get _enteredOtp => _otpControllers.map((c) => c.text).join();
+
+  Future<void> _handlePasswordLogin() async {
+    AppLogger.button('Log In with Password', screen: 'LoginScreen');
+    final login = _loginController.text.trim();
+    final password = _passwordController.text;
+
+    if (login.isEmpty) {
+      AppSnackBar.showError(context, 'Please enter your username or phone number.');
+      return;
+    }
+
+    if (password.isEmpty) {
+      AppSnackBar.showError(context, 'Please enter your password.');
+      return;
+    }
+
+    final result = await ref.read(authControllerProvider.notifier).loginWithPassword(
+      login: login,
+      password: password,
+    );
+
+    if (result['success'] == true && mounted) {
+      final isProfileComplete = result['isProfileComplete'] as bool? ?? false;
+      if (isProfileComplete) {
+        context.go(RouteNames.home);
+      } else {
+        context.go(RouteNames.signup);
+      }
+    } else if (mounted) {
+      final errorCode = result['errorCode'] as String?;
+      final errorMsg = result['error'] as String? ?? 'Invalid credentials.';
+
+      if (errorCode == 'NO_PASSWORD_SET') {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text('Password Not Set'),
+            content: Text(errorMsg),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: context.colors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  setState(() {
+                    _loginMethod = LoginMethod.otp;
+                    final digits = login.replaceAll(RegExp(r'\D'), '');
+                    if (digits.length >= 10) {
+                      _phoneController.text = digits.length > 10 ? digits.substring(digits.length - 10) : digits;
+                    }
+                  });
+                },
+                child: const Text('Log In with OTP'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        AppSnackBar.showError(context, errorMsg);
+      }
+    }
+  }
 
   Future<void> _handleSendOtp() async {
     AppLogger.button('Send Verification Code', screen: 'LoginScreen');
@@ -239,18 +318,22 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Top Navigation Bar (Back Button on OTP screen)
+                // Top Navigation Bar (Back Button on OTP screen or mode switch)
                 Row(
                   children: [
-                    if (_otpSent)
+                    if (_loginMethod == LoginMethod.otp)
                       GestureDetector(
                         onTap: () {
                           setState(() {
-                            _otpSent = false;
-                            for (var c in _otpControllers) {
-                              c.clear();
+                            if (_otpSent) {
+                              _otpSent = false;
+                              for (var c in _otpControllers) {
+                                c.clear();
+                              }
+                              _resendTimer?.cancel();
+                            } else {
+                              _loginMethod = LoginMethod.password;
                             }
-                            _resendTimer?.cancel();
                           });
                         },
                         child: Container(
@@ -331,7 +414,9 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
 
                 // Greeting & Subtitle Section
                 Text(
-                  _otpSent ? 'Verify Phone' : 'Welcome to BuddyPartner',
+                  _loginMethod == LoginMethod.password
+                      ? 'Welcome Back'
+                      : (_otpSent ? 'Verify Phone' : 'WhatsApp Login'),
                   style: typography.headlineGreeting.copyWith(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -341,7 +426,16 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
                 ),
                 const SizedBox(height: 8),
 
-                if (!_otpSent) ...[
+                if (_loginMethod == LoginMethod.password) ...[
+                  Text(
+                    'Log in with your username or password.',
+                    style: typography.bodySmall.copyWith(
+                      color: colors.textSecondary,
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ] else if (!_otpSent) ...[
                   Text(
                     'Sign in or register using your whatsapp number.',
                     style: typography.bodySmall.copyWith(
@@ -402,8 +496,10 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
                   ),
                 ],
 
-                // Form Body: Phone Input OR 6-Digit OTP Grid
-                if (!_otpSent) ...[
+                // Form Body: Password Login OR Phone Input OR 6-Digit OTP Grid
+                if (_loginMethod == LoginMethod.password) ...[
+                  _buildPasswordLoginForm(colors, typography, authState, isDark),
+                ] else if (!_otpSent) ...[
                   // Phone Number Label & Input Field
                   Align(
                     alignment: Alignment.centerLeft,
@@ -629,6 +725,27 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
                         ),
                         textAlign: TextAlign.center,
                       ),
+                      const SizedBox(height: 24),
+
+                      // Return to Password Login link
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _loginMethod = LoginMethod.password;
+                            });
+                          },
+                          icon: Icon(Icons.key_rounded, size: 18, color: colors.primary),
+                          label: Text(
+                            'Log in with Username & Password instead',
+                            style: TextStyle(
+                              color: colors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ] else ...[
@@ -805,6 +922,233 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPasswordLoginForm(
+    dynamic colors,
+    dynamic typography,
+    dynamic authState,
+    bool isDark,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Username / Phone label & field
+        Text(
+          'Username or Phone Number',
+          style: typography.bodySmall.copyWith(
+            fontWeight: FontWeight.bold,
+            color: colors.textPrimary,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          height: 56,
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? Colors.white.withValues(alpha: 0.1) : colors.border.withValues(alpha: 0.8),
+              width: 1.2,
+            ),
+            boxShadow: [
+              if (!isDark)
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Icon(
+                Icons.person_outline_rounded,
+                color: colors.textSecondary,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _loginController,
+                  textInputAction: TextInputAction.next,
+                  style: typography.bodyMedium.copyWith(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Enter @username or phone',
+                    hintStyle: typography.bodyMedium.copyWith(
+                      color: colors.textSecondary.withValues(alpha: 0.5),
+                      fontSize: 15,
+                    ),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Password label & field
+        Text(
+          'Password',
+          style: typography.bodySmall.copyWith(
+            fontWeight: FontWeight.bold,
+            color: colors.textPrimary,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          height: 56,
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? Colors.white.withValues(alpha: 0.1) : colors.border.withValues(alpha: 0.8),
+              width: 1.2,
+            ),
+            boxShadow: [
+              if (!isDark)
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Icon(
+                Icons.lock_outline_rounded,
+                color: colors.textSecondary,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _handlePasswordLogin(),
+                  style: typography.bodyMedium.copyWith(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Enter your password',
+                    hintStyle: typography.bodyMedium.copyWith(
+                      color: colors.textSecondary.withValues(alpha: 0.5),
+                      fontSize: 15,
+                    ),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  size: 20,
+                  color: colors.textSecondary,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _obscurePassword = !_obscurePassword;
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Forgot password link
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: () => context.push(RouteNames.forgotPassword),
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(50, 30),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              'Forgot Password?',
+              style: typography.bodySmall.copyWith(
+                color: colors.primary,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Log In button
+        SizedBox(
+          width: double.infinity,
+          height: 56,
+          child: AppPrimaryButton(
+            text: authState.isLoading ? 'Logging In...' : 'Log In',
+            onPressed: authState.isLoading ? null : _handlePasswordLogin,
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // Divider with OR
+        Row(
+          children: [
+            Expanded(child: Divider(color: colors.border.withValues(alpha: 0.6))),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'OR',
+                style: typography.bodySmall.copyWith(
+                  color: colors.textSecondary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            Expanded(child: Divider(color: colors.border.withValues(alpha: 0.6))),
+          ],
+        ),
+        const SizedBox(height: 24),
+
+        // Button to switch to WhatsApp OTP login
+        SizedBox(
+          width: double.infinity,
+          height: 54,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              setState(() {
+                _loginMethod = LoginMethod.otp;
+              });
+            },
+            icon: const Icon(Icons.chat_bubble_outline_rounded, size: 20),
+            label: const Text('Log in using WhatsApp OTP'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: colors.primary,
+              side: BorderSide(color: colors.primary.withValues(alpha: 0.4), width: 1.2),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

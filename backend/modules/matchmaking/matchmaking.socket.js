@@ -5,6 +5,7 @@ const { subscriptionsService } = require('../subscriptions/subscriptions.service
 const { activeInstantCalls, endInstantCallHelper } = require('../instant_connect/instant_connect.socket');
 const { sendPushNotification } = require('../../services/firebase.service');
 const { cacheService } = require('../../services/cache.service');
+const { callQuotaService, TELECOM_BUSY_MESSAGE } = require('../calls/call_quota.service');
 const db = require('../../db');
 const redis = require('../../redis');
 
@@ -145,6 +146,15 @@ function registerMatchmakingHandlers(io, socket, redis) {
         return;
       }
 
+      // Quota check: 200-minute monthly audio cap
+      const quotaCheck = await callQuotaService.checkCanStartAudioCall(userId);
+      if (!quotaCheck.allowed) {
+        const cb = typeof callback === 'function' ? callback : () => {};
+        cb({ error: 'lines_busy', message: TELECOM_BUSY_MESSAGE });
+        socket.emit('match_error', { error: 'lines_busy', message: TELECOM_BUSY_MESSAGE });
+        return;
+      }
+
       const added = await matchmakingService.joinQueue(userId, socket.id, gender);
       if (!added) {
         const cb = typeof callback === 'function' ? callback : () => {};
@@ -218,6 +228,20 @@ function registerMatchmakingHandlers(io, socket, redis) {
           console.warn(`⚠️ Unauthorized attempt to upgrade call to video by ${userId}`);
           return;
         }
+
+        // Validate video quota for both users (60-minute monthly cap)
+        const [quotaVideoA, quotaVideoB] = await Promise.all([
+          callQuotaService.checkCanStartVideoCall(callInfo.userA.userId),
+          callQuotaService.checkCanStartVideoCall(callInfo.userB.userId),
+        ]);
+        if (!quotaVideoA.allowed || !quotaVideoB.allowed) {
+          socket.emit('video_upgrade_failed', {
+            reason: 'network_unsupported',
+            message: 'Video connection is currently unavailable in your region. Continuing voice call.',
+          });
+          return;
+        }
+
         otherSocketId = callInfo.userA.userId === userId ? callInfo.userB.socketId : callInfo.userA.socketId;
       } else {
         const instantCall = activeInstantCalls?.get(callId);
@@ -226,6 +250,19 @@ function registerMatchmakingHandlers(io, socket, redis) {
             console.warn(`⚠️ Unauthorized attempt to upgrade instant call to video by ${userId}`);
             return;
           }
+
+          const [quotaVideoA, quotaVideoB] = await Promise.all([
+            callQuotaService.checkCanStartVideoCall(instantCall.maleUserId),
+            callQuotaService.checkCanStartVideoCall(instantCall.femaleUserId),
+          ]);
+          if (!quotaVideoA.allowed || !quotaVideoB.allowed) {
+            socket.emit('video_upgrade_failed', {
+              reason: 'network_unsupported',
+              message: 'Video connection is currently unavailable in your region. Continuing voice call.',
+            });
+            return;
+          }
+
           otherSocketId = instantCall.maleUserId === userId ? instantCall.femaleSocketId : instantCall.maleSocketId;
         }
       }
@@ -260,6 +297,39 @@ function registerMatchmakingHandlers(io, socket, redis) {
           return;
         }
         await callsService.upgradeToVideo(callId);
+
+        // Accumulate voice time spent so far
+        if (callInfo.callType === 'voice') {
+          const audioElapsed = Math.floor((Date.now() - (callInfo.voiceStartedAt || callInfo.startedAt)) / 1000);
+          callInfo.totalAudioSeconds = (callInfo.totalAudioSeconds || 0) + Math.max(0, audioElapsed);
+          callInfo.voiceStartedAt = null;
+        }
+
+        // Switch call timer to remaining video quota
+        const [quotaVideoA, quotaVideoB] = await Promise.all([
+          callQuotaService.checkCanStartVideoCall(callInfo.userA.userId),
+          callQuotaService.checkCanStartVideoCall(callInfo.userB.userId),
+        ]);
+        const remainingVideoA = Math.max(0, quotaVideoA.remainingSeconds - (callInfo.totalVideoSeconds || 0));
+        const remainingVideoB = Math.max(0, quotaVideoB.remainingSeconds - (callInfo.totalVideoSeconds || 0));
+        const maxVideoSeconds = Math.min(remainingVideoA, remainingVideoB);
+
+        if (callInfo.quotaTimer) {
+          clearTimeout(callInfo.quotaTimer);
+          callInfo.quotaTimer = null;
+        }
+
+        callInfo.callType = 'video';
+        callInfo.videoStartedAt = Date.now();
+        if (maxVideoSeconds > 0) {
+          callInfo.quotaTimer = setTimeout(() => {
+            handleCallEnd(callId, callsService, io, 'timeout', matchmakingService);
+          }, maxVideoSeconds * 1000);
+        } else {
+          handleCallEnd(callId, callsService, io, 'timeout', matchmakingService);
+          return;
+        }
+
         otherSocketId = callInfo.userA.userId === userId ? callInfo.userB.socketId : callInfo.userA.socketId;
       } else {
         const instantCall = activeInstantCalls?.get(callId);
@@ -268,6 +338,13 @@ function registerMatchmakingHandlers(io, socket, redis) {
             console.warn(`⚠️ Unauthorized attempt to accept instant video upgrade by ${userId}`);
             return;
           }
+          if (instantCall.callType !== 'video') {
+            const audioElapsed = Math.floor((Date.now() - (instantCall.voiceStartedAt || instantCall.startedAt)) / 1000);
+            instantCall.totalAudioSeconds = (instantCall.totalAudioSeconds || 0) + Math.max(0, audioElapsed);
+            instantCall.voiceStartedAt = null;
+          }
+          instantCall.callType = 'video';
+          instantCall.videoStartedAt = Date.now();
           otherSocketId = instantCall.maleUserId === userId ? instantCall.femaleSocketId : instantCall.maleSocketId;
         }
       }
@@ -325,6 +402,37 @@ function registerMatchmakingHandlers(io, socket, redis) {
           return;
         }
         await callsService.downgradeToVoice(callId);
+
+        // Transition duration tracking from video back to voice
+        if (callInfo.callType === 'video' && callInfo.videoStartedAt) {
+          const videoElapsed = Math.floor((Date.now() - callInfo.videoStartedAt) / 1000);
+          callInfo.totalVideoSeconds = (callInfo.totalVideoSeconds || 0) + Math.max(0, videoElapsed);
+          callInfo.videoStartedAt = null;
+        }
+        callInfo.callType = 'voice';
+        callInfo.voiceStartedAt = Date.now();
+
+        // Switch quota timer back to remaining audio budget
+        if (callInfo.quotaTimer) {
+          clearTimeout(callInfo.quotaTimer);
+          callInfo.quotaTimer = null;
+        }
+        const [quotaAudioA, quotaAudioB] = await Promise.all([
+          callQuotaService.checkCanStartAudioCall(callInfo.userA.userId),
+          callQuotaService.checkCanStartAudioCall(callInfo.userB.userId),
+        ]);
+        const remainingAudioA = Math.max(0, quotaAudioA.remainingSeconds - (callInfo.totalAudioSeconds || 0));
+        const remainingAudioB = Math.max(0, quotaAudioB.remainingSeconds - (callInfo.totalAudioSeconds || 0));
+        const maxAudioSeconds = Math.min(remainingAudioA, remainingAudioB);
+        if (maxAudioSeconds > 0) {
+          callInfo.quotaTimer = setTimeout(() => {
+            handleCallEnd(callId, callsService, io, 'timeout', matchmakingService);
+          }, maxAudioSeconds * 1000);
+        } else {
+          handleCallEnd(callId, callsService, io, 'timeout', matchmakingService);
+          return;
+        }
+
         otherSocketId = callInfo.userA.userId === userId ? callInfo.userB.socketId : callInfo.userA.socketId;
       } else {
         const instantCall = activeInstantCalls?.get(callId);
@@ -333,6 +441,13 @@ function registerMatchmakingHandlers(io, socket, redis) {
             console.warn(`⚠️ Unauthorized attempt to switch instant call to voice by ${userId}`);
             return;
           }
+          if (instantCall.callType === 'video' && instantCall.videoStartedAt) {
+            const videoElapsed = Math.floor((Date.now() - instantCall.videoStartedAt) / 1000);
+            instantCall.totalVideoSeconds = (instantCall.totalVideoSeconds || 0) + Math.max(0, videoElapsed);
+            instantCall.videoStartedAt = null;
+          }
+          instantCall.callType = 'voice';
+          instantCall.voiceStartedAt = Date.now();
           otherSocketId = instantCall.maleUserId === userId ? instantCall.femaleSocketId : instantCall.maleSocketId;
         }
       }
@@ -369,6 +484,18 @@ function registerMatchmakingHandlers(io, socket, redis) {
       clearTimeout(request.timer);
       pendingCallRequests.delete(callRequestId);
 
+      // Validate audio quota for both caller and target
+      const [quotaCaller, quotaTarget] = await Promise.all([
+        callQuotaService.checkCanStartAudioCall(request.callerId),
+        callQuotaService.checkCanStartAudioCall(request.targetUserId),
+      ]);
+      if (!quotaCaller.allowed || !quotaTarget.allowed) {
+        socket.emit('match_error', { error: 'lines_busy', message: TELECOM_BUSY_MESSAGE });
+        io.to(request.callerSocketId).emit('match_error', { error: 'lines_busy', message: TELECOM_BUSY_MESSAGE });
+        return;
+      }
+      const maxCallSeconds = Math.min(quotaCaller.remainingSeconds, quotaTarget.remainingSeconds);
+
       // Purge both from queues
       await matchmakingService.leaveQueue(request.callerId);
       await matchmakingService.leaveQueue(request.targetUserId);
@@ -390,6 +517,15 @@ function registerMatchmakingHandlers(io, socket, redis) {
         userA: { userId: request.callerId, socketId: request.callerSocketId, agoraUid: uidA, gender: request.callerGender },
         userB: { userId: request.targetUserId, socketId: socket.id, agoraUid: uidB, gender: request.targetGender },
         channelName,
+        startedAt: Date.now(),
+        callType: 'voice',
+        voiceStartedAt: Date.now(),
+        videoStartedAt: null,
+        totalAudioSeconds: 0,
+        totalVideoSeconds: 0,
+        quotaTimer: setTimeout(() => {
+          handleCallEnd(callId, callsService, io, 'timeout', matchmakingService);
+        }, maxCallSeconds * 1000),
       });
       socketToCall.set(request.callerSocketId, callId);
       socketToCall.set(socket.id, callId);
@@ -489,6 +625,13 @@ function registerMatchmakingHandlers(io, socket, redis) {
     const isSub = await subscriptionsService.isSubscribed(userId);
     if (!isSub) {
       socket.emit('match_error', { error: 'SUBSCRIPTION_REQUIRED', message: 'An active subscription is required to start a call.' });
+      return;
+    }
+
+    // Quota check: 200-minute monthly audio cap
+    const callerQuota = await callQuotaService.checkCanStartAudioCall(userId);
+    if (!callerQuota.allowed) {
+      socket.emit('call_response', { status: 'busy', message: TELECOM_BUSY_MESSAGE });
       return;
     }
 
@@ -722,11 +865,42 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
       fetchPublicProfile(userB.userId),
     ]);
 
-    // Track active call with gender info
+    // Validate audio quota for both matched participants
+    const [quotaA, quotaB] = await Promise.all([
+      callQuotaService.checkCanStartAudioCall(userA.userId),
+      callQuotaService.checkCanStartAudioCall(userB.userId),
+    ]);
+
+    if (!quotaA.allowed || !quotaB.allowed) {
+      if (!quotaA.allowed && socketAId) {
+        io.to(socketAId).emit('match_error', { error: 'lines_busy', message: TELECOM_BUSY_MESSAGE });
+      }
+      if (!quotaB.allowed && socketBId) {
+        io.to(socketBId).emit('match_error', { error: 'lines_busy', message: TELECOM_BUSY_MESSAGE });
+      }
+      await Promise.all([
+        matchmakingService.leaveQueue(userA.userId),
+        matchmakingService.leaveQueue(userB.userId),
+      ]);
+      return;
+    }
+
+    const maxCallSeconds = Math.min(quotaA.remainingSeconds, quotaB.remainingSeconds);
+
+    // Track active call with quota timer and call type
     activeCalls.set(callId, {
       userA: { userId: userA.userId, socketId: socketAId, agoraUid: uidA, gender: genderA },
       userB: { userId: userB.userId, socketId: socketBId, agoraUid: uidB, gender: genderB },
       channelName,
+      startedAt: Date.now(),
+      callType: 'voice',
+      voiceStartedAt: Date.now(),
+      videoStartedAt: null,
+      totalAudioSeconds: 0,
+      totalVideoSeconds: 0,
+      quotaTimer: setTimeout(() => {
+        handleCallEnd(callId, callsService, io, 'timeout', matchmakingService);
+      }, maxCallSeconds * 1000),
     });
     socketToCall.set(socketAId, callId);
     socketToCall.set(socketBId, callId);
@@ -791,7 +965,12 @@ async function handleCallEnd(callId, callsService, io, reason, matchmakingServic
   const callInfo = activeCalls.get(callId);
   if (!callInfo) return; // Already cleaned up
 
-  // 1. Instantly remove from tracking maps
+  // 1. Instantly clear timers and remove from tracking maps
+  if (callInfo.quotaTimer) {
+    clearTimeout(callInfo.quotaTimer);
+    callInfo.quotaTimer = null;
+  }
+
   activeCalls.delete(callId);
   socketToCall.delete(callInfo.userA.socketId);
   socketToCall.delete(callInfo.userB.socketId);
@@ -799,6 +978,29 @@ async function handleCallEnd(callId, callsService, io, reason, matchmakingServic
   const currentSocketB = userSockets.get(callInfo.userB.userId);
   if (currentSocketA) socketToCall.delete(currentSocketA);
   if (currentSocketB) socketToCall.delete(currentSocketB);
+
+  // Calculate audio vs video duration accurately across state transitions
+  const endedAt = Date.now();
+  let audioDurationSec = callInfo.totalAudioSeconds || 0;
+  let videoDurationSec = callInfo.totalVideoSeconds || 0;
+
+  if (callInfo.callType === 'video' && callInfo.videoStartedAt) {
+    const elapsedVideo = Math.floor((endedAt - callInfo.videoStartedAt) / 1000);
+    videoDurationSec += Math.max(0, elapsedVideo);
+  } else {
+    const elapsedAudio = Math.floor((endedAt - (callInfo.voiceStartedAt || callInfo.startedAt || endedAt)) / 1000);
+    audioDurationSec += Math.max(0, elapsedAudio);
+  }
+
+  // Record quota asynchronously (atomic Redis + Postgres rollup)
+  callQuotaService.recordCallUsage(
+    callInfo.userA.userId,
+    callInfo.userB.userId,
+    audioDurationSec,
+    videoDurationSec
+  ).catch((err) => {
+    console.error('[CallQuota] Error recording usage in handleCallEnd:', err.message);
+  });
 
   // 2. Immediately notify both users' sockets at 0ms latency so the screens cut instantly!
   const isAFemale = isFemale(callInfo.userA.gender);

@@ -127,23 +127,25 @@ class _AppConfigPageState extends State<AppConfigPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'App Version Gate Config',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF111827),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'App Version Gate Config',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF111827),
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Enforce minimum required app versions and update store links per platform.',
-                      style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
-                    ),
-                  ],
+                      SizedBox(height: 4),
+                      Text(
+                        'Enforce minimum required app versions and update store links per platform.',
+                        style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+                      ),
+                    ],
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh),

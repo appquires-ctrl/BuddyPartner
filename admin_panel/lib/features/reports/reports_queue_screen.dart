@@ -22,27 +22,30 @@ class ReportsQueueScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'Reports Queue & Moderation Audit',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: AdminColors.textPrimary,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Reports Queue & Moderation Audit',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AdminColors.textPrimary,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Audit filed user reports and trigger manual bans for policy violations',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AdminColors.textSecondary,
+                    SizedBox(height: 4),
+                    Text(
+                      'Audit filed user reports and trigger manual bans for policy violations',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AdminColors.textSecondary,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 16),
               ElevatedButton.icon(
                 onPressed: () => reportsNotifier.fetchReports(),
                 icon: const Icon(Icons.refresh_rounded, size: 18),

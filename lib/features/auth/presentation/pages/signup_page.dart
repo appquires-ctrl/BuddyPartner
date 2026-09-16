@@ -71,6 +71,10 @@ class _SignupPageState extends ConsumerState<SignupPage> {
 
   final _fullNameController = TextEditingController();
   final _userNameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   String? _userNameInlineError;
   bool _isCheckingUsername = false;
 
@@ -91,6 +95,8 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   void dispose() {
     _fullNameController.dispose();
     _userNameController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -154,6 +160,19 @@ class _SignupPageState extends ConsumerState<SignupPage> {
       setState(() {
         _userNameInlineError = formatErr;
       });
+      return;
+    }
+
+    final password = _passwordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text.trim();
+
+    if (password.isEmpty || password.length < 8) {
+      AppSnackBar.showError(context, 'Password must be at least 8 characters long');
+      return;
+    }
+
+    if (password != confirmPassword) {
+      AppSnackBar.showError(context, 'Passwords do not match');
       return;
     }
 
@@ -252,6 +271,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     final success = await ref.read(authControllerProvider.notifier).completeProfile(
           fullName: _fullNameController.text.trim(),
           userName: _userNameController.text.trim().toLowerCase(),
+          password: _passwordController.text.trim(),
           dob: _selectedDob!,
           gender: _selectedGender!,
           language: _selectedLanguage!,
@@ -578,6 +598,137 @@ class _SignupPageState extends ConsumerState<SignupPage> {
               ),
             ),
           ],
+          const SizedBox(height: AppSpacing.space20),
+
+          // Password Field
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Password',
+                style: typography.bodySmall.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colors.textPrimary,
+                ),
+              ),
+              Text(
+                'Min 8 characters',
+                style: typography.bodySmall.copyWith(
+                  fontSize: 11.0,
+                  color: colors.textSecondary.withValues(alpha: 0.8),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _passwordController,
+            obscureText: _obscurePassword,
+            style: typography.bodyMedium,
+            textInputAction: TextInputAction.next,
+            decoration: InputDecoration(
+              hintText: 'Create a strong password',
+              hintStyle: typography.bodySmall.copyWith(color: colors.textSecondary.withValues(alpha: 0.6)),
+              prefixIcon: Icon(Icons.lock_outline_rounded, size: 20, color: colors.textSecondary),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  size: 20,
+                  color: colors.textSecondary,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _obscurePassword = !_obscurePassword;
+                  });
+                },
+              ),
+              filled: true,
+              fillColor: colors.surface,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.space16,
+                vertical: AppSpacing.space12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide: BorderSide(color: colors.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide: BorderSide(color: colors.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide: BorderSide(color: colors.primary, width: 1.5),
+              ),
+            ),
+            validator: (value) {
+              if (value == null || value.trim().length < 8) {
+                return 'Password must be at least 8 characters long';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: AppSpacing.space20),
+
+          // Confirm Password Field
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Confirm Password',
+              style: typography.bodySmall.copyWith(
+                fontWeight: FontWeight.bold,
+                color: colors.textPrimary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _confirmPasswordController,
+            obscureText: _obscureConfirmPassword,
+            style: typography.bodyMedium,
+            textInputAction: TextInputAction.next,
+            decoration: InputDecoration(
+              hintText: 'Re-enter your password',
+              hintStyle: typography.bodySmall.copyWith(color: colors.textSecondary.withValues(alpha: 0.6)),
+              prefixIcon: Icon(Icons.lock_outline_rounded, size: 20, color: colors.textSecondary),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  size: 20,
+                  color: colors.textSecondary,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _obscureConfirmPassword = !_obscureConfirmPassword;
+                  });
+                },
+              ),
+              filled: true,
+              fillColor: colors.surface,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.space16,
+                vertical: AppSpacing.space12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide: BorderSide(color: colors.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide: BorderSide(color: colors.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide: BorderSide(color: colors.primary, width: 1.5),
+              ),
+            ),
+            validator: (value) {
+              if (value != _passwordController.text) {
+                return 'Passwords do not match';
+              }
+              return null;
+            },
+          ),
           const SizedBox(height: AppSpacing.space20),
 
           // Date of Birth

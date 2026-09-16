@@ -34,27 +34,30 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'User Management',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: AdminColors.textPrimary,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'User Management',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AdminColors.textPrimary,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Search users, manage coin balances, grant 1-year VIP subscriptions, and handle moderation',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AdminColors.textSecondary,
+                    SizedBox(height: 4),
+                    Text(
+                      'Search users, manage coin balances, grant 1-year VIP subscriptions, and handle moderation',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AdminColors.textSecondary,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 16),
               ElevatedButton.icon(
                 onPressed: () => usersNotifier.fetchUsers(),
                 icon: const Icon(Icons.refresh_rounded, size: 18),
@@ -225,20 +228,21 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                         children: [
                           LayoutBuilder(
                             builder: (context, constraints) {
-                              final width = constraints.maxWidth > 1150 ? constraints.maxWidth : 1150.0;
+                              final width = constraints.maxWidth > 1300 ? constraints.maxWidth : 1300.0;
                               return SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
                                 child: SizedBox(
                                   width: width,
                                   child: Table(
                                     columnWidths: const {
-                                      0: FlexColumnWidth(2.6), // USER
-                                      1: FlexColumnWidth(1.2), // GENDER
-                                      2: FlexColumnWidth(2.0), // PHONE / EMAIL
-                                      3: FlexColumnWidth(1.8), // COINS
-                                      4: FlexColumnWidth(1.6), // MEMBERSHIP
-                                      5: FlexColumnWidth(1.2), // STATUS
-                                      6: FlexColumnWidth(3.4), // ACTIONS
+                                      0: FlexColumnWidth(2.4), // USER
+                                      1: FlexColumnWidth(1.1), // GENDER
+                                      2: FlexColumnWidth(1.8), // PHONE / EMAIL
+                                      3: FlexColumnWidth(1.6), // COINS
+                                      4: FlexColumnWidth(1.5), // MEMBERSHIP
+                                      5: FlexColumnWidth(1.8), // MONTHLY CALLS
+                                      6: FlexColumnWidth(1.1), // STATUS
+                                      7: FlexColumnWidth(3.8), // ACTIONS
                                     },
                                     defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                                     children: [
@@ -253,6 +257,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                                           _buildHeaderCell('PHONE / EMAIL'),
                                           _buildHeaderCell('COINS (S / E)'),
                                           _buildHeaderCell('MEMBERSHIP'),
+                                          _buildHeaderCell('MONTHLY CALLS'),
                                           _buildHeaderCell('STATUS'),
                                           _buildHeaderCell('ACTIONS'),
                                         ],
@@ -269,6 +274,10 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                                         final earnedBalance = user['earned_balance'] ?? 0;
                                         final isSubscribed = user['is_subscribed'] == true;
                                         final expiresAtStr = user['subscription_expires_at'] as String?;
+                                        final audioMinutes = user['audio_minutes'] ?? ((user['audio_seconds'] ?? 0) ~/ 60);
+                                        final videoMinutes = user['video_minutes'] ?? ((user['video_seconds'] ?? 0) ~/ 60);
+                                        final audioCapped = audioMinutes >= 200;
+                                        final videoCapped = videoMinutes >= 60;
                                         String? expiryFormatted;
                                         if (expiresAtStr != null) {
                                           try {
@@ -285,7 +294,6 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                                             Padding(
                                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                               child: Row(
-                                                mainAxisSize: MainAxisSize.min,
                                                 children: [
                                                   CircleAvatar(
                                                     radius: 15,
@@ -428,6 +436,98 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                                               ),
                                             ),
 
+                                            // MONTHLY CALLS
+                                            Padding(
+                                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  // Audio Pill
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: audioCapped
+                                                          ? const Color(0xFFFEE2E2)
+                                                          : (audioMinutes >= 160 ? const Color(0xFFFEF3C7) : const Color(0xFFF1F5F9)),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Icon(
+                                                          Icons.mic_rounded,
+                                                          size: 12,
+                                                          color: audioCapped
+                                                              ? const Color(0xFFDC2626)
+                                                              : (audioMinutes >= 160 ? const Color(0xFFD97706) : const Color(0xFF475569)),
+                                                        ),
+                                                        const SizedBox(width: 4),
+                                                        Text(
+                                                          '$audioMinutes/200m',
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: audioCapped
+                                                                ? const Color(0xFFDC2626)
+                                                                : (audioMinutes >= 160 ? const Color(0xFFD97706) : const Color(0xFF334155)),
+                                                          ),
+                                                        ),
+                                                        if (audioCapped) ...[
+                                                          const SizedBox(width: 3),
+                                                          const Text(
+                                                            'MAX',
+                                                            style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Color(0xFFDC2626)),
+                                                          ),
+                                                        ],
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  // Video Pill
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: videoCapped
+                                                          ? const Color(0xFFFEE2E2)
+                                                          : (videoMinutes >= 48 ? const Color(0xFFFEF3C7) : const Color(0xFFF1F5F9)),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Icon(
+                                                          Icons.videocam_rounded,
+                                                          size: 12,
+                                                          color: videoCapped
+                                                              ? const Color(0xFFDC2626)
+                                                              : (videoMinutes >= 48 ? const Color(0xFFD97706) : const Color(0xFF475569)),
+                                                        ),
+                                                        const SizedBox(width: 4),
+                                                        Text(
+                                                          '$videoMinutes/60m',
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: videoCapped
+                                                                ? const Color(0xFFDC2626)
+                                                                : (videoMinutes >= 48 ? const Color(0xFFD97706) : const Color(0xFF334155)),
+                                                          ),
+                                                        ),
+                                                        if (videoCapped) ...[
+                                                          const SizedBox(width: 3),
+                                                          const Text(
+                                                            'MAX',
+                                                            style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Color(0xFFDC2626)),
+                                                          ),
+                                                        ],
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+
                                             // STATUS
                                             Padding(
                                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -480,6 +580,18 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                                                       side: const BorderSide(color: Color(0xFFDDD6FE)),
                                                       backgroundColor: const Color(0xFFF5F3FF),
+                                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                                    ),
+                                                  ),
+                                                  // Reset Quota Button
+                                                  OutlinedButton.icon(
+                                                    onPressed: () => _showResetQuotaDialog(context, ref, user),
+                                                    icon: const Icon(Icons.restart_alt_rounded, size: 14, color: Color(0xFF0284C7)),
+                                                    label: const Text('Reset Quota', style: TextStyle(fontSize: 11, color: Color(0xFF0284C7), fontWeight: FontWeight.w600)),
+                                                    style: OutlinedButton.styleFrom(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                                      side: const BorderSide(color: Color(0xFFBAE6FD)),
+                                                      backgroundColor: const Color(0xFFF0F9FF),
                                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                                     ),
                                                   ),
@@ -572,6 +684,139 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
         label,
         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AdminColors.textSecondary),
       ),
+    );
+  }
+
+  // ── Reset Call Quota Dialog ──────────────────────────────────────────────
+  void _showResetQuotaDialog(BuildContext context, WidgetRef ref, Map<String, dynamic> user) {
+    final userId = user['id'] as String;
+    final userName = user['name'] ?? 'User';
+    final audioMinutes = user['audio_minutes'] ?? ((user['audio_seconds'] ?? 0) ~/ 60);
+    final videoMinutes = user['video_minutes'] ?? ((user['video_seconds'] ?? 0) ~/ 60);
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Container(
+                width: 420,
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: const [
+                            Icon(Icons.restart_alt_rounded, color: Color(0xFF0284C7), size: 24),
+                            SizedBox(width: 8),
+                            Text(
+                              'Reset Call Quota',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 20),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Target User: $userName',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'This will immediately reset this user\'s monthly call usage counters in both Redis and PostgreSQL back to 0 minutes for the current month.',
+                      style: const TextStyle(fontSize: 13, color: AdminColors.textSecondary),
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0F9FF),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFBAE6FD)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Current Usage This Month:',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0369A1)),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              const Icon(Icons.mic_rounded, size: 14, color: Color(0xFF0284C7)),
+                              const SizedBox(width: 4),
+                              Text('Audio: $audioMinutes / 200 minutes', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(Icons.videocam_rounded, size: 14, color: Color(0xFF0284C7)),
+                              const SizedBox(width: 4),
+                              Text('Video: $videoMinutes / 60 minutes', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: isSubmitting ? null : () => Navigator.of(context).pop(),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton.icon(
+                          onPressed: isSubmitting
+                              ? null
+                              : () async {
+                                  setDialogState(() => isSubmitting = true);
+                                  final success = await ref.read(usersProvider.notifier).resetCallQuota(userId);
+                                  if (context.mounted) {
+                                    Navigator.of(context).pop();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(success ? 'Call quota successfully reset for $userName!' : 'Failed to reset call quota'),
+                                        backgroundColor: success ? AdminColors.success : AdminColors.danger,
+                                      ),
+                                    );
+                                  }
+                                },
+                          icon: isSubmitting
+                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Icon(Icons.restart_alt_rounded, size: 16),
+                          label: Text(isSubmitting ? 'Resetting...' : 'Confirm Reset'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0284C7),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1025,6 +1270,118 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                             ),
                           ),
 
+                          const SizedBox(height: 16),
+                          // Monthly Call Quota Card
+                          Builder(
+                            builder: (context) {
+                              final callUsage = user['callUsage'] as Map<String, dynamic>?;
+                              final audioUsage = callUsage?['audio'] as Map<String, dynamic>?;
+                              final videoUsage = callUsage?['video'] as Map<String, dynamic>?;
+                              final audioUsed = audioUsage?['usedMinutes'] ?? 0;
+                              final videoUsed = videoUsage?['usedMinutes'] ?? 0;
+                              final audioCap = audioUsage?['capMinutes'] ?? 200;
+                              final videoCap = videoUsage?['capMinutes'] ?? 60;
+                              final audioCapped = audioUsage?['isCapped'] == true;
+                              final videoCapped = videoUsage?['isCapped'] == true;
+
+                              return Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: AdminColors.surfaceMuted,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: AdminColors.border),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text(
+                                          'Monthly Call Quota & Usage',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AdminColors.textPrimary),
+                                        ),
+                                        OutlinedButton.icon(
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                            _showResetQuotaDialog(context, ref, userSummary);
+                                          },
+                                          icon: const Icon(Icons.restart_alt_rounded, size: 13, color: Color(0xFF0284C7)),
+                                          label: const Text('Reset Quota', style: TextStyle(fontSize: 11, color: Color(0xFF0284C7), fontWeight: FontWeight.bold)),
+                                          style: OutlinedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            side: const BorderSide(color: Color(0xFFBAE6FD)),
+                                            backgroundColor: const Color(0xFFF0F9FF),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    // Audio Call Quota Row
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(Icons.mic_rounded, size: 16, color: audioCapped ? AdminColors.danger : AdminColors.primary),
+                                            const SizedBox(width: 6),
+                                            Text('Voice: $audioUsed / $audioCap mins', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                          ],
+                                        ),
+                                        if (audioCapped)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(color: AdminColors.dangerBg, borderRadius: BorderRadius.circular(4)),
+                                            child: const Text('CAPPED', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AdminColors.danger)),
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: LinearProgressIndicator(
+                                        value: (audioUsed / audioCap).clamp(0.0, 1.0),
+                                        backgroundColor: AdminColors.border,
+                                        color: audioCapped ? AdminColors.danger : (audioUsed >= 160 ? const Color(0xFFF59E0B) : AdminColors.primary),
+                                        minHeight: 6,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    // Video Call Quota Row
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(Icons.videocam_rounded, size: 16, color: videoCapped ? AdminColors.danger : const Color(0xFF8B5CF6)),
+                                            const SizedBox(width: 6),
+                                            Text('Video: $videoUsed / $videoCap mins', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                          ],
+                                        ),
+                                        if (videoCapped)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(color: AdminColors.dangerBg, borderRadius: BorderRadius.circular(4)),
+                                            child: const Text('CAPPED', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AdminColors.danger)),
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: LinearProgressIndicator(
+                                        value: (videoUsed / videoCap).clamp(0.0, 1.0),
+                                        backgroundColor: AdminColors.border,
+                                        color: videoCapped ? AdminColors.danger : (videoUsed >= 48 ? const Color(0xFFF59E0B) : const Color(0xFF8B5CF6)),
+                                        minHeight: 6,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
                           const SizedBox(height: 16),
                           const Text('Call Statistics:', style: TextStyle(fontWeight: FontWeight.bold)),
                           const SizedBox(height: 4),

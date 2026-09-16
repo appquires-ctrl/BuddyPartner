@@ -12,6 +12,7 @@ import 'package:buddypartner/core/constants/avatar_catalog.dart';
 import 'package:buddypartner/core/widgets/avatar_grid_picker.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/features/profile/presentation/widgets/delete_account_dialog.dart';
+import 'package:buddypartner/features/auth/presentation/widgets/set_password_sheet.dart';
 
 /// AccountPage renders the profile details page.
 /// Displays user information dynamically loaded from Supabase profile state.
@@ -235,6 +236,92 @@ class AccountPage extends ConsumerWidget {
                       value: language,
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.space24),
+
+              // SECURITY section header
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 8),
+                  child: Text(
+                    'SECURITY',
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Password configuration tile
+              Container(
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: AppRadius.lg,
+                  border: Border.all(color: colors.border),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: AppRadius.lg,
+                    onTap: () => SetPasswordSheet.show(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.lock_outline_rounded,
+                              color: Color(0xFF3B82F6),
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  currentUser?.hasPassword == true ? 'Change Password' : 'Set Account Password',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                    color: colors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  currentUser?.hasPassword == true
+                                      ? 'Manage your login password'
+                                      : 'Set a password to log in without WhatsApp OTP',
+                                  style: TextStyle(
+                                    color: colors.textSecondary,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: colors.textSecondary.withValues(alpha: 0.5),
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.space24),
