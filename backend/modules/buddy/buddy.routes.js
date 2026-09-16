@@ -131,6 +131,7 @@ router.post(['/requests/:id/accept', '/accept/:id'], authMiddleware, async (req,
         conversationId: request.conversationId,
         accepter: request.accepter,
         otpCode: request.otpCode,
+        buddyType: request.buddy_type,
       });
     }
 

@@ -252,6 +252,8 @@ class BuddyController extends Notifier<BuddyState> {
       final otpCode = requestData['otpCode'] as String?;
       final conversationId = (requestData['conversationId'] ?? requestData['conversation_id']) as String?;
       final accepterJson = requestData['accepter'] as Map<String, dynamic>?;
+      // Parse buddyType from the socket payload so the fallback branch uses the correct type.
+      final buddyTypeStr = requestData['buddyType'] as String?;
 
       if (requestId == null) return;
 
@@ -277,11 +279,13 @@ class BuddyController extends Notifier<BuddyState> {
           return r;
         }).toList();
       } else {
+        // Fallback: request not yet in myRequests (init race condition).
+        // Use buddyType from the socket payload instead of hardcoding BuddyType.movie.
         updatedMyRequests = [
           BuddyRequest(
             id: requestId,
             initiatorId: currentUserId ?? '',
-            buddyType: BuddyType.movie,
+            buddyType: BuddyType.fromString(buddyTypeStr),
             city: '',
             targetGender: BuddyTargetGender.all,
             status: BuddyRequestStatus.accepted,
@@ -293,6 +297,8 @@ class BuddyController extends Notifier<BuddyState> {
           ),
           ...state.myRequests,
         ];
+        // Immediately refresh from server to replace the placeholder with full authoritative data.
+        Future.microtask(fetchMyRequests);
       }
 
       final acceptedReq = updatedMyRequests.firstWhere((r) => r.id == requestId);

@@ -133,13 +133,14 @@ function broadcastBuddyRequestTaken(io, { requestId, buddyType, city }) {
 /**
  * Directly alerts the initiator that someone has accepted their request, chat is open, and provides OTP.
  */
-function notifyInitiatorAccepted(io, { initiatorId, requestId, conversationId, accepter, otpCode }) {
+function notifyInitiatorAccepted(io, { initiatorId, requestId, conversationId, accepter, otpCode, buddyType }) {
   if (!io || !initiatorId) return;
   io.to(initiatorId).emit('buddy_request_accepted', {
     requestId,
     conversationId,
     accepter,
     otpCode,
+    buddyType,
   });
   console.log(`🔔 [Buddy Socket] Notified initiator ${initiatorId} that request ${requestId} was accepted`);
 }
