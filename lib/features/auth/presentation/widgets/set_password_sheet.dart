@@ -113,7 +113,7 @@ class _SetPasswordSheetState extends ConsumerState<SetPasswordSheet> {
                         style: typography.titleCard.copyWith(
                           fontWeight: FontWeight.bold,
                           color: colors.textPrimary,
-                          fontSize: 18,
+                          fontSize: 18.0,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -121,7 +121,7 @@ class _SetPasswordSheetState extends ConsumerState<SetPasswordSheet> {
                         'Login faster next time without waiting for SMS OTP',
                         style: typography.bodySmall.copyWith(
                           color: colors.textSecondary,
-                          fontSize: 12,
+                          fontSize: 12.0,
                         ),
                       ),
                     ],

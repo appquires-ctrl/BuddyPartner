@@ -498,7 +498,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
 
                 // Form Body: Password Login OR Phone Input OR 6-Digit OTP Grid
                 if (_loginMethod == LoginMethod.password) ...[
-                  _buildPasswordLoginForm(colors, typography, authState, isDark),
+                  _buildPasswordLoginForm(context),
                 ] else if (!_otpSent) ...[
                   // Phone Number Label & Input Field
                   Align(
@@ -925,12 +925,12 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
     );
   }
 
-  Widget _buildPasswordLoginForm(
-    dynamic colors,
-    dynamic typography,
-    dynamic authState,
-    bool isDark,
-  ) {
+  Widget _buildPasswordLoginForm(BuildContext context) {
+    final colors = context.colors;
+    final typography = context.typography;
+    final authState = ref.watch(authControllerProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -940,7 +940,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
           style: typography.bodySmall.copyWith(
             fontWeight: FontWeight.bold,
             color: colors.textPrimary,
-            fontSize: 14,
+            fontSize: 14.0,
           ),
         ),
         const SizedBox(height: 8),
@@ -976,14 +976,14 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
                   controller: _loginController,
                   textInputAction: TextInputAction.next,
                   style: typography.bodyMedium.copyWith(
-                    fontSize: 15,
+                    fontSize: 15.0,
                     fontWeight: FontWeight.w500,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Enter @username or phone',
                     hintStyle: typography.bodyMedium.copyWith(
                       color: colors.textSecondary.withValues(alpha: 0.5),
-                      fontSize: 15,
+                      fontSize: 15.0,
                     ),
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
@@ -1004,7 +1004,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
           style: typography.bodySmall.copyWith(
             fontWeight: FontWeight.bold,
             color: colors.textPrimary,
-            fontSize: 14,
+            fontSize: 14.0,
           ),
         ),
         const SizedBox(height: 8),
@@ -1042,14 +1042,14 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) => _handlePasswordLogin(),
                   style: typography.bodyMedium.copyWith(
-                    fontSize: 15,
+                    fontSize: 15.0,
                     fontWeight: FontWeight.w500,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Enter your password',
                     hintStyle: typography.bodyMedium.copyWith(
                       color: colors.textSecondary.withValues(alpha: 0.5),
-                      fontSize: 15,
+                      fontSize: 15.0,
                     ),
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
@@ -1091,7 +1091,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
               style: typography.bodySmall.copyWith(
                 color: colors.primary,
                 fontWeight: FontWeight.bold,
-                fontSize: 13,
+                fontSize: 13.0,
               ),
             ),
           ),
@@ -1120,7 +1120,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
                 style: typography.bodySmall.copyWith(
                   color: colors.textSecondary,
                   fontWeight: FontWeight.bold,
-                  fontSize: 12,
+                  fontSize: 12.0,
                 ),
               ),
             ),
