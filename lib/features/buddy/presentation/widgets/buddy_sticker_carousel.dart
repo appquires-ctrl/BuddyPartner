@@ -16,7 +16,7 @@ import 'package:buddypartner/features/wallet/application/wallet_balance_provider
 class BuddyStickerCarousel extends ConsumerWidget {
   const BuddyStickerCarousel({super.key});
 
-  void _onStickerTap(BuildContext context, WidgetRef ref, BuddyType type) {
+  Future<void> _onStickerTap(BuildContext context, WidgetRef ref, BuddyType type) async {
     // 1. Subscription Check (required to initiate a buddy request)
     final isSubscribed = ref.read(subscriptionStatusProvider).value?.isSubscribed ?? false;
     if (!isSubscribed) {
@@ -25,8 +25,25 @@ class BuddyStickerCarousel extends ConsumerWidget {
       return;
     }
 
-    // 2. Coin Balance Check (100 coins required)
-    final balance = ref.read(walletBalanceProvider).valueOrNull ?? 0;
+    // 2. Coin Balance Check (100 coins required).
+    // walletBalanceProvider is async — on first load .valueOrNull is null while the
+    // network call is in-flight. We must await the real balance before deciding
+    // to redirect, otherwise users with enough coins get wrongly sent to recharge.
+    int balance;
+    final currentState = ref.read(walletBalanceProvider);
+    if (currentState.hasValue) {
+      balance = currentState.value!;
+    } else {
+      // Still loading or errored — fetch now and wait for the real result.
+      try {
+        balance = await ref.read(walletBalanceProvider.notifier).fetchBalance();
+      } catch (_) {
+        balance = 0;
+      }
+    }
+
+    if (!context.mounted) return;
+
     if (balance < 100) {
       AppSnackBar.showError(
         context,
