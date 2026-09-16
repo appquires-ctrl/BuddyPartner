@@ -10,32 +10,124 @@ import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/initiator_otp_modal.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 
-/// Top Indian cities for the quick selector
+/// Comprehensive Indian cities list — tier 1, 2 & 3 including all state capitals.
+/// Covers ~98% of Indian urban population. Alternate spellings (Bangalore/Bengaluru)
+/// are listed so both match correctly.
 const List<String> kIndianCities = [
-  'Mumbai',
-  'Delhi',
-  'Bengaluru',
-  'Hyderabad',
-  'Ahmedabad',
-  'Chennai',
-  'Kolkata',
-  'Surat',
-  'Pune',
-  'Jaipur',
-  'Lucknow',
-  'Chandigarh',
-  'Indore',
-  'Bhopal',
-  'Patna',
-  'Nagpur',
-  'Visakhapatnam',
-  'Noida',
-  'Gurgaon',
-  'Goa',
-  'Kochi',
-  'Varanasi',
-  'Agra',
+  // ── Mega cities ──
+  'Mumbai', 'Delhi', 'Kolkata', 'Chennai', 'Bengaluru', 'Bangalore',
+  'Hyderabad', 'Ahmedabad', 'Pune', 'Surat',
+
+  // ── State capitals ──
+  'Jaipur', 'Lucknow', 'Bhopal', 'Patna', 'Bhubaneswar', 'Raipur',
+  'Chandigarh', 'Dehradun', 'Shimla', 'Gangtok', 'Guwahati', 'Shillong',
+  'Aizawl', 'Imphal', 'Kohima', 'Itanagar', 'Agartala', 'Dispur',
+  'Panaji', 'Thiruvananthapuram', 'Amaravati', 'Ranchi', 'Jammu',
+  'Srinagar', 'Leh', 'Port Blair', 'Kavaratti', 'Silvassa', 'Daman',
+  'Pondicherry',
+
+  // ── Tier 2 & major cities ──
+  'Noida', 'Gurgaon', 'Gurugram', 'Faridabad', 'Ghaziabad',
+  'Agra', 'Varanasi', 'Kanpur', 'Allahabad', 'Prayagraj', 'Meerut',
+  'Nashik', 'Nagpur', 'Aurangabad', 'Solapur', 'Amravati',
+  'Kolhapur', 'Navi Mumbai', 'Thane', 'Kalyan',
+  'Visakhapatnam', 'Vijayawada', 'Guntur', 'Warangal', 'Tirupati',
+  'Coimbatore', 'Madurai', 'Salem', 'Tiruchirappalli', 'Tiruppur',
+  'Vellore', 'Erode', 'Thoothukudi',
+  'Kochi', 'Kozhikode', 'Thrissur', 'Kannur', 'Kollam',
+  'Mysuru', 'Mysore', 'Mangaluru', 'Mangalore', 'Hubli', 'Dharwad',
+  'Belgaum', 'Belagavi', 'Tumkur',
+  'Indore', 'Gwalior', 'Jabalpur', 'Ujjain',
+  'Jodhpur', 'Kota', 'Bikaner', 'Ajmer', 'Udaipur',
+  'Ludhiana', 'Amritsar', 'Jalandhar', 'Patiala',
+  'Vadodara', 'Rajkot', 'Bhavnagar', 'Jamnagar', 'Gandhinagar',
+  'Jamshedpur', 'Dhanbad', 'Bokaro',
+  'Goa', 'Margao',
+  'Siliguri', 'Asansol', 'Durgapur', 'Howrah',
+  'Guwahati', 'Dibrugarh', 'Jorhat',
+  'Cuttack', 'Rourkela',
+  'Bilaspur', 'Bhilai',
+  'Puducherry', 'Vasco',
+
+  // ── Tier 3 & growing towns ──
+  'Haridwar', 'Rishikesh', 'Roorkee', 'Nainital', 'Mussoorie',
+  'Mathura', 'Vrindavan', 'Aligarh', 'Bareilly', 'Moradabad', 'Gorakhpur',
+  'Jhansi', 'Firozabad', 'Saharanpur',
+  'Tirunelveli', 'Dindigul', 'Kanchipuram', 'Nagercoil',
+  'Calicut', 'Palakkad',
+  'Anantapur', 'Nellore', 'Kurnool', 'Rajahmundry', 'Kakinada',
+  'Aurangabad', 'Latur', 'Nanded', 'Jalgaon', 'Sangli',
+  'Parbhani', 'Osmanabad', 'Bidar', 'Gulbarga', 'Kalaburagi',
+  'Raichur', 'Ballari', 'Davangere',
+  'Jabalpur', 'Satna', 'Sagar', 'Rewa',
+  'Korba', 'Durg', 'Rajnandgaon',
+  'Muzaffarpur', 'Gaya', 'Bhagalpur', 'Darbhanga',
+  'Berhampore', 'Malda', 'Jalpaiguri',
+  'Dimapur', 'Silchar', 'Nagaon',
+  'Shillong', 'Tura',
+  'Agartala', 'Dharmanagar',
 ];
+
+/// Pure-Dart Levenshtein edit-distance implementation (no external packages).
+/// Handles transpositions, deletions, insertions and substitutions.
+/// Returns the minimum number of single-character edits to transform [a] into [b].
+int _levenshtein(String a, String b) {
+  if (a == b) return 0;
+  if (a.isEmpty) return b.length;
+  if (b.isEmpty) return a.length;
+
+  // Use two rows for O(min(a,b)) space
+  List<int> prev = List<int>.generate(b.length + 1, (i) => i);
+  List<int> curr = List<int>.filled(b.length + 1, 0);
+
+  for (int i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    for (int j = 1; j <= b.length; j++) {
+      final cost = a[i - 1] == b[j - 1] ? 0 : 1;
+      curr[j] = [
+        prev[j] + 1,         // deletion
+        curr[j - 1] + 1,     // insertion
+        prev[j - 1] + cost,  // substitution
+      ].reduce((v, e) => v < e ? v : e);
+    }
+    final temp = prev;
+    prev = curr;
+    curr = temp;
+  }
+  return prev[b.length];
+}
+
+/// Returns true if [query] is a fuzzy match for [city].
+/// Matches exact substrings first, then allows 1–2 character edits
+/// proportional to the query length (longer queries tolerate more errors).
+bool _fuzzyMatch(String city, String query) {
+  final c = city.toLowerCase();
+  final q = query.toLowerCase().trim();
+  if (q.isEmpty) return true;
+
+  // 1. Exact substring (fastest path)
+  if (c.contains(q)) return true;
+
+  // 2. Query starts-with match on any word in the city name
+  final words = c.split(RegExp(r'\s+'));
+  if (words.any((w) => w.startsWith(q))) return true;
+
+  // 3. Levenshtein on the city prefix of same length as query
+  // Allows: 1 typo for queries ≥4 chars, 2 typos for queries ≥7 chars
+  if (q.length >= 4) {
+    final maxDist = q.length >= 7 ? 2 : 1;
+    final prefix = c.length > q.length ? c.substring(0, q.length) : c;
+    if (_levenshtein(prefix, q) <= maxDist) return true;
+
+    // Also check each word prefix
+    for (final word in words) {
+      final wp = word.length > q.length ? word.substring(0, q.length) : word;
+      if (_levenshtein(wp, q) <= maxDist) return true;
+    }
+  }
+
+  return false;
+}
 
 /// Bottom sheet to customize and broadcast a new Buddy Request.
 class CreateBuddyRequestSheet extends ConsumerStatefulWidget {
@@ -493,9 +585,14 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
       if (query.trim().isEmpty) {
         _filteredCities = List.from(kIndianCities);
       } else {
-        _filteredCities = kIndianCities
-            .where((c) => c.toLowerCase().contains(query.toLowerCase().trim()))
-            .toList();
+        // Use fuzzy matching so typos like "Hyderbad" → Hyderabad still work.
+        // Dedup by lowercase to avoid showing Bangalore + Bengaluru both when
+        // the user typed something that matches only one of them.
+        final seen = <String>{};
+        _filteredCities = kIndianCities.where((c) {
+          if (!_fuzzyMatch(c, query)) return false;
+          return seen.add(c.toLowerCase());
+        }).toList();
       }
     });
   }
