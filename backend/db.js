@@ -9,9 +9,8 @@ if (!connectionString) {
 
 /**
  * PostgreSQL Connection Pool Configuration for Neon Serverless
- * - max: 20 (Keeps connection footprint below Neon compute limits per instance).
- *   NOTE: For horizontal scaling with multiple instances, use Neon's built-in PgBouncer
- *   by appending '-pooler' to the host in DATABASE_URL (e.g. ep-xyz-pooler.region.neon.tech).
+ * - max: 40 (Sized safely below Neon's 901 direct engine / 10,000 PgBouncer pooler limits,
+ *   providing high concurrency while leaving headroom for multiple backend replicas & admin panel).
  * - connectionTimeoutMillis: 10000 (Allows Neon compute to wake from scale-to-zero cold storage).
  * - idleTimeoutMillis: 30000 (Releases idle clients after 30 seconds).
  */
@@ -20,7 +19,7 @@ const pool = new Pool({
   ssl: connectionString.includes('localhost') || connectionString.includes('127.0.0.1')
     ? false
     : { rejectUnauthorized: false },
-  max: 20,
+  max: 40,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
 });

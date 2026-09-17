@@ -1,5 +1,6 @@
 const db = require('../../db');
 const { cacheService } = require('../../services/cache.service');
+const redis = require('../../redis');
 
 const SUBSCRIPTION_PLANS = [
   { id: '1_month', durationDays: 30, basePrice: 199, gstAmount: 36, amountPaid: 235, label: '1 Month Membership' },
@@ -83,13 +84,34 @@ class SubscriptionsService {
   }
 
   /**
-   * Check if user is currently subscribed
+   * Check if user is currently subscribed.
+   * Wrapped with Redis cache (key: user:subscribed:${userId}) with 300s TTL ('1' or '0').
+   * Skips DB query on cache hit, eliminating 200-500 QPS from chat.
    * @param {string} userId
    * @returns {Promise<boolean>}
    */
   async isSubscribed(userId) {
+    if (!userId) return false;
+    const cacheKey = `user:subscribed:${userId}`;
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached !== null && cached !== undefined) {
+        return cached === '1';
+      }
+    } catch (err) {
+      console.warn(`[Subscription Cache Error] Failed to read ${cacheKey}:`, err.message);
+    }
+
     const activeSub = await this.getActiveSubscription(userId);
-    return activeSub !== null;
+    const subscribed = activeSub !== null;
+
+    try {
+      await redis.set(cacheKey, subscribed ? '1' : '0', 'EX', 300);
+    } catch (err) {
+      console.warn(`[Subscription Cache Error] Failed to write ${cacheKey}:`, err.message);
+    }
+
+    return subscribed;
   }
 
   /**
@@ -132,6 +154,7 @@ class SubscriptionsService {
 
       // Invalidate Redis cache for user's subscription status
       await cacheService.invalidate(`subscription_status:${userId}`);
+      await redis.del(`user:subscribed:${userId}`).catch(() => {});
 
       return result.rows[0];
     } catch (err) {
@@ -155,6 +178,7 @@ class SubscriptionsService {
 
       // Invalidate Redis cache for user's subscription status
       await cacheService.invalidate(`subscription_status:${userId}`);
+      await redis.del(`user:subscribed:${userId}`).catch(() => {});
 
       return true;
     } catch (err) {

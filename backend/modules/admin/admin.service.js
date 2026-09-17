@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const db = require('../../db');
+const redis = require('../../redis');
 const { cacheService } = require('../../services/cache.service');
 const { callQuotaService } = require('../calls/call_quota.service');
 
@@ -308,6 +309,8 @@ class AdminService {
         [isBanned, userId]
       );
       if (res.rows.length === 0) throw new Error('User not found');
+      // Invalidate Redis ban cache immediately
+      await redis.del(`user:is_banned:${userId}`).catch(() => {});
       return res.rows[0];
     } catch (err) {
       console.error(`❌ Error setting ban status for user ${userId}:`, err.message);
@@ -596,6 +599,7 @@ class AdminService {
 
     await cacheService.invalidate(`subscription_status:${userId}`).catch(() => {});
     await cacheService.invalidate(`sub:active:${userId}`).catch(() => {});
+    await redis.del(`user:subscribed:${userId}`).catch(() => {});
 
     return {
       userId,

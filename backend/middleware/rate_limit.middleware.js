@@ -8,9 +8,6 @@ const redis = require('../redis');
  * @returns {RedisStore|undefined}
  */
 function getStore(prefix) {
-  if (redis.isInMemory) {
-    return undefined; // express-rate-limit falls back to built-in MemoryStore
-  }
   return new RedisStore({
     prefix: `rl:${prefix}:`,
     sendCommand: (...args) => redis.call(...args),
@@ -104,5 +101,6 @@ module.exports = {
   callRateLimiter,
   usernameCheckLimiter,
   userSearchLimiter,
+  getStore,
 };
 

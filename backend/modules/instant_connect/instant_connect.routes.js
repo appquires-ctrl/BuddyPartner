@@ -3,6 +3,7 @@ const { authMiddleware } = require('../../middleware/auth.middleware');
 const { instantConnectService } = require('./instant_connect.service');
 const { PresenceService } = require('../presence/presence.service');
 const redis = require('../../redis');
+const { scanKeys } = require('../../utils/redis_helpers');
 
 const router = express.Router();
 
@@ -226,11 +227,11 @@ router.all('/dev/cleanup', authMiddleware, adminOnly, async (req, res) => {
     `);
 
     // Clean up Redis ringing & snooze keys
-    const ringingKeys = await redis.keys('instant:ringing:*');
+    const ringingKeys = await scanKeys(redis, 'instant:ringing:*');
     if (ringingKeys.length > 0) {
       await redis.del(...ringingKeys);
     }
-    const snoozeKeys = await redis.keys('instant:snooze:*');
+    const snoozeKeys = await scanKeys(redis, 'instant:snooze:*');
     if (snoozeKeys.length > 0) {
       await redis.del(...snoozeKeys);
     }

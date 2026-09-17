@@ -1,4 +1,5 @@
 const db = require('../../db');
+const redis = require('../../redis');
 const { subscriptionsService } = require('../subscriptions/subscriptions.service');
 const { WalletService } = require('../wallet/wallet.service');
 
@@ -378,7 +379,8 @@ class InstantConnectService {
   }
 
   /**
-   * Find a batch of eligible female users for 1:10 FCM surge when available socket pool is empty
+   * Find a batch of eligible female users for 1:10 FCM surge when available socket pool is empty.
+   * Uses random offset sampling instead of expensive ORDER BY RANDOM() full-table sorts.
    * @param {string[]} excludeUserIds
    * @param {number} count
    * @returns {Promise<Array<{ id: string, fcm_token: string|null, full_name: string }>>}
@@ -386,9 +388,41 @@ class InstantConnectService {
   async getSurgeEligibleFemales(excludeUserIds = [], count = 10) {
     try {
       const excludeClause = excludeUserIds.length > 0
-        ? `AND u.id NOT IN (${excludeUserIds.map((_, i) => `$${i + 2}`).join(', ')})`
+        ? `AND u.id NOT IN (${excludeUserIds.map((_, i) => `$${i + 1}`).join(', ')})`
         : '';
-      const params = [count, ...excludeUserIds];
+
+      // 1. Get estimated matching count from Redis or DB
+      const cacheKey = 'surge:eligible_females_count';
+      let totalEligible = null;
+      try {
+        const cachedCount = await redis.get(cacheKey);
+        if (cachedCount !== null) {
+          totalEligible = parseInt(cachedCount, 10);
+        }
+      } catch (_) {}
+
+      if (totalEligible === null || isNaN(totalEligible)) {
+        const countRes = await db.query(
+          `SELECT COUNT(*)::int AS cnt
+           FROM public.users u
+           WHERE (LOWER(u.gender) IN ('female', 'girl', 'woman', 'f'))
+             AND u.incoming_paid_calls_enabled = true
+             AND u.fcm_token IS NOT NULL`
+        );
+        totalEligible = countRes.rows[0]?.cnt || 0;
+        await redis.set(cacheKey, String(totalEligible), 'EX', 120).catch(() => {});
+      }
+
+      // 2. Compute randomized offset without ORDER BY RANDOM()
+      let offset = 0;
+      if (totalEligible > count) {
+        const maxOffset = totalEligible - count;
+        offset = Math.floor(Math.random() * (maxOffset + 1));
+      }
+
+      const limitParamIdx = excludeUserIds.length + 1;
+      const offsetParamIdx = excludeUserIds.length + 2;
+      const params = [...excludeUserIds, count, offset];
 
       const res = await db.query(
         `SELECT u.id, u.fcm_token, u.full_name
@@ -397,12 +431,14 @@ class InstantConnectService {
            AND u.incoming_paid_calls_enabled = true
            AND u.fcm_token IS NOT NULL
            ${excludeClause}
-         ORDER BY RANDOM()
-         LIMIT $1`,
+         LIMIT $${limitParamIdx} OFFSET $${offsetParamIdx}`,
         params
       );
-      console.log(`🔍 [Surge Check] Found ${res.rows.length} surge-eligible females with FCM tokens`);
-      return res.rows;
+
+      // In-memory shuffle to randomize return order
+      const shuffled = res.rows.sort(() => 0.5 - Math.random());
+      console.log(`🔍 [Surge Check] Found ${shuffled.length} surge-eligible females with FCM tokens (offset: ${offset})`);
+      return shuffled;
     } catch (err) {
       console.error('Error finding surge eligible females:', err.message);
       return [];

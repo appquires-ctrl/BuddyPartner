@@ -2,7 +2,7 @@ const { PresenceService } = require('./presence.service');
 
 const MAX_SUBSCRIPTION_IDS = 200;
 const PRESENCE_STATE_COOLDOWN_MS = 2000; // Max 1 offline transition per 2 seconds per socket
-const LEASE_REFRESH_INTERVAL_MS = 20000; // Heartbeat lease refresh every 20 seconds while socket is connected
+const LEASE_REFRESH_INTERVAL_MS = 45000; // Safe heartbeat lease refresh every 45 seconds while socket is connected
 
 /**
  * Validate and sanitize user ID arrays for subscribe/unsubscribe events.
@@ -44,16 +44,7 @@ function registerPresenceHandlers(io, socket, redis) {
   socket.join(`presence_user:${userId}`);
 
   // ── Heartbeat TTL Lease Refresh ──────────────────────────────────────────
-  // 1. Refresh Redis lease on every incoming Engine.IO transport packet (ping/pong every 5s)
-  if (socket.conn) {
-    socket.conn.on('packet', (packet) => {
-      if (packet && (packet.type === 'ping' || packet.type === 'pong')) {
-        PresenceService.refreshLease(redis, userId);
-      }
-    });
-  }
-
-  // 2. Periodic safety refresh timer while socket remains actively connected
+  // Periodic safety refresh timer while socket remains actively connected (every 45s)
   const leaseRefreshTimer = setInterval(() => {
     if (socket.connected) {
       PresenceService.refreshLease(redis, userId);

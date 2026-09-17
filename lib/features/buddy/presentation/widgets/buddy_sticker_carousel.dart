@@ -151,123 +151,149 @@ class BuddyStickerCarousel extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
 
-        // Horizontal Sticker List
-        SizedBox(
-          height: 138,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            clipBehavior: Clip.none,
-            itemCount: BuddyType.values.length,
-            separatorBuilder: (_, index) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final type = BuddyType.values[index];
+        // 2 Rows x 5 Columns Grid (All 10 roles visible at once)
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final availableWidth = constraints.maxWidth;
+            const gap = 6.0;
+            final itemWidth = ((availableWidth - (4 * gap)) / 5).floorToDouble();
 
-              return InkWell(
-                onTap: () => _onStickerTap(context, ref, type),
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  width: 104,
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-                  decoration: BoxDecoration(
-                    color: colors.cardBackground,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: type.accentColor.withValues(alpha: 0.22),
-                      width: 1.2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: type.accentColor.withValues(alpha: 0.08),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Sticker Image
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: Container(
-                          width: 62,
-                          height: 62,
-                          decoration: BoxDecoration(
-                            color: colors.surfaceMuted,
-                            gradient: LinearGradient(
-                              colors: [
-                                type.gradientColors.first.withValues(alpha: 0.15),
-                                type.gradientColors.last.withValues(alpha: 0.05),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                          ),
-                          child: Image.asset(
-                            type.stickerAsset,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, error, stack) => Center(
-                              child: Icon(
-                                Icons.local_activity_rounded,
-                                color: type.accentColor,
-                                size: 28,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 7),
+            final row1 = BuddyType.values.take(5).toList();
+            final row2 = BuddyType.values.skip(5).take(5).toList();
 
-                      // Title
-                      Text(
-                        type.title,
-                        style: typography.bodySmall.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11.5,
-                          color: colors.textPrimary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 4),
-
-                      // 100 Coin Badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFFBEB),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: const Color(0xFFFDE68A),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            AppCoinIcon(size: 11, withGlow: false),
-                            SizedBox(width: 3),
-                            Text(
-                              '100',
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFFB45309),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+            return Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: row1
+                      .map((type) => _buildStickerCard(context, ref, type, width: itemWidth))
+                      .toList(),
                 ),
-              );
-            },
-          ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: row2
+                      .map((type) => _buildStickerCard(context, ref, type, width: itemWidth))
+                      .toList(),
+                ),
+              ],
+            );
+          },
         ),
       ],
+    );
+  }
+
+  Widget _buildStickerCard(
+    BuildContext context,
+    WidgetRef ref,
+    BuddyType type, {
+    required double width,
+  }) {
+    final colors = context.colors;
+    final typography = context.typography;
+    final shortTitle = type.title.replaceAll(' Buddy', '');
+
+    return InkWell(
+      onTap: () => _onStickerTap(context, ref, type),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: width,
+        padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
+        decoration: BoxDecoration(
+          color: colors.cardBackground,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: type.accentColor.withValues(alpha: 0.22),
+            width: 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: type.accentColor.withValues(alpha: 0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Sticker Image
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: colors.surfaceMuted,
+                  gradient: LinearGradient(
+                    colors: [
+                      type.gradientColors.first.withValues(alpha: 0.15),
+                      type.gradientColors.last.withValues(alpha: 0.05),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Image.asset(
+                  type.stickerAsset,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, error, stack) => Center(
+                    child: Icon(
+                      Icons.local_activity_rounded,
+                      color: type.accentColor,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 5),
+
+            // Title
+            Text(
+              shortTitle,
+              style: typography.bodySmall.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 10.5,
+                color: colors.textPrimary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 3),
+
+            // 100 Coin Badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: const Color(0xFFFDE68A),
+                  width: 0.8,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  AppCoinIcon(size: 9.5, withGlow: false),
+                  SizedBox(width: 2.5),
+                  Text(
+                    '100',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFFB45309),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

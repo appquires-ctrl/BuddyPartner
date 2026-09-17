@@ -256,6 +256,9 @@ router.put('/app-config/minimum-version', adminAuth, async (req, res) => {
       await appService.setConfig(storeKey, storeUrl.trim());
     }
 
+    // Explicit cache-refresh call so version bumps take effect immediately across the service
+    await appService.refreshCache();
+
     console.log(`📌 Admin updated ${versionKey} to ${version.trim()}`);
     return res.json({
       success: true,

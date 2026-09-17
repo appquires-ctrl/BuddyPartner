@@ -91,9 +91,9 @@ class BuddyService {
       throw err;
     }
 
-    // Check Subscription
-    const activeSub = await subscriptionsService.getActiveSubscription(initiatorId);
-    if (!activeSub) {
+    // Check Subscription (Redis-cached with 300s TTL)
+    const isSub = await subscriptionsService.isSubscribed(initiatorId);
+    if (!isSub) {
       const err = new Error('An active membership subscription is required to post buddy requests');
       err.code = 'ACTIVE_SUBSCRIPTION_REQUIRED';
       err.statusCode = 403;
@@ -628,7 +628,7 @@ class BuddyService {
              u.gender AS initiator_gender
       FROM public.buddy_requests r
       JOIN public.users u ON u.id = r.initiator_id
-      WHERE LOWER(TRIM(r.city)) = $1
+      WHERE r.city = $1
         AND r.status = 'open'
     `;
 

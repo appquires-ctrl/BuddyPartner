@@ -42,16 +42,18 @@
 ### C. Connection Pool & Slow Query Profiling (`db.js`)
 - Increased `connectionTimeoutMillis` from 2,000ms to 10,000ms to accommodate Neon serverless cold-starts when instances scale from zero.
 - Added automatic slow-query profiling logging any query exceeding 200ms with exact duration and sanitized SQL.
-- Configured PostgreSQL pool with `max: 20` connections to prevent exhaustion on serverless database tiers.
+- Configured PostgreSQL pool with `max: 40` connections (tuned safely below Neon's 901 direct engine and 10,000 PgBouncer pooled connection limit).
 
 ---
 
-### D. Redis Caching Layer (`cache.service.js`)
-- Read-heavy endpoints now use Redis caching with strict write-invalidation:
+### D. Redis & In-Memory Caching Layer
+- Read-heavy endpoints use Redis caching with strict write-invalidation:
   - User profile (`/api/auth/me`): 60s TTL, invalidated on any profile edit.
   - User matches (`/api/calls/matches`): 30s TTL, invalidated on call completion or favorite change.
-  - Wallet balance (`/api/wallet/balance`): 15s TTL, invalidated on recharge or call minute coin deduction.
-  - User moderation status (`isUserBlocked`): 60s TTL, shielding Postgres from socket handshake storms.
+  - Wallet balance (`/api/wallet/balance`): 15s TTL, invalidated on recharge or wallet spend.
+  - Subscription status (`isSubscribed(userId)`): 300s TTL ('1' or '0'), cutting 200–500 QPS from chat with invalidation across all purchase, expiry, and admin paths.
+  - App Version (`appService.getConfig`): Cached in local Node process memory with 60s background refresh and instant updates on admin version bump, eliminating per-request Redis lookups.
+  - *Pending Optimization*: Moderation status (`isUserBlocked` in `authMiddleware`) currently queries Postgres directly on every authenticated request; caching `user:is_banned:${userId}` in Redis is scheduled for Phase 1.
 
 ---
 
@@ -59,6 +61,7 @@
 - Replaced global `io.emit('presence:update', payload)` broadcast with targeted room emits (`presence_user:${userId}` and `user:${userId}`).
 - Added 1.5-second disconnect debouncing to eliminate flickering online/offline churn during mobile network switches.
 - Attached `@socket.io/redis-adapter` for pub/sub event distribution across multiple server instances.
+- *CRITICAL PREREQUISITE*: In-memory call Maps (`activeCalls`, `pendingCallRequests`, `activeInstantCalls`) must be migrated to Redis per `backend/docs/MULTI_INSTANCE_MIGRATION.md` before deploying more than 1 instance.
 - Increased ping interval from 5s to 15s (timeout: 20s), reducing idle socket packet volume by 66%.
 
 ---

@@ -54,6 +54,7 @@ class ChatPage extends ConsumerStatefulWidget {
 class _ChatPageState extends ConsumerState<ChatPage> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
+  DateTime? _lastTypingEmitted;
 
   String get _effectiveConversationId =>
       widget.conversationId.isNotEmpty ? widget.conversationId : 'user:${widget.userId}';
@@ -76,6 +77,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         InAppNotificationManager.activeConversationId == widget.userId) {
       InAppNotificationManager.activeConversationId = null;
     }
+    ref.read(presenceProvider.notifier).unsubscribeFromUsers([widget.userId]);
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -115,7 +117,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   void _onTyping(String value) {
     if (value.isNotEmpty) {
-      ref.read(chatControllerProvider(_effectiveConversationId).notifier).sendTyping();
+      final now = DateTime.now();
+      if (_lastTypingEmitted == null || now.difference(_lastTypingEmitted!) > const Duration(seconds: 2)) {
+        _lastTypingEmitted = now;
+        ref.read(chatControllerProvider(_effectiveConversationId).notifier).sendTyping();
+      }
     }
   }
 
@@ -390,13 +396,19 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                               Padding(
                                                 padding: const EdgeInsets.only(top: 2, right: 4),
                                                 child: Icon(
-                                                  msg.status == 'sent'
-                                                      ? Icons.check_rounded
-                                                      : Icons.done_all_rounded,
+                                                  msg.status == 'sending'
+                                                      ? Icons.access_time_rounded
+                                                      : msg.status == 'sent'
+                                                          ? Icons.check_rounded
+                                                          : msg.status == 'failed'
+                                                              ? Icons.error_outline_rounded
+                                                              : Icons.done_all_rounded,
                                                   size: 14,
-                                                  color: msg.status == 'read'
-                                                      ? colors.primary
-                                                      : colors.textSecondary.withValues(alpha: 0.7),
+                                                  color: msg.status == 'failed'
+                                                      ? colors.danger
+                                                      : msg.status == 'read'
+                                                          ? colors.primary
+                                                          : colors.textSecondary.withValues(alpha: 0.7),
                                                 ),
                                               ),
                                           ],

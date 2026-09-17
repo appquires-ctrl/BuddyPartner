@@ -29,7 +29,7 @@ This document records the findings from the post-overhaul safety audit, covering
 Every endpoint modified during the scalability overhaul was verified against the Flutter client code to ensure 100% backward compatibility:
 
 ### A. `/api/calls/history`
-- **Flutter Client Consumer:** `frontend/lib/providers/call_history_provider.dart` (`parseCallHistory`)
+- **Flutter Client Consumer:** `lib/features/call/presentation/providers/call_history_provider.dart` (or models)
   ```dart
   final List<dynamic> data = jsonDecode(response.body);
   _calls = data.map((json) => CallHistoryItem.fromJson(json)).toList();
@@ -43,7 +43,7 @@ Every endpoint modified during the scalability overhaul was verified against the
 ---
 
 ### B. `/api/calls/matches`
-- **Flutter Client Consumer:** `frontend/lib/models/match_model.dart` (`MatchedUser.fromJson`)
+- **Flutter Client Consumer:** `lib/features/call/data/models/match_model.dart` (`MatchedUser.fromJson`)
 - **Backend Implementation:**
   The rewritten CTE query retains the exact field aliases: `id`, `name`, `profile_photo`, `age`, `gender`, `is_online`, `last_call_at`, `total_calls`.
 - **Verdict:** **100% Backward Compatible.**
@@ -51,7 +51,7 @@ Every endpoint modified during the scalability overhaul was verified against the
 ---
 
 ### C. `/api/wallet/balance`
-- **Flutter Client Consumer:** `frontend/lib/providers/wallet_provider.dart`
+- **Flutter Client Consumer:** `lib/features/wallet/presentation/providers/wallet_provider.dart`
 - **Backend Implementation:**
   Returns `{ success: true, balance: ... }` matching the Flutter client model.
 - **Verdict:** **100% Backward Compatible.**
@@ -59,7 +59,7 @@ Every endpoint modified during the scalability overhaul was verified against the
 ---
 
 ### D. Socket.IO Presence Events
-- **Flutter Client Consumer:** `frontend/lib/providers/presence_provider.dart`
+- **Flutter Client Consumer:** `lib/core/services/presence_service.dart`
   - Emits: `presence:subscribe` with an array of user UUID strings: `[userId1, userId2, ...]`.
   - Listens for: `presence:update` with payload `{ userId, isOnline, lastActive }`.
 - **Backend Implementation:**
@@ -74,4 +74,4 @@ Every endpoint modified during the scalability overhaul was verified against the
 1. **Keep `DISABLE_RATE_LIMIT` unset or `false` in production:**
    The `skip: () => process.env.DISABLE_RATE_LIMIT === 'true'` flag is strictly reserved for synthetic load test suites. Ensure production environment variables omit `DISABLE_RATE_LIMIT` so that abuse protection remains active.
 2. **Neon Connection Limits:**
-   When enabling horizontal scaling on Render or Railway, keep total connections across all instances under Neon's pool limit by using the `-pooler` endpoint. With `max: 20` per instance in `db.js`, up to 5 instances will consume at most 100 client connections on Neon's PgBouncer.
+   Keep total connections across all instances under Neon's pool limit by using the `-pooler` endpoint. With `max: 40` per instance in `db.js`, 3 instances will consume at most 120 client connections on Neon's PgBouncer (well within the 901 compute engine limit and 10,000 pooled client ceiling).

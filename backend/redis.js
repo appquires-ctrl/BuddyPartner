@@ -51,6 +51,11 @@ const inMemoryClient = {
         nx = true;
       }
     }
+    // Distributed lock safety: fail closed on cross-instance mutexes when Redis is partitioned
+    if (nx && (key.startsWith('direct_mutex:') || key.startsWith('instant:claim_session:') || key.startsWith('instant:claimed:'))) {
+      console.warn(`🔒 [REDIS LOCK FAIL-CLOSED] Refusing to grant distributed lock '${key}' from in-memory fallback during Redis partition.`);
+      return null;
+    }
     return setKv(key, val, exSeconds, nx);
   },
   async del(key) {
@@ -126,6 +131,23 @@ const inMemoryClient = {
     }
     return slice.map(([m]) => m);
   },
+  async scan(cursor, ...args) {
+    let matchPattern = '*';
+    for (let i = 0; i < args.length; i++) {
+      if (String(args[i]).toUpperCase() === 'MATCH' && i + 1 < args.length) {
+        matchPattern = String(args[i + 1]);
+        i++;
+      }
+    }
+    const regex = new RegExp('^' + matchPattern.replace(/\*/g, '.*') + '$');
+    const matched = [];
+    for (const key of memKv.keys()) {
+      if (regex.test(key)) {
+        matched.push(key);
+      }
+    }
+    return ['0', matched];
+  },
   pipeline() {
     const operations = [];
     return {
@@ -186,26 +208,80 @@ const inMemoryClient = {
   },
 };
 
-// ── Hybrid Connection Manager ───────────────────────────────────────────────
+// ── Hybrid Connection Manager & Resilience Layer ────────────────────────────
+/**
+ * ARCHITECTURE & RESILIENCE TRADEOFF NOTE FOR ENGINEERS:
+ * -------------------------------------------------------------------------
+ * The inMemoryClient fallback below provides short-term resilience for brief
+ * transient Redis outages (e.g. network blips of 1-3 seconds).
+ *
+ * CRITICAL WARNING:
+ * 1. The in-memory fallback store is STRICTLY LOCAL to this Node.js process.
+ *    In multi-instance deployments (e.g. horizontal clustering with 2+ replicas),
+ *    instances CANNOT share in-memory state. Active sockets, call locks, presence,
+ *    and instant queues will desynchronize across instances if real Redis stays down.
+ * 2. In-memory data is completely wiped on any process restart or crash.
+ * 3. Therefore, in-memory fallback is an emergency buffer to prevent immediate crashes,
+ *    NOT a long-term operating mode or horizontal scaling solution.
+ * 4. realRedis must continuously retry with capped backoff to re-establish the
+ *    shared Redis connection as soon as Redis recovers.
+ * -------------------------------------------------------------------------
+ */
 let isConnected = false;
+let hadDisconnected = false;
+let lastFallbackWarningTime = 0;
+let fallbackWarningCount = 0;
+const FALLBACK_LOG_THROTTLE_MS = 30000;
+
+function logFallbackWarning(operation = 'command') {
+  fallbackWarningCount++;
+  const now = Date.now();
+  if (now - lastFallbackWarningTime > FALLBACK_LOG_THROTTLE_MS) {
+    lastFallbackWarningTime = now;
+    console.warn(`🚨 [REDIS FALLBACK ACTIVE] Real Redis is disconnected. Serving '${operation}' from in-memory fallback (total incidents: ${fallbackWarningCount}). Multi-instance sync is PAUSED until reconnect.`);
+  }
+}
 
 const realRedis = new Redis(redisUrl, {
-  maxRetriesPerRequest: 1,
+  maxRetriesPerRequest: 20,
+  enableOfflineQueue: true,
   retryStrategy(times) {
-    if (times > 3) return null; // Stop retrying quickly to avoid blocking
-    return 500;
+    const delay = Math.min(times * 200, 5000); // exponential-ish, capped at 5s
+    return delay;
   },
   lazyConnect: false,
 });
 
 realRedis.on('connect', () => {
+  if (hadDisconnected) {
+    console.log('✅ [REDIS] Reconnected — resuming normal operation, in-memory fallback deactivated.');
+    hadDisconnected = false;
+  } else {
+    console.log('✅ Redis client connected');
+  }
   isConnected = true;
-  console.log('✅ Redis client connected');
+});
+
+realRedis.on('ready', () => {
+  if (hadDisconnected) {
+    console.log('✅ [REDIS] Reconnected — resuming normal operation, in-memory fallback deactivated.');
+    hadDisconnected = false;
+  }
+  isConnected = true;
 });
 
 realRedis.on('error', (err) => {
   if (isConnected) {
     console.error('❌ Redis disconnected, switching to in-memory fallback:', err.message);
+    hadDisconnected = true;
+  }
+  isConnected = false;
+});
+
+realRedis.on('close', () => {
+  if (isConnected) {
+    console.warn('⚠️ [REDIS] Connection closed, switching to in-memory fallback.');
+    hadDisconnected = true;
   }
   isConnected = false;
 });
@@ -213,8 +289,22 @@ realRedis.on('error', (err) => {
 // Proxy handler to seamlessly route commands to real Redis if connected, or inMemoryClient
 const redisProxy = new Proxy(realRedis, {
   get(target, prop) {
+    if (prop === 'isHealthy') {
+      return () => isConnected;
+    }
     if (prop === 'isInMemory') {
       return !isConnected;
+    }
+    if (prop === 'getMetrics') {
+      return () => ({
+        isConnected,
+        hadDisconnected,
+        fallbackWarningCount,
+        lastFallbackWarningTime,
+      });
+    }
+    if (prop === 'fallbackWarningCount') {
+      return fallbackWarningCount;
     }
     if (prop === 'pipeline') {
       return function (...args) {
@@ -223,9 +313,12 @@ const redisProxy = new Proxy(realRedis, {
             return target.pipeline(...args);
           } catch (err) {
             isConnected = false;
+            hadDisconnected = true;
+            logFallbackWarning('pipeline');
             return inMemoryClient.pipeline(...args);
           }
         }
+        logFallbackWarning('pipeline');
         return inMemoryClient.pipeline(...args);
       };
     }
@@ -236,9 +329,12 @@ const redisProxy = new Proxy(realRedis, {
             return await target[prop](...args);
           } catch (err) {
             isConnected = false;
+            hadDisconnected = true;
+            logFallbackWarning(String(prop));
             return await inMemoryClient[prop](...args);
           }
         }
+        logFallbackWarning(String(prop));
         return await inMemoryClient[prop](...args);
       };
     }

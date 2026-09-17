@@ -1,5 +1,5 @@
 const { MessagingService } = require('./messaging.service');
-const { userSockets, getSocketForUser } = require('../matchmaking/matchmaking.socket');
+const { PresenceService } = require('../presence/presence.service');
 const { subscriptionsService } = require('../subscriptions/subscriptions.service');
 
 const messagingService = new MessagingService();
@@ -7,6 +7,37 @@ const messagingService = new MessagingService();
 // Rate limit: max messages per window
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_SECONDS = 1;
+
+// ── In-memory Conversation Participants Cache ──────────────────────────────
+// Caches { user_a_id, user_b_id } for 10 minutes to eliminate DB queries on typing
+const convParticipantsCache = new Map();
+const CONV_CACHE_TTL_MS = 10 * 60 * 1000;
+const MAX_CONV_CACHE_SIZE = 10000;
+
+async function getConversationParticipants(conversationId) {
+  if (!conversationId) return null;
+
+  const cached = convParticipantsCache.get(conversationId);
+  if (cached && (Date.now() - cached.timestamp < CONV_CACHE_TTL_MS)) {
+    return cached.data;
+  }
+
+  const convResult = await require('../../db').query(
+    'SELECT user_a_id, user_b_id FROM public.conversations WHERE id = $1',
+    [conversationId]
+  );
+
+  if (convResult.rows.length === 0) return null;
+  const data = convResult.rows[0];
+
+  if (convParticipantsCache.size >= MAX_CONV_CACHE_SIZE) {
+    const oldestKey = convParticipantsCache.keys().next().value;
+    convParticipantsCache.delete(oldestKey);
+  }
+
+  convParticipantsCache.set(conversationId, { data, timestamp: Date.now() });
+  return data;
+}
 
 /**
  * Check send-rate limit for a user using Redis sliding window.
@@ -16,7 +47,6 @@ async function isRateLimited(redis, userId) {
   const key = `msg_rate:${userId}`;
   const count = await redis.incr(key);
 
-  // Set expiry only on first increment (new window)
   if (count === 1) {
     await redis.expire(key, RATE_LIMIT_WINDOW_SECONDS);
   }
@@ -60,35 +90,31 @@ function registerMessagingHandlers(io, socket, redis) {
         return;
       }
 
-      // Send message (includes block-list check)
+      // Determine the other participant ahead of time via cache or DB
+      const conv = await getConversationParticipants(conversationId);
+      const otherUserId = conv ? (conv.user_a_id === userId ? conv.user_b_id : conv.user_a_id) : null;
+
+      // Check if recipient is online via Redis O(1) before insert
+      const isOnline = otherUserId ? await PresenceService.isUserOnline(redis, otherUserId) : false;
+      const initialStatus = isOnline ? 'delivered' : 'sent';
+
+      // Send message (includes block-list check & single combined CTE insert/update with initialStatus)
       const message = await messagingService.sendMessage(
         conversationId,
         userId,
         content.trim(),
-        type || 'text'
+        type || 'text',
+        null,
+        initialStatus,
+        conv
       );
 
-      // Determine the other participant
-      const convResult = await require('../../db').query(
-        'SELECT user_a_id, user_b_id FROM public.conversations WHERE id = $1',
-        [conversationId]
-      );
+      if (conv && otherUserId) {
+        if (isOnline) {
+          // Deliver directly to recipient's room
+          io.to(otherUserId).emit('message:new', { message });
 
-      if (convResult.rows.length > 0) {
-        const conv = convResult.rows[0];
-        const otherUserId = conv.user_a_id === userId ? conv.user_b_id : conv.user_a_id;
-
-        // Check if recipient socket is active and validated
-        const recipientSocket = getSocketForUser(io, otherUserId);
-        if (recipientSocket && recipientSocket.connected) {
-          // Delivered! Update status in DB and emit to both parties
-          message.status = 'delivered';
-          await require('../../db').query(
-            "UPDATE public.messages SET status = 'delivered' WHERE id = $1",
-            [message.id]
-          );
-
-          io.to(recipientSocket.id).emit('message:new', { message });
+          // Inform sender of double tick (delivered)
           socket.emit('message:status_update', {
             conversationId,
             messageId: message.id,
@@ -113,26 +139,18 @@ function registerMessagingHandlers(io, socket, redis) {
       const { conversationId } = data || {};
       if (!conversationId) return;
 
-      // Verify participant and find other user
-      const convResult = await require('../../db').query(
-        'SELECT user_a_id, user_b_id FROM public.conversations WHERE id = $1',
-        [conversationId]
-      );
-
-      if (convResult.rows.length === 0) return;
-
-      const conv = convResult.rows[0];
+      // Participant lookup from in-memory cache (0ms DB load)
+      const conv = await getConversationParticipants(conversationId);
+      if (!conv) return;
       if (conv.user_a_id !== userId && conv.user_b_id !== userId) return;
 
       const otherUserId = conv.user_a_id === userId ? conv.user_b_id : conv.user_a_id;
-      const recipientSocket = getSocketForUser(io, otherUserId);
 
-      if (recipientSocket && recipientSocket.connected) {
-        io.to(recipientSocket.id).emit('typing', {
-          conversationId,
-          userId,
-        });
-      }
+      // O(1) Room emit directly to recipient across all cluster nodes
+      io.to(otherUserId).emit('typing', {
+        conversationId,
+        userId,
+      });
     } catch (err) {
       console.error('Error in typing:', err.message);
     }
@@ -152,29 +170,21 @@ function registerMessagingHandlers(io, socket, redis) {
 
       await messagingService.markAsRead(conversationId, userId, messageId);
 
-      // Notify the other participant about the read receipt
-      const convResult = await require('../../db').query(
-        'SELECT user_a_id, user_b_id FROM public.conversations WHERE id = $1',
-        [conversationId]
-      );
-
-      if (convResult.rows.length > 0) {
-        const conv = convResult.rows[0];
+      // Notify other participant about the read receipt via room emit
+      const conv = await getConversationParticipants(conversationId);
+      if (conv) {
         const otherUserId = conv.user_a_id === userId ? conv.user_b_id : conv.user_a_id;
-        const senderSocket = getSocketForUser(io, otherUserId);
 
-        if (senderSocket && senderSocket.connected) {
-          io.to(senderSocket.id).emit('message:read', {
-            conversationId,
-            userId,
-            messageId,
-          });
-          io.to(senderSocket.id).emit('message:status_update', {
-            conversationId,
-            messageId,
-            status: 'read',
-          });
-        }
+        io.to(otherUserId).emit('message:read', {
+          conversationId,
+          userId,
+          messageId,
+        });
+        io.to(otherUserId).emit('message:status_update', {
+          conversationId,
+          messageId,
+          status: 'read',
+        });
       }
 
       cb({ success: true });
@@ -183,7 +193,6 @@ function registerMessagingHandlers(io, socket, redis) {
       cb({ error: err.message });
     }
   });
-
 }
 
-module.exports = { registerMessagingHandlers };
+module.exports = { registerMessagingHandlers, getConversationParticipants };

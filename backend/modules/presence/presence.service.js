@@ -1,4 +1,4 @@
-const LEASE_TTL_SECONDS = 60; // 60s lease TTL for self-healing on crash / unclean disconnect
+const LEASE_TTL_SECONDS = 90; // 90s lease TTL (2x 45s refresh) for self-healing on crash / unclean disconnect
 const DEBOUNCE_DISCONNECT_MS = 1500; // 1.5s grace period for mobile network handoffs
 
 // In-memory timer map for debouncing rapid disconnect/reconnect cycles
@@ -51,33 +51,22 @@ class PresenceService {
 
     try {
       const key = `online_sockets:${userId}`;
-      const members = await redis.smembers(key);
 
-      // Identify and prune any dead/stale sockets currently in Redis
-      const deadSockets = [];
-      if (io && io.sockets) {
-        for (const memberId of members) {
-          if (memberId !== socketId) {
-            const s = io.sockets.sockets?.get(memberId);
-            if (!s || !s.connected) {
-              deadSockets.push(memberId);
-            }
-          }
-        }
-      }
+      // MULTI-INSTANCE RESILIENCE:
+      // Do NOT check io.sockets.sockets.get(memberId) to prune "dead" sockets.
+      // In multi-instance deployments, sockets belonging to other instances are not in this
+      // process's local memory and would be erroneously deleted.
+      // Sockets self-heal via LEASE_TTL_SECONDS (90s) and periodic 45s heartbeat refreshLease(),
+      // while explicit disconnect removes individual sockets.
+      const previousCount = await redis.scard(key);
 
       const pipeline = redis.pipeline();
-      if (deadSockets.length > 0) {
-        pipeline.srem(key, ...deadSockets);
-      }
       pipeline.sadd(key, socketId);
       pipeline.expire(key, LEASE_TTL_SECONDS);
       await pipeline.exec();
 
-      const activePreviousCount = members.length - deadSockets.length;
-
       // Only broadcast if transitioning from 0 -> 1 (newly online)
-      if (activePreviousCount === 0) {
+      if (previousCount === 0) {
         this._broadcastPresence(io, userId, true);
       }
     } catch (err) {
@@ -103,24 +92,9 @@ class PresenceService {
         await redis.srem(key, socketId);
       }
 
-      const members = await redis.smembers(key);
-
-      // Verify whether any remaining members are truly active, connected sockets
-      const deadSockets = [];
-      if (io && io.sockets) {
-        for (const memberId of members) {
-          const s = io.sockets.sockets?.get(memberId);
-          if (!s || !s.connected) {
-            deadSockets.push(memberId);
-          }
-        }
-      }
-
-      if (deadSockets.length > 0) {
-        await redis.srem(key, ...deadSockets);
-      }
-
-      const activeRemainingCount = members.length - deadSockets.length;
+      // MULTI-INSTANCE RESILIENCE:
+      // Rely directly on Redis SCARD count. Avoid local socket checks that prune cross-instance sockets.
+      const activeRemainingCount = await redis.scard(key);
 
       // If no active sockets remain, debounce the offline event
       if (activeRemainingCount === 0) {

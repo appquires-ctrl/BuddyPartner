@@ -9,6 +9,7 @@ const { authMiddleware } = require('../../middleware/auth.middleware');
 const { cacheService } = require('../../services/cache.service');
 const { usernameCheckLimiter, userSearchLimiter } = require('../../middleware/rate_limit.middleware');
 const { generateOTP, sanitizePhoneInputs, sendWhatsAppOtp } = require('./otpService');
+const { scanKeys } = require('../../utils/redis_helpers');
 
 const RESERVED_USERNAMES = new Set([
   'admin', 'administrator', 'support', 'help', 'buddypartner', 
@@ -226,7 +227,7 @@ router.post('/login', async (req, res) => {
     }
 
     try {
-      const oldRefreshKeys = await redis.keys(`refresh:${user.id}:*`);
+      const oldRefreshKeys = await scanKeys(redis, `refresh:${user.id}:*`);
       if (oldRefreshKeys && oldRefreshKeys.length > 0) {
         await redis.del(...oldRefreshKeys);
       }
@@ -474,7 +475,7 @@ router.post('/forgot-password/reset', async (req, res) => {
     await cacheService.invalidate(`user:profile:${userId}`);
     await redis.del(`user_active_session:${userId}`);
     try {
-      const oldRefreshKeys = await redis.keys(`refresh:${userId}:*`);
+      const oldRefreshKeys = await scanKeys(redis, `refresh:${userId}:*`);
       if (oldRefreshKeys && oldRefreshKeys.length > 0) {
         await redis.del(...oldRefreshKeys);
       }
@@ -828,7 +829,7 @@ router.post('/otp/verify', async (req, res) => {
 
     // Invalidate all previous refresh tokens for this user in Redis
     try {
-      const oldRefreshKeys = await redis.keys(`refresh:${user.id}:*`);
+      const oldRefreshKeys = await scanKeys(redis, `refresh:${user.id}:*`);
       if (oldRefreshKeys && oldRefreshKeys.length > 0) {
         await redis.del(...oldRefreshKeys);
       }

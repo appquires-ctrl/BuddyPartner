@@ -1,15 +1,33 @@
 const db = require('../../db');
+const redis = require('../../redis');
 
 class ModerationService {
   /**
    * Check if a user is currently banned.
-   * Direct primary key index scan on public.users(id) (<0.1ms).
+   * Redis cached with 300s TTL (user:is_banned:${userId}).
+   * Falls back to primary key index scan on public.users(id) on cache miss.
    * @param {string} userId
    * @returns {Promise<{ isBlocked: boolean, isBanned: boolean, isSuspended: boolean, suspendedUntil: null }>}
    */
   async isUserBlocked(userId) {
     if (!userId) {
       return { isBlocked: false, isBanned: false, isSuspended: false, suspendedUntil: null };
+    }
+
+    const cacheKey = `user:is_banned:${userId}`;
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached !== null && cached !== undefined) {
+        const isBanned = cached === '1';
+        return {
+          isBlocked: isBanned,
+          isBanned,
+          isSuspended: false,
+          suspendedUntil: null,
+        };
+      }
+    } catch (cacheErr) {
+      console.warn(`[Moderation Cache] Redis get error for user ${userId}:`, cacheErr.message);
     }
 
     try {
@@ -23,6 +41,11 @@ class ModerationService {
       }
 
       const isBanned = Boolean(result.rows[0].is_banned);
+
+      // Cache for 300s (matching user:subscribed:${userId} pattern)
+      redis.set(cacheKey, isBanned ? '1' : '0', 'EX', 300).catch((err) => {
+        console.warn(`[Moderation Cache] Redis set error for user ${userId}:`, err.message);
+      });
 
       return {
         isBlocked: isBanned,
@@ -104,6 +127,8 @@ class ModerationService {
           [reportedUserId]
         );
         isBanned = true;
+        // Invalidate Redis ban cache immediately
+        await redis.del(`user:is_banned:${reportedUserId}`).catch(() => {});
         console.log(`⛔ [Moderation] BAN TRIGGERED: User ${reportedUserId} has been reported by ${distinctReporterCount} distinct reporters.`);
       }
 

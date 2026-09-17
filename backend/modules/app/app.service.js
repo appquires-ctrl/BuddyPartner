@@ -1,6 +1,7 @@
 const db = require('../../db');
 const semver = require('semver');
 
+const redis = require('../../redis');
 const cacheService = require('../../services/cache.service');
 
 const DEFAULT_CONFIGS = {
@@ -11,8 +12,40 @@ const DEFAULT_CONFIGS = {
 };
 
 class AppService {
+  constructor() {
+    this.inMemoryConfig = { ...DEFAULT_CONFIGS };
+    this.refreshInterval = null;
+  }
+
   /**
-   * Ensure app_config table exists and default keys are seeded
+   * Refresh in-memory config from Redis (with DB fallback if Redis key is missing).
+   * Safe fallback: on any error (e.g. Redis unavailable), keep last known cached values.
+   */
+  async refreshCache() {
+    for (const key of Object.keys(DEFAULT_CONFIGS)) {
+      try {
+        let val = await redis.get(`app_config:${key}`);
+        if (val === null || val === undefined) {
+          const res = await db.query('SELECT value FROM public.app_config WHERE key = $1', [key]);
+          val = res.rows[0]?.value || DEFAULT_CONFIGS[key] || null;
+          if (val !== null) {
+            await redis.set(`app_config:${key}`, val, 'EX', 86400).catch(() => {});
+          }
+        }
+        if (val !== null && val !== undefined) {
+          this.inMemoryConfig[key] = val;
+        }
+      } catch (err) {
+        console.warn(
+          `[AppConfig Cache] Failed to refresh ${key} from Redis, keeping last known value (${this.inMemoryConfig[key]}):`,
+          err.message
+        );
+      }
+    }
+  }
+
+  /**
+   * Ensure app_config table exists, default keys are seeded, and in-memory cache is primed
    */
   async initAppConfig() {
     try {
@@ -36,30 +69,48 @@ class AppService {
     } catch (err) {
       console.error('❌ Error initializing app config:', err.message);
     }
+
+    // Populate in-memory cache on process startup before serving traffic
+    await this.refreshCache();
+
+    // Periodically refresh in-memory cache from Redis every 60 seconds
+    if (!this.refreshInterval) {
+      this.refreshInterval = setInterval(() => {
+        this.refreshCache().catch((err) => {
+          console.warn('[AppConfig Cache] Periodic refresh error:', err.message);
+        });
+      }, 60000);
+      if (this.refreshInterval.unref) {
+        this.refreshInterval.unref();
+      }
+    }
   }
 
   /**
-   * Get config value by key with 5-minute cache
+   * Stop background refresh interval (useful for tests and graceful shutdown)
+   */
+  stopRefreshInterval() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+      this.refreshInterval = null;
+    }
+  }
+
+  /**
+   * Get config value by key from in-memory cache.
+   * Eliminates Redis calls and DB queries during live requests.
    * @param {string} key
    * @returns {Promise<string|null>}
    */
   async getConfig(key) {
-    return cacheService.getOrSet(`app_config:${key}`, 300, async () => {
-      try {
-        const res = await db.query(
-          'SELECT value FROM public.app_config WHERE key = $1',
-          [key]
-        );
-        return res.rows[0]?.value || DEFAULT_CONFIGS[key] || null;
-      } catch (err) {
-        console.error(`Error fetching config for ${key}:`, err.message);
-        return DEFAULT_CONFIGS[key] || null;
-      }
-    });
+    if (this.inMemoryConfig[key] !== undefined) {
+      return this.inMemoryConfig[key];
+    }
+    return DEFAULT_CONFIGS[key] || null;
   }
 
   /**
-   * Set config value by key
+   * Set config value by key in DB and Redis, updating in-memory cache immediately.
    * @param {string} key
    * @param {string} value
    */
@@ -71,7 +122,8 @@ class AppService {
          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
         [key, value]
       );
-      await cacheService.invalidate(`app_config:${key}`);
+      await redis.set(`app_config:${key}`, value, 'EX', 86400).catch(() => {});
+      this.inMemoryConfig[key] = value;
       return true;
     } catch (err) {
       console.error(`Error setting config for ${key}:`, err.message);

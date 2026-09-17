@@ -28,7 +28,7 @@ class LoginPage extends ConsumerStatefulWidget {
 
 class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
-  LoginMethod _loginMethod = LoginMethod.password;
+  LoginMethod _loginMethod = LoginMethod.otp;
   final _loginController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
@@ -307,172 +307,160 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final timerString = _secondsRemaining < 10 ? '0$_secondsRemaining' : '$_secondsRemaining';
-
     return Scaffold(
-      backgroundColor: isDark ? colors.surface : const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? colors.surface : Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.space24, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.space24, vertical: 8),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Top Navigation Bar (Back Button on OTP screen or mode switch)
-                Row(
-                  children: [
-                    if (_loginMethod == LoginMethod.otp)
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            if (_otpSent) {
-                              _otpSent = false;
-                              for (var c in _otpControllers) {
-                                c.clear();
-                              }
-                              _resendTimer?.cancel();
-                            } else {
-                              _loginMethod = LoginMethod.password;
-                            }
-                          });
-                        },
-                        child: Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
-                            border: Border.all(
-                              color: isDark ? Colors.white.withValues(alpha: 0.1) : colors.border.withValues(alpha: 0.6),
-                            ),
-                            boxShadow: [
-                              if (!isDark)
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.04),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 2),
-                                ),
-                            ],
-                          ),
-                          child: Icon(
-                            Icons.chevron_left_rounded,
-                            color: colors.textPrimary,
-                            size: 26,
+                // Top Navigation Bar (Back button when OTP is sent)
+                if (_otpSent)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _otpSent = false;
+                          for (var c in _otpControllers) {
+                            c.clear();
+                          }
+                          _resendTimer?.cancel();
+                        });
+                      },
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        margin: const EdgeInsets.only(top: 4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
+                          border: Border.all(
+                            color: isDark ? Colors.white.withValues(alpha: 0.1) : colors.border.withValues(alpha: 0.6),
                           ),
                         ),
-                      )
-                    else
-                      const SizedBox(height: 42),
-                  ],
-                ),
-                const SizedBox(height: 12),
+                        child: Icon(
+                          Icons.chevron_left_rounded,
+                          color: colors.textPrimary,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  const SizedBox(height: 12),
 
-                // Branding Section (Logo & Tagline)
+                const SizedBox(height: 8),
+
+                // Branding Section (App Logo & Tagline)
                 Image.asset(
                   'assets/images/app_logo.png',
-                  width: 175,
-                  height: 175,
+                  width: 108,
+                  height: 108,
                 ),
-                const SizedBox(height: 12),
-               RichText(
-  text: TextSpan(
-    children: [
-      TextSpan(
-        text: 'Buddy',
-        style: typography.displayWordmark.copyWith(
-          color: const Color(0xFF1E4FAE), // Blue
-          fontSize: 32.0,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -1.0,
-          height: 1.0,
-        ),
-      ),
-      TextSpan(
-        text: 'Partner',
-        style: typography.displayWordmark.copyWith(
-          color: const Color(0xFFE91E63), // Pink
-          fontSize: 32.0,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -1.0,
-          height: 1.0,
-        ),
-      ),
-    ],
-  ),
-),
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'Buddy',
+                        style: typography.displayWordmark.copyWith(
+                          color: const Color(0xFF1E4FAE),
+                          fontSize: 28.0,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.8,
+                          height: 1.0,
+                        ),
+                      ),
+                      TextSpan(
+                        text: 'Partner',
+                        style: typography.displayWordmark.copyWith(
+                          color: const Color(0xFFE91E63),
+                          fontSize: 28.0,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.8,
+                          height: 1.0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 6),
                 Text(
-                  '. MEET. CONNECT. BE FRIENDS. ',
+                  '. MEET. CONNECT. BE FRIENDS.',
                   style: typography.bodySmall.copyWith(
-                    color: colors.textSecondary,
-                    fontSize: 11.5,
+                    color: colors.textSecondary.withValues(alpha: 0.8),
+                    fontSize: 12.0,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.8,
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 22),
 
-                // Greeting & Subtitle Section
-                Text(
-                  _loginMethod == LoginMethod.password
-                      ? 'Welcome Back'
-                      : (_otpSent ? 'Verify Phone' : 'WhatsApp Login'),
-                  style: typography.headlineGreeting.copyWith(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: colors.textPrimary,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-
-                if (_loginMethod == LoginMethod.password) ...[
+                if (!_otpSent) ...[
                   Text(
-                    'Log in with your username or password.',
-                    style: typography.bodySmall.copyWith(
-                      color: colors.textSecondary,
-                      fontSize: 14,
+                    'Welcome Back',
+                    style: typography.headlineGreeting.copyWith(
+                      fontSize: 24.0,
+                      fontWeight: FontWeight.bold,
+                      color: colors.textPrimary,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                ] else if (!_otpSent) ...[
+                  const SizedBox(height: 6),
                   Text(
-                    'Sign in or register using your whatsapp number.',
+                    _loginMethod == LoginMethod.password
+                        ? 'Log in with your username or password.'
+                        : 'Sign in or register using your WhatsApp number.',
                     style: typography.bodySmall.copyWith(
                       color: colors.textSecondary,
-                      fontSize: 14,
+                      fontSize: 14.0,
                     ),
                     textAlign: TextAlign.center,
                   ),
+                  const SizedBox(height: 22),
                 ] else ...[
+                  // Header when 6-digit OTP code is sent
+                  Text(
+                    'Verify Phone',
+                    style: typography.headlineGreeting.copyWith(
+                      fontSize: 22.0,
+                      fontWeight: FontWeight.bold,
+                      color: colors.textPrimary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 6),
                   Text(
                     'Enter the 6-digit code sent to',
                     style: typography.bodySmall.copyWith(
                       color: colors.textSecondary,
-                      fontSize: 14,
+                      fontSize: 13.0,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
                     _formattedDisplayPhone,
                     style: typography.bodyMedium.copyWith(
                       color: colors.primary,
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontSize: 15.0,
                     ),
                     textAlign: TextAlign.center,
                   ),
+                  const SizedBox(height: 20),
                 ],
-
-                const SizedBox(height: 32),
 
                 // Error Message Banner
                 if (authState is AsyncError) ...[
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(AppSpacing.space12),
-                    margin: const EdgeInsets.only(bottom: AppSpacing.space20),
+                    margin: const EdgeInsets.only(bottom: 14),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFFEAEA),
                       borderRadius: AppRadius.md,
@@ -496,432 +484,425 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
                   ),
                 ],
 
-                // Form Body: Password Login OR Phone Input OR 6-Digit OTP Grid
-                if (_loginMethod == LoginMethod.password) ...[
-                  _buildPasswordLoginForm(context),
-                ] else if (!_otpSent) ...[
-                  // Phone Number Label & Input Field
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Whatsapp Number',
-                      style: typography.bodySmall.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: colors.textPrimary,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
+                // Form Body
+                if (_loginMethod == LoginMethod.password)
+                  _buildPasswordLoginForm(context)
+                else if (!_otpSent)
+                  _buildPhoneInputForm(context)
+                else
+                  _buildOtpVerificationForm(context, timerString),
 
-                  Container(
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isDark ? Colors.white.withValues(alpha: 0.1) : colors.border.withValues(alpha: 0.8),
-                        width: 1.2,
-                      ),
-                      boxShadow: [
-                        if (!isDark)
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.02),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.phone_outlined,
-                          color: colors.textSecondary,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 10),
-                        GestureDetector(
-                          onTap: () {
-                            CountryCodePickerModal.show(
-                              context,
-                              selectedCountry: _selectedCountry,
-                              onSelected: (country) {
-                                setState(() {
-                                  _selectedCountry = country;
-                                });
-                              },
-                            );
-                          },
-                          child: Row(
-                            children: [
-                              Text(
-                                _selectedCountry.flag,
-                                style: const TextStyle(fontSize: 18),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                _selectedCountry.code,
-                                style: typography.bodyMedium.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: colors.textPrimary,
-                                  fontSize: 15,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Icon(
-                                Icons.keyboard_arrow_down,
-                                color: colors.textSecondary,
-                                size: 18,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Container(
-                          width: 1,
-                          height: 22,
-                          color: colors.border.withValues(alpha: 0.6),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _phoneController,
-                            keyboardType: TextInputType.phone,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(_selectedCountry.maxLength),
-                            ],
-                            style: typography.bodyMedium.copyWith(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'Enter whatsapp number',
-                              hintStyle: typography.bodyMedium.copyWith(
-                                color: colors.textSecondary.withValues(alpha: 0.5),
-                                fontSize: 15,
-                              ),
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              errorBorder: InputBorder.none,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Please enter your whatsapp number';
-                              }
-                              if (value.trim().length < 8) {
-                                return 'Please enter a valid whatsapp number';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Helper text with Lock Icon
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.lock_outline_rounded,
-                        size: 15,
-                        color: colors.primary.withValues(alpha: 0.8),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        "We'll send you a verification code",
-                        style: typography.bodySmall.copyWith(
-                          color: colors.textSecondary,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // Primary Button: Get Verification Code
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: AppPrimaryButton(
-                      text: authState.isLoading ? 'Sending Code...' : 'Get Verification Code',
-                      onPressed: authState.isLoading ? null : _handleSendOtp,
-                    ),
-                  ),
-
-                  const SizedBox(height: 28),
-
-                  // Footer Security Note & Legal Notice
-                  Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.verified_user_outlined,
-                            size: 16,
-                            color: colors.primary.withValues(alpha: 0.85),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Your number is safe with us.',
-                            style: typography.bodySmall.copyWith(
-                              color: colors.textSecondary,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text.rich(
-                        TextSpan(
-                          style: typography.bodySmall.copyWith(
-                            color: colors.textSecondary.withValues(alpha: 0.8),
-                            fontSize: 11.5,
-                          ),
-                          children: [
-                            const TextSpan(text: 'By continuing, you agree to our '),
-                            WidgetSpan(
-                              alignment: PlaceholderAlignment.middle,
-                              child: GestureDetector(
-                                onTap: () => context.push(RouteNames.termsOfService),
-                                child: Text(
-                                  'Terms of Service',
-                                  style: typography.bodySmall.copyWith(
-                                    color: colors.primary,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 11.5,
-                                    decoration: TextDecoration.underline,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const TextSpan(text: ' & '),
-                            WidgetSpan(
-                              alignment: PlaceholderAlignment.middle,
-                              child: GestureDetector(
-                                onTap: () => context.push(RouteNames.privacyPolicy),
-                                child: Text(
-                                  'Privacy Policy',
-                                  style: typography.bodySmall.copyWith(
-                                    color: colors.primary,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 11.5,
-                                    decoration: TextDecoration.underline,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const TextSpan(text: '.'),
-                          ],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Return to Password Login link
-                      Center(
-                        child: TextButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _loginMethod = LoginMethod.password;
-                            });
-                          },
-                          icon: Icon(Icons.key_rounded, size: 18, color: colors.primary),
-                          label: Text(
-                            'Log in with Username & Password instead',
-                            style: TextStyle(
-                              color: colors.primary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ] else ...[
-                  // 6-Digit OTP Code Input Grid
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: List.generate(6, (index) {
-                      final hasFocus = _otpFocusNodes[index].hasFocus;
-                      final hasText = _otpControllers[index].text.isNotEmpty;
-
-                      return Container(
-                        width: 48,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: hasFocus
-                                ? colors.primary
-                                : (hasText ? colors.primary.withValues(alpha: 0.4) : colors.border.withValues(alpha: 0.7)),
-                            width: hasFocus ? 1.5 : 1.0,
-                          ),
-                          boxShadow: [
-                            if (!isDark)
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.03),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                          ],
-                        ),
-                        child: Center(
-                          child: TextField(
-                            controller: _otpControllers[index],
-                            focusNode: _otpFocusNodes[index],
-                            keyboardType: TextInputType.number,
-                            textAlign: TextAlign.center,
-                            maxLength: 1,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            style: typography.titleCard.copyWith(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: colors.textPrimary,
-                            ),
-                            decoration: const InputDecoration(
-                              counterText: '',
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            onChanged: (val) => _onOtpDigitChanged(index, val),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Resend Code & Change Number Links Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      GestureDetector(
-                        onTap: (authState.isLoading || !_canResend) ? null : _handleSendOtp,
-                        child: Text(
-                          _canResend ? 'Resend Code' : 'Resend Code (${_secondsRemaining}s)',
-                          style: TextStyle(
-                            color: _canResend ? colors.primary : colors.textSecondary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _otpSent = false;
-                            for (var c in _otpControllers) {
-                              c.clear();
-                            }
-                            _resendTimer?.cancel();
-                          });
-                        },
-                        child: Text(
-                          'Change Number',
-                          style: TextStyle(
-                            color: colors.primary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // Primary Button: Verify & Continue
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: AppPrimaryButton(
-                      text: authState.isLoading ? 'Verifying...' : 'Verify & Continue',
-                      onPressed: authState.isLoading ? null : _handleVerifyOtp,
-                    ),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // Bottom Security / Resend Info Banner Card
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? colors.primary.withValues(alpha: 0.12)
-                          : const Color(0xFFF5F3FF),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor: colors.primary,
-                          child: const Icon(
-                            Icons.shield_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Didn't receive the code?",
-                                style: typography.bodyMedium.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: colors.textPrimary,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              RichText(
-                                text: TextSpan(
-                                  style: typography.bodySmall.copyWith(
-                                    color: colors.textSecondary,
-                                    fontSize: 13,
-                                  ),
-                                  children: [
-                                    const TextSpan(text: 'You can request a new code after '),
-                                    TextSpan(
-                                      text: '00:$timerString',
-                                      style: TextStyle(
-                                        color: colors.primary,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                const SizedBox(height: 16),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildOrDivider() {
+    return Row(
+      children: const [
+        Expanded(
+          child: Divider(
+            color: Color(0xFFF1F5F9),
+            thickness: 1,
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'OR',
+            style: TextStyle(
+              color: Color(0xFF94A3B8),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Divider(
+            color: Color(0xFFF1F5F9),
+            thickness: 1,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPhoneInputForm(BuildContext context) {
+    final colors = context.colors;
+    final typography = context.typography;
+    final authState = ref.watch(authControllerProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'WhatsApp Number',
+          style: typography.bodySmall.copyWith(
+            fontWeight: FontWeight.bold,
+            color: colors.textPrimary,
+            fontSize: 14.0,
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        Container(
+          height: 52,
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE2E8F0),
+              width: 1.2,
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Icon(
+                Icons.phone_outlined,
+                color: colors.textSecondary.withValues(alpha: 0.6),
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              GestureDetector(
+                onTap: () {
+                  CountryCodePickerModal.show(
+                    context,
+                    selectedCountry: _selectedCountry,
+                    onSelected: (country) {
+                      setState(() {
+                        _selectedCountry = country;
+                      });
+                    },
+                  );
+                },
+                child: Row(
+                  children: [
+                    Text(
+                      _selectedCountry.flag,
+                      style: const TextStyle(fontSize: 18),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _selectedCountry.code,
+                      style: typography.bodyMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colors.textPrimary,
+                        fontSize: 15.0,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.keyboard_arrow_down,
+                      color: colors.textSecondary.withValues(alpha: 0.6),
+                      size: 18,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                width: 1,
+                height: 22,
+                color: const Color(0xFFE2E8F0),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(_selectedCountry.maxLength),
+                  ],
+                  style: typography.bodyMedium.copyWith(
+                    fontSize: 15.0,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Enter whatsapp number',
+                    hintStyle: typography.bodyMedium.copyWith(
+                      color: colors.textSecondary.withValues(alpha: 0.4),
+                      fontSize: 14.5,
+                    ),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter your whatsapp number';
+                    }
+                    if (value.trim().length < 8) {
+                      return 'Please enter a valid whatsapp number';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Helper text with Lock Icon
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.lock_outline_rounded,
+              size: 14,
+              color: colors.primary.withValues(alpha: 0.8),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              "We'll send you a verification code",
+              style: typography.bodySmall.copyWith(
+                color: colors.textSecondary,
+                fontSize: 12.5,
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 20),
+
+        // Primary Button: Get Verification Code
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: AppPrimaryButton(
+            text: authState.isLoading ? 'Sending Code...' : 'Get Verification Code',
+            onPressed: authState.isLoading ? null : _handleSendOtp,
+          ),
+        ),
+        const SizedBox(height: 22),
+
+        // OR Divider
+        _buildOrDivider(),
+        const SizedBox(height: 16),
+
+        // Bottom Helper for WhatsApp OTP screen
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Already have a password? ',
+              style: typography.bodySmall.copyWith(
+                color: colors.textSecondary,
+                fontSize: 13.5,
+              ),
+            ),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                setState(() {
+                  _loginMethod = LoginMethod.password;
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                child: Text(
+                  'Log in here',
+                  style: typography.bodySmall.copyWith(
+                    color: const Color(0xFF6366F1),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.5,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOtpVerificationForm(BuildContext context, String timerString) {
+    final colors = context.colors;
+    final typography = context.typography;
+    final authState = ref.watch(authControllerProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      children: [
+        // 6-Digit OTP Code Input Grid
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(6, (index) {
+            final hasFocus = _otpFocusNodes[index].hasFocus;
+            final hasText = _otpControllers[index].text.isNotEmpty;
+
+            return Container(
+              width: 48,
+              height: 54,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: hasFocus
+                      ? colors.primary
+                      : (hasText ? colors.primary.withValues(alpha: 0.4) : colors.border.withValues(alpha: 0.7)),
+                  width: hasFocus ? 1.5 : 1.0,
+                ),
+                boxShadow: [
+                  if (!isDark)
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                ],
+              ),
+              child: Center(
+                child: TextField(
+                  controller: _otpControllers[index],
+                  focusNode: _otpFocusNodes[index],
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  maxLength: 1,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  style: typography.titleCard.copyWith(
+                    fontSize: 22.0,
+                    fontWeight: FontWeight.bold,
+                    color: colors.textPrimary,
+                  ),
+                  decoration: const InputDecoration(
+                    counterText: '',
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  onChanged: (val) => _onOtpDigitChanged(index, val),
+                ),
+              ),
+            );
+          }),
+        ),
+
+        const SizedBox(height: 18),
+
+        // Resend Code & Change Number Links Row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            GestureDetector(
+              onTap: (authState.isLoading || !_canResend) ? null : _handleSendOtp,
+              child: Text(
+                _canResend ? 'Resend Code' : 'Resend Code (${_secondsRemaining}s)',
+                style: TextStyle(
+                  color: _canResend ? colors.primary : colors.textSecondary,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _otpSent = false;
+                  for (var c in _otpControllers) {
+                    c.clear();
+                  }
+                  _resendTimer?.cancel();
+                });
+              },
+              child: Text(
+                'Change Number',
+                style: TextStyle(
+                  color: colors.primary,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 24),
+
+        // Primary Button: Verify & Continue
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: AppPrimaryButton(
+            text: authState.isLoading ? 'Verifying...' : 'Verify & Continue',
+            onPressed: authState.isLoading ? null : _handleVerifyOtp,
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // Bottom Security / Resend Info Banner Card
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isDark
+                ? colors.primary.withValues(alpha: 0.12)
+                : const Color(0xFFF5F3FF),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: colors.primary,
+                child: const Icon(
+                  Icons.shield_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Didn't receive the code?",
+                      style: typography.bodyMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colors.textPrimary,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    RichText(
+                      text: TextSpan(
+                        style: typography.bodySmall.copyWith(
+                          color: colors.textSecondary,
+                          fontSize: 12.5,
+                        ),
+                        children: [
+                          const TextSpan(text: 'You can request a new code after '),
+                          TextSpan(
+                            text: '00:$timerString',
+                            style: TextStyle(
+                              color: colors.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -945,29 +926,21 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
         ),
         const SizedBox(height: 8),
         Container(
-          height: 56,
+          height: 52,
           decoration: BoxDecoration(
             color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isDark ? Colors.white.withValues(alpha: 0.1) : colors.border.withValues(alpha: 0.8),
+              color: isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE2E8F0),
               width: 1.2,
             ),
-            boxShadow: [
-              if (!isDark)
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-            ],
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
               Icon(
                 Icons.person_outline_rounded,
-                color: colors.textSecondary,
+                color: colors.textSecondary.withValues(alpha: 0.6),
                 size: 20,
               ),
               const SizedBox(width: 12),
@@ -982,8 +955,8 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
                   decoration: InputDecoration(
                     hintText: 'Enter @username or phone',
                     hintStyle: typography.bodyMedium.copyWith(
-                      color: colors.textSecondary.withValues(alpha: 0.5),
-                      fontSize: 15.0,
+                      color: colors.textSecondary.withValues(alpha: 0.4),
+                      fontSize: 14.5,
                     ),
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
@@ -996,7 +969,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
 
         // Password label & field
         Text(
@@ -1009,29 +982,21 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
         ),
         const SizedBox(height: 8),
         Container(
-          height: 56,
+          height: 52,
           decoration: BoxDecoration(
             color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isDark ? Colors.white.withValues(alpha: 0.1) : colors.border.withValues(alpha: 0.8),
+              color: isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE2E8F0),
               width: 1.2,
             ),
-            boxShadow: [
-              if (!isDark)
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-            ],
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
               Icon(
                 Icons.lock_outline_rounded,
-                color: colors.textSecondary,
+                color: colors.textSecondary.withValues(alpha: 0.6),
                 size: 20,
               ),
               const SizedBox(width: 12),
@@ -1048,8 +1013,8 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
                   decoration: InputDecoration(
                     hintText: 'Enter your password',
                     hintStyle: typography.bodyMedium.copyWith(
-                      color: colors.textSecondary.withValues(alpha: 0.5),
-                      fontSize: 15.0,
+                      color: colors.textSecondary.withValues(alpha: 0.4),
+                      fontSize: 14.5,
                     ),
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
@@ -1063,7 +1028,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
                 icon: Icon(
                   _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                   size: 20,
-                  color: colors.textSecondary,
+                  color: colors.textSecondary.withValues(alpha: 0.6),
                 ),
                 onPressed: () {
                   setState(() {
@@ -1079,18 +1044,13 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
         // Forgot password link
         Align(
           alignment: Alignment.centerRight,
-          child: TextButton(
-            onPressed: () => context.push(RouteNames.forgotPassword),
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              minimumSize: const Size(50, 30),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
+          child: GestureDetector(
+            onTap: () => context.push(RouteNames.forgotPassword),
             child: Text(
               'Forgot Password?',
               style: typography.bodySmall.copyWith(
-                color: colors.primary,
-                fontWeight: FontWeight.bold,
+                color: const Color(0xFF6366F1),
+                fontWeight: FontWeight.w600,
                 fontSize: 13.0,
               ),
             ),
@@ -1101,52 +1061,49 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
         // Log In button
         SizedBox(
           width: double.infinity,
-          height: 56,
+          height: 52,
           child: AppPrimaryButton(
             text: authState.isLoading ? 'Logging In...' : 'Log In',
             onPressed: authState.isLoading ? null : _handlePasswordLogin,
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 22),
 
-        // Divider with OR
+        // OR Divider
+        _buildOrDivider(),
+        const SizedBox(height: 16),
+
+        // Bottom Helper for Password screen
         Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Expanded(child: Divider(color: colors.border.withValues(alpha: 0.6))),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                'OR',
-                style: typography.bodySmall.copyWith(
-                  color: colors.textSecondary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12.0,
+            Text(
+              'New to BuddyPartner? ',
+              style: typography.bodySmall.copyWith(
+                color: colors.textSecondary,
+                fontSize: 13.5,
+              ),
+            ),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                setState(() {
+                  _loginMethod = LoginMethod.otp;
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                child: Text(
+                  'Get Started with WhatsApp',
+                  style: typography.bodySmall.copyWith(
+                    color: const Color(0xFF6366F1),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.5,
+                  ),
                 ),
               ),
             ),
-            Expanded(child: Divider(color: colors.border.withValues(alpha: 0.6))),
           ],
-        ),
-        const SizedBox(height: 24),
-
-        // Button to switch to WhatsApp OTP login
-        SizedBox(
-          width: double.infinity,
-          height: 54,
-          child: OutlinedButton.icon(
-            onPressed: () {
-              setState(() {
-                _loginMethod = LoginMethod.otp;
-              });
-            },
-            icon: const Icon(Icons.chat_bubble_outline_rounded, size: 20),
-            label: const Text('Log in using WhatsApp OTP'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: colors.primary,
-              side: BorderSide(color: colors.primary.withValues(alpha: 0.4), width: 1.2),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            ),
-          ),
         ),
       ],
     );

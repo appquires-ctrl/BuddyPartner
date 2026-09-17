@@ -61,13 +61,13 @@ dating_app/
 │       └── services/                # Admin REST API clients
 ├── backend/                         # Node.js/Express Real-time Backend
 │   ├── config/                      # Database, Redis, and Environment configs
-│   ├── migrations/                  # SQL migration scripts (000 to 016+)
+│   ├── migrations/                  # SQL migration scripts (000 to 020)
 │   ├── modules/
 │   │   ├── admin/                   # Admin auth, user controls, withdrawal review
 │   │   ├── advertisements/          # In-app promotional banners
 │   │   ├── auth/                    # OTP verification, JWT generation & rotation
 │   │   ├── buddy/                   # Buddy Activity broadcast, accept -> chat, OTP -> reward
-│   │   ├── calls/                   # Agora signaling, token generation, call lifecycle
+│   │   ├── calls/                   # Agora RTC token generation, call signaling, lifecycle
 │   │   ├── instant_connect/         # Fast 1:1 matching algorithm
 │   │   ├── matchmaking/             # City & gender filtered profile browsing
 │   │   ├── messaging/               # 1:1 direct chat, message history, read receipts
@@ -78,9 +78,10 @@ dating_app/
 │   │   ├── wallet/                  # Dual-balance wallets, ledger, spendable-first debits
 │   │   └── withdrawals/             # Earned-balance payout requests & settlement
 │   ├── services/
-│   │   ├── agora.service.js         # RTC token generation
-│   │   ├── firebase.service.js      # Multicast batching (<= 500 tokens) & push delivery
-│   │   └── redis.service.js         # Presence and distributed locking
+│   │   ├── cache.service.js         # Unified Redis cache and pattern invalidator
+│   │   └── firebase.service.js      # Multicast batching (<= 500 tokens) & push delivery
+│   ├── redis.js                     # Redis connection client & memory fallback
+│   ├── db.js                        # PostgreSQL connection pool (max: 40) & query profiler
 │   ├── test_*.js                    # Comprehensive automated test suites
 │   └── server.js                    # Entry point & socket routing
 └── lib/                             # Flutter Mobile Client
@@ -195,7 +196,13 @@ Strictly enforced across all agentic and developer workflows:
 
 ## 7. Current Project Health & Recent Milestones
 1. **Unisex Subscription Architecture**: Calling is completely decoupled from coin metering. Active subscribers enjoy unlimited 1:1 calls.
-2. **Dual-Balance Ledger & Buddy Meetup Overhaul**: Ready for database migration and backend implementation to separate spendable from earned coins and unlock chat prior to in-person OTP exchange.
+2. **Dual-Balance Ledger & Buddy Meetup Overhaul**: Fully implemented in Migration 016 (`wallets`, `wallet_transactions`, and `buddy_requests`). Separates non-withdrawable `spendable_balance` from platform-rewarded `earned_balance`. Chat unlocks immediately upon request acceptance; the in-person 6-digit CSPRNG OTP is strictly proof of the real-world meetup and triggers the 50-coin reward to `earned_balance`.
 3. **Zero-Balance & Insufficient Funds Guard**: Verified with automated test suite (`test_buddy_insufficient_balance.js`). Accounts with < 100 coins are cleanly rejected with 0 orphaned rows and 0 ledger deductions.
 4. **FCM Multicast Batching (<= 500)**: Verified with test suite (`test_fcm_batching.js`). Chunks up to 5,000 device tokens into <= 500 token slices to ensure zero silent dropouts or Firebase API limit violations.
 5. **Flutter 3.27+ Compatibility**: UI components hardened against modern Flutter framework constraints (e.g. `Material` wrapping for `ListTile` in custom modal sheets).
+6. **Scalability & Latency Hardening**:
+   - Migration 019: Functional index on `LOWER(TRIM(city))` on `public.users` for instant city discovery.
+   - Migration 020: Partial index on `public.messages(conversation_id, status) WHERE status = 'sent'` and direct foreign key indexes on `conversations(user_a_id)` and `conversations(user_b_id)` to optimize real-time delivery reconciliation on socket connect.
+   - Subscriptions Cache: `isSubscribed(userId)` wrapped in Redis with 300s TTL and write invalidation, cutting 200–500 QPS from chat.
+   - In-Memory App Config: Version checks served from local memory with 60s background refresh, eliminating Redis reads on every HTTP request.
+   - Connection Pool: Sized to `max: 40` on Neon's PgBouncer pooler endpoint.

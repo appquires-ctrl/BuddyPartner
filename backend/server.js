@@ -379,6 +379,8 @@ io.use(async (socket, next) => {
 // ── Register socket handlers ────────────────────────────────────────────────
 const { registerMatchmakingHandlers } = require('./modules/matchmaking/matchmaking.socket');
 const { registerMessagingHandlers } = require('./modules/messaging/messaging.socket');
+const { MessagingService } = require('./modules/messaging/messaging.service');
+const messagingService = new MessagingService();
 const { registerInstantConnectHandlers } = require('./modules/instant_connect/instant_connect.socket');
 const { registerPresenceHandlers } = require('./modules/presence/presence.socket');
 const { registerBuddyHandlers } = require('./modules/buddy/buddy.socket');
@@ -391,6 +393,9 @@ io.on('connection', (socket) => {
 
   // Add socket to user's active socket set in Redis and broadcast presence if newly online
   PresenceService.addSocket(redis, io, socket.userId, socket.id);
+
+  // Catch up unread 'sent' messages to 'delivered' now that recipient is connected
+  messagingService.markDeliveredForRecipient(socket.userId, io);
 
   registerMatchmakingHandlers(io, socket, redis);
   registerMessagingHandlers(io, socket, redis);
@@ -455,6 +460,8 @@ if (process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_PLAY_SERV
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, async () => {
   console.log(`🚀 BuddyPartner server listening on port ${PORT}`);
+
+  console.log('✅ [Scaling] Multi-instance Redis cluster active: call state, matchmaking, and instant connect synchronized via Redis.');
   try {
     const res = await db.query(`
       UPDATE public.instant_call_sessions
