@@ -178,3 +178,13 @@ class ConversationsNotifier extends AutoDisposeAsyncNotifier<List<Conversation>>
 final conversationsProvider = AutoDisposeAsyncNotifierProvider<ConversationsNotifier, List<Conversation>>(
   ConversationsNotifier.new,
 );
+
+/// Computes the total unread messages count for the current user.
+final totalUnreadMessagesCountProvider = Provider.autoDispose<int>((ref) {
+  final currentUserId = ref.watch(authStateProvider).value?.id;
+  final convs = ref.watch(conversationsProvider).valueOrNull ?? const [];
+  return convs.where((c) {
+    final isSentByMe = c.lastMessageSenderId == currentUserId;
+    return !isSentByMe && c.unreadCount > 0;
+  }).fold<int>(0, (sum, c) => sum + c.unreadCount);
+});

@@ -33,6 +33,7 @@ import 'package:buddypartner/features/buddy/presentation/widgets/active_buddy_st
 import 'package:buddypartner/features/buddy/application/buddy_controller.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/initiator_otp_modal.dart';
+import 'package:buddypartner/features/home/presentation/widgets/connected_duo_illustration.dart';
 
 /// HomePage renders the primary "stranger search" radar screen.
 /// Matches screenshots/home.jpeg exactly.
@@ -289,6 +290,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       showStatus: true,
                       isOnline: true,
                       statusIndicatorSize: 11,
+                      showGlowRing: true,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -302,16 +304,29 @@ class _HomePageState extends ConsumerState<HomePage> {
                           onTap: () {
                             context.push(RouteNames.account);
                           },
-                          child: Text(
-                            fullName,
-                            style: typography.bodyMedium.copyWith(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15.5,
-                              color: colors.textPrimary,
-                              height: 1.2,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  fullName,
+                                  style: typography.bodyMedium.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15.5,
+                                    color: colors.textPrimary,
+                                    height: 1.2,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 3),
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                size: 16,
+                                color: colors.textSecondary,
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 3),
@@ -346,8 +361,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                     final isSubscribed = subState?.isSubscribed ?? false;
                     final label = isSubscribed ? subState!.formattedLabel : 'Subscribe';
 
-                    final statusColor = isSubscribed ? colors.success : colors.danger;
-
                     return Padding(
                       padding: const EdgeInsets.only(right: 16.0),
                       child: Center(
@@ -357,19 +370,24 @@ class _HomePageState extends ConsumerState<HomePage> {
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 7,
+                              horizontal: 11,
+                              vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: colors.surface,
+                              color: Colors.white,
                               borderRadius: BorderRadius.circular(16.0),
                               border: Border.all(
-                                color: statusColor.withValues(alpha: 0.4),
-                                width: 1.2,
+                                color: isSubscribed
+                                    ? const Color(0xFF10B981).withValues(alpha: 0.45)
+                                    : colors.danger.withValues(alpha: 0.4),
+                                width: 1.0,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: statusColor.withValues(alpha: 0.08),
+                                  color: (isSubscribed
+                                          ? const Color(0xFF10B981)
+                                          : colors.danger)
+                                      .withValues(alpha: 0.12),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -379,27 +397,35 @@ class _HomePageState extends ConsumerState<HomePage> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Container(
-                                  width: 8,
-                                  height: 8,
+                                  width: 7,
+                                  height: 7,
                                   decoration: BoxDecoration(
-                                    color: statusColor,
+                                    color: isSubscribed
+                                        ? const Color(0xFF10B981)
+                                        : colors.danger,
                                     shape: BoxShape.circle,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: statusColor.withValues(alpha: 0.5),
+                                        color: (isSubscribed
+                                                ? const Color(0xFF10B981)
+                                                : colors.danger)
+                                            .withValues(alpha: 0.7),
                                         blurRadius: 4,
-                                        spreadRadius: 1,
+                                        spreadRadius: 0.5,
                                       ),
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 7),
+                                const SizedBox(width: 6),
                                 Text(
                                   label,
-                                  style: typography.bodySmall.copyWith(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                    color: colors.textPrimary,
+                                    fontSize: 11.5,
+                                    color: isSubscribed
+                                        ? const Color(0xFF047857)
+                                        : colors.danger,
+                                    letterSpacing: 0.2,
                                   ),
                                 ),
                               ],
@@ -548,153 +574,174 @@ class _HomePageState extends ConsumerState<HomePage> {
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.space24),
+                  padding: const EdgeInsets.symmetric(horizontal: 14.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 10),
 
                       // Female User: Incoming Paid Calls Toggle Card
                       // Matchmaking Banner Card
                       GestureDetector(
                         onTap: _startMatchmaking,
-                  child: Container(
-                    height: 132,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFF7A58FF),
-                          Color(0xFFC69CFF),
-                        ],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF7A58FF).withValues(alpha: 0.3),
-                          blurRadius: 16,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Stack(
-                      children: [
-                        // Background semi-transparent concentric circle patterns
-                        Positioned(
-                          right: -30,
-                          top: -20,
-                          child: Container(
-                            width: 140,
-                            height: 140,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white.withValues(alpha: 0.06),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.08),
-                                width: 12,
-                              ),
+                        child: Container(
+                          height: 140,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFF7A58FF),
+                                Color(0xFFC69CFF),
+                              ],
                             ),
-                          ),
-                        ),
-                        Positioned(
-                          right: 20,
-                          bottom: -45,
-                          child: Container(
-                            width: 110,
-                            height: 110,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white.withValues(alpha: 0.04),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.06),
-                                width: 8,
-                              ),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              width: 1.0,
                             ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF7A58FF).withValues(alpha: 0.35),
+                                blurRadius: 18,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
                           ),
-                        ),
-                        // Card Content
-                        Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: Row(
+                          child: Stack(
                             children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    // Row with Sparkle icon and MEET SOMEONE NEW
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.auto_awesome,
-                                          color: Colors.white70,
-                                          size: 14,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'MEET SOMEONE SPECIAL',
-                                          style: typography.bodySmall.copyWith(
-                                            color: Colors.white.withValues(alpha: 0.85),
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                      ],
+                              // Background semi-transparent concentric circle patterns
+                              Positioned(
+                                right: -30,
+                                top: -20,
+                                child: Container(
+                                  width: 140,
+                                  height: 140,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.white.withValues(alpha: 0.06),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.08),
+                                      width: 12,
                                     ),
-                                    const SizedBox(height: 6),
-                                    // Start matchmaking heading text
-                                    Text(
-                                      'Let’s Connect',
-                                      style: typography.titleCard.copyWith(
-                                        color: Colors.white,
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold,
-                                        height: 1.2,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    // Subtitle details text
-                                    Text(
-                                      'Let fate choose your next connection',
-                                      style: typography.bodySmall.copyWith(
-                                        color: Colors.white.withValues(alpha: 0.8),
-                                        fontSize: 13.0,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              // Glassmorphic outlines icon container
-                              Container(
-                                width: 56,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.18),
-                                  borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.25),
-                                    width: 1,
+                              Positioned(
+                                right: 20,
+                                bottom: -45,
+                                child: Container(
+                                  width: 110,
+                                  height: 110,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.white.withValues(alpha: 0.04),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.06),
+                                      width: 8,
+                                    ),
                                   ),
                                 ),
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.people_outline_rounded,
-                                    color: Colors.white,
-                                    size: 28,
-                                  ),
+                              ),
+                              // Card Content
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0.0),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          // Row with Sparkle icon and MEET SOMEONE SPECIAL
+                                          Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.auto_awesome,
+                                                color: Colors.white70,
+                                                size: 13,
+                                              ),
+                                              const SizedBox(width: 5),
+                                              Text(
+                                                'MEET SOMEONE SPECIAL',
+                                                style: typography.bodySmall.copyWith(
+                                                  color: Colors.white.withValues(alpha: 0.85),
+                                                  fontSize: 9.5,
+                                                  fontWeight: FontWeight.w700,
+                                                  letterSpacing: 0.5,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 5),
+                                          // Start matchmaking heading text
+                                          Text(
+                                            'Let’s Connect',
+                                            style: typography.titleCard.copyWith(
+                                              color: Colors.white,
+                                              fontSize: 22,
+                                              fontWeight: FontWeight.bold,
+                                              height: 1.15,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          // Punchier Subtitle details text
+                                          Text(
+                                            'Let fate choose your next connection',
+                                            style: typography.bodySmall.copyWith(
+                                              color: Colors.white.withValues(alpha: 0.9),
+                                              fontSize: 12.0,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          // Explicit CTA button
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius: BorderRadius.circular(18),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withValues(alpha: 0.16),
+                                                  blurRadius: 8,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ],
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: const [
+                                                Text(
+                                                  'Explore Now',
+                                                  style: TextStyle(
+                                                    color: Color(0xFF6D28D9),
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                                SizedBox(width: 4),
+                                                Icon(
+                                                  Icons.arrow_forward_rounded,
+                                                  size: 13,
+                                                  color: Color(0xFF6D28D9),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // Connected Duo Illustration (Two tilted polaroids with heart connector)
+                                    const ConnectedDuoIllustration(),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
+                      ),
                  if (authUser?.isFemale == true)
                         const IncomingPaidCallsBanner(),
  // Male User: VIP Instant Connect Queue or Entry Card
@@ -780,33 +827,41 @@ class _HomePageState extends ConsumerState<HomePage> {
                               InstantConnectSheet.show(context);
                             },
                             child: Container(
-                              margin: const EdgeInsets.only(top: 16),
-                              height: 100,
+                              margin: const EdgeInsets.only(top: 14),
+                              height: 80,
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(22),
+                                borderRadius: BorderRadius.circular(12),
                                 gradient: const LinearGradient(
-                                  colors: [Color(0xFFF59E0B), Color(0xFFFBBF24)],
+                                  colors: [Color.fromARGB(255, 227, 134, 27), Color.fromARGB(255, 230, 80, 0)],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.20),
+                                  width: 1.0,
+                                ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
-                                    blurRadius: 16,
+                                    color: const Color(0xFFEA580C).withValues(alpha: 0.35),
+                                    blurRadius: 18,
                                     offset: const Offset(0, 6),
                                   ),
                                 ],
                               ),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 14.0),
+                                padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 0.0),
                                 child: Row(
                                   children: [
                                     Container(
                                       width: 48,
                                       height: 48,
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.25),
+                                        color: Colors.white.withValues(alpha: 0.22),
                                         borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                          color: Colors.white.withValues(alpha: 0.35),
+                                          width: 1,
+                                        ),
                                       ),
                                       child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 28),
                                     ),
@@ -817,14 +872,15 @@ class _HomePageState extends ConsumerState<HomePage> {
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: const [
                                           Text(
-                                            'VIP Instant Connect ⚡',
+                                            'VIP INSTANT CONNECT ⚡',
                                             style: TextStyle(
                                               color: Colors.white,
-                                              fontSize: 17,
+                                              fontSize: 13.5,
                                               fontWeight: FontWeight.bold,
+                                              letterSpacing: 0.3,
                                             ),
                                           ),
-                                          SizedBox(height: 2),
+                                          SizedBox(height: 3),
                                           Text(
                                             'Skip the line & match with online buddies',
                                             style: TextStyle(
@@ -836,7 +892,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                         ],
                                       ),
                                     ),
-                                    const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 16),
+                                    const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 16),
                                   ],
                                 ),
                               ),
@@ -844,9 +900,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                           ),
                       ],
                 const ActiveBuddyStatusBanner(),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 const BuddyStickerCarousel(),
-                const SizedBox(height: 24),
+                const SizedBox(height: 17),
 
                 // DISCOVER and History Row
                 Row(
@@ -882,7 +938,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   const DiscoverRowSkeleton(),
                   const SizedBox(height: 24),
                 ] else if (matchedUsers.isNotEmpty) ...[
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
                   SizedBox(
                     height: 220,
                     child: ListView.builder(
@@ -1123,62 +1179,17 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-    final typography = context.typography;
     final profile = ref.watch(userProfileProvider);
+    final authUser = ref.watch(authStateProvider).value;
 
     if (_isChecking) {
-
       return const SizedBox.shrink();
     }
 
-    if (!_isPermissionGranted) {
-      return GestureDetector(
-        onTap: () => _handleLocationTap(userInitiated: true),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: colors.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: colors.primary.withValues(alpha: 0.3),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.location_on_rounded,
-                size: 12,
-                color: colors.primary,
-              ),
-              const SizedBox(width: 3),
-              Text(
-                'Enable Location',
-                style: TextStyle(
-                  color: colors.primary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11.5,
-                ),
-              ),
-              const SizedBox(width: 2),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 13,
-                color: colors.primary,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Granted state: display city name (e.g. Jhansi)
-    final String? city = _localCity ?? profile?.city;
+    // Dynamic resolved city
+    final String? city = _localCity ?? profile?.city ?? authUser?.city;
     final String? state = profile?.state;
     final String? country = profile?.country;
-
 
     String displayCity;
     if (_isFetchingLocation) {
@@ -1189,35 +1200,53 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
       displayCity = state.trim();
     } else if (country != null && country.trim().isNotEmpty) {
       displayCity = country.trim();
+    } else if (!_isPermissionGranted) {
+      displayCity = 'Enable Location';
     } else {
       displayCity = 'Set Location';
     }
 
-
     return GestureDetector(
       onTap: () => _handleLocationTap(userInitiated: true),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.location_on_rounded,
-            size: 12,
-            color: colors.textSecondary,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF3F0FF),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: const Color(0xFFDDD6FE),
+            width: 0.8,
           ),
-          const SizedBox(width: 3),
-          Flexible(
-            child: Text(
-              displayCity,
-              style: typography.bodySmall.copyWith(
-                fontWeight: FontWeight.w600,
-                fontSize: 11.5,
-                color: colors.textSecondary,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.location_on_rounded,
+              size: 11.5,
+              color: Color(0xFF7C3AED),
             ),
-          ),
-        ],
+            const SizedBox(width: 3),
+            Flexible(
+              child: Text(
+                displayCity,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11.0,
+                  color: Color(0xFF6D28D9),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 2),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 13,
+              color: Color(0xFF7C3AED),
+            ),
+          ],
+        ),
       ),
     );
   }

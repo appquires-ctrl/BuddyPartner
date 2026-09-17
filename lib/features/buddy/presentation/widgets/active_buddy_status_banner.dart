@@ -104,7 +104,7 @@ class ActiveBuddyStatusBanner extends ConsumerWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.only(top: 12),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -114,16 +114,21 @@ class ActiveBuddyStatusBanner extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: colors.primary.withValues(alpha: 0.15),
-                width: 1.2,
+                color: const Color(0xFF6366F1).withValues(alpha: 0.16),
+                width: 1.0,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: colors.primary.withValues(alpha: 0.06),
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.08),
                   blurRadius: 14,
                   offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
                 ),
               ],
             ),
@@ -163,7 +168,7 @@ class ActiveBuddyStatusBanner extends ConsumerWidget {
                               color: const Color(0xFFECFDF5),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: const Color(0xFFA7F3D0),
+                                color: const Color(0xFF10B981).withValues(alpha: 0.35),
                                 width: 0.8,
                               ),
                             ),
@@ -173,9 +178,16 @@ class ActiveBuddyStatusBanner extends ConsumerWidget {
                                 Container(
                                   width: 6,
                                   height: 6,
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFF10B981),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF10B981),
                                     shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF10B981).withValues(alpha: 0.6),
+                                        blurRadius: 3,
+                                        spreadRadius: 0.5,
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 const SizedBox(width: 4),
@@ -195,7 +207,7 @@ class ActiveBuddyStatusBanner extends ConsumerWidget {
                       const SizedBox(height: 3),
                       Text(
                         subtitleText,
-                        style: TextStyle(
+                        style: typography.bodySmall.copyWith(
                           fontSize: 12,
                           color: colors.textSecondary,
                           fontWeight: FontWeight.w500,
@@ -209,32 +221,39 @@ class ActiveBuddyStatusBanner extends ConsumerWidget {
 
                 const SizedBox(width: 8),
 
-                // Trailing "View" Action Chip
+                // Trailing High-Contrast Deep Royal Purple "View" Action Button
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
+                    horizontal: 8,
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: colors.primary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
+                    color: const Color(0xFF6366F1),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.45),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: [
+                    children: const [
                       Text(
-                        'View',
+                        ' View',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: colors.primary,
+                          color: Colors.white,
                         ),
                       ),
-                      const SizedBox(width: 3),
+                      SizedBox(width: 2),
                       Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        size: 10,
-                        color: colors.primary,
+                        Icons.chevron_right_rounded,
+                        size: 14,
+                        color: Colors.white,
                       ),
                     ],
                   ),

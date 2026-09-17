@@ -42,6 +42,7 @@ import 'package:buddypartner/core/utils/app_navigation_observer.dart';
 import 'package:buddypartner/features/version/application/version_check_provider.dart';
 import 'package:buddypartner/features/version/presentation/pages/update_required_page.dart';
 import 'package:buddypartner/features/buddy/presentation/pages/my_buddy_activity_page.dart';
+import 'package:buddypartner/features/chat/application/conversations_provider.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
@@ -359,10 +360,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                 }
                 final isFemale = ref.watch(authStateProvider).value?.isFemale ?? false;
                 final isSubscribed = ref.watch(subscriptionStatusProvider).value?.isSubscribed ?? false;
+                final unreadChatCount = ref.watch(totalUnreadMessagesCountProvider);
                 return AppBottomNav(
                   currentIndex: navigationShell.currentIndex,
                   isFemale: isFemale,
                   isSubscribed: isSubscribed,
+                  unreadChatCount: unreadChatCount,
                   onTap: (index) {
                     navigationShell.goBranch(
                       index,

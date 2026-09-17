@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +12,7 @@ import 'package:buddypartner/features/call/application/matchmaking_state.dart';
 import 'package:buddypartner/features/call/presentation/widgets/spin_wheel_dialog.dart';
 import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
 import 'package:buddypartner/features/call/presentation/widgets/scratch_card_dialog.dart';
+import 'package:buddypartner/features/chat/application/conversations_provider.dart';
 
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/core/widgets/app_avatar.dart';
@@ -100,6 +102,34 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
         context.pop();
       } else {
         context.go(RouteNames.home);
+      }
+    }
+
+    void openChatAndMinimize() {
+      if (matchedUser == null) return;
+      HapticFeedback.lightImpact();
+      controller.minimizeCall();
+
+      final conversations = ref.read(conversationsProvider).value ?? [];
+      final matchingConv = conversations.where((c) => c.otherUserId == matchedUser.id).firstOrNull;
+      final convId = matchingConv?.id ?? 'user:${matchedUser.id}';
+
+      final chatExtra = {
+        'conversationId': convId,
+        'userId': matchedUser.id,
+        'userName': matchedUser.fullName,
+        'userAvatar': matchedUser.avatarUrl,
+        'avatarSeed': matchedUser.avatarSeed,
+        'avatarStyle': matchedUser.avatarStyle,
+        'gender': matchedUser.gender,
+      };
+
+      if (context.canPop()) {
+        context.pop();
+        context.push(RouteNames.chat, extra: chatExtra);
+      } else {
+        context.go(RouteNames.home);
+        context.push(RouteNames.chat, extra: chatExtra);
       }
     }
 
@@ -412,6 +442,61 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                     ),
                   ),
 
+                  // In Video Call: sleek frosted-glass "Switch to Voice Call" chip under top status
+                  if (matchState.isVideoEnabled) ...[
+                    const SizedBox(height: 10),
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.mediumImpact();
+                        controller.switchToVoice();
+                      },
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.4),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: const Color(0xFF2DCE89).withValues(alpha: 0.5),
+                                width: 1.0,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF2DCE89).withValues(alpha: 0.2),
+                                  blurRadius: 10,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(
+                                  Icons.phone_in_talk_rounded,
+                                  color: Color(0xFF2DCE89),
+                                  size: 14,
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Switch to Voice Call',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+
                   if (!matchState.isVideoEnabled) ...[
                     const Spacer(flex: 2),
 
@@ -502,15 +587,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                         _buildActionButton(
                           icon: Icons.chat_bubble_outline_rounded,
                           label: 'Message',
-                          onTap: () {
-                            if (matchedUser == null) return;
-                            context.push(RouteNames.chat, extra: {
-                              'conversationId': 'user:${matchedUser.id}',
-                              'userId': matchedUser.id,
-                              'userName': matchedUser.fullName,
-                              'userAvatar': matchedUser.avatarUrl,
-                            });
-                          },
+                          onTap: openChatAndMinimize,
                         ),
                       ],
                     ),
@@ -521,8 +598,8 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                     const Spacer(flex: 5),
                   ],
 
-                  // Switch to Video / Voice Call banner card
-                  if (!matchState.isVideoEnabled)
+                  // Switch to Video Call banner card (Voice Call mode only)
+                  if (!matchState.isVideoEnabled) ...[
                     GestureDetector(
                       onTap: matchState.isVideoRequestOutgoing
                           ? null
@@ -608,135 +685,152 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
                           ],
                         ),
                       ),
-                    )
-                  else
-                    // Switch back to Voice Call banner card
-                    GestureDetector(
-                      onTap: () {
-                        HapticFeedback.mediumImpact();
-                        controller.switchToVoice();
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.45),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: const Color(0xFF2DCE89).withValues(alpha: 0.4),
-                            width: 1.0,
+                    ),
+                    const Spacer(flex: 2),
+                  ] else ...[
+                    const Spacer(flex: 1),
+                  ],
+
+                  // Bottom Controls row
+                  if (!matchState.isVideoEnabled) ...[
+                    // Voice Call Controls: Mute, End Call, Speaker
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildBottomControl(
+                          icon: matchState.isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                          label: 'Mute',
+                          isActive: matchState.isMuted,
+                          onTap: () {
+                            controller.toggleMute();
+                          },
+                        ),
+                        // End Call button
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.mediumImpact();
+                            controller.endCall();
+                            ref.read(instantConnectControllerProvider.notifier).endCall();
+                            if (mounted) {
+                              Navigator.of(context, rootNavigator: true).popUntil((route) => route is! PopupRoute);
+                              context.go(RouteNames.home);
+                            }
+                          },
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 76,
+                                height: 76,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFEF5350), // Red end call button
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.call_end_rounded,
+                                  color: Colors.white,
+                                  size: 32,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'End Call',
+                                style: TextStyle(
+                                  color: Color(0xFFA19EBB),
+                                  fontSize: 12.5,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Color(0xFF2DCE89), // Green phone icon
-                              ),
-                              child: const Icon(
-                                Icons.phone_in_talk_rounded,
-                                color: Colors.white,
-                                size: 22,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: const [
-                                  Text(
-                                    'Switch to',
-                                    style: TextStyle(
-                                      color: Color(0xFFA19EBB),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    'Voice Call',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Icon(
-                              Icons.chevron_right_rounded,
-                              color: Colors.white60,
-                              size: 24,
-                            ),
-                          ],
+                        _buildBottomControl(
+                          icon: matchState.isSpeakerOn ? Icons.volume_up_rounded : Icons.volume_down_rounded,
+                          label: 'Speaker',
+                          isActive: matchState.isSpeakerOn,
+                          onTap: () {
+                            controller.toggleSpeaker();
+                          },
                         ),
-                      ),
+                      ],
                     ),
-
-                  const Spacer(flex: 2),
-
-                  // Bottom Controls row: Mute, End Call, Speaker
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildBottomControl(
-                        icon: matchState.isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                        label: 'Mute',
-                        isActive: matchState.isMuted,
-                        onTap: () {
-                          controller.toggleMute();
-                        },
-                      ),
-                      // End Call button
-                      GestureDetector(
-                        onTap: () {
-                          HapticFeedback.mediumImpact();
-                          controller.endCall();
-                          ref.read(instantConnectControllerProvider.notifier).endCall();
-                          if (mounted) {
-                            Navigator.of(context, rootNavigator: true).popUntil((route) => route is! PopupRoute);
-                            context.go(RouteNames.home);
-                          }
-                        },
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 76,
-                              height: 76,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFEF5350), // Red end call button
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.call_end_rounded,
-                                color: Colors.white,
-                                size: 32,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'End Call',
-                              style: TextStyle(
-                                color: Color(0xFFA19EBB),
-                                fontSize: 12.5,
-                              ),
-                            ),
-                          ],
+                  ] else ...[
+                    // Video Call Controls: Mute, Voice Call, End Call, Speaker, Chat
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildBottomControl(
+                          icon: matchState.isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                          label: 'Mute',
+                          isActive: matchState.isMuted,
+                          onTap: () {
+                            controller.toggleMute();
+                          },
                         ),
-                      ),
-                      _buildBottomControl(
-                        icon: matchState.isSpeakerOn ? Icons.volume_up_rounded : Icons.volume_down_rounded,
-                        label: 'Speaker',
-                        isActive: matchState.isSpeakerOn,
-                        onTap: () {
-                          controller.toggleSpeaker();
-                        },
-                      ),
-                    ],
-                  ),
+                        _buildBottomControl(
+                          icon: Icons.phone_in_talk_rounded,
+                          label: 'Voice Call',
+                          isActive: false,
+                          iconColor: const Color(0xFF2DCE89),
+                          onTap: () {
+                            HapticFeedback.mediumImpact();
+                            controller.switchToVoice();
+                          },
+                        ),
+                        // End Call button
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.mediumImpact();
+                            controller.endCall();
+                            ref.read(instantConnectControllerProvider.notifier).endCall();
+                            if (mounted) {
+                              Navigator.of(context, rootNavigator: true).popUntil((route) => route is! PopupRoute);
+                              context.go(RouteNames.home);
+                            }
+                          },
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 72,
+                                height: 72,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFEF5350), // Red end call button
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.call_end_rounded,
+                                  color: Colors.white,
+                                  size: 30,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'End Call',
+                                style: TextStyle(
+                                  color: Color(0xFFA19EBB),
+                                  fontSize: 12.0,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        _buildBottomControl(
+                          icon: matchState.isSpeakerOn ? Icons.volume_up_rounded : Icons.volume_down_rounded,
+                          label: 'Speaker',
+                          isActive: matchState.isSpeakerOn,
+                          onTap: () {
+                            controller.toggleSpeaker();
+                          },
+                        ),
+                        _buildBottomControl(
+                          icon: Icons.chat_bubble_outline_rounded,
+                          label: 'Chat',
+                          isActive: false,
+                          onTap: openChatAndMinimize,
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 24),
                 ],
               ),
@@ -930,6 +1024,8 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
     required String label,
     required bool isActive,
     required VoidCallback onTap,
+    Color? iconColor,
+    Color? activeColor,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -937,15 +1033,19 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 56,
-            height: 56,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isActive ? Colors.white : Colors.white.withValues(alpha: 0.12),
+              color: isActive
+                  ? (activeColor ?? Colors.white)
+                  : Colors.white.withValues(alpha: 0.12),
             ),
             child: Icon(
               icon,
-              color: isActive ? const Color(0xFF0F0C22) : Colors.white,
+              color: isActive
+                  ? const Color(0xFF0F0C22)
+                  : (iconColor ?? Colors.white),
               size: 24,
             ),
           ),
@@ -954,7 +1054,7 @@ class _ActiveCallPageState extends ConsumerState<ActiveCallPage> {
             label,
             style: const TextStyle(
               color: Color(0xFFA19EBB),
-              fontSize: 12.5,
+              fontSize: 12.0,
             ),
           ),
         ],

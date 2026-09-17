@@ -7,6 +7,7 @@ import 'package:buddypartner/features/chat/domain/message.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/features/chat/application/conversations_provider.dart';
 import 'package:buddypartner/features/auth/application/auth_error_mapper.dart';
+import 'package:buddypartner/features/chat/application/presence_provider.dart';
 
 class ChatState {
   final List<Message> messages;
@@ -93,6 +94,25 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
     }
 
     return state;
+  }
+
+  String? _getOtherUserId() {
+    final convId = effectiveConversationId;
+    if (convId.startsWith('user:')) {
+      return convId.substring(5);
+    }
+    final convs = ref.read(conversationsProvider).value ?? [];
+    final conv = convs.where((c) => c.id == convId).firstOrNull;
+    if (conv != null && conv.otherUserId.isNotEmpty) {
+      return conv.otherUserId;
+    }
+    final myId = ref.read(authStateProvider).value?.id;
+    for (final msg in state.messages) {
+      if (msg.senderId != myId && msg.senderId.isNotEmpty) {
+        return msg.senderId;
+      }
+    }
+    return null;
   }
 
   String get conversationId => effectiveConversationId;
@@ -239,6 +259,16 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
             try {
               final realMsg = Message.fromJson(data['message'] as Map<String, dynamic>);
               _replaceTempMessage(tempId, realMsg);
+
+              final otherId = _getOtherUserId();
+              if (otherId != null && otherId.isNotEmpty) {
+                if (realMsg.status == 'delivered' || realMsg.status == 'read') {
+                  ref.read(presenceProvider.notifier).markUserOnline(otherId);
+                } else if (realMsg.status == 'sent') {
+                  // Single tick: server confirmed recipient is currently offline
+                  ref.read(presenceProvider.notifier).markUserOffline(otherId);
+                }
+              }
             } catch (_) {}
           }
         }
@@ -247,6 +277,15 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
       // Fallback to REST
       repo.sendMessage(convId, content.trim()).then((realMsg) {
         _replaceTempMessage(tempId, realMsg);
+
+        final otherId = _getOtherUserId();
+        if (otherId != null && otherId.isNotEmpty) {
+          if (realMsg.status == 'delivered' || realMsg.status == 'read') {
+            ref.read(presenceProvider.notifier).markUserOnline(otherId);
+          } else if (realMsg.status == 'sent') {
+            ref.read(presenceProvider.notifier).markUserOffline(otherId);
+          }
+        }
       }).catchError((err) {
         if (err.toString().toLowerCase().contains('block')) {
           _removeTempMessage(tempId);
@@ -342,6 +381,11 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
           (currentConvId.startsWith('user:') && msg.senderId == currentConvId.substring(5));
 
       if (matchesConv) {
+        final myId = ref.read(authStateProvider).value?.id;
+        if (msg.senderId.isNotEmpty && msg.senderId != myId) {
+          ref.read(presenceProvider.notifier).markUserOnline(msg.senderId);
+        }
+
         // Avoid duplicates
         if (!state.messages.any((m) => m.id == msg.id)) {
           state = state.copyWith(
@@ -360,8 +404,14 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
     if (data == null) return;
     try {
       if (data['conversationId'] == effectiveConversationId) {
-        state = state.copyWith(typingUserId: data['userId'] as String);
-        
+        final userId = data['userId'] as String?;
+        state = state.copyWith(typingUserId: userId);
+
+        final otherId = (userId != null && userId.isNotEmpty) ? userId : _getOtherUserId();
+        if (otherId != null && otherId.isNotEmpty) {
+          ref.read(presenceProvider.notifier).markUserOnline(otherId);
+        }
+
         _typingTimer?.cancel();
         _typingTimer = Timer(const Duration(seconds: 3), () {
           state = state.copyWith(clearTypingUser: true);
@@ -374,10 +424,15 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
     if (data == null) return;
     try {
       if (data['conversationId'] == effectiveConversationId) {
+        final otherId = _getOtherUserId();
+        if (otherId != null && otherId.isNotEmpty) {
+          ref.read(presenceProvider.notifier).markUserOnline(otherId);
+        }
+
         final updatedMsgs = state.messages.map((m) {
           return m.status != 'read' ? m.copyWith(status: 'read') : m;
         }).toList();
-        
+
         state = state.copyWith(messages: updatedMsgs);
       }
     } catch (_) {}
@@ -391,6 +446,13 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
         final newStatus = data['status'] as String?;
 
         if (newStatus == null) return;
+
+        if (newStatus == 'delivered' || newStatus == 'read') {
+          final otherId = _getOtherUserId();
+          if (otherId != null && otherId.isNotEmpty) {
+            ref.read(presenceProvider.notifier).markUserOnline(otherId);
+          }
+        }
 
         final updatedMsgs = state.messages.map((m) {
           if (targetMsgId != null) {

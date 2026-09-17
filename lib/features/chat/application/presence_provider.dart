@@ -99,6 +99,32 @@ class PresenceNotifier extends StateNotifier<Map<String, bool>> {
     }
   }
 
+  /// Explicitly mark a user as online immediately (e.g., when they type, send a message, or read a message).
+  void markUserOnline(String userId) {
+    final validId = userId.trim();
+    if (validId.isEmpty || !mounted) return;
+    _pendingOfflineTimers.remove(validId)?.cancel();
+    if (state[validId] != true) {
+      state = {
+        ...state,
+        validId: true,
+      };
+    }
+  }
+
+  /// Explicitly mark a user as offline (e.g., when a sent message remains single tick).
+  void markUserOffline(String userId) {
+    final validId = userId.trim();
+    if (validId.isEmpty || !mounted) return;
+    _pendingOfflineTimers.remove(validId)?.cancel();
+    if (state[validId] != false) {
+      state = {
+        ...state,
+        validId: false,
+      };
+    }
+  }
+
   /// Subscribe to real-time presence updates for a list of user IDs.
   Future<void> subscribeToUsers(List<String> userIds) async {
     final validIds = userIds.where((id) => id.isNotEmpty).toList();

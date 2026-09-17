@@ -54,6 +54,7 @@ class ChatPage extends ConsumerStatefulWidget {
 class _ChatPageState extends ConsumerState<ChatPage> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
+  PresenceNotifier? _presenceNotifier;
   DateTime? _lastTypingEmitted;
 
   String get _effectiveConversationId =>
@@ -62,12 +63,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   @override
   void initState() {
     super.initState();
+    _presenceNotifier = ref.read(presenceProvider.notifier);
     InAppNotificationManager.activeConversationId = _effectiveConversationId;
     _scrollController.addListener(_onScroll);
     Future.microtask(() {
+      if (!mounted) return;
       ref.read(conversationsProvider.notifier).markConversationAsRead(_effectiveConversationId);
       ref.read(chatRepositoryProvider).markConversationAsRead(_effectiveConversationId);
-      ref.read(presenceProvider.notifier).subscribeToUsers([widget.userId]);
+      _presenceNotifier?.subscribeToUsers([widget.userId]);
     });
   }
 
@@ -77,7 +80,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         InAppNotificationManager.activeConversationId == widget.userId) {
       InAppNotificationManager.activeConversationId = null;
     }
-    ref.read(presenceProvider.notifier).unsubscribeFromUsers([widget.userId]);
+    _presenceNotifier?.unsubscribeFromUsers([widget.userId]);
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -132,7 +135,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     final chatState = ref.watch(chatControllerProvider(_effectiveConversationId));
     final currentUser = ref.watch(authStateProvider).value;
-    final isOnline = ref.watch(presenceProvider)[widget.userId] ?? false;
+    final isCurrentlyTyping = chatState.typingUserId == widget.userId;
+    final isOnline = isCurrentlyTyping || (ref.watch(presenceProvider)[widget.userId] ?? false);
     final isSubscribed = ref.watch(subscriptionStatusProvider).value?.isSubscribed ?? false;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -178,23 +182,39 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     final initials = getInitials(resolvedName);
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Image.asset(
-          'assets/images/app_bg.jpg',
-          fit: BoxFit.cover,
-        ),
-        Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            titleSpacing: 0,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go(RouteNames.home);
+        }
+      },
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            'assets/images/app_bg.jpg',
+            fit: BoxFit.cover,
+          ),
+          Scaffold(
             backgroundColor: Colors.transparent,
-            elevation: 0,
-            leading: IconButton(
-              icon: Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: colors.textPrimary),
-              onPressed: () => context.pop(),
-            ),
+            appBar: AppBar(
+              titleSpacing: 0,
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              leading: IconButton(
+                icon: Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: colors.textPrimary),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go(RouteNames.home);
+                  }
+                },
+              ),
             title: Row(
               children: [
                 GradientAvatar(
@@ -597,8 +617,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 
   /// Icebreaker Match Empty State
   Widget _buildIcebreakerEmptyState(

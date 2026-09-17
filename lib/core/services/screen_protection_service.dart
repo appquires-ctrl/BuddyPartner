@@ -111,11 +111,11 @@ class ScreenProtectionService {
     final mmState = _ref.read(matchmakingControllerProvider);
     final instantState = _ref.read(instantConnectControllerProvider);
 
-    final isMmInCall = (mmState.phase == MatchmakingPhase.inCall || mmState.phase == MatchmakingPhase.matched) &&
-        !mmState.isCallMinimized;
+    final isMmInCall = (mmState.phase == MatchmakingPhase.inCall || mmState.phase == MatchmakingPhase.matched);
     final isInstantInCall = instantState.phase == InstantPhase.inCall;
 
-    final shouldProtect = isMmInCall || isInstantInCall;
+    final isCallActive = isMmInCall || isInstantInCall;
+    final shouldProtect = isCallActive && !mmState.isCallMinimized;
 
     if (shouldProtect && !_isCallProtectionActive) {
       enableCallProtection();

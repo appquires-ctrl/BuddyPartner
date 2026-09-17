@@ -76,24 +76,35 @@ class BuddyStickerCarousel extends ConsumerWidget {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(5),
                     decoration: BoxDecoration(
-                      color: colors.primary.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF8B5CF6), Color(0xFF6D28D9)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.35),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.local_activity_rounded,
-                      color: colors.primary,
-                      size: 14,
+                      color: Colors.white,
+                      size: 13,
                     ),
                   ),
                   const SizedBox(width: 8),
                   Text(
                     'BUDDY ACTIVITIES',
                     style: typography.bodySmall.copyWith(
-                      color: colors.textSecondary,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.8,
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.9,
                       fontSize: 13,
                     ),
                   ),
@@ -131,16 +142,16 @@ class BuddyStickerCarousel extends ConsumerWidget {
                       Text(
                         'Browse',
                         style: typography.bodySmall.copyWith(
-                          color: colors.primary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
+                          color: const Color(0xFF7C3AED),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13.5,
                         ),
                       ),
-                      const SizedBox(width: 2),
-                      Icon(
+                      const SizedBox(width: 3),
+                      const Icon(
                         Icons.arrow_forward_ios_rounded,
-                        size: 11,
-                        color: colors.primary,
+                        size: 12,
+                        color: Color(0xFF7C3AED),
                       ),
                     ],
                   ),
@@ -191,7 +202,6 @@ class BuddyStickerCarousel extends ConsumerWidget {
     required double width,
   }) {
     final colors = context.colors;
-    final typography = context.typography;
     final shortTitle = type.title.replaceAll(' Buddy', '');
 
     return InkWell(
@@ -199,9 +209,9 @@ class BuddyStickerCarousel extends ConsumerWidget {
       borderRadius: BorderRadius.circular(16),
       child: Container(
         width: width,
-        padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
         decoration: BoxDecoration(
-          color: colors.cardBackground,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: type.accentColor.withValues(alpha: 0.22),
@@ -209,31 +219,29 @@ class BuddyStickerCarousel extends ConsumerWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: type.accentColor.withValues(alpha: 0.08),
+              color: type.accentColor.withValues(alpha: 0.10),
               blurRadius: 8,
               offset: const Offset(0, 3),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
             ),
           ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Sticker Image
+            // Sticker Image with Rounded Pastel Backdrop
             ClipRRect(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
               child: Container(
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: colors.surfaceMuted,
-                  gradient: LinearGradient(
-                    colors: [
-                      type.gradientColors.first.withValues(alpha: 0.15),
-                      type.gradientColors.last.withValues(alpha: 0.05),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: type.accentColor.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Image.asset(
                   type.stickerAsset,
@@ -242,19 +250,19 @@ class BuddyStickerCarousel extends ConsumerWidget {
                     child: Icon(
                       Icons.local_activity_rounded,
                       color: type.accentColor,
-                      size: 22,
+                      size: 24,
                     ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: 6),
 
-            // Title
+            // Title - Crisp dark text
             Text(
               shortTitle,
-              style: typography.bodySmall.copyWith(
-                fontWeight: FontWeight.bold,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
                 fontSize: 10.5,
                 color: colors.textPrimary,
               ),
@@ -262,14 +270,14 @@ class BuddyStickerCarousel extends ConsumerWidget {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 4),
 
-            // 100 Coin Badge
+            // 100 Coin Badge - Warm light gold pill
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
               decoration: BoxDecoration(
                 color: const Color(0xFFFFFBEB),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(7),
                 border: Border.all(
                   color: const Color(0xFFFDE68A),
                   width: 0.8,

@@ -12,6 +12,7 @@ class GradientAvatar extends StatelessWidget {
   final bool? isOnline;
   final bool showStatus;
   final double statusIndicatorSize;
+  final bool showGlowRing;
 
   const GradientAvatar({
     super.key,
@@ -24,6 +25,7 @@ class GradientAvatar extends StatelessWidget {
     this.isOnline,
     this.showStatus = false,
     this.statusIndicatorSize = 14,
+    this.showGlowRing = false,
   });
 
   @override
@@ -44,19 +46,56 @@ class GradientAvatar extends StatelessWidget {
       radius: radius,
     );
 
+    final Widget ringAvatar = showGlowRing
+        ? Container(
+            padding: const EdgeInsets.all(2.5),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                colors: [Color(0xFF06B6D4), Color(0xFF8B5CF6)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.38),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 1),
+                ),
+                BoxShadow(
+                  color: const Color(0xFF06B6D4).withValues(alpha: 0.25),
+                  blurRadius: 6,
+                  spreadRadius: 0,
+                  offset: const Offset(0, -1),
+                ),
+              ],
+            ),
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: avatarCore,
+            ),
+          )
+        : avatarCore;
+
+    final totalSize = showGlowRing ? (radius * 2 + 5) : (radius * 2);
+
     return SizedBox(
-      width: radius * 2,
-      height: radius * 2,
+      width: totalSize,
+      height: totalSize,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          avatarCore,
+          ringAvatar,
           
-          // Online Status Indicator (Only display when user is active online)
+          // Sharper Online Status Indicator with Neon Glow
           if (showStatus && isOnline == true)
             Positioned(
-              bottom: 0,
-              right: 0,
+              bottom: showGlowRing ? 1 : 0,
+              right: showGlowRing ? 1 : 0,
               child: Container(
                 width: statusIndicatorSize,
                 height: statusIndicatorSize,
@@ -69,9 +108,9 @@ class GradientAvatar extends StatelessWidget {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF10B981).withValues(alpha: 0.35),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
+                      color: const Color(0xFF10B981).withValues(alpha: 0.85),
+                      blurRadius: 5,
+                      spreadRadius: 1,
                     ),
                   ],
                 ),

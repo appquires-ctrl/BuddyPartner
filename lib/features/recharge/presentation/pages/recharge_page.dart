@@ -215,111 +215,111 @@ class _RechargePageState extends ConsumerState<RechargePage> {
                       },
                     ),
 
-                    const SizedBox(height: 24),
+                    // const SizedBox(height: 24),
 
                     // ── 4. Custom Amount Section ─────────────────────────────────
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1E1A2E) : Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: _selectedPlanId == null && _customController.text.isNotEmpty
-                              ? const Color(0xFF7C6AEF)
-                              : (isDark ? Colors.white12 : const Color(0xFFECEBF3)),
-                          width: _selectedPlanId == null && _customController.text.isNotEmpty ? 2 : 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Text(
-                                'Or Select by Amount',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const Spacer(),
-                              Text(
-                                'Min ₹10',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade500,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
+                    // Container(
+                      // padding: const EdgeInsets.all(16),
+                      // decoration: BoxDecoration(
+                      //   color: isDark ? const Color(0xFF1E1A2E) : Colors.white,
+                      //   borderRadius: BorderRadius.circular(20),
+                      //   border: Border.all(
+                      //     color: _selectedPlanId == null && _customController.text.isNotEmpty
+                      //         ? const Color(0xFF7C6AEF)
+                      //         : (isDark ? Colors.white12 : const Color(0xFFECEBF3)),
+                      //     width: _selectedPlanId == null && _customController.text.isNotEmpty ? 2 : 1,
+                      //   ),
+                      //   boxShadow: [
+                      //     BoxShadow(
+                      //       color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                      //       blurRadius: 8,
+                      //       offset: const Offset(0, 3),
+                      //     ),
+                      //   ],
+                      // ),
+                      // child: Column(
+                      //   crossAxisAlignment: CrossAxisAlignment.start,
+                      //   children: [
+                          // Row(
+                          //   children: [
+                          //     const Text(
+                          //       'Or Select by Amount',
+                          //       style: TextStyle(
+                          //         fontWeight: FontWeight.bold,
+                          //         fontSize: 14,
+                          //       ),
+                          //     ),
+                          //     const Spacer(),
+                          //     Text(
+                          //       'Min ₹10',
+                          //       style: TextStyle(
+                          //         fontSize: 11,
+                          //         color: Colors.grey.shade500,
+                          //         fontWeight: FontWeight.w600,
+                          //       ),
+                          //     ),
+                          //   ],
+                          // ),
+                          // const SizedBox(height: 12),
 
                           // Text input field
-                          TextField(
-                            controller: _customController,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                            ),
-                            decoration: InputDecoration(
-                              prefixIcon: const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                child: Text(
-                                  '₹',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w900,
-                                    color: Color(0xFF28233C),
-                                  ),
-                                ),
-                              ),
-                              prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-                              hintText: 'Enter amount (e.g. 99)',
-                              hintStyle: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.normal,
-                                color: Colors.grey.shade400,
-                              ),
-                              filled: true,
-                              fillColor: isDark ? const Color(0xFF28233C) : const Color(0xFFF7F6FC),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                              suffixText: 'Coins',
-                              suffixStyle: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey,
-                                fontSize: 13,
-                              ),
-                            ),
-                            onChanged: (val) {
-                              final amount = int.tryParse(val.trim());
-                              if (amount != null) {
-                                final matchingPlan = plans.where((p) => p.coins == amount);
-                                if (matchingPlan.isNotEmpty) {
-                                  setState(() => _selectedPlanId = matchingPlan.first.id);
-                                } else {
-                                  setState(() => _selectedPlanId = null);
-                                }
-                              }
-                            },
-                          ),
-                          const SizedBox(height: 10),
-                        ],
-                      ),
-                    ),
+                          // TextField(
+                          //   controller: _customController,
+                          //   keyboardType: TextInputType.number,
+                          //   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          //   style: const TextStyle(
+                          //     fontSize: 16,
+                          //     fontWeight: FontWeight.w800,
+                          //   ),
+                            // decoration: InputDecoration(
+                            //   prefixIcon: const Padding(
+                            //     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            //     child: Text(
+                            //       '₹',
+                            //       style: TextStyle(
+                            //         fontSize: 18,
+                            //         fontWeight: FontWeight.w900,
+                            //         color: Color(0xFF28233C),
+                            //       ),
+                            //     ),
+                            //   ),
+                            //   prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+                            //   hintText: 'Enter amount (e.g. 99)',
+                              // hintStyle: TextStyle(
+                              //   fontSize: 14,
+                              //   fontWeight: FontWeight.normal,
+                            //     color: Colors.grey.shade400,
+                            //   ),
+                            //   filled: true,
+                            //   fillColor: isDark ? const Color(0xFF28233C) : const Color(0xFFF7F6FC),
+                            //   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            //   border: OutlineInputBorder(
+                            //     borderRadius: BorderRadius.circular(12),
+                            //     borderSide: BorderSide.none,
+                            //   ),
+                            //   suffixText: 'Coins',
+                            //   suffixStyle: const TextStyle(
+                            //     fontWeight: FontWeight.bold,
+                            //     color: Colors.grey,
+                            //     fontSize: 13,
+                            //   ),
+                            // ),
+                      //       onChanged: (val) {
+                      //         final amount = int.tryParse(val.trim());
+                      //         if (amount != null) {
+                      //           final matchingPlan = plans.where((p) => p.coins == amount);
+                      //           if (matchingPlan.isNotEmpty) {
+                      //             setState(() => _selectedPlanId = matchingPlan.first.id);
+                      //           } else {
+                      //             setState(() => _selectedPlanId = null);
+                      //           }
+                      //         }
+                      //       },
+                      //     ),
+                      //     const SizedBox(height: 10),
+                      //   ],
+                      // ),
+                    // ),
 
                     const SizedBox(height: 20),
 

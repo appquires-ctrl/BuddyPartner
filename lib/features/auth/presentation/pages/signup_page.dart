@@ -16,9 +16,9 @@ import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 
 /// SignupPage is the multi-step Profile Onboarding Page.
-/// Step 1: Profile details (Full Name, Date of Birth, Gender, Language, Terms).
-/// Step 2: Avatar selection (Dedicated page for picking profile avatar).
-/// Step 3: Telecaller Opt-In selection ("Join as Telecaller?" — Female users only).
+/// Step 1: Basic Details (Full Name, Date of Birth, Gender, Language, Terms).
+/// Step 2: Account Details (Unique Username, Password, Confirm Password).
+/// Step 3: Avatar Selection (Dedicated page for picking profile avatar).
 class SignupPage extends ConsumerStatefulWidget {
   const SignupPage({super.key});
 
@@ -65,9 +65,11 @@ class SignupPage extends ConsumerStatefulWidget {
 }
 
 class _SignupPageState extends ConsumerState<SignupPage> {
-  final _formKey = GlobalKey<FormState>();
+  final _basicDetailsFormKey = GlobalKey<FormState>();
+  final _accountDetailsFormKey = GlobalKey<FormState>();
   
-  int _currentStep = 1; // 1 = Profile Details, 2 = Avatar Selection, 3 = Telecaller Opt-In
+  int _currentStep = 1; // 1 = Basic Details, 2 = Account Details, 3 = Avatar Selection
+  int get _totalSteps => 3;
 
   final _fullNameController = TextEditingController();
   final _userNameController = TextEditingController();
@@ -88,8 +90,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   
   final List<String> _genders = ['Male', 'Female', 'Other'];
   final List<String> _languages = ['English', 'Hindi', 'Spanish', 'French', 'Arabic', 'Portuguese'];
-
-  int get _totalSteps => 2;
 
   @override
   void dispose() {
@@ -151,9 +151,49 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     }
   }
 
+  void _handleNextToAccountStep() {
+    AppLogger.button('Next Step: Account Details', screen: 'SignUpPage');
+    if (!_basicDetailsFormKey.currentState!.validate()) return;
+
+    if (_selectedDob == null) {
+      AppSnackBar.showError(context, 'Please select your date of birth');
+      return;
+    }
+
+    if (_calculateAge(_selectedDob!) < 18) {
+      AppSnackBar.showError(context, 'You must be 18 years or older to use this app.');
+      return;
+    }
+
+    if (_selectedGender == null) {
+      AppSnackBar.showError(context, 'Please select your gender');
+      return;
+    }
+
+    if (_selectedLanguage == null) {
+      AppSnackBar.showError(context, 'Please select your language');
+      return;
+    }
+    
+    if (!_is18Plus) {
+      AppSnackBar.showError(context, 'You must confirm you are 18 or older to register');
+      return;
+    }
+
+    if (!_acceptedTermsAndPrivacy) {
+      AppSnackBar.showError(context, 'You must agree to the Terms of Service and Privacy Policy to register');
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _currentStep = 2;
+    });
+  }
+
   Future<void> _handleNextToAvatarStep() async {
     AppLogger.button('Next Step: Choose Avatar', screen: 'SignUpPage');
-    if (!_formKey.currentState!.validate()) return;
+    if (!_accountDetailsFormKey.currentState!.validate()) return;
     
     final formatErr = _validateUsernameFormat(_userNameController.text);
     if (formatErr != null) {
@@ -176,43 +216,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
       return;
     }
 
-    if (_selectedDob == null) {
-      AppSnackBar.showError(context, 'Please select your date of birth');
-      return;
-    }
-
-    if (_calculateAge(_selectedDob!) < 18) {
-      AppSnackBar.showError(context, 'You must be 18 years or older to use this app.');
-      return;
-    }
-
-    if (_selectedGender == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select your gender')),
-      );
-      return;
-    }
-
-    if (_selectedLanguage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select your language')),
-      );
-      return;
-    }
-    
-    if (!_is18Plus) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You must confirm you are 18 or older to register')),
-      );
-      return;
-    }
-
-    if (!_acceptedTermsAndPrivacy) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You must agree to the Terms of Service and Privacy Policy to register')),
-      );
-      return;
-    }
+    FocusScope.of(context).unfocus();
 
     // Check username availability against backend API before advancing
     setState(() {
@@ -245,15 +249,13 @@ class _SignupPageState extends ConsumerState<SignupPage> {
 
     setState(() {
       _userNameInlineError = null;
-      _currentStep = 2;
+      _currentStep = 3;
     });
   }
 
   void _handleNextFromAvatarStep() {
     if (_selectedAvatarSeed == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an avatar to continue')),
-      );
+      AppSnackBar.showError(context, 'Please select an avatar to continue');
       return;
     }
 
@@ -262,9 +264,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
 
   Future<void> _handleFinalSubmission() async {
     if (_selectedAvatarSeed == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an avatar to complete setup')),
-      );
+      AppSnackBar.showError(context, 'Please select an avatar to complete setup');
       return;
     }
 
@@ -283,12 +283,12 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     if (success && mounted) {
       context.go(RouteNames.home);
     } else if (mounted) {
-      // If error was username collision, return to Step 1 and highlight inline error
+      // If error was username collision, return to Step 2 (Account Details) and highlight inline error
       final authError = ref.read(authControllerProvider).error;
       final errorMsg = authError?.toString() ?? '';
       if (errorMsg.contains('it already exist fix it') || errorMsg.contains('USERNAME_TAKEN')) {
         setState(() {
-          _currentStep = 1;
+          _currentStep = 2;
           _userNameInlineError = 'it already exist fix it';
         });
       }
@@ -301,47 +301,63 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     final typography = context.typography;
     final authState = ref.watch(authControllerProvider);
 
-    return Scaffold(
-      appBar: _currentStep == 2
-          ? AppBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              leading: IconButton(
-                icon: Icon(Icons.arrow_back, color: colors.textPrimary),
-                onPressed: () {
-                  setState(() {
-                    _currentStep = 1;
-                  });
-                },
-              ),
-              centerTitle: true,
-              title: Text(
-                'Step 2 of $_totalSteps',
-                style: typography.bodySmall.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: colors.primary,
+    return PopScope(
+      canPop: _currentStep == 1,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_currentStep > 1) {
+          FocusScope.of(context).unfocus();
+          setState(() {
+            _currentStep--;
+          });
+        }
+      },
+      child: Scaffold(
+        appBar: _currentStep > 1
+            ? AppBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                leading: IconButton(
+                  icon: Icon(Icons.arrow_back, color: colors.textPrimary),
+                  onPressed: () {
+                    FocusScope.of(context).unfocus();
+                    setState(() {
+                      _currentStep--;
+                    });
+                  },
                 ),
-              ),
-            )
-          : null,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.space24,
-            vertical: AppSpacing.space24,
+              )
+            : null,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            key: ValueKey<int>(_currentStep),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.space24,
+              vertical: AppSpacing.space24,
+            ),
+            child: _buildCurrentStep(colors, typography, authState),
           ),
-          child: _currentStep == 1
-              ? _buildStep1ProfileDetails(colors, typography, authState)
-              : _buildStep2AvatarPicker(colors, typography, authState),
         ),
       ),
     );
   }
 
-  /// Step 1 UI: Profile details
-  Widget _buildStep1ProfileDetails(dynamic colors, dynamic typography, AsyncValue<void> authState) {
+  Widget _buildCurrentStep(dynamic colors, dynamic typography, AsyncValue<void> authState) {
+    switch (_currentStep) {
+      case 1:
+        return _buildStep1BasicDetails(colors, typography, authState);
+      case 2:
+        return _buildStep2AccountDetails(colors, typography, authState);
+      case 3:
+      default:
+        return _buildStep3AvatarPicker(colors, typography, authState);
+    }
+  }
+
+  /// Step 1 UI: Basic Details (Name, DOB, Gender, Language, Terms)
+  Widget _buildStep1BasicDetails(dynamic colors, dynamic typography, AsyncValue<void> authState) {
     return Form(
-      key: _formKey,
+      key: _basicDetailsFormKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -354,7 +370,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                   height: 100,
                 ),
                 const SizedBox(height: 8),
-               RichText(
+                RichText(
                   text: TextSpan(
                     children: [
                       TextSpan(
@@ -389,7 +405,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Complete Your Profile',
+                'Basic Details',
                 style: typography.headlineGreeting.copyWith(
                   fontSize: 22.0,
                   fontWeight: FontWeight.bold,
@@ -414,39 +430,10 @@ class _SignupPageState extends ConsumerState<SignupPage> {
           ),
           const SizedBox(height: AppSpacing.space8),
           Text(
-            'Enter your basic details to start meeting people.',
+            'Enter your personal details to get started.',
             style: typography.bodySmall.copyWith(color: colors.textSecondary),
           ),
           const SizedBox(height: AppSpacing.space24),
-
-          // Error message banner
-          if (authState is AsyncError) ...[
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.space12),
-              margin: const EdgeInsets.only(bottom: AppSpacing.space16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFEAEA),
-                borderRadius: AppRadius.md,
-                border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      AuthErrorMapper.mapMessage(authState.error),
-                      style: typography.bodySmall.copyWith(
-                        color: const Color(0xFFEF4444),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
 
           // Full Name
           Text(
@@ -493,238 +480,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
               }
               if (value.trim().length < 3) {
                 return 'Name must be at least 3 characters';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: AppSpacing.space20),
-
-          // Username Field (Instagram-style)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Username',
-                style: typography.bodySmall.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: colors.textPrimary,
-                ),
-              ),
-              Text(
-                'Unique handle',
-                style: typography.bodySmall.copyWith(
-                  fontSize: 11.0,
-                  color: colors.textSecondary.withValues(alpha: 0.8),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _userNameController,
-            style: typography.bodyMedium,
-            textInputAction: TextInputAction.next,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9._]')),
-              LengthLimitingTextInputFormatter(20),
-              TextInputFormatter.withFunction((oldVal, newVal) {
-                return newVal.copyWith(text: newVal.text.toLowerCase());
-              }),
-            ],
-            onChanged: (_) {
-              if (_userNameInlineError != null) {
-                setState(() => _userNameInlineError = null);
-              }
-            },
-            decoration: InputDecoration(
-              hintText: 'Choose a username',
-              hintStyle: typography.bodySmall.copyWith(color: colors.textSecondary.withValues(alpha: 0.6)),
-              prefixIcon: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
-                child: Text(
-                  '@',
-                  style: typography.bodyMedium.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: colors.primary,
-                  ),
-                ),
-              ),
-              prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-              filled: true,
-              fillColor: colors.surface,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.space16,
-                vertical: AppSpacing.space12,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: AppRadius.md,
-                borderSide: BorderSide(
-                  color: _userNameInlineError != null ? const Color(0xFFEF4444) : colors.border,
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: AppRadius.md,
-                borderSide: BorderSide(
-                  color: _userNameInlineError != null ? const Color(0xFFEF4444) : colors.border,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: AppRadius.md,
-                borderSide: BorderSide(
-                  color: _userNameInlineError != null ? const Color(0xFFEF4444) : colors.primary,
-                  width: 1.5,
-                ),
-              ),
-            ),
-            validator: _validateUsernameFormat,
-          ),
-          if (_userNameInlineError != null) ...[
-            const SizedBox(height: 6),
-            Padding(
-              padding: const EdgeInsets.only(left: 4.0),
-              child: Row(
-                children: [
-                  const Icon(Icons.error_outline_rounded, size: 14, color: Color(0xFFEF4444)),
-                  const SizedBox(width: 4),
-                  Text(
-                    _userNameInlineError!,
-                    style: typography.bodySmall.copyWith(
-                      color: const Color(0xFFEF4444),
-                      fontSize: 12.0,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: AppSpacing.space20),
-
-          // Password Field
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Password',
-                style: typography.bodySmall.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: colors.textPrimary,
-                ),
-              ),
-              Text(
-                'Min 8 characters',
-                style: typography.bodySmall.copyWith(
-                  fontSize: 11.0,
-                  color: colors.textSecondary.withValues(alpha: 0.8),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _passwordController,
-            obscureText: _obscurePassword,
-            style: typography.bodyMedium,
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(
-              hintText: 'Create a strong password',
-              hintStyle: typography.bodySmall.copyWith(color: colors.textSecondary.withValues(alpha: 0.6)),
-              prefixIcon: Icon(Icons.lock_outline_rounded, size: 20, color: colors.textSecondary),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                  size: 20,
-                  color: colors.textSecondary,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _obscurePassword = !_obscurePassword;
-                  });
-                },
-              ),
-              filled: true,
-              fillColor: colors.surface,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.space16,
-                vertical: AppSpacing.space12,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: AppRadius.md,
-                borderSide: BorderSide(color: colors.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: AppRadius.md,
-                borderSide: BorderSide(color: colors.border),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: AppRadius.md,
-                borderSide: BorderSide(color: colors.primary, width: 1.5),
-              ),
-            ),
-            validator: (value) {
-              if (value == null || value.trim().length < 8) {
-                return 'Password must be at least 8 characters long';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: AppSpacing.space20),
-
-          // Confirm Password Field
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Confirm Password',
-              style: typography.bodySmall.copyWith(
-                fontWeight: FontWeight.bold,
-                color: colors.textPrimary,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _confirmPasswordController,
-            obscureText: _obscureConfirmPassword,
-            style: typography.bodyMedium,
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(
-              hintText: 'Re-enter your password',
-              hintStyle: typography.bodySmall.copyWith(color: colors.textSecondary.withValues(alpha: 0.6)),
-              prefixIcon: Icon(Icons.lock_outline_rounded, size: 20, color: colors.textSecondary),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                  size: 20,
-                  color: colors.textSecondary,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _obscureConfirmPassword = !_obscureConfirmPassword;
-                  });
-                },
-              ),
-              filled: true,
-              fillColor: colors.surface,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.space16,
-                vertical: AppSpacing.space12,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: AppRadius.md,
-                borderSide: BorderSide(color: colors.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: AppRadius.md,
-                borderSide: BorderSide(color: colors.border),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: AppRadius.md,
-                borderSide: BorderSide(color: colors.primary, width: 1.5),
-              ),
-            ),
-            validator: (value) {
-              if (value != _passwordController.text) {
-                return 'Passwords do not match';
               }
               return null;
             },
@@ -922,6 +677,317 @@ class _SignupPageState extends ConsumerState<SignupPage> {
           const SizedBox(height: AppSpacing.space32),
 
           AppPrimaryButton(
+            text: 'Continue to Account Details',
+            onPressed: _handleNextToAccountStep,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Step 2 UI: Account Details (Username, Password, Confirm Password)
+  Widget _buildStep2AccountDetails(dynamic colors, dynamic typography, AsyncValue<void> authState) {
+    return Form(
+      key: _accountDetailsFormKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Account Details',
+                style: typography.headlineGreeting.copyWith(
+                  fontSize: 22.0,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(alpha: 0.1),
+                  borderRadius: AppRadius.pill,
+                ),
+                child: Text(
+                  'Step 2 of $_totalSteps',
+                  style: typography.bodySmall.copyWith(
+                    color: colors.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11.0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.space8),
+          Text(
+            'Create a unique handle and password for your account.',
+            style: typography.bodySmall.copyWith(color: colors.textSecondary),
+          ),
+          const SizedBox(height: AppSpacing.space24),
+
+          // Error message banner
+          if (authState is AsyncError) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.space12),
+              margin: const EdgeInsets.only(bottom: AppSpacing.space16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFEAEA),
+                borderRadius: AppRadius.md,
+                border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      AuthErrorMapper.mapMessage(authState.error),
+                      style: typography.bodySmall.copyWith(
+                        color: const Color(0xFFEF4444),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Username Field (Instagram-style)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Username',
+                style: typography.bodySmall.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colors.textPrimary,
+                ),
+              ),
+              Text(
+                'Unique handle',
+                style: typography.bodySmall.copyWith(
+                  fontSize: 11.0,
+                  color: colors.textSecondary.withValues(alpha: 0.8),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _userNameController,
+            style: typography.bodyMedium,
+            textInputAction: TextInputAction.next,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9._]')),
+              LengthLimitingTextInputFormatter(20),
+              TextInputFormatter.withFunction((oldVal, newVal) {
+                return newVal.copyWith(text: newVal.text.toLowerCase());
+              }),
+            ],
+            onChanged: (_) {
+              if (_userNameInlineError != null) {
+                setState(() => _userNameInlineError = null);
+              }
+            },
+            decoration: InputDecoration(
+              hintText: 'Choose a username',
+              hintStyle: typography.bodySmall.copyWith(color: colors.textSecondary.withValues(alpha: 0.6)),
+              prefixIcon: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+                child: Text(
+                  '@',
+                  style: typography.bodyMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colors.primary,
+                  ),
+                ),
+              ),
+              prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+              filled: true,
+              fillColor: colors.surface,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.space16,
+                vertical: AppSpacing.space12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide: BorderSide(
+                  color: _userNameInlineError != null ? const Color(0xFFEF4444) : colors.border,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide: BorderSide(
+                  color: _userNameInlineError != null ? const Color(0xFFEF4444) : colors.border,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide: BorderSide(
+                  color: _userNameInlineError != null ? const Color(0xFFEF4444) : colors.primary,
+                  width: 1.5,
+                ),
+              ),
+            ),
+            validator: _validateUsernameFormat,
+          ),
+          if (_userNameInlineError != null) ...[
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.only(left: 4.0),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline_rounded, size: 14, color: Color(0xFFEF4444)),
+                  const SizedBox(width: 4),
+                  Text(
+                    _userNameInlineError!,
+                    style: typography.bodySmall.copyWith(
+                      color: const Color(0xFFEF4444),
+                      fontSize: 12.0,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.space20),
+
+          // Password Field
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Password',
+                style: typography.bodySmall.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colors.textPrimary,
+                ),
+              ),
+              Text(
+                'Min 8 characters',
+                style: typography.bodySmall.copyWith(
+                  fontSize: 11.0,
+                  color: colors.textSecondary.withValues(alpha: 0.8),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _passwordController,
+            obscureText: _obscurePassword,
+            style: typography.bodyMedium,
+            textInputAction: TextInputAction.next,
+            decoration: InputDecoration(
+              hintText: 'Create a strong password',
+              hintStyle: typography.bodySmall.copyWith(color: colors.textSecondary.withValues(alpha: 0.6)),
+              prefixIcon: Icon(Icons.lock_outline_rounded, size: 20, color: colors.textSecondary),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  size: 20,
+                  color: colors.textSecondary,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _obscurePassword = !_obscurePassword;
+                  });
+                },
+              ),
+              filled: true,
+              fillColor: colors.surface,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.space16,
+                vertical: AppSpacing.space12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide: BorderSide(color: colors.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide: BorderSide(color: colors.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide: BorderSide(color: colors.primary, width: 1.5),
+              ),
+            ),
+            validator: (value) {
+              if (value == null || value.trim().length < 8) {
+                return 'Password must be at least 8 characters long';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: AppSpacing.space20),
+
+          // Confirm Password Field
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Confirm Password',
+              style: typography.bodySmall.copyWith(
+                fontWeight: FontWeight.bold,
+                color: colors.textPrimary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _confirmPasswordController,
+            obscureText: _obscureConfirmPassword,
+            style: typography.bodyMedium,
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(
+              hintText: 'Re-enter your password',
+              hintStyle: typography.bodySmall.copyWith(color: colors.textSecondary.withValues(alpha: 0.6)),
+              prefixIcon: Icon(Icons.lock_outline_rounded, size: 20, color: colors.textSecondary),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  size: 20,
+                  color: colors.textSecondary,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _obscureConfirmPassword = !_obscureConfirmPassword;
+                  });
+                },
+              ),
+              filled: true,
+              fillColor: colors.surface,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.space16,
+                vertical: AppSpacing.space12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide: BorderSide(color: colors.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide: BorderSide(color: colors.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide: BorderSide(color: colors.primary, width: 1.5),
+              ),
+            ),
+            validator: (value) {
+              if (value != _passwordController.text) {
+                return 'Passwords do not match';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: AppSpacing.space32),
+
+          AppPrimaryButton(
             text: 'Continue to Avatar Selection',
             isLoading: _isCheckingUsername,
             onPressed: _isCheckingUsername ? null : _handleNextToAvatarStep,
@@ -931,25 +997,76 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     );
   }
 
-  /// Step 2 UI: Dedicated Avatar Picker Page
-  Widget _buildStep2AvatarPicker(dynamic colors, dynamic typography, AsyncValue<void> authState) {
+  /// Step 3 UI: Dedicated Avatar Picker Page
+  Widget _buildStep3AvatarPicker(dynamic colors, dynamic typography, AsyncValue<void> authState) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          'Choose Your Avatar',
-          style: typography.headlineGreeting.copyWith(
-            fontSize: 24.0,
-            fontWeight: FontWeight.bold,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Choose Your Avatar',
+              style: typography.headlineGreeting.copyWith(
+                fontSize: 22.0,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: colors.primary.withValues(alpha: 0.1),
+                borderRadius: AppRadius.pill,
+              ),
+              child: Text(
+                'Step 3 of $_totalSteps',
+                style: typography.bodySmall.copyWith(
+                  color: colors.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11.0,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 6),
-        Text(
-          'Select your favorite avatar for your $_selectedGender profile.',
-          style: typography.bodySmall.copyWith(color: colors.textSecondary),
-          textAlign: TextAlign.center,
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Select your favorite avatar for your ${_selectedGender ?? ''} profile.',
+            style: typography.bodySmall.copyWith(color: colors.textSecondary),
+          ),
         ),
         const SizedBox(height: AppSpacing.space24),
+
+        // Error message banner
+        if (authState is AsyncError) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.space12),
+            margin: const EdgeInsets.only(bottom: AppSpacing.space16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFEAEA),
+              borderRadius: AppRadius.md,
+              border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    AuthErrorMapper.mapMessage(authState.error),
+                    style: typography.bodySmall.copyWith(
+                      color: const Color(0xFFEF4444),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
 
         // Live Selected Avatar Preview Card
         Container(
@@ -989,7 +1106,18 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                         color: colors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    if (_userNameController.text.trim().isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '@${_userNameController.text.trim().toLowerCase()}',
+                        style: typography.bodySmall.copyWith(
+                          color: colors.primary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13.0,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 6),
                     Row(
                       children: [
                         Container(
@@ -1052,6 +1180,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
 
         AppPrimaryButton(
           text: authState.isLoading ? 'Saving Profile...' : 'Complete Setup',
+          isLoading: authState.isLoading,
           onPressed: authState.isLoading ? null : _handleNextFromAvatarStep,
         ),
       ],
