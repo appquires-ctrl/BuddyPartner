@@ -17,22 +17,32 @@ import 'package:buddypartner/features/call/application/instant_connect_controlle
 import 'package:buddypartner/features/call/presentation/widgets/scratch_card_dialog.dart';
 
 class WithdrawPage extends ConsumerStatefulWidget {
-  const WithdrawPage({super.key});
+  final bool isEmbedded;
+
+  const WithdrawPage({
+    super.key,
+    this.isEmbedded = false,
+  });
 
   @override
   ConsumerState<WithdrawPage> createState() => _WithdrawPageState();
 }
 
-class _WithdrawPageState extends ConsumerState<WithdrawPage> {
+class _WithdrawPageState extends ConsumerState<WithdrawPage>
+    with AutomaticKeepAliveClientMixin {
   final _amountController = TextEditingController();
   int _enteredCoins = 0;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.invalidate(walletBalanceProvider);
-      ref.invalidate(withdrawalHistoryProvider);
+      if (!widget.isEmbedded) {
+        ref.read(dualWalletProvider.notifier).fetchWallet();
+      }
       ref.read(instantConnectControllerProvider.notifier).fetchFemaleStatus();
       ref.read(instantConnectControllerProvider.notifier).fetchScratchCards();
     });
@@ -91,7 +101,9 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final typography = context.typography;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final historyAsync = ref.watch(withdrawalHistoryProvider);
     final withdrawState = ref.watch(withdrawControllerProvider);
@@ -103,43 +115,57 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
     final unscratchedCards = instantState.scratchCards.where((c) => !c.isScratched).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: context.canPop()
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1E1B38), size: 20),
-                onPressed: () => context.pop(),
-              )
-            : null,
-        centerTitle: true,
-        title: Text(
-          'Earnings & Payouts',
-          style: typography.titleCard.copyWith(
-            fontWeight: FontWeight.w800,
-            fontSize: 18,
-            color: const Color(0xFF1E1B38),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.history_rounded, color: Color(0xFF7C6AEF), size: 24),
-            tooltip: 'Wallet History',
-            onPressed: () => context.push(RouteNames.walletHistory),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
+      backgroundColor: widget.isEmbedded
+          ? Colors.transparent
+          : (isDark ? const Color(0xFF13101E) : const Color(0xFFF8F9FD)),
+      appBar: widget.isEmbedded
+          ? null
+          : AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              leading: context.canPop()
+                  ? IconButton(
+                      icon: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: isDark ? Colors.white : const Color(0xFF1E1B38),
+                        size: 20,
+                      ),
+                      onPressed: () => context.pop(),
+                    )
+                  : null,
+              centerTitle: true,
+              title: Text(
+                'Earnings & Payouts',
+                style: typography.titleCard.copyWith(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                  color: isDark ? Colors.white : const Color(0xFF1E1B38),
+                ),
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.history_rounded, color: Color(0xFF7C6AEF), size: 24),
+                  tooltip: 'Wallet History',
+                  onPressed: () => context.push(RouteNames.walletHistory),
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.only(left: 18.0, right: 18.0, top: 4.0, bottom: 100.0),
+        padding: EdgeInsets.only(
+          left: 16.0,
+          right: 16.0,
+          top: 4.0,
+          bottom: widget.isEmbedded ? (110.0 + MediaQuery.of(context).padding.bottom) : 100.0,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── 1. VIP Dark Hero Earnings Card ──────────────────────────────
-            Container(
+            if (!widget.isEmbedded) ...[
+              // ── 1. VIP Dark Hero Earnings Card (Standalone Mode) ───────────
+              Container(
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
@@ -436,8 +462,11 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                 ],
               ),
             ),
-
             const SizedBox(height: 18),
+          ] else ...[
+            _buildEmbeddedRateNotice(isDark),
+            const SizedBox(height: 14),
+          ],
 
             // ── 2. Unscratched Cards Action Card (Golden Glow) ──────────────
             if (unscratchedCards.isNotEmpty) ...[
@@ -548,12 +577,15 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? const Color(0xFF1E1A2E) : Colors.white,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0xFFE8E6F0), width: 1),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF2C2746) : const Color(0xFFE8E6F0),
+                  width: 1,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF1E1B38).withValues(alpha: 0.05),
+                    color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
                     blurRadius: 18,
                     offset: const Offset(0, 4),
                   ),
@@ -580,11 +612,11 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                       const SizedBox(width: 10),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text(
                             'Request Withdrawal',
                             style: TextStyle(
-                              color: Color(0xFF1E1B38),
+                              color: isDark ? Colors.white : const Color(0xFF1E1B38),
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
                             ),
@@ -592,7 +624,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                           Text(
                             'Direct transfer to UPI or Bank Account',
                             style: TextStyle(
-                              color: Color(0xFF8A8A93),
+                              color: isDark ? Colors.white60 : const Color(0xFF8A8A93),
                               fontSize: 11.5,
                               fontWeight: FontWeight.w500,
                             ),
@@ -607,10 +639,12 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                   // Coin Input Box
                   Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF7F7FB),
+                      color: isDark ? const Color(0xFF28233C) : const Color(0xFFF7F7FB),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: _enteredCoins > 0 ? const Color(0xFF7C6AEF) : const Color(0xFFE8E6F0),
+                        color: _enteredCoins > 0
+                            ? const Color(0xFF7C6AEF)
+                            : (isDark ? const Color(0xFF383250) : const Color(0xFFE8E6F0)),
                         width: _enteredCoins > 0 ? 1.5 : 1,
                       ),
                     ),
@@ -623,15 +657,15 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                           child: TextField(
                             controller: _amountController,
                             keyboardType: TextInputType.number,
-                            style: const TextStyle(
-                              color: Color(0xFF1E1B38),
+                            style: TextStyle(
+                              color: isDark ? Colors.white : const Color(0xFF1E1B38),
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               hintText: 'Enter coins to withdraw',
                               hintStyle: TextStyle(
-                                color: Color(0xFFA19EBB),
+                                color: isDark ? Colors.white38 : const Color(0xFFA19EBB),
                                 fontSize: 14,
                                 fontWeight: FontWeight.normal,
                               ),
@@ -641,7 +675,11 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                         ),
                         if (_enteredCoins > 0)
                           IconButton(
-                            icon: const Icon(Icons.clear_rounded, size: 18, color: Color(0xFF8A8A93)),
+                            icon: Icon(
+                              Icons.clear_rounded,
+                              size: 18,
+                              color: isDark ? Colors.white60 : const Color(0xFF8A8A93),
+                            ),
                             onPressed: () {
                               _amountController.clear();
                             },
@@ -652,32 +690,16 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
 
                   const SizedBox(height: 12),
 
-                  // // Preset Amount Selection Chips
-                  // SingleChildScrollView(
-                  //   scrollDirection: Axis.horizontal,
-                  //   physics: const BouncingScrollPhysics(),
-                  //   child: Row(
-                  //     children: [
-                  //       _buildPresetChip('₹50', 50, walletBalance),
-                  //       const SizedBox(width: 8),
-                  //       _buildPresetChip('₹100', 100, walletBalance),
-                  //       const SizedBox(width: 8),
-                  //       _buildPresetChip('₹200', 200, walletBalance),
-                  //       const SizedBox(width: 8),
-                  //       _buildPresetChip('₹500', 500, walletBalance),
-                  //       const SizedBox(width: 8),
-                  //       _buildPresetChip('MAX ($walletBalance)', walletBalance, walletBalance, isMax: true),
-                  //     ],
-                  //   ),
-                  // ),
+                  // Preset Amount Selection Chips
+                  _buildPresetChips(earnedBalance, isDark),
 
-                  // const SizedBox(height: 16),
+                  const SizedBox(height: 14),
 
                   // Real-time Conversion Payout Preview Box
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF3F1FD),
+                      color: isDark ? const Color(0xFF25203A) : const Color(0xFFF3F1FD),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: const Color(0xFF7C6AEF).withValues(alpha: 0.2)),
                     ),
@@ -685,13 +707,13 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Row(
-                          children: const [
-                            Icon(Icons.currency_rupee_rounded, color: Color(0xFF7C6AEF), size: 18),
-                            SizedBox(width: 6),
+                          children: [
+                            const Icon(Icons.currency_rupee_rounded, color: Color(0xFF7C6AEF), size: 18),
+                            const SizedBox(width: 6),
                             Text(
                               'Estimated Payout',
                               style: TextStyle(
-                                color: Color(0xFF4A4468),
+                                color: isDark ? Colors.white70 : const Color(0xFF4A4468),
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -801,18 +823,16 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Withdrawal History',
                   style: TextStyle(
-                    color: Color(0xFF1E1B38),
+                    color: isDark ? Colors.white : const Color(0xFF1E1B38),
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 TextButton(
-                  onPressed: ()  {} 
-                  // context.push(RouteNames.transactionHistory)
-                  ,
+                  onPressed: () => context.push(RouteNames.walletHistory),
                   child: const Text(
                     'Full Statement ➜',
                     style: TextStyle(
@@ -831,8 +851,11 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
               error: (err, _) => Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isDark ? const Color(0xFF1E1A2E) : Colors.white,
                   borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF2C2746) : const Color(0xFFE8E6F0),
+                  ),
                 ),
                 child: Text(
                   'Failed to load history: $err',
@@ -844,28 +867,30 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                   return Container(
                     padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: isDark ? const Color(0xFF1E1A2E) : Colors.white,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFE8E6F0)),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF2C2746) : const Color(0xFFE8E6F0),
+                      ),
                     ),
                     child: Column(
-                      children: const [
-                        Icon(Icons.receipt_long_rounded, color: Color(0xFFA19EBB), size: 36),
-                        SizedBox(height: 10),
+                      children: [
+                        const Icon(Icons.receipt_long_rounded, color: Color(0xFFA19EBB), size: 36),
+                        const SizedBox(height: 10),
                         Text(
                           'No withdrawal requests yet',
                           style: TextStyle(
-                            color: Color(0xFF1E1B38),
+                            color: isDark ? Colors.white : const Color(0xFF1E1B38),
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
                         Text(
                           'Complete calls & scratch cards to start earning payouts!',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Color(0xFF8A8A93),
+                            color: isDark ? Colors.white60 : const Color(0xFF8A8A93),
                             fontSize: 12,
                           ),
                         ),
@@ -893,7 +918,165 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
     );
   }
 
+  Widget _buildEmbeddedRateNotice(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1A2E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2C2746) : const Color(0xFFE8E6F0),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.currency_rupee_rounded, color: Color(0xFF10B981), size: 17),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '1 Earned Coin = ₹1.00 INR',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12.5,
+                    color: isDark ? Colors.white : const Color(0xFF1E1B38),
+                  ),
+                ),
+                Text(
+                  'Direct UPI / Bank Transfer • Min 24h Payout',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? Colors.white60 : const Color(0xFF8A8A93),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'Instant Verification',
+              style: TextStyle(
+                color: Color(0xFF059669),
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPresetChips(int maxEarned, bool isDark) {
+    final presets = [50, 100, 200];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: [
+          ...presets.map((val) {
+            final isSelected = _enteredCoins == val;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: InkWell(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  _amountController.text = val.toString();
+                },
+                borderRadius: BorderRadius.circular(10),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFF7C6AEF)
+                        : (isDark ? const Color(0xFF28233C) : const Color(0xFFF3F1FD)),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isSelected
+                          ? const Color(0xFF7C6AEF)
+                          : (isDark ? Colors.white12 : const Color(0xFFE2DFEE)),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    '₹$val',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                      color: isSelected
+                          ? Colors.white
+                          : (isDark ? Colors.white70 : const Color(0xFF5E5776)),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+          if (maxEarned > 0)
+            InkWell(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                _amountController.text = maxEarned.toString();
+              },
+              borderRadius: BorderRadius.circular(10),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _enteredCoins == maxEarned
+                      ? const Color(0xFF10B981)
+                      : (isDark ? const Color(0xFF1A2E28) : const Color(0xFFE8F8F0)),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: _enteredCoins == maxEarned
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFF10B981).withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  'MAX ($maxEarned)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: _enteredCoins == maxEarned
+                        ? Colors.white
+                        : const Color(0xFF059669),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildWithdrawalTile(BuildContext context, WithdrawalRequest item) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final dateStr = _formatDate(item.requestedAt);
 
     Color badgeColor;
@@ -927,12 +1110,14 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1A2E) : Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE8E6F0)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2C2746) : const Color(0xFFE8E6F0),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -957,8 +1142,8 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                   children: [
                     Text(
                       '₹${item.rupeeAmount}.00',
-                      style: const TextStyle(
-                        color: Color(0xFF1E1B38),
+                      style: TextStyle(
+                        color: isDark ? Colors.white : const Color(0xFF1E1B38),
                         fontWeight: FontWeight.w800,
                         fontSize: 15,
                       ),
@@ -966,8 +1151,8 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                     const SizedBox(width: 6),
                     Text(
                       '(${item.coinAmount} Coins)',
-                      style: const TextStyle(
-                        color: Color(0xFF8A8A93),
+                      style: TextStyle(
+                        color: isDark ? Colors.white60 : const Color(0xFF8A8A93),
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -977,8 +1162,8 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage> {
                 const SizedBox(height: 3),
                 Text(
                   dateStr,
-                  style: const TextStyle(
-                    color: Color(0xFF8A8A93),
+                  style: TextStyle(
+                    color: isDark ? Colors.white38 : const Color(0xFF8A8A93),
                     fontSize: 11.5,
                   ),
                 ),

@@ -10,13 +10,18 @@ class AppNavigationObserver extends NavigatorObserver {
     if (name != null && name.isNotEmpty) {
       return _cleanScreenName(name);
     }
+    if (route is PopupRoute) {
+      return 'ModalDialog';
+    }
     // Fallback to route representation if settings.name is null
     final str = route.toString();
     return _cleanScreenName(str);
   }
 
   String _cleanScreenName(String raw) {
-    if (raw.startsWith('_PageBasedMaterialPageRoute') || raw.startsWith('MaterialPage')) {
+    if (raw.startsWith('_PageBasedMaterialPageRoute') ||
+        raw.startsWith('MaterialPage') ||
+        raw.startsWith('MaterialPageRoute')) {
       return AppLogger.currentScreen;
     }
 
@@ -51,7 +56,8 @@ class AppNavigationObserver extends NavigatorObserver {
       case 'conversations':
         return 'ConversationsListPage';
       case 'favorites':
-        return 'FavoritesPage';
+      case 'discover':
+        return 'DiscoverPage';
       case 'call-history':
       case 'history':
         return 'CallHistoryPage';
@@ -78,6 +84,8 @@ class AppNavigationObserver extends NavigatorObserver {
         return 'BannedScreen';
       case 'transaction-history':
         return 'TransactionHistoryPage';
+      case 'wallet-history':
+        return 'WalletHistoryPage';
     }
 
     if (clean.isNotEmpty) {
@@ -92,10 +100,12 @@ class AppNavigationObserver extends NavigatorObserver {
     final from = _getRouteName(previousRoute);
     final to = _getRouteName(route);
 
-    if (previousRoute != null) {
+    if (previousRoute != null && from != to && to != 'ModalDialog') {
       AppLogger.navigation(from, to, arguments: route.settings.arguments);
     }
-    AppLogger.screenLoaded(to);
+    if (to != 'UnknownScreen' && to != from && to != 'ModalDialog') {
+      AppLogger.screenLoaded(to);
+    }
   }
 
   @override
@@ -104,8 +114,10 @@ class AppNavigationObserver extends NavigatorObserver {
     final from = _getRouteName(route);
     final to = _getRouteName(previousRoute);
 
-    AppLogger.navigation(from, to);
-    AppLogger.screenLoaded(to);
+    if (from != to && to != 'UnknownScreen' && from != 'ModalDialog') {
+      AppLogger.navigation(from, to);
+      AppLogger.screenLoaded(to);
+    }
   }
 
   @override
@@ -114,7 +126,11 @@ class AppNavigationObserver extends NavigatorObserver {
     final from = _getRouteName(oldRoute);
     final to = _getRouteName(newRoute);
 
-    AppLogger.navigation(from, to, arguments: newRoute?.settings.arguments);
-    AppLogger.screenLoaded(to);
+    if (from != to && to != 'ModalDialog') {
+      AppLogger.navigation(from, to, arguments: newRoute?.settings.arguments);
+    }
+    if (to != 'UnknownScreen' && to != from && to != 'ModalDialog') {
+      AppLogger.screenLoaded(to);
+    }
   }
 }

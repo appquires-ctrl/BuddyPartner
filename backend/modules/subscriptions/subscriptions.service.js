@@ -136,7 +136,15 @@ class SubscriptionsService {
     }
 
     try {
-      const expiresAt = new Date(Date.now() + planDurationDays * 24 * 60 * 60 * 1000);
+      // If user has an existing active subscription, extend from its expiration date
+      // so early renewals do not forfeit any remaining days.
+      const activeSub = await this.getActiveSubscription(userId);
+      const now = new Date();
+      const baseTime = (activeSub && activeSub.expires_at && new Date(activeSub.expires_at) > now)
+        ? new Date(activeSub.expires_at).getTime()
+        : now.getTime();
+      const expiresAt = new Date(baseTime + planDurationDays * 24 * 60 * 60 * 1000);
+
       const result = await db.query(
         `INSERT INTO public.subscriptions (user_id, plan_duration_days, amount_paid, started_at, expires_at, payment_reference)
          VALUES ($1, $2, $3, NOW(), $4, $5)

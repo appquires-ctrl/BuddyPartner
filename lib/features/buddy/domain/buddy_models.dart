@@ -81,6 +81,14 @@ enum BuddyType {
     stickerAsset: 'assets/images/stickers/longdrive_buddy.png',
     gradientColors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
     accentColor: Color(0xFF14B8A6),
+  ),
+  garba(
+    id: 'garba',
+    title: 'Garba Buddy',
+    subtitle: 'Find someone who matches your Garba vibes',
+    stickerAsset: 'assets/images/stickers/garba_buddy.png',
+    gradientColors: [Color(0xFF6B21A8), Color(0xFF9333EA)],
+    accentColor: Color(0xFF9333EA),
   );
 
   final String id;
@@ -105,6 +113,34 @@ enum BuddyType {
       (e) => e.id == val,
       orElse: () => BuddyType.movie,
     );
+  }
+
+  /// Initiator coin broadcast cost for this Buddy activity type
+  int get coinCost {
+    switch (this) {
+      case BuddyType.movie:
+        return 1999;
+      case BuddyType.pizza:
+        return 499;
+      case BuddyType.coffee:
+        return 499;
+      case BuddyType.hangout:
+        return 999;
+      case BuddyType.trip:
+        return 999;
+      case BuddyType.cricket:
+        return 199;
+      case BuddyType.shopping:
+        return 799;
+      case BuddyType.nightOut:
+        return 2499;
+      case BuddyType.clubbing:
+        return 1499;
+      case BuddyType.longDrive:
+        return 999;
+      case BuddyType.garba:
+        return 1;
+    }
   }
 }
 

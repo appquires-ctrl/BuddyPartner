@@ -162,8 +162,12 @@ class PresenceNotifier extends StateNotifier<Map<String, bool>> {
     }
   }
 
+  DateTime? _lastFetchTime;
+  Future<void>? _inFlightFetch;
+  static const Duration _minFetchInterval = Duration(seconds: 15);
+
   /// Refresh presence for all currently subscribed users (e.g., when app resumes).
-  Future<void> refreshSubscribedPresence() async {
+  Future<void> refreshSubscribedPresence({bool force = false}) async {
     if (_subscribedUserIds.isEmpty) return;
 
     final userIds = _subscribedUserIds.toList();
@@ -173,14 +177,33 @@ class PresenceNotifier extends StateNotifier<Map<String, bool>> {
       } catch (_) {}
     }
 
-    await fetchPresence(userIds);
+    await fetchPresence(userIds, force: force);
   }
 
   /// Query online presence for a list of user IDs via REST endpoint.
-  Future<void> fetchPresence(List<String> userIds) async {
+  Future<void> fetchPresence(List<String> userIds, {bool force = false}) async {
     final validIds = userIds.where((id) => id.isNotEmpty).toList();
     if (validIds.isEmpty || !mounted) return;
 
+    final now = DateTime.now();
+    if (!force && _lastFetchTime != null && now.difference(_lastFetchTime!) < _minFetchInterval) {
+      return;
+    }
+
+    if (_inFlightFetch != null) {
+      return _inFlightFetch!;
+    }
+
+    _inFlightFetch = _executeFetchPresence(validIds, now);
+    try {
+      await _inFlightFetch!;
+    } finally {
+      _inFlightFetch = null;
+    }
+  }
+
+  Future<void> _executeFetchPresence(List<String> validIds, DateTime fetchTime) async {
+    _lastFetchTime = fetchTime;
     try {
       final response = await _apiClient.dio.get('/api/presence', queryParameters: {
         'userIds': validIds.join(','),

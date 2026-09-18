@@ -23,9 +23,26 @@ class UserWalletState {
       balance: b,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UserWalletState &&
+          runtimeType == other.runtimeType &&
+          spendableBalance == other.spendableBalance &&
+          earnedBalance == other.earnedBalance &&
+          balance == other.balance;
+
+  @override
+  int get hashCode =>
+      spendableBalance.hashCode ^ earnedBalance.hashCode ^ balance.hashCode;
 }
 
 class DualWalletNotifier extends AsyncNotifier<UserWalletState> {
+  Future<UserWalletState>? _inFlightFetch;
+  DateTime? _lastFetchTime;
+  static const Duration _cacheDuration = Duration(seconds: 15);
+
   @override
   Future<UserWalletState> build() async {
     final authUser = ref.watch(authStateProvider).value;
@@ -33,21 +50,41 @@ class DualWalletNotifier extends AsyncNotifier<UserWalletState> {
     return fetchWallet();
   }
 
-  Future<UserWalletState> fetchWallet() async {
+  Future<UserWalletState> fetchWallet({bool force = false}) async {
     final authUser = ref.read(authStateProvider).value;
     if (authUser == null) {
       state = const AsyncData(UserWalletState());
       return const UserWalletState();
     }
 
+    final now = DateTime.now();
+    if (!force &&
+        state.hasValue &&
+        _lastFetchTime != null &&
+        now.difference(_lastFetchTime!) < _cacheDuration) {
+      return state.value!;
+    }
+
+    if (_inFlightFetch != null) {
+      return _inFlightFetch!;
+    }
+
+    _inFlightFetch = _executeFetchWallet();
+    try {
+      return await _inFlightFetch!;
+    } finally {
+      _inFlightFetch = null;
+    }
+  }
+
+  Future<UserWalletState> _executeFetchWallet() async {
     try {
       final apiClient = ref.read(apiClientProvider);
       final response = await apiClient.dio.get('/api/wallet/balance');
       if (response.statusCode == 200 && response.data != null) {
         final wallet = UserWalletState.fromJson(Map<String, dynamic>.from(response.data));
+        _lastFetchTime = DateTime.now();
         state = AsyncData(wallet);
-        // Also keep legacy total balance in sync
-        ref.read(walletBalanceProvider.notifier).setBalance(wallet.balance);
         return wallet;
       }
     } catch (_) {}
@@ -59,9 +96,12 @@ class DualWalletNotifier extends AsyncNotifier<UserWalletState> {
     final s = spendable ?? cur.spendableBalance;
     final e = earned ?? cur.earnedBalance;
     final b = total ?? (s + e);
-    final next = UserWalletState(spendableBalance: s, earnedBalance: e, balance: b);
-    state = AsyncData(next);
-    ref.read(walletBalanceProvider.notifier).setBalance(b);
+
+    if (cur.spendableBalance == s && cur.earnedBalance == e && cur.balance == b) {
+      return;
+    }
+
+    state = AsyncData(UserWalletState(spendableBalance: s, earnedBalance: e, balance: b));
   }
 }
 
@@ -74,32 +114,24 @@ class WalletBalanceNotifier extends AsyncNotifier<int> {
   Future<int> build() async {
     final authUser = ref.watch(authStateProvider).value;
     if (authUser == null) return 0;
-    return fetchBalance();
+    // Directly await dualWalletProvider future to stay in sync without a parallel network call
+    final dualWallet = await ref.watch(dualWalletProvider.future);
+    return dualWallet.balance;
   }
 
-  Future<int> fetchBalance() async {
-    final authUser = ref.read(authStateProvider).value;
-    if (authUser == null) {
-      state = const AsyncData(0);
-      return 0;
-    }
-
-    try {
-      final apiClient = ref.read(apiClientProvider);
-      final response = await apiClient.dio.get('/api/wallet/balance');
-      if (response.statusCode == 200 && response.data != null) {
-        final wallet = UserWalletState.fromJson(Map<String, dynamic>.from(response.data));
-        state = AsyncData(wallet.balance);
-        // Update dualWalletProvider if not loading
-        ref.read(dualWalletProvider.notifier).state = AsyncData(wallet);
-        return wallet.balance;
-      }
-    } catch (_) {}
-    return state.value ?? 0;
+  Future<int> fetchBalance({bool force = false}) async {
+    final wallet = await ref.read(dualWalletProvider.notifier).fetchWallet(force: force);
+    state = AsyncData(wallet.balance);
+    return wallet.balance;
   }
 
   void setBalance(int newBalance) {
+    if (state.value == newBalance) return;
     state = AsyncData(newBalance);
+    final curDual = ref.read(dualWalletProvider).value;
+    if (curDual == null || curDual.balance != newBalance) {
+      ref.read(dualWalletProvider.notifier).updateBalances(total: newBalance);
+    }
   }
 }
 

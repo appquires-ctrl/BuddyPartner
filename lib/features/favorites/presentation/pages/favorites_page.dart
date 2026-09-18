@@ -10,15 +10,16 @@ class FavoritesPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Favorites'),
+        title: const Text('Discover'),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,
       ),
       body: const AppEmptyState(
-        icon: Icons.favorite_border_rounded,
-        title: 'No Favorites Yet',
-        description: 'Keep track of members you enjoyed talking to by adding them to your favorites.',
+        icon: Icons.explore_outlined,
+        title: 'Start Discovering',
+        description:
+            'Search by username or discover members you can connect with.',
       ),
     );
   }

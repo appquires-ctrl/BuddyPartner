@@ -34,7 +34,7 @@ class FavoritesSkeleton extends StatelessWidget {
         title: Column(
           children: [
             Text(
-              'Favorites',
+              'Discover',
               style: typography.titleCard.copyWith(
                 fontWeight: FontWeight.bold,
                 fontSize: 20,

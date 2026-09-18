@@ -7,9 +7,16 @@ import 'package:buddypartner/features/chat/domain/conversation.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/core/widgets/feedback/in_app_notification_banner.dart';
 
-class ConversationsNotifier extends AutoDisposeAsyncNotifier<List<Conversation>> {
+class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
+  Future<List<Conversation>>? _inFlightFetch;
+  DateTime? _lastFetchTime;
+  static const Duration _cacheDuration = Duration(seconds: 15);
+
   @override
   FutureOr<List<Conversation>> build() async {
+    final authUser = ref.watch(authStateProvider).value;
+    if (authUser == null) return const [];
+
     final socket = ref.watch(socketProvider);
     
     if (socket != null) {
@@ -38,9 +45,31 @@ class ConversationsNotifier extends AutoDisposeAsyncNotifier<List<Conversation>>
     return _fetchConversations();
   }
 
-  Future<List<Conversation>> _fetchConversations() async {
-    final repo = ref.read(chatRepositoryProvider);
-    return await repo.fetchConversations();
+  Future<List<Conversation>> _fetchConversations({bool force = false}) async {
+    final now = DateTime.now();
+    if (!force && state.hasValue && _lastFetchTime != null && now.difference(_lastFetchTime!) < _cacheDuration) {
+      return state.value!;
+    }
+
+    if (_inFlightFetch != null) return _inFlightFetch!;
+
+    _inFlightFetch = _executeFetch();
+    try {
+      return await _inFlightFetch!;
+    } finally {
+      _inFlightFetch = null;
+    }
+  }
+
+  Future<List<Conversation>> _executeFetch() async {
+    try {
+      final repo = ref.read(chatRepositoryProvider);
+      final list = await repo.fetchConversations();
+      _lastFetchTime = DateTime.now();
+      return list;
+    } catch (_) {
+      return state.value ?? const [];
+    }
   }
 
   /// Robust multi-format incoming message handler.
@@ -175,12 +204,12 @@ class ConversationsNotifier extends AutoDisposeAsyncNotifier<List<Conversation>>
   }
 }
 
-final conversationsProvider = AutoDisposeAsyncNotifierProvider<ConversationsNotifier, List<Conversation>>(
+final conversationsProvider = AsyncNotifierProvider<ConversationsNotifier, List<Conversation>>(
   ConversationsNotifier.new,
 );
 
 /// Computes the total unread messages count for the current user.
-final totalUnreadMessagesCountProvider = Provider.autoDispose<int>((ref) {
+final totalUnreadMessagesCountProvider = Provider<int>((ref) {
   final currentUserId = ref.watch(authStateProvider).value?.id;
   final convs = ref.watch(conversationsProvider).valueOrNull ?? const [];
   return convs.where((c) {

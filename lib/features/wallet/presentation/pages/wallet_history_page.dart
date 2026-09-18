@@ -205,7 +205,7 @@ class WalletHistoryPage extends ConsumerWidget {
                                   ),
                                   const SizedBox(height: 2),
                                   const Text(
-                                    'Recharges / Promo',
+                                    'Recharges',
                                     style: TextStyle(color: Colors.white54, fontSize: 10),
                                   ),
                                 ],

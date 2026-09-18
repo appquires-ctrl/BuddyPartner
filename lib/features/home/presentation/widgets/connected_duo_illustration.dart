@@ -1,7 +1,4 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:buddypartner/core/widgets/app_avatar.dart';
-import 'package:buddypartner/core/constants/avatar_catalog.dart';
 
 /// Connected duo visual showing two tilted polaroid avatars
 /// connected by a glowing heart badge for the Let's Connect hero banner.
@@ -96,31 +93,6 @@ class ConnectedDuoIllustration extends StatelessWidget {
           //   ),
           // ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildPolaroidCard({required Widget child}) {
-    return Container(
-      padding: const EdgeInsets.all(4.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.9),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.22),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(9),
-        child: child,
       ),
     );
   }

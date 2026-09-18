@@ -100,8 +100,11 @@ class BuddyService {
       throw err;
     }
 
-    const coinCost = BUDDY_PRICING.INITIATOR_COIN_COST;
-    const coinReward = BUDDY_PRICING.ACCEPTER_COIN_REWARD;
+    const coinCost = BUDDY_PRICING.TYPE_COIN_COSTS?.[buddyType] ?? BUDDY_PRICING.INITIATOR_COIN_COST;
+    const rewardPct = normalizedGender === 'male'
+      ? (BUDDY_PRICING.MALE_REWARD_PERCENTAGE || 0.20)
+      : (BUDDY_PRICING.FEMALE_REWARD_PERCENTAGE || 0.40);
+    const coinReward = Math.max(1, Math.round(coinCost * rewardPct));
     const cid = correlationId || `buddy_create_${crypto.randomBytes(8).toString('hex')}`;
 
     const client = await db.pool.connect();
@@ -221,7 +224,7 @@ class BuddyService {
     }
 
     const existingCheck = await db.query(
-      `SELECT initiator_id, status FROM public.buddy_requests WHERE id = $1`,
+      `SELECT initiator_id, status, initiator_coin_cost FROM public.buddy_requests WHERE id = $1`,
       [requestId]
     );
 
@@ -250,23 +253,37 @@ class BuddyService {
       accepterId
     );
 
-    // 2. Generate cryptographically secure 6-digit OTP
+    // 2. Determine accepter's gender to calculate dynamic reward split (40% female / 20% male)
+    const accepterGenderRes = await db.query(
+      `SELECT gender FROM public.users WHERE id = $1`,
+      [accepterId]
+    );
+    const accepterGender = (accepterGenderRes.rows[0]?.gender || '').toLowerCase().trim();
+    const isFemaleAccepter = accepterGender === 'female';
+    const rewardPercentage = isFemaleAccepter
+      ? BUDDY_PRICING.FEMALE_REWARD_PERCENTAGE
+      : BUDDY_PRICING.MALE_REWARD_PERCENTAGE;
+    const initiatorCost = existingCheck.rows[0].initiator_coin_cost || BUDDY_PRICING.INITIATOR_COIN_COST;
+    const dynamicReward = Math.max(1, Math.round(initiatorCost * rewardPercentage));
+
+    // 3. Generate cryptographically secure 6-digit OTP
     const otpCode = crypto.randomInt(100000, 1000000).toString();
     const otpHash = hashOtp(otpCode);
     const otpEncrypted = encryptOtp(otpCode);
 
-    // 3. Atomic single UPDATE query — the core race-prevention mechanism
+    // 4. Atomic single UPDATE query — the core race-prevention mechanism
     const updateRes = await db.query(
       `UPDATE public.buddy_requests
        SET status = 'accepted',
            accepter_id = $1,
-           conversation_id = $2,
-           otp_hash = $3,
-           otp_encrypted = $4,
+           accepter_coin_reward = $2,
+           conversation_id = $3,
+           otp_hash = $4,
+           otp_encrypted = $5,
            accepted_at = NOW()
-       WHERE id = $5 AND status = 'open'
+       WHERE id = $6 AND status = 'open'
        RETURNING *`,
-      [accepterId, conversation.id, otpHash, otpEncrypted, requestId]
+      [accepterId, dynamicReward, conversation.id, otpHash, otpEncrypted, requestId]
     );
 
     if (updateRes.rows.length === 0) {
@@ -655,29 +672,38 @@ class BuddyService {
 
     const result = await db.query(query, params);
 
-    return result.rows.map(row => ({
-      id: row.id,
-      initiatorId: row.initiator_id,
-      buddyType: row.buddy_type,
-      city: row.city,
-      targetGender: row.target_gender,
-      status: row.status,
-      initiatorCoinCost: row.initiator_coin_cost,
-      accepterCoinReward: row.accepter_coin_reward,
-      createdAt: row.created_at,
-      initiator: {
-        id: row.initiator_id,
-        fullName: row.initiator_name || 'User',
-        full_name: row.initiator_name || 'User',
-        userName: row.initiator_username || null,
-        user_name: row.initiator_username || null,
-        avatarSeed: row.initiator_avatar_seed || null,
-        avatar_seed: row.initiator_avatar_seed || null,
-        avatarStyle: row.initiator_avatar_style || 'avataaars',
-        avatar_style: row.initiator_avatar_style || 'avataaars',
-        gender: row.initiator_gender || null,
-      },
-    }));
+    const isFemaleViewer = (userGender || '').toLowerCase().trim() === 'female';
+    const rewardPercentage = isFemaleViewer
+      ? BUDDY_PRICING.FEMALE_REWARD_PERCENTAGE
+      : BUDDY_PRICING.MALE_REWARD_PERCENTAGE;
+
+    return result.rows.map(row => {
+      const cost = row.initiator_coin_cost || BUDDY_PRICING.INITIATOR_COIN_COST;
+      const potentialReward = Math.max(1, Math.round(cost * rewardPercentage));
+      return {
+        id: row.id,
+        initiatorId: row.initiator_id,
+        buddyType: row.buddy_type,
+        city: row.city,
+        targetGender: row.target_gender,
+        status: row.status,
+        initiatorCoinCost: cost,
+        accepterCoinReward: row.status === 'open' ? potentialReward : (row.accepter_coin_reward || potentialReward),
+        createdAt: row.created_at,
+        initiator: {
+          id: row.initiator_id,
+          fullName: row.initiator_name || 'User',
+          full_name: row.initiator_name || 'User',
+          userName: row.initiator_username || null,
+          user_name: row.initiator_username || null,
+          avatarSeed: row.initiator_avatar_seed || null,
+          avatar_seed: row.initiator_avatar_seed || null,
+          avatarStyle: row.initiator_avatar_style || 'avataaars',
+          avatar_style: row.initiator_avatar_style || 'avataaars',
+          gender: row.initiator_gender || null,
+        },
+      };
+    });
   }
 
   /**
@@ -750,8 +776,8 @@ class BuddyService {
         completedAt: row.completed_at,
         cancelledAt: row.cancelled_at,
         conversationId: row.conversation_id,
-        initiatorCoinCost: row.initiator_coin_cost,
-        accepterCoinReward: row.accepter_coin_reward,
+        initiatorCoinCost: row.initiator_coin_cost || BUDDY_PRICING.TYPE_COIN_COSTS?.[row.buddy_type] || BUDDY_PRICING.INITIATOR_COIN_COST,
+        accepterCoinReward: row.accepter_coin_reward || Math.max(1, Math.round((row.initiator_coin_cost || BUDDY_PRICING.TYPE_COIN_COSTS?.[row.buddy_type] || 100) * (row.accepter_gender === 'female' ? BUDDY_PRICING.FEMALE_REWARD_PERCENTAGE : BUDDY_PRICING.MALE_REWARD_PERCENTAGE))),
         createdAt: row.created_at,
         isInitiator: row.initiator_id === userId,
         otpCode,

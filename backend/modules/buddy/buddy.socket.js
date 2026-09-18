@@ -1,6 +1,6 @@
 const db = require('../../db');
 const { sendMulticastPushNotification } = require('../../services/firebase.service');
-const { BUDDY_TYPES, BUDDY_LIMITS } = require('./buddy.config');
+const { BUDDY_TYPES, BUDDY_LIMITS, BUDDY_PRICING } = require('./buddy.config');
 
 /**
  * Socket.IO module for real-time Buddy Activity Requests.
@@ -91,8 +91,19 @@ async function broadcastNewBuddyRequest(io, request) {
       if (fcmRes.rows.length === 0) return;
 
       const tokens = fcmRes.rows.map(r => r.fcm_token);
+      const cost = request.initiator_coin_cost || BUDDY_PRICING.TYPE_COIN_COSTS?.[request.buddy_type] || BUDDY_PRICING.INITIATOR_COIN_COST;
+      const potentialFemaleReward = Math.max(1, Math.round(cost * (BUDDY_PRICING.FEMALE_REWARD_PERCENTAGE || 0.40)));
+      const potentialMaleReward = Math.max(1, Math.round(cost * (BUDDY_PRICING.MALE_REWARD_PERCENTAGE || 0.20)));
+
+      let rewardText = `up to ${potentialFemaleReward} Coins`;
+      if (targetGender === 'female') {
+        rewardText = `${potentialFemaleReward} Coins`;
+      } else if (targetGender === 'male') {
+        rewardText = `${potentialMaleReward} Coins`;
+      }
+
       const title = `New ${buddyInfo.title} in ${request.city}!`;
-      const body = `${request.initiator?.fullName || 'Someone'} is looking for a ${buddyInfo.title} partner. Accept & earn 50 Coins!`;
+      const body = `${request.initiator?.fullName || 'Someone'} is looking for a ${buddyInfo.title} partner. Accept & earn ${rewardText}!`;
 
       await sendMulticastPushNotification({
         tokens,
@@ -106,7 +117,7 @@ async function broadcastNewBuddyRequest(io, request) {
           city: request.city,
           initiatorName: request.initiator?.fullName || 'User',
           initiatorAvatarSeed: request.initiator?.avatarSeed || '',
-          coinReward: String(request.accepter_coin_reward || 50),
+          coinReward: String(request.accepter_coin_reward || potentialFemaleReward),
         },
       });
 

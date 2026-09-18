@@ -11,6 +11,10 @@ import 'package:buddypartner/features/subscription/domain/subscription_plan.dart
 
 class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
   Timer? _countdownTimer;
+  DateTime? _lastFetchTime;
+  SubscriptionState? _lastState;
+  Future<SubscriptionState>? _inFlightFetch;
+  static const Duration _cacheDuration = Duration(seconds: 45);
 
   @override
   Future<SubscriptionState> build() async {
@@ -18,28 +22,48 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
       _countdownTimer?.cancel();
     });
 
-    // Auto-refresh subscription state whenever socket connects
+    // Auto-refresh subscription state whenever socket connects (debounced by cache)
     ref.listen<sio.Socket?>(socketProvider, (prev, next) {
       if (next != null) {
-        reload();
+        reload(force: false);
       }
     });
 
     final authUser = ref.watch(authStateProvider).value;
     if (authUser == null) {
       _countdownTimer?.cancel();
+      _lastState = null;
+      _lastFetchTime = null;
       return const SubscriptionState(isSubscribed: false, formattedLabel: 'Not Subscribed');
     }
 
     return fetchStatus();
   }
 
-  Future<void> reload() async {
-    final newState = await fetchStatus();
+  Future<void> reload({bool force = true}) async {
+    final newState = await fetchStatus(force: force);
     state = AsyncData(newState);
   }
 
-  Future<SubscriptionState> fetchStatus() async {
+  Future<SubscriptionState> fetchStatus({bool force = false}) async {
+    final now = DateTime.now();
+    if (!force && _lastState != null && _lastFetchTime != null && now.difference(_lastFetchTime!) < _cacheDuration) {
+      return _lastState!;
+    }
+
+    if (_inFlightFetch != null) {
+      return _inFlightFetch!;
+    }
+
+    _inFlightFetch = _executeFetchStatus();
+    try {
+      return await _inFlightFetch!;
+    } finally {
+      _inFlightFetch = null;
+    }
+  }
+
+  Future<SubscriptionState> _executeFetchStatus() async {
     try {
       final apiClient = ref.read(apiClientProvider);
       final response = await apiClient.dio.get('/api/subscriptions/status');
@@ -58,6 +82,8 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
           planDays: planDays,
           hasClaimedIntroOffer: hasClaimedIntroOffer,
         );
+        _lastFetchTime = DateTime.now();
+        _lastState = statePayload;
         _startTimer();
         return statePayload;
       }
@@ -65,7 +91,7 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
       // Fail gracefully without blind timer loops; retry is handled via socket reconnect / user action
     }
 
-    return const SubscriptionState(isSubscribed: false, formattedLabel: 'Not Subscribed');
+    return _lastState ?? const SubscriptionState(isSubscribed: false, formattedLabel: 'Not Subscribed');
   }
 
   SubscriptionState _calculateTimeState({
@@ -122,7 +148,8 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
 
   void _startTimer() {
     _countdownTimer?.cancel();
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+    // Update every 60 seconds (UI displays hours/days, avoiding per-second rebuilds)
+    _countdownTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       final currentVal = state.value;
       if (currentVal == null || !currentVal.isSubscribed || currentVal.expiresAt == null) {
         _countdownTimer?.cancel();
@@ -136,7 +163,12 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
         hasClaimedIntroOffer: currentVal.hasClaimedIntroOffer,
       );
 
-      state = AsyncData(newState);
+      _lastState = newState;
+      // Only notify Riverpod listeners if the display label or subscription status actually changed
+      if (currentVal.formattedLabel != newState.formattedLabel ||
+          currentVal.isSubscribed != newState.isSubscribed) {
+        state = AsyncData(newState);
+      }
       if (!newState.isSubscribed) {
         _countdownTimer?.cancel();
       }
@@ -185,7 +217,7 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
         Future.microtask(() {
           ref.invalidate(authStateProvider);
         });
-        final updatedState = await fetchStatus();
+        final updatedState = await fetchStatus(force: true);
         state = AsyncData(updatedState);
         return true;
       }
@@ -228,7 +260,7 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
       final response = await apiClient.dio.post('/api/subscriptions/dev-expire');
 
       if (response.statusCode == 200) {
-        final updatedState = await fetchStatus();
+        final updatedState = await fetchStatus(force: true);
         state = AsyncData(updatedState);
         return true;
       }

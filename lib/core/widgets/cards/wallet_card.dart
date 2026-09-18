@@ -33,7 +33,7 @@ class WalletCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: colors.primary.withOpacity(0.2),
+            color: colors.primary.withValues(alpha: 0.2),
             blurRadius: 20,
             offset: const Offset(0, 10),
           )
@@ -50,7 +50,7 @@ class WalletCard extends StatelessWidget {
               height: 100,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: colors.primary.withOpacity(0.15),
+                color: colors.primary.withValues(alpha: 0.15),
               ),
             ),
           ),

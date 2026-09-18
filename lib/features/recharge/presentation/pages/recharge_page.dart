@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
-import 'package:buddypartner/app/theme/app_spacing.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/core/widgets/coins/app_coin_balance_card.dart';
@@ -16,19 +15,40 @@ import 'package:buddypartner/core/services/google_play_purchase_service.dart';
 /// Professional, state-of-the-art Recharge Store screen
 /// Based on Google Play In-App Billing & Option B (Base price + 18% GST) pricing model.
 class RechargePage extends ConsumerStatefulWidget {
-  const RechargePage({super.key});
+  final bool isEmbedded;
+
+  const RechargePage({
+    super.key,
+    this.isEmbedded = false,
+  });
 
   @override
   ConsumerState<RechargePage> createState() => _RechargePageState();
 }
 
-class _RechargePageState extends ConsumerState<RechargePage> {
+class _RechargePageState extends ConsumerState<RechargePage>
+    with AutomaticKeepAliveClientMixin {
   final TextEditingController _customController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   String? _selectedPlanId = 'plan_99'; // Default selected ₹99 pack
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.isEmbedded) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(dualWalletProvider.notifier).fetchWallet();
+      });
+    }
+  }
 
   @override
   void dispose() {
     _customController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -89,6 +109,7 @@ class _RechargePageState extends ConsumerState<RechargePage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     ref.listen<GooglePlayState>(googlePlayPurchaseProvider, (prev, next) {
       if (next.status == GooglePlayPurchaseStatus.success && next.successMessage != null) {
         AppSnackBar.showSuccess(context, next.successMessage!);
@@ -108,55 +129,77 @@ class _RechargePageState extends ConsumerState<RechargePage> {
 
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final balanceAsync = ref.watch(walletBalanceProvider);
-    final isBalanceLoading = balanceAsync.isLoading && balanceAsync.value == null;
-    final balance = balanceAsync.value ?? 0;
-    final plans = ref.watch(rechargePlansProvider);
+    final dualWalletAsync = ref.watch(dualWalletProvider);
+    final walletState = dualWalletAsync.value ?? const UserWalletState();
+    final isBalanceLoading = dualWalletAsync.isLoading && dualWalletAsync.value == null;
 
+    final balanceAsync = ref.watch(walletBalanceProvider);
+    final totalBalance = walletState.balance > 0 ? walletState.balance : (balanceAsync.value ?? 0);
+    final spendableBalance = walletState.spendableBalance;
+    final earnedBalance = walletState.earnedBalance;
+
+    final plans = ref.watch(rechargePlansProvider);
     final selectedPlan = _selectedPlan;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF13101E) : const Color(0xFFF9F8FD),
-      appBar: AppBar(
-        title: const Text(
-          'Coin Store',
-          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 19),
-        ),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.history_rounded),
-            tooltip: 'Wallet History',
-            onPressed: () => context.push(RouteNames.walletHistory),
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
+      backgroundColor: widget.isEmbedded
+          ? Colors.transparent
+          : (isDark ? const Color(0xFF13101E) : const Color(0xFFF9F8FD)),
+      appBar: widget.isEmbedded
+          ? null
+          : AppBar(
+              title: const Text(
+                'Coin Store',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 19),
+              ),
+              centerTitle: true,
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.history_rounded),
+                  tooltip: 'Wallet History',
+                  onPressed: () => context.push(RouteNames.walletHistory),
+                ),
+                const SizedBox(width: 4),
+              ],
+            ),
       body: SafeArea(
+        top: !widget.isEmbedded,
+        bottom: !widget.isEmbedded,
         child: Column(
           children: [
             Expanded(
               child: SingleChildScrollView(
+                controller: _scrollController,
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.space20,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── 1. Unified Live Wallet Balance Hero Card ────────────────
-                    AppCoinBalanceCard(
-                      balance: balance,
-                      isLoading: isBalanceLoading,
-                      title: 'Available Balance',
-                      subtitle: '1 Coin = ₹1 INR • Instant Delivery • 100% Secure',
-                      onHistoryPressed: () => context.push(RouteNames.walletHistory),
-                    ),
+                    if (!widget.isEmbedded) ...[
+                      // ── 1. Unified Dual-Balance Hero Card ────────────────────────
+                      AppCoinBalanceCard(
+                        totalBalance: totalBalance,
+                        spendableBalance: spendableBalance,
+                        earnedBalance: earnedBalance,
+                        isLoading: isBalanceLoading,
+                        onAddCoinsPressed: () {
+                          HapticFeedback.lightImpact();
+                          if (_scrollController.hasClients) {
+                            _scrollController.animateTo(
+                              180,
+                              duration: const Duration(milliseconds: 350),
+                              curve: Curves.easeOutCubic,
+                            );
+                          }
+                        },
+                        onEarnedPressed: () => context.push(RouteNames.withdraw),
+                      ),
+                      const SizedBox(height: 0),
+                    ],
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 0),
 
                     // ── 2. Select Coin Pack Header ───────────────────────────────
                     Row(
@@ -202,14 +245,11 @@ class _RechargePageState extends ConsumerState<RechargePage> {
                           isSelected: isSelected,
                           onTap: () {
                             HapticFeedback.selectionClick();
-                            if (_selectedPlanId == plan.id) {
-                              _showOrderSummaryBottomSheet(context, plan);
-                            } else {
-                              setState(() {
-                                _selectedPlanId = plan.id;
-                                _customController.clear();
-                              });
-                            }
+                            setState(() {
+                              _selectedPlanId = plan.id;
+                              _customController.clear();
+                            });
+                            // _showOrderSummaryBottomSheet(context, plan);
                           },
                         );
                       },
@@ -321,7 +361,7 @@ class _RechargePageState extends ConsumerState<RechargePage> {
                       // ),
                     // ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 0),
 
                     // ── 5. Trust & Security Banner ───────────────────────────────
                     Container(
@@ -364,23 +404,35 @@ class _RechargePageState extends ConsumerState<RechargePage> {
                         ],
                       ),
                     ),
-
-                    const SizedBox(height: 100), // padding for bottom bar
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
             ),
 
-            // ── 6. Bottom Sticky Checkout Action Bar ──────────────────────────
+            // ── 6. Bottom Checkout Action Bar (Anchored at Bottom of Screen) ──
             Container(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              margin: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 4,
+                bottom: widget.isEmbedded
+                    ? (6.0 + MediaQuery.of(context).padding.bottom)
+                    : (16.0 + MediaQuery.of(context).padding.bottom),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 12, 16, 12),
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF1E1A2E) : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF2C2746) : const Color(0xFFECEBF3),
+                  width: 1.2,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, -4),
+                    color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+                    blurRadius: 14,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),

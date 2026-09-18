@@ -186,6 +186,52 @@ class CustomUser {
       hasPassword: hasPassword ?? this.hasPassword,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CustomUser &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          phoneNumber == other.phoneNumber &&
+          isProfileComplete == other.isProfileComplete &&
+          gender == other.gender &&
+          fullName == other.fullName &&
+          userName == other.userName &&
+          avatarSeed == other.avatarSeed &&
+          avatarStyle == other.avatarStyle &&
+          isTelecaller == other.isTelecaller &&
+          hasClaimedIntroOffer == other.hasClaimedIntroOffer &&
+          dob == other.dob &&
+          language == other.language &&
+          country == other.country &&
+          state == other.state &&
+          city == other.city &&
+          latitude == other.latitude &&
+          longitude == other.longitude &&
+          hasPassword == other.hasPassword;
+
+  @override
+  int get hashCode => Object.hash(
+        id,
+        phoneNumber,
+        isProfileComplete,
+        gender,
+        fullName,
+        userName,
+        avatarSeed,
+        avatarStyle,
+        isTelecaller,
+        hasClaimedIntroOffer,
+        dob,
+        language,
+        country,
+        state,
+        city,
+        latitude,
+        longitude,
+        hasPassword,
+      );
 }
 
 class AuthNotifier extends AsyncNotifier<CustomUser?> {
@@ -226,7 +272,9 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
         );
 
         await apiClient.saveUserSessionJson(freshUser.toJson());
-        state = AsyncData(freshUser);
+        if (state.valueOrNull != freshUser) {
+          state = AsyncData(freshUser);
+        }
 
         // Bind user attribution to Apptrove SDK
         AppTroveService.setUser(

@@ -54,7 +54,7 @@ class AppCoinIcon extends StatelessWidget {
           ),
           child: Center(
             child: Icon(
-              Icons.monetization_on_rounded,
+              Icons.currency_rupee_rounded,
               color: Colors.white,
               size: innerIconSize,
             ),

@@ -32,7 +32,12 @@ class AppBottomNav extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 12.0, top: 4.0),
+        padding: const EdgeInsets.only(
+          left: 16.0,
+          right: 16.0,
+          bottom: 12.0,
+          top: 4.0,
+        ),
         child: Container(
           height: 64,
           decoration: BoxDecoration(
@@ -48,7 +53,7 @@ class AppBottomNav extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                color: const Color(0xFF7C5DF9).withValues(alpha: 0.12),
                 blurRadius: 20,
                 offset: const Offset(0, 6),
               ),
@@ -65,22 +70,26 @@ class AppBottomNav extends StatelessWidget {
             borderRadius: BorderRadius.circular(32),
             child: NavigationBarTheme(
               data: NavigationBarThemeData(
-                indicatorColor: const Color(0xFF2563EB),
+                indicatorColor: const Color(0xFF7C5DF9),
                 indicatorShape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
-                iconTheme: WidgetStateProperty.resolveWith<IconThemeData>((states) {
+                iconTheme: WidgetStateProperty.resolveWith<IconThemeData>((
+                  states,
+                ) {
                   if (states.contains(WidgetState.selected)) {
                     return const IconThemeData(color: Colors.white, size: 22);
                   }
                   return IconThemeData(color: colors.textSecondary, size: 22);
                 }),
-                labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>((states) {
+                labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>((
+                  states,
+                ) {
                   if (states.contains(WidgetState.selected)) {
                     return const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF2563EB),
+                      color: Color(0xFF7C5DF9),
                     );
                   }
                   return TextStyle(
@@ -93,9 +102,16 @@ class AppBottomNav extends StatelessWidget {
               child: NavigationBar(
                 selectedIndex: navSelectedIndex,
                 onDestinationSelected: (index) {
-                  final middleTab = isSubscribed ? (isFemale ? 'Withdraw' : 'Coins') : 'Plans';
-                  final tabNames = ['Home', 'Chat', middleTab, 'Favorite', 'Setting'];
-                  final tabName = index >= 0 && index < tabNames.length ? tabNames[index] : 'Tab $index';
+                  const tabNames = [
+                    'Home',
+                    'Chat',
+                    'Wallet',
+                    'Discover',
+                    'Settings',
+                  ];
+                  final tabName = index >= 0 && index < tabNames.length
+                      ? tabNames[index]
+                      : 'Tab $index';
                   AppLogger.click('Bottom Nav Tab: $tabName');
                   onTap(index);
                 },
@@ -114,7 +130,10 @@ class AppBottomNav extends StatelessWidget {
                             count: unreadChatCount,
                             backgroundColor: const Color(0xFFEF4444),
                             textColor: Colors.white,
-                            textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                            textStyle: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
                             child: const Icon(Icons.chat_bubble_outline),
                           )
                         : const Icon(Icons.chat_bubble_outline),
@@ -123,32 +142,30 @@ class AppBottomNav extends StatelessWidget {
                             count: unreadChatCount,
                             backgroundColor: const Color(0xFFEF4444),
                             textColor: Colors.white,
-                            textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                            child: const Icon(Icons.chat_bubble, color: Colors.white),
+                            textStyle: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            child: const Icon(
+                              Icons.chat_bubble,
+                              color: Colors.white,
+                            ),
                           )
                         : const Icon(Icons.chat_bubble, color: Colors.white),
                     label: 'Chat',
                   ),
-                  NavigationDestination(
-                    icon: Icon(
-                      isSubscribed
-                          ? (isFemale ? Icons.account_balance_wallet_outlined : Icons.monetization_on_outlined)
-                          : Icons.subscriptions_outlined,
-                    ),
+                  const NavigationDestination(
+                    icon: Icon(Icons.account_balance_wallet_outlined),
                     selectedIcon: Icon(
-                      isSubscribed
-                          ? (isFemale ? Icons.account_balance_wallet : Icons.currency_rupee)
-                          : Icons.subscriptions,
+                      Icons.account_balance_wallet,
                       color: Colors.white,
                     ),
-                    label: isSubscribed
-                        ? (isFemale ? 'Withdraw' : 'Wallet')
-                        : 'Plans',
+                    label: 'Wallet',
                   ),
                   const NavigationDestination(
-                    icon: Icon(Icons.favorite_border),
-                    selectedIcon: Icon(Icons.favorite, color: Colors.white),
-                    label: 'Favorite',
+                    icon: Icon(Icons.explore_outlined),
+                    selectedIcon: Icon(Icons.explore, color: Colors.white),
+                    label: 'Discover',
                   ),
                   const NavigationDestination(
                     icon: Icon(Icons.settings_outlined),

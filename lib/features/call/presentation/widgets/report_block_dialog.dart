@@ -70,21 +70,23 @@ class _ReportBlockDialogState extends ConsumerState<ReportBlockDialog> {
               style: typography.bodySmall,
             ),
             const SizedBox(height: AppSpacing.space12),
-            Column(
-              children: _reasons.map((reason) {
-                return RadioListTile<String>(
-                  title: Text(reason, style: typography.bodyMedium),
-                  value: reason,
-                  groupValue: _selectedReason,
-                  activeColor: colors.primary,
-                  contentPadding: EdgeInsets.zero,
-                  onChanged: (val) {
-                    setState(() {
-                      _selectedReason = val ?? '';
-                    });
-                  },
-                );
-              }).toList(),
+            RadioGroup<String>(
+              groupValue: _selectedReason,
+              onChanged: (val) {
+                setState(() {
+                  _selectedReason = val ?? '';
+                });
+              },
+              child: Column(
+                children: _reasons.map((reason) {
+                  return RadioListTile<String>(
+                    title: Text(reason, style: typography.bodyMedium),
+                    value: reason,
+                    activeColor: colors.primary,
+                    contentPadding: EdgeInsets.zero,
+                  );
+                }).toList(),
+              ),
             ),
             const SizedBox(height: AppSpacing.space12),
             

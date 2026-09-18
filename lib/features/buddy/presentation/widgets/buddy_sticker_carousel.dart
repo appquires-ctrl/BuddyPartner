@@ -44,10 +44,11 @@ class BuddyStickerCarousel extends ConsumerWidget {
 
     if (!context.mounted) return;
 
-    if (balance < 100) {
+    final requiredCoins = type.coinCost;
+    if (balance < requiredCoins) {
       AppSnackBar.showError(
         context,
-        'You need at least 100 coins to broadcast a buddy request. (Current balance: $balance)',
+        'You need at least $requiredCoins coin${requiredCoins == 1 ? '' : 's'} to broadcast a buddy request. (Current balance: $balance)',
       );
       context.push(RouteNames.recharge);
       return;
@@ -285,12 +286,12 @@ class BuddyStickerCarousel extends ConsumerWidget {
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
-                  AppCoinIcon(size: 9.5, withGlow: false),
-                  SizedBox(width: 2.5),
+                children: [
+                  const AppCoinIcon(size: 9.5, withGlow: false),
+                  const SizedBox(width: 2.5),
                   Text(
-                    '100',
-                    style: TextStyle(
+                    '${type.coinCost}',
+                    style: const TextStyle(
                       fontSize: 9.5,
                       fontWeight: FontWeight.w800,
                       color: Color(0xFFB45309),

@@ -34,6 +34,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
   bool _obscurePassword = true;
 
   final _phoneController = TextEditingController();
+  final _phoneFocusNode = FocusNode();
   CountryCode _selectedCountry = CountryCodes.defaultCountry;
   bool _otpSent = false;
   
@@ -49,14 +50,21 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _phoneFocusNode.addListener(_onFocusChange);
+  }
+
+  void _onFocusChange() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _phoneFocusNode.removeListener(_onFocusChange);
     _loginController.dispose();
     _passwordController.dispose();
     _phoneController.dispose();
+    _phoneFocusNode.dispose();
     for (final c in _otpControllers) {
       c.dispose();
     }
@@ -537,6 +545,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
     final typography = context.typography;
     final authState = ref.watch(authControllerProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isFocused = _phoneFocusNode.hasFocus;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -551,104 +560,136 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
         ),
         const SizedBox(height: 8),
 
-        Container(
-          height: 52,
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE2E8F0),
-              width: 1.2,
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _phoneFocusNode.requestFocus(),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            height: 54,
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isFocused
+                    ? colors.primary
+                    : (isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE2E8F0)),
+                width: isFocused ? 1.6 : 1.2,
+              ),
+              boxShadow: [
+                if (!isDark)
+                  BoxShadow(
+                    color: isFocused
+                        ? colors.primary.withValues(alpha: 0.12)
+                        : Colors.black.withValues(alpha: 0.02),
+                    blurRadius: isFocused ? 10 : 4,
+                    offset: const Offset(0, 2),
+                  ),
+              ],
             ),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Icon(
-                Icons.phone_outlined,
-                color: colors.textSecondary.withValues(alpha: 0.6),
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              GestureDetector(
-                onTap: () {
-                  CountryCodePickerModal.show(
-                    context,
-                    selectedCountry: _selectedCountry,
-                    onSelected: (country) {
-                      setState(() {
-                        _selectedCountry = country;
-                      });
-                    },
-                  );
-                },
-                child: Row(
-                  children: [
-                    Text(
-                      _selectedCountry.flag,
-                      style: const TextStyle(fontSize: 18),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _selectedCountry.code,
-                      style: typography.bodyMedium.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: colors.textPrimary,
-                        fontSize: 15.0,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.keyboard_arrow_down,
-                      color: colors.textSecondary.withValues(alpha: 0.6),
-                      size: 18,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                width: 1,
-                height: 22,
-                color: const Color(0xFFE2E8F0),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(_selectedCountry.maxLength),
-                  ],
-                  style: typography.bodyMedium.copyWith(
-                    fontSize: 15.0,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Enter whatsapp number',
-                    hintStyle: typography.bodyMedium.copyWith(
-                      color: colors.textSecondary.withValues(alpha: 0.4),
-                      fontSize: 14.5,
-                    ),
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    errorBorder: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your whatsapp number';
-                    }
-                    if (value.trim().length < 8) {
-                      return 'Please enter a valid whatsapp number';
-                    }
-                    return null;
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Country Code Picker Selector
+                InkWell(
+                  onTap: () {
+                    CountryCodePickerModal.show(
+                      context,
+                      selectedCountry: _selectedCountry,
+                      onSelected: (country) {
+                        setState(() {
+                          _selectedCountry = country;
+                        });
+                      },
+                    );
                   },
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _selectedCountry.flag,
+                          style: const TextStyle(fontSize: 20),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _selectedCountry.code,
+                          style: typography.bodyMedium.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.textPrimary,
+                            fontSize: 15.0,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: colors.textSecondary.withValues(alpha: 0.7),
+                          size: 18,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ],
+
+                // Vertical Divider
+                Container(
+                  width: 1.2,
+                  height: 24,
+                  margin: const EdgeInsets.symmetric(horizontal: 10),
+                  color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
+                ),
+
+                // Text Input Field (Vertically centered)
+                Expanded(
+                  child: Center(
+                    child: TextFormField(
+                      controller: _phoneController,
+                      focusNode: _phoneFocusNode,
+                      keyboardType: TextInputType.phone,
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _handleSendOtp(),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(_selectedCountry.maxLength),
+                      ],
+                      style: typography.bodyMedium.copyWith(
+                        fontSize: 15.0,
+                        fontWeight: FontWeight.w600,
+                        color: colors.textPrimary,
+                        letterSpacing: 0.3,
+                      ),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        isCollapsed: true,
+                        hintText: 'Enter WhatsApp number',
+                        hintStyle: typography.bodyMedium.copyWith(
+                          color: colors.textSecondary.withValues(alpha: 0.45),
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.normal,
+                          letterSpacing: 0,
+                        ),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        errorBorder: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter your whatsapp number';
+                        }
+                        if (value.trim().length < 8) {
+                          return 'Please enter a valid whatsapp number';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
 

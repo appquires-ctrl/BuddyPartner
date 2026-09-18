@@ -20,10 +20,12 @@ class _DeleteAccountBottomSheet extends ConsumerStatefulWidget {
   const _DeleteAccountBottomSheet();
 
   @override
-  ConsumerState<_DeleteAccountBottomSheet> createState() => _DeleteAccountBottomSheetState();
+  ConsumerState<_DeleteAccountBottomSheet> createState() =>
+      _DeleteAccountBottomSheetState();
 }
 
-class _DeleteAccountBottomSheetState extends ConsumerState<_DeleteAccountBottomSheet> {
+class _DeleteAccountBottomSheetState
+    extends ConsumerState<_DeleteAccountBottomSheet> {
   int _currentStep = 0; // 0 = Reason selection, 1 = Final confirmation
   String? _selectedReason;
   final TextEditingController _feedbackController = TextEditingController();
@@ -43,7 +45,7 @@ class _DeleteAccountBottomSheetState extends ConsumerState<_DeleteAccountBottomS
     (
       key: 'coins_subscription',
       title: 'Issues with coins or subscription',
-      icon: Icons.monetization_on_outlined,
+      icon: Icons.currency_rupee_rounded,
     ),
     (
       key: 'taking_break',
@@ -55,11 +57,7 @@ class _DeleteAccountBottomSheetState extends ConsumerState<_DeleteAccountBottomS
       title: 'Not getting enough matches',
       icon: Icons.people_outline_rounded,
     ),
-    (
-      key: 'other',
-      title: 'Other reason',
-      icon: Icons.edit_note_rounded,
-    ),
+    (key: 'other', title: 'Other reason', icon: Icons.edit_note_rounded),
   ];
 
   @override
@@ -77,7 +75,9 @@ class _DeleteAccountBottomSheetState extends ConsumerState<_DeleteAccountBottomS
     final reason = _selectedReason ?? 'other';
     final feedback = _feedbackController.text.trim();
 
-    final success = await ref.read(authControllerProvider.notifier).deleteAccount(
+    final success = await ref
+        .read(authControllerProvider.notifier)
+        .deleteAccount(
           reason: reason,
           feedback: feedback.isNotEmpty ? feedback : null,
         );
@@ -122,7 +122,9 @@ class _DeleteAccountBottomSheetState extends ConsumerState<_DeleteAccountBottomS
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 250),
-              child: _currentStep == 0 ? _buildReasonStep(colors) : _buildConfirmationStep(colors),
+              child: _currentStep == 0
+                  ? _buildReasonStep(colors)
+                  : _buildConfirmationStep(colors),
             ),
           ),
         ),
@@ -217,7 +219,10 @@ class _DeleteAccountBottomSheetState extends ConsumerState<_DeleteAccountBottomS
                 },
                 borderRadius: BorderRadius.circular(14),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: isSelected
                         ? colors.primary.withValues(alpha: 0.08)
@@ -235,7 +240,9 @@ class _DeleteAccountBottomSheetState extends ConsumerState<_DeleteAccountBottomS
                       Icon(
                         r.icon,
                         size: 20,
-                        color: isSelected ? colors.primary : colors.textSecondary,
+                        color: isSelected
+                            ? colors.primary
+                            : colors.textSecondary,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -243,8 +250,12 @@ class _DeleteAccountBottomSheetState extends ConsumerState<_DeleteAccountBottomS
                           r.title,
                           style: TextStyle(
                             fontSize: 13.5,
-                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                            color: isSelected ? colors.primary : colors.textPrimary,
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: isSelected
+                                ? colors.primary
+                                : colors.textPrimary,
                           ),
                         ),
                       ),
@@ -283,7 +294,9 @@ class _DeleteAccountBottomSheetState extends ConsumerState<_DeleteAccountBottomS
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: colors.border.withValues(alpha: 0.6)),
+                  borderSide: BorderSide(
+                    color: colors.border.withValues(alpha: 0.6),
+                  ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -302,13 +315,19 @@ class _DeleteAccountBottomSheetState extends ConsumerState<_DeleteAccountBottomS
                 child: OutlinedButton(
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 13),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     side: BorderSide(color: colors.border),
                   ),
-                  onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+                  onPressed: () =>
+                      Navigator.of(context, rootNavigator: true).pop(),
                   child: Text(
                     'Cancel',
-                    style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
@@ -320,7 +339,9 @@ class _DeleteAccountBottomSheetState extends ConsumerState<_DeleteAccountBottomS
                         ? const Color(0xFFDC2626)
                         : colors.border,
                     padding: const EdgeInsets.symmetric(vertical: 13),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     elevation: 0,
                   ),
                   onPressed: _selectedReason != null
@@ -331,7 +352,10 @@ class _DeleteAccountBottomSheetState extends ConsumerState<_DeleteAccountBottomS
                       : null,
                   child: const Text(
                     'Continue',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
@@ -414,26 +438,31 @@ class _DeleteAccountBottomSheetState extends ConsumerState<_DeleteAccountBottomS
             decoration: BoxDecoration(
               color: const Color(0xFFFEF2F2),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFFCA5A5).withValues(alpha: 0.4)),
+              border: Border.all(
+                color: const Color(0xFFFCA5A5).withValues(alpha: 0.4),
+              ),
             ),
             child: Column(
               children: [
                 _buildConsequenceRow(
                   icon: Icons.person_remove_rounded,
                   title: 'Profile & Photos',
-                  subtitle: 'Your profile, photos, and match history will be removed.',
+                  subtitle:
+                      'Your profile, photos, and match history will be removed.',
                 ),
                 const SizedBox(height: 10),
                 _buildConsequenceRow(
                   icon: Icons.chat_bubble_outline_rounded,
                   title: 'Chats & Messages',
-                  subtitle: 'All active conversations will be wiped immediately.',
+                  subtitle:
+                      'All active conversations will be wiped immediately.',
                 ),
                 const SizedBox(height: 10),
                 _buildConsequenceRow(
-                  icon: Icons.monetization_on_outlined,
+                  icon: Icons.currency_rupee_rounded,
                   title: 'Coins & Subscription',
-                  subtitle: 'Remaining wallet coins and active passes are forfeited.',
+                  subtitle:
+                      'Remaining wallet coins and active passes are forfeited.',
                 ),
               ],
             ),
@@ -447,7 +476,9 @@ class _DeleteAccountBottomSheetState extends ConsumerState<_DeleteAccountBottomS
                 child: OutlinedButton(
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     side: BorderSide(color: colors.border),
                   ),
                   onPressed: _isSubmitting
@@ -468,7 +499,9 @@ class _DeleteAccountBottomSheetState extends ConsumerState<_DeleteAccountBottomS
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFDC2626),
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     elevation: 0,
                   ),
                   onPressed: _isSubmitting ? null : _handleDeleteAccount,

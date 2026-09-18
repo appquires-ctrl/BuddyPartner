@@ -54,7 +54,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   void _onSearchChanged(String query) {
     _debounceTimer?.cancel();
     final trimmed = query.trim();
-    final cleanQuery = trimmed.startsWith('@') ? trimmed.substring(1).trim() : trimmed;
+    final cleanQuery = trimmed.startsWith('@')
+        ? trimmed.substring(1).trim()
+        : trimmed;
 
     if (cleanQuery.length < 2) {
       _cancelSearch('search_cancelled');
@@ -75,7 +77,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   Future<void> _performSearch(String query) async {
     // 1. Double check current input at fire time (handles rapid backspaces/edits)
     final currentRaw = _searchController.text.trim();
-    final currentClean = currentRaw.startsWith('@') ? currentRaw.substring(1).trim() : currentRaw;
+    final currentClean = currentRaw.startsWith('@')
+        ? currentRaw.substring(1).trim()
+        : currentRaw;
     if (currentClean != query || currentClean.length < 2) {
       return;
     }
@@ -95,10 +99,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       final apiClient = ref.read(apiClientProvider);
       final response = await apiClient.dio.get(
         '/api/users/search',
-        queryParameters: {
-          'query': query,
-          'limit': 20,
-        },
+        queryParameters: {'query': query, 'limit': 20},
         cancelToken: cancelToken,
       );
 
@@ -180,7 +181,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       _isRefreshing = true;
     });
     ref.invalidate(favoriteUsersProvider);
-    await ref.read(favoriteUsersProvider.future).catchError((_) => <MatchedUser>[]);
+    await ref
+        .read(favoriteUsersProvider.future)
+        .catchError((_) => <MatchedUser>[]);
     if (mounted) {
       setState(() {
         _isRefreshing = false;
@@ -195,8 +198,11 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 
     final favoriteUsersAsync = ref.watch(favoriteUsersProvider);
     final favoriteUsers = favoriteUsersAsync.value ?? const [];
-    
-    final bool showSkeleton = favoriteUsersAsync.isLoading && !favoriteUsersAsync.hasValue && _searchResults == null;
+
+    final bool showSkeleton =
+        favoriteUsersAsync.isLoading &&
+        !favoriteUsersAsync.hasValue &&
+        _searchResults == null;
 
     if (showSkeleton) {
       return const FavoritesSkeleton();
@@ -213,7 +219,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         title: Column(
           children: [
             Text(
-              'Favorites',
+              'Discover',
               style: typography.titleCard.copyWith(
                 fontWeight: FontWeight.bold,
                 fontSize: 20.0,
@@ -242,8 +248,8 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                 color: colors.surface,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: _searchErrorMessage != null 
-                      ? const Color(0xFFEF4444) 
+                  color: _searchErrorMessage != null
+                      ? const Color(0xFFEF4444)
                       : colors.border.withValues(alpha: 0.6),
                   width: 1.0,
                 ),
@@ -258,7 +264,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
               child: TextField(
                 controller: _searchController,
                 onChanged: _onSearchChanged,
-                style: typography.bodyMedium.copyWith(color: colors.textPrimary),
+                style: typography.bodyMedium.copyWith(
+                  color: colors.textPrimary,
+                ),
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
                   hintText: 'Search by @username...',
@@ -273,27 +281,36 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                   ),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
-                          icon: Icon(Icons.close_rounded, size: 18, color: colors.textSecondary),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            size: 18,
+                            color: colors.textSecondary,
+                          ),
                           onPressed: _clearSearch,
                         )
                       : null,
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 13, horizontal: 16),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 13,
+                    horizontal: 16,
+                  ),
                 ),
               ),
             ),
           ),
 
           // Main View Content (Search Results or Favorites List)
-          Expanded(
-            child: _buildBodyContent(favoriteUsers, colors, typography),
-          ),
+          Expanded(child: _buildBodyContent(favoriteUsers, colors, typography)),
         ],
       ),
     );
   }
 
-  Widget _buildBodyContent(List<MatchedUser> favoriteUsers, AppColors colors, AppTypography typography) {
+  Widget _buildBodyContent(
+    List<MatchedUser> favoriteUsers,
+    AppColors colors,
+    AppTypography typography,
+  ) {
     // 1. Loading State
     if (_isSearching) {
       return const Center(
@@ -315,7 +332,11 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.info_outline_rounded, size: 48, color: Color(0xFFEF4444)),
+              const Icon(
+                Icons.info_outline_rounded,
+                size: 48,
+                color: Color(0xFFEF4444),
+              ),
               const SizedBox(height: 16),
               Text(
                 _searchErrorMessage!,
@@ -341,7 +362,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     if (_searchResults != null) {
       if (_searchResults!.isNotEmpty) {
         return ListView.separated(
-          padding: const EdgeInsets.only(left: 24, right: 24, top: 8, bottom: 100),
+          padding: const EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 8,
+            bottom: 100,
+          ),
           physics: const AlwaysScrollableScrollPhysics(),
           itemCount: _searchResults!.length,
           separatorBuilder: (context, index) => const SizedBox(height: 16),
@@ -397,7 +423,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       color: const Color(0xFFFF4E64), // Pink/Red refresh color
       child: favoriteUsers.isNotEmpty
           ? ListView.separated(
-              padding: const EdgeInsets.only(left: 24, right: 24, top: 8, bottom: 100),
+              padding: const EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 8,
+                bottom: 100,
+              ),
               physics: const AlwaysScrollableScrollPhysics(),
               itemCount: favoriteUsers.length,
               separatorBuilder: (context, index) => const SizedBox(height: 16),
@@ -409,7 +440,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
           : SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.space24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.space24,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -419,13 +452,13 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                         size: 180,
                         primaryColor: Color(0xFFFF4E64),
                         centerCircleColor: Color(0xFFFFF2F4),
-                        icon: Icons.favorite,
+                        icon: Icons.explore_rounded,
                         iconColor: Color(0xFFFF4E64),
                       ),
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      'No Favorites Yet',
+                      'Start Discovering',
                       style: typography.titleCard.copyWith(
                         fontWeight: FontWeight.bold,
                         fontSize: 19.0,
@@ -437,7 +470,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: Text(
-                        'Start adding partners to your favorites and they will appear here!',
+                        'Search by username or discover members you can connect with!',
                         style: typography.bodySmall.copyWith(
                           color: colors.textSecondary,
                           fontSize: 13.0,

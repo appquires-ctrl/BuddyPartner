@@ -318,9 +318,9 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                                                 children: [
                                                   const AppCoinIcon(size: 12),
                                                   const SizedBox(width: 3),
-                                                  const Text(
-                                                    '+50',
-                                                    style: TextStyle(
+                                                  Text(
+                                                    '+${req.accepterCoinReward}',
+                                                    style: const TextStyle(
                                                       fontSize: 10.5,
                                                       fontWeight: FontWeight.bold,
                                                       color: Color(0xFF065F46),

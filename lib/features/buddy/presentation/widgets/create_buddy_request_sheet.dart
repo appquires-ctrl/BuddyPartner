@@ -184,11 +184,12 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
   Future<void> _submitRequest() async {
     if (_isSubmitting) return;
 
+    final requiredCoins = widget.buddyType.coinCost;
     final currentCoins = ref.read(walletBalanceProvider).value ?? 0;
-    if (currentCoins < 100) {
+    if (currentCoins < requiredCoins) {
       AppSnackBar.showError(
         context,
-        'Insufficient balance: 100 coins required (current balance: $currentCoins coins). Please recharge your wallet.',
+        'Insufficient balance: $requiredCoins coin${requiredCoins == 1 ? '' : 's'} required (current balance: $currentCoins coins). Please recharge your wallet.',
       );
       return;
     }
@@ -475,7 +476,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
                     const AppCoinIcon(size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      'Cost: 100 Coins',
+                      'Cost: ${type.coinCost} Coin${type.coinCost == 1 ? '' : 's'}',
                       style: typography.bodyMedium.copyWith(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -503,7 +504,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
                 const SizedBox(height: 8),
                 Text(
                   '• The first person in $_selectedCity to accept will unlock chat with you immediately.\n'
-                  '• When you meet in person, share your 6-digit verification code with your buddy to grant them their 50 🪙 reward.',
+                  '• When you meet in person, share your 6-digit verification code with your buddy.',
                   style: const TextStyle(
                     fontSize: 11.5,
                     color: Color(0xFF78350F),
@@ -536,7 +537,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
                         const AppCoinIcon(size: 18),
                         const SizedBox(width: 8),
                         Text(
-                          'Broadcast Request (100 Coins)',
+                          'Broadcast Request (${type.coinCost} Coin${type.coinCost == 1 ? '' : 's'})',
                           style: typography.bodyMedium.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,

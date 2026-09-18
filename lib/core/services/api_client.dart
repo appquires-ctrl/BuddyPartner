@@ -29,6 +29,8 @@ class ApiClient {
   static const _refreshTokenKey = 'refresh_token';
   static const _userSessionKey = 'cached_user_session';
   static String? _cachedAppVersion;
+  static String? _cachedToken;
+  static String? _cachedRefreshToken;
   bool _isRefreshing = false;
 
   /// Cache app version once at startup to prevent native platform-channel delays on every API call.
@@ -161,6 +163,11 @@ class ApiClient {
           if (err.response?.statusCode == 401 && 
               !err.requestOptions.path.contains('/api/auth/otp/verify') &&
               !err.requestOptions.path.contains('/api/auth/refresh')) {
+            final curRefreshToken = await getRefreshToken();
+            if (curRefreshToken == null || curRefreshToken.isEmpty) {
+              return handler.next(err);
+            }
+
             if (!_isRefreshing) {
               _isRefreshing = true;
               try {
@@ -173,6 +180,14 @@ class ApiClient {
                   opts.headers['Authorization'] = 'Bearer $newToken';
                   final cloneReq = await dio.fetch(opts);
                   return handler.resolve(cloneReq);
+                } else {
+                  // Refresh token was invalid or rejected by server: clear tokens and session
+                  await clearTokens();
+                  if (_ref != null) {
+                    try {
+                      await _ref.read(authStateProvider.notifier).clearSession();
+                    } catch (_) {}
+                  }
                 }
               } catch (_) {
                 _isRefreshing = false;
@@ -199,41 +214,56 @@ class ApiClient {
     );
   }
 
-  /// Write access and refresh tokens to platform secure storage
+  /// Write access and refresh tokens to platform secure storage and in-memory cache
   Future<void> saveTokens({required String token, required String refreshToken}) async {
+    _cachedToken = token;
+    _cachedRefreshToken = refreshToken;
     try {
       await _secureStorage.write(key: _tokenKey, value: token);
       await _secureStorage.write(key: _refreshTokenKey, value: refreshToken);
     } catch (_) {}
   }
 
-  /// Write access JWT token to platform secure storage
+  /// Write access JWT token to platform secure storage and in-memory cache
   Future<void> saveToken(String token) async {
+    _cachedToken = token;
     try {
       await _secureStorage.write(key: _tokenKey, value: token);
     } catch (_) {}
   }
 
-  /// Read Access JWT token from platform secure storage
+  /// Read Access JWT token from in-memory cache first, falling back to secure storage
   Future<String?> getToken() async {
+    if (_cachedToken != null && _cachedToken!.isNotEmpty) {
+      return _cachedToken;
+    }
     try {
-      return await _secureStorage.read(key: _tokenKey);
+      final token = await _secureStorage.read(key: _tokenKey);
+      _cachedToken = token;
+      return token;
     } catch (e) {
       try {
         await _secureStorage.deleteAll();
       } catch (_) {}
+      _cachedToken = null;
       return null;
     }
   }
 
-  /// Read Refresh token from platform secure storage
+  /// Read Refresh token from in-memory cache first, falling back to secure storage
   Future<String?> getRefreshToken() async {
+    if (_cachedRefreshToken != null && _cachedRefreshToken!.isNotEmpty) {
+      return _cachedRefreshToken;
+    }
     try {
-      return await _secureStorage.read(key: _refreshTokenKey);
+      final token = await _secureStorage.read(key: _refreshTokenKey);
+      _cachedRefreshToken = token;
+      return token;
     } catch (e) {
       try {
         await _secureStorage.deleteAll();
       } catch (_) {}
+      _cachedRefreshToken = null;
       return null;
     }
   }
@@ -263,8 +293,10 @@ class ApiClient {
     } catch (_) {}
   }
 
-  /// Delete both tokens & user session from platform secure storage (logout)
+  /// Delete both tokens & user session from platform secure storage and clear in-memory cache (logout)
   Future<void> deleteTokens() async {
+    _cachedToken = null;
+    _cachedRefreshToken = null;
     try {
       await _secureStorage.delete(key: _tokenKey);
       await _secureStorage.delete(key: _refreshTokenKey);

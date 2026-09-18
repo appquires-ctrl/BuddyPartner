@@ -299,6 +299,7 @@ class GooglePlayPurchaseNotifier extends StateNotifier<GooglePlayState> {
 
         // Invalidate and refresh wallet & subscription providers
         _ref.invalidate(walletBalanceProvider);
+        _ref.invalidate(dualWalletProvider);
         _ref.read(subscriptionStatusProvider.notifier).reload();
 
         final isCoin = data['purchaseType'] == 'inapp';

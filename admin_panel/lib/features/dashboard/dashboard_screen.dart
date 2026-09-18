@@ -132,7 +132,7 @@ class DashboardScreen extends ConsumerWidget {
                         value: '🪙 ${formatter.format(coinsRecharged)}',
                         trendLabel: 'Revenue Proxy',
                         subtitle: 'In-app purchases',
-                        icon: Icons.monetization_on_rounded,
+                        icon: Icons.currency_rupee_rounded,
                         iconColor: const Color(0xFFF59E0B),
                         iconBgColor: const Color(0xFFFEF3C7),
                       ),

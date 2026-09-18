@@ -229,8 +229,8 @@ async function runTests() {
     const accepterBalanceAfter = Number((await db.query('SELECT earned_balance FROM public.wallets WHERE user_id = $1', [candidateAccepterIds[0]])).rows[0].earned_balance);
     console.log(`   Accepter balance after OTP: ${accepterBalanceAfter}`);
 
-    if (accepterBalanceAfter - accepterBalanceBefore !== BUDDY_PRICING.ACCEPTER_COIN_REWARD) {
-      throw new Error(`Expected reward of ${BUDDY_PRICING.ACCEPTER_COIN_REWARD}, got ${accepterBalanceAfter - accepterBalanceBefore}`);
+    if (accepterBalanceAfter - accepterBalanceBefore !== verifyRes.rewardCoins) {
+      throw new Error(`Expected reward of ${verifyRes.rewardCoins}, got ${accepterBalanceAfter - accepterBalanceBefore}`);
     }
 
     // Verify conversation row exists and is valid

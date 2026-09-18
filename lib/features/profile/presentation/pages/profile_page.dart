@@ -184,30 +184,17 @@ class ProfilePage extends ConsumerWidget {
                   children: [
                     _buildSettingsTile(
                       context,
-                      icon: (currentUser?.isFemale ?? false)
-                          ? Icons.payments_outlined
-                          : Icons.account_balance_wallet_outlined,
-                      iconBgColor: (currentUser?.isFemale ?? false)
-                          ? const Color(0xFFE8F8F0)
-                          : const Color(0xFFFFF7EA),
-                      iconColor: (currentUser?.isFemale ?? false)
-                          ? const Color(0xFF10B981)
-                          : const Color(0xFFF59E0B),
-                      title: (currentUser?.isFemale ?? false)
-                          ? 'Earnings & Withdraw'
-                          : 'Wallet & Coins',
-                      subtitle: (currentUser?.isFemale ?? false)
-                          ? 'Withdraw earnings to UPI / Bank'
-                          : 'Recharge coins & view balance',
-                    
+                      icon: Icons.person_outline,
+                      iconBgColor: const Color(0xFFEFEAFF),
+                      iconColor: const Color(0xFF6B4EFF),
+                      title: 'Account',
+                      subtitle: 'Manage your profile',
                       onTap: () {
-                        context.push((currentUser?.isFemale ?? false)
-                            ? RouteNames.withdraw
-                            : RouteNames.recharge);
+                        context.push(RouteNames.account);
                       },
                     ),
                     _buildDivider(context),
-                    _buildSettingsTile(
+                     _buildSettingsTile(
                       context,
                       icon: Icons.card_membership_outlined,
                       iconBgColor: const Color(0xFFF5E6FF),
@@ -221,28 +208,30 @@ class ProfilePage extends ConsumerWidget {
                     _buildDivider(context),
                     _buildSettingsTile(
                       context,
-                      icon: Icons.person_outline,
-                      iconBgColor: const Color(0xFFEFEAFF),
-                      iconColor: const Color(0xFF6B4EFF),
-                      title: 'Account',
-                      subtitle: 'Manage your profile',
+                      icon: Icons.receipt_long_outlined,
+                      iconBgColor: const Color(0xFFEAF5FF),
+                      iconColor: const Color(0xFF3B82F6),
+                      title: 'Membership History',
+                      subtitle: 'View your membership payments',
                       onTap: () {
-                        context.push(RouteNames.account);
+                        context.push(RouteNames.subscriptionHistory);
                       },
                     ),
                     _buildDivider(context),
                     _buildSettingsTile(
                       context,
-                      icon: Icons.phone_outlined,
-                      iconBgColor: const Color(0xFFE8F8F0),
-                      iconColor: const Color(0xFF22C55E),
-                      title: 'Call History',
-                      subtitle: 'View your recent calls',
+                      icon: Icons.account_balance_wallet_outlined,
+                      iconBgColor: const Color(0xFFEFEAFF),
+                      iconColor: const Color(0xFF7C5DF9),
+                      title: 'Wallet & Payouts',
+                      subtitle: (currentUser?.isFemale ?? false)
+                          ? 'Withdraw earnings & buy coins'
+                          : 'Recharge coins & withdraw earnings',
                       onTap: () {
-                        context.push(RouteNames.history);
+                        context.push(RouteNames.recharge);
                       },
                     ),
-                    _buildDivider(context),
+                     _buildDivider(context),
                     _buildSettingsTile(
                       context,
                       icon: Icons.account_balance_wallet_outlined,
@@ -257,13 +246,13 @@ class ProfilePage extends ConsumerWidget {
                     _buildDivider(context),
                     _buildSettingsTile(
                       context,
-                      icon: Icons.receipt_long_outlined,
-                      iconBgColor: const Color(0xFFEAF5FF),
-                      iconColor: const Color(0xFF3B82F6),
-                      title: 'Membership History',
-                      subtitle: 'View your membership payments',
+                      icon: Icons.phone_outlined,
+                      iconBgColor: const Color(0xFFE8F8F0),
+                      iconColor: const Color(0xFF22C55E),
+                      title: 'Call History',
+                      subtitle: 'View your recent calls',
                       onTap: () {
-                        context.push(RouteNames.subscriptionHistory);
+                        context.push(RouteNames.history);
                       },
                     ),
                   ],

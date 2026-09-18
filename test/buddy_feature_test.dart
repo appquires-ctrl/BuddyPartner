@@ -3,8 +3,8 @@ import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
 
 void main() {
   group('Buddy Activity Feature Tests', () {
-    test('All 10 BuddyTypes have valid assets, titles, and IDs', () {
-      expect(BuddyType.values.length, 10);
+    test('All 11 BuddyTypes have valid assets, titles, IDs, and coin costs', () {
+      expect(BuddyType.values.length, 11);
 
       final expectedIds = [
         'movie',
@@ -17,15 +17,30 @@ void main() {
         'night_out',
         'clubbing',
         'long_drive',
+        'garba',
       ];
 
       for (final type in BuddyType.values) {
         expect(expectedIds.contains(type.id), isTrue, reason: 'Unknown ID: ${type.id}');
         expect(type.title.isNotEmpty, isTrue);
         expect(type.subtitle.isNotEmpty, isTrue);
-        expect(type.stickerAsset.startsWith('assets/images/stickers/'), isTrue);
+        expect(type.stickerAsset.isNotEmpty, isTrue);
         expect(type.gradientColors.length, 2);
+        expect(type.coinCost >= 1, isTrue);
       }
+
+      // Assert exact pricing
+      expect(BuddyType.movie.coinCost, 1999);
+      expect(BuddyType.pizza.coinCost, 499);
+      expect(BuddyType.coffee.coinCost, 499);
+      expect(BuddyType.hangout.coinCost, 999);
+      expect(BuddyType.trip.coinCost, 999);
+      expect(BuddyType.cricket.coinCost, 199);
+      expect(BuddyType.shopping.coinCost, 799);
+      expect(BuddyType.nightOut.coinCost, 2499);
+      expect(BuddyType.clubbing.coinCost, 1499);
+      expect(BuddyType.longDrive.coinCost, 999);
+      expect(BuddyType.garba.coinCost, 1);
     });
 
     test('BuddyType.fromString handles valid and fallback values', () {

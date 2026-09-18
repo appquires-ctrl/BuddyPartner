@@ -46,9 +46,9 @@ class _IncomingPaidCallsBannerState extends ConsumerState<IncomingPaidCallsBanne
     return AnimatedContainer(
       duration: const Duration(milliseconds: 350),
       curve: Curves.easeInOut,
-      margin: const EdgeInsets.only(bottom: 16,top: 16),
+      margin: const EdgeInsets.only(bottom: 0,top: 16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(12),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

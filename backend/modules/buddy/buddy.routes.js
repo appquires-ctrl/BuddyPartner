@@ -224,7 +224,7 @@ router.post(['/requests/:id/complete', '/requests/:id/verify-otp', '/verify-otp'
       earnedBalance: result.earnedBalance,
       spendableBalance: result.spendableBalance,
       balance: result.balance,
-      message: 'Meetup verified successfully! 50 earned coins credited.',
+      message: `Meetup verified successfully! ${result.rewardCoins} earned coins credited.`,
     });
   } catch (err) {
     console.error(`❌ Error in POST complete buddy request:`, err.message);

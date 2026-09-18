@@ -97,7 +97,8 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
     _particles = List.generate(55, (index) {
       final angle = rand.nextDouble() * math.pi * 2;
       final speed = 80 + rand.nextDouble() * 220;
-      final particleType = _ParticleType.values[rand.nextInt(_ParticleType.values.length)];
+      final particleType =
+          _ParticleType.values[rand.nextInt(_ParticleType.values.length)];
       return _ConfettiParticle(
         color: colors[rand.nextInt(colors.length)],
         angle: angle,
@@ -130,15 +131,24 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
   }
 
   void _addScratchPoint(Offset pos, Size cardSize) {
-    if (pos.dx < 0 || pos.dx > cardSize.width || pos.dy < 0 || pos.dy > cardSize.height) {
+    if (pos.dx < 0 ||
+        pos.dx > cardSize.width ||
+        pos.dy < 0 ||
+        pos.dy > cardSize.height) {
       return;
     }
 
     _scratchPoints.add(pos);
 
     // Calculate grid cell
-    final cellX = (pos.dx / (cardSize.width / _gridCols)).floor().clamp(0, _gridCols - 1);
-    final cellY = (pos.dy / (cardSize.height / _gridRows)).floor().clamp(0, _gridRows - 1);
+    final cellX = (pos.dx / (cardSize.width / _gridCols)).floor().clamp(
+      0,
+      _gridCols - 1,
+    );
+    final cellY = (pos.dy / (cardSize.height / _gridRows)).floor().clamp(
+      0,
+      _gridRows - 1,
+    );
     _scratchedGridCells.add(cellY * _gridCols + cellX);
 
     // Provide light haptic on active scratching
@@ -166,8 +176,14 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
 
     // Intense celebratory haptic sequence
     HapticFeedback.heavyImpact();
-    Future.delayed(const Duration(milliseconds: 120), () => HapticFeedback.mediumImpact());
-    Future.delayed(const Duration(milliseconds: 240), () => HapticFeedback.lightImpact());
+    Future.delayed(
+      const Duration(milliseconds: 120),
+      () => HapticFeedback.mediumImpact(),
+    );
+    Future.delayed(
+      const Duration(milliseconds: 240),
+      () => HapticFeedback.lightImpact(),
+    );
 
     // Run burst animations
     _cardPopController.forward(from: 0.0);
@@ -245,10 +261,7 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF1E1535),
-                  Color(0xFF130E24),
-                ],
+                colors: [Color(0xFF1E1535), Color(0xFF130E24)],
               ),
               borderRadius: BorderRadius.circular(30),
               border: Border.all(
@@ -259,8 +272,11 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: (_isRevealed ? const Color(0xFFFFB300) : const Color(0xFF7C6AEF))
-                      .withValues(alpha: 0.35),
+                  color:
+                      (_isRevealed
+                              ? const Color(0xFFFFB300)
+                              : const Color(0xFF7C6AEF))
+                          .withValues(alpha: 0.35),
                   blurRadius: 30,
                   spreadRadius: 2,
                   offset: const Offset(0, 8),
@@ -272,7 +288,10 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
               children: [
                 // Top Tag Pill
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF8B5CF6), Color(0xFFD946EF)],
@@ -289,9 +308,10 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-              
                       Text(
-                        _isRevealed ? 'REWARD UNLOCKED' : '🎁 10-MIN CALL REWARD',
+                        _isRevealed
+                            ? 'REWARD UNLOCKED'
+                            : '🎁 10-MIN CALL REWARD',
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w900,
@@ -334,12 +354,11 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
                   animation: _cardPopController,
                   builder: (context, child) {
                     final scale = _isRevealed
-                        ? 1.0 + math.sin(_cardPopController.value * math.pi) * 0.08
+                        ? 1.0 +
+                              math.sin(_cardPopController.value * math.pi) *
+                                  0.08
                         : 1.0;
-                    return Transform.scale(
-                      scale: scale,
-                      child: child,
-                    );
+                    return Transform.scale(scale: scale, child: child);
                   },
                   child: Container(
                     width: cardSize.width,
@@ -381,9 +400,11 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
                                   top: -15,
                                   right: -15,
                                   child: Icon(
-                                    Icons.monetization_on_rounded,
+                                    Icons.currency_rupee_rounded,
                                     size: 90,
-                                    color: const Color(0xFFFFB300).withValues(alpha: 0.15),
+                                    color: const Color(
+                                      0xFFFFB300,
+                                    ).withValues(alpha: 0.15),
                                   ),
                                 ),
                                 Positioned(
@@ -392,7 +413,9 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
                                   child: Icon(
                                     Icons.stars_rounded,
                                     size: 80,
-                                    color: const Color(0xFFFFB300).withValues(alpha: 0.15),
+                                    color: const Color(
+                                      0xFFFFB300,
+                                    ).withValues(alpha: 0.15),
                                   ),
                                 ),
 
@@ -413,13 +436,20 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
                                     ),
                                     const SizedBox(height: 2),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 2,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF2E7D32).withValues(alpha: 0.12),
+                                        color: const Color(
+                                          0xFF2E7D32,
+                                        ).withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(10),
                                       ),
                                       child: Text(
-                                        _isClaimed ? '✓ Added to Wallet (₹$reward)' : '≈ ₹$reward Real Cash',
+                                        _isClaimed
+                                            ? '✓ Added to Wallet (₹$reward)'
+                                            : '≈ ₹$reward Real Cash',
                                         style: const TextStyle(
                                           color: Color(0xFF2E7D32),
                                           fontSize: 11,
@@ -436,8 +466,10 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
                           // 2. Interactive Scratchable Foil Mask Layer
                           if (!_isRevealed)
                             GestureDetector(
-                              onPanStart: (details) => _onPanStart(details, cardSize),
-                              onPanUpdate: (details) => _onPanUpdate(details, cardSize),
+                              onPanStart: (details) =>
+                                  _onPanStart(details, cardSize),
+                              onPanUpdate: (details) =>
+                                  _onPanUpdate(details, cardSize),
                               onTap: _triggerCelebrationReveal,
                               child: AnimatedBuilder(
                                 animation: _shimmerController,
@@ -465,20 +497,30 @@ class _ScratchCardDialogState extends ConsumerState<ScratchCardDialog>
                   child: ElevatedButton(
                     onPressed: !_isRevealed
                         ? _triggerCelebrationReveal
-                        : () => Navigator.of(context, rootNavigator: true).pop(),
+                        : () =>
+                              Navigator.of(context, rootNavigator: true).pop(),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _isRevealed ? const Color(0xFF10B981) : const Color(0xFF8B5CF6),
+                      backgroundColor: _isRevealed
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFF8B5CF6),
                       foregroundColor: Colors.white,
                       elevation: 6,
-                      shadowColor: (_isRevealed ? const Color(0xFF10B981) : const Color(0xFF8B5CF6))
-                          .withValues(alpha: 0.4),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shadowColor:
+                          (_isRevealed
+                                  ? const Color(0xFF10B981)
+                                  : const Color(0xFF8B5CF6))
+                              .withValues(alpha: 0.4),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          _isRevealed ? Icons.check_circle_rounded : Icons.auto_awesome_rounded,
+                          _isRevealed
+                              ? Icons.check_circle_rounded
+                              : Icons.auto_awesome_rounded,
                           size: 18,
                         ),
                         const SizedBox(width: 8),
@@ -551,10 +593,7 @@ class _ConfettiBurstPainter extends CustomPainter {
   final double progress;
   final List<_ConfettiParticle> particles;
 
-  _ConfettiBurstPainter({
-    required this.progress,
-    required this.particles,
-  });
+  _ConfettiBurstPainter({required this.progress, required this.particles});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -582,8 +621,15 @@ class _ConfettiBurstPainter extends CustomPainter {
 
       switch (p.type) {
         case _ParticleType.ribbon:
-          final rect = Rect.fromCenter(center: Offset.zero, width: p.size * 1.5, height: p.size * 0.6);
-          canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(2)), paint);
+          final rect = Rect.fromCenter(
+            center: Offset.zero,
+            width: p.size * 1.5,
+            height: p.size * 0.6,
+          );
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(rect, const Radius.circular(2)),
+            paint,
+          );
           break;
 
         case _ParticleType.circle:
@@ -717,17 +763,20 @@ class _ScratchFoilPainter extends CustomPainter {
 
     // Dynamic metallic shine beam
     final shinePaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.transparent,
-          Colors.white.withValues(alpha: 0.25),
-          Colors.white.withValues(alpha: 0.45),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.45, 0.55, 1.0],
-      ).createShader(Rect.fromLTWH(shimmerShift, 0, size.width * 0.8, size.height));
+      ..shader =
+          LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.transparent,
+              Colors.white.withValues(alpha: 0.25),
+              Colors.white.withValues(alpha: 0.45),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.45, 0.55, 1.0],
+          ).createShader(
+            Rect.fromLTWH(shimmerShift, 0, size.width * 0.8, size.height),
+          );
 
     canvas.drawRRect(
       RRect.fromRectAndRadius(foilRect, const Radius.circular(22)),

@@ -74,7 +74,7 @@ class _AccepterOtpDialogState extends ConsumerState<AccepterOtpDialog> {
 
       AppSnackBar.showSuccess(
         context,
-        'Meetup verified! +50 coins added to your wallet.',
+        'Meetup verified! +${widget.request.accepterCoinReward} coins added to your wallet.',
       );
 
 
@@ -241,7 +241,7 @@ class _AccepterOtpDialogState extends ConsumerState<AccepterOtpDialog> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    '+50 Coins reward will be credited immediately upon OTP verification!',
+                    '+${widget.request.accepterCoinReward} Coins reward will be credited immediately upon OTP verification!',
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
@@ -386,7 +386,7 @@ class _AccepterOtpDialogState extends ConsumerState<AccepterOtpDialog> {
                         const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          'Verify Meetup (+50 🪙)',
+                          'Verify Meetup (+${widget.request.accepterCoinReward} 🪙)',
                           style: typography.bodyMedium.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,

@@ -29,6 +29,7 @@ import 'package:buddypartner/features/home/presentation/widgets/instant_connect_
 import 'package:buddypartner/features/home/presentation/widgets/incoming_paid_calls_banner.dart';
 import 'package:buddypartner/features/chat/application/presence_provider.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/buddy_sticker_carousel.dart';
+import 'package:buddypartner/features/buddy/presentation/widgets/garba_buddy_banner.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/active_buddy_status_banner.dart';
 import 'package:buddypartner/features/buddy/application/buddy_controller.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
@@ -900,7 +901,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                           ),
                       ],
                 const ActiveBuddyStatusBanner(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 0),
+                const GarbaBuddyBanner(),
+                const SizedBox(height: 0),
                 const BuddyStickerCarousel(),
                 const SizedBox(height: 17),
 
@@ -1079,10 +1082,14 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
   bool _isFetchingLocation = false;
   String? _localCity;
 
+  DateTime? _lastResumeLocationSync;
+  static const Duration _resumeLocationCooldown = Duration(minutes: 5);
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _lastResumeLocationSync = DateTime.now();
     _checkPermission();
   }
 
@@ -1095,7 +1102,11 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _checkPermission();
+      final now = DateTime.now();
+      if (_lastResumeLocationSync == null || now.difference(_lastResumeLocationSync!) > _resumeLocationCooldown) {
+        _lastResumeLocationSync = now;
+        _checkPermission();
+      }
     }
   }
 

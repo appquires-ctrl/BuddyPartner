@@ -162,9 +162,13 @@ class NotificationService {
   }
 
   String? get fcmToken => _fcmToken;
+  String? _lastSyncedToken;
+  String? _lastSyncedUserId;
+  DateTime? _lastTokenSyncTime;
+  static const Duration _minTokenSyncInterval = Duration(minutes: 5);
 
   /// Sends device FCM token to backend for push notification routing
-  Future<void> syncTokenWithBackend(WidgetRef ref, [String? token]) async {
+  Future<void> syncTokenWithBackend(WidgetRef ref, [String? token, bool force = false]) async {
     final tokenToSync = token ?? _fcmToken;
     if (tokenToSync == null || tokenToSync.isEmpty) return;
 
@@ -177,11 +181,25 @@ class NotificationService {
         return;
       }
 
+      final now = DateTime.now();
+      if (!force &&
+          _lastSyncedUserId == authUser.id &&
+          _lastSyncedToken == tokenToSync &&
+          _lastTokenSyncTime != null &&
+          now.difference(_lastTokenSyncTime!) < _minTokenSyncInterval) {
+        // Skip redundant sync: identical token already registered recently
+        return;
+      }
+
       final apiClient = ref.read(apiClientProvider);
       await apiClient.dio.post(
         '/api/auth/fcm-token',
         data: {'fcmToken': tokenToSync},
       );
+
+      _lastSyncedUserId = authUser.id;
+      _lastSyncedToken = tokenToSync;
+      _lastTokenSyncTime = DateTime.now();
 
       if (kDebugMode) {
         debugPrint('🔔 [FCM] Token successfully registered with server for user ${authUser.id}');

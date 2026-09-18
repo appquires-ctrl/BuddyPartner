@@ -412,7 +412,7 @@ class _MyBuddyActivityPageState extends ConsumerState<MyBuddyActivityPage>
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  isInitiator ? 'OTP Ready' : '+50 Coins',
+                  isInitiator ? 'OTP Ready' : '+${request.accepterCoinReward} Coins',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,

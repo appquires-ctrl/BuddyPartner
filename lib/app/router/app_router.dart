@@ -31,9 +31,8 @@ import 'package:buddypartner/features/legal/presentation/pages/legal_document_pa
 import 'package:buddypartner/features/legal/data/legal_document_content.dart';
 import 'package:buddypartner/features/wallet/presentation/pages/transaction_history_page.dart';
 import 'package:buddypartner/features/wallet/presentation/pages/wallet_history_page.dart';
-import 'package:buddypartner/features/recharge/presentation/pages/recharge_page.dart';
 import 'package:buddypartner/features/recharge/presentation/pages/dev_recharge_page.dart';
-import 'package:buddypartner/features/withdraw/presentation/pages/withdraw_page.dart';
+import 'package:buddypartner/features/wallet/presentation/pages/wallet_hub_page.dart';
 import 'package:buddypartner/features/auth/presentation/pages/banned_screen.dart';
 import 'package:buddypartner/core/widgets/layout/app_bottom_nav.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
@@ -300,12 +299,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteNames.recharge,
         name: 'RechargePage',
-        builder: (context, state) => const RechargePage(),
+        builder: (context, state) => const WalletHubPage(initialTab: WalletHubTab.recharge),
       ),
       GoRoute(
         path: RouteNames.withdraw,
         name: 'WithdrawPage',
-        builder: (context, state) => const WithdrawPage(),
+        builder: (context, state) => const WalletHubPage(initialTab: WalletHubTab.withdraw),
       ),
       GoRoute(
         path: RouteNames.subscribe,
@@ -439,29 +438,12 @@ final routerProvider = Provider<GoRouter>((ref) {
 });
 
 /// Dynamic Tab 3 router widget:
-/// If the user has an active subscription:
-///   - Female: Withdraw Page
-///   - Male: Coin / Recharge Page
-/// Else:
-///   - Subscription Plans Page
-class DynamicPlansOrWalletTab extends ConsumerWidget {
+/// Renders the Unified Wallet Hub (Buy Coins & Withdraw) for all users.
+class DynamicPlansOrWalletTab extends StatelessWidget {
   const DynamicPlansOrWalletTab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final subState = ref.watch(subscriptionStatusProvider).value;
-    final isSubscribed = subState?.isSubscribed ?? false;
-    final currentUser = ref.watch(authStateProvider).value;
-    final isFemale = currentUser?.isFemale ?? false;
-
-    if (isSubscribed) {
-      if (isFemale) {
-        return const WithdrawPage();
-      } else {
-        return const RechargePage();
-      }
-    }
-
-    return const SubscribePage();
+  Widget build(BuildContext context) {
+    return const WalletHubPage();
   }
 }
