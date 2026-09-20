@@ -5,7 +5,6 @@ import 'package:buddypartner/features/auth/presentation/pages/signup_page.dart';
 void main() {
   group('CustomUser & Auth Profile Completeness Regression Tests (B3 + Username)', () {
     final testDob = DateTime.parse('2000-05-15T00:00:00.000Z');
-
     final sampleBackendUserPayload = <String, dynamic>{
       'id': 'user_uuid_12345',
       'countryCode': '91',
@@ -227,6 +226,12 @@ void main() {
       expect(SignupPage.validateUsernameFormat('support'), equals('it already exist fix it'));
       expect(SignupPage.validateUsernameFormat('buddypartner'), equals('it already exist fix it'));
       expect(SignupPage.validateUsernameFormat('null'), equals('it already exist fix it'));
+    });
+
+    test('rejects purely numeric usernames', () {
+      expect(SignupPage.validateUsernameFormat('12345678'), equals('Username cannot consist solely of numbers'));
+      expect(SignupPage.validateUsernameFormat('9876543210'), equals('Username cannot consist solely of numbers'));
+      expect(SignupPage.validateUsernameFormat('99999'), equals('Username cannot consist solely of numbers'));
     });
 
     test('accepts valid usernames', () {

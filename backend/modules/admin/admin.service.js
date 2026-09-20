@@ -12,15 +12,7 @@ class AdminService {
    */
   async initAdminConfig() {
     try {
-      await db.query(`
-        CREATE TABLE IF NOT EXISTS public.admin_config (
-          id INTEGER PRIMARY KEY DEFAULT 1,
-          password_hash TEXT NOT NULL,
-          CONSTRAINT single_row CHECK (id = 1)
-        );
-      `);
-
-      const checkRes = await db.query('SELECT * FROM public.admin_config WHERE id = 1');
+      const checkRes = await db.query('SELECT id FROM public.admin_config WHERE id = 1');
       if (checkRes.rows.length === 0) {
         const defaultHash = bcrypt.hashSync('admin123', 10);
         await db.query(
@@ -28,11 +20,9 @@ class AdminService {
           [defaultHash]
         );
         console.log('✅ Admin config initialized with default hash for "admin123".');
-      } else {
-        console.log('✅ Admin config table verified.');
       }
     } catch (err) {
-      console.error('❌ Failed to initialize admin_config table:', err.message);
+      console.error('❌ Failed to verify admin_config:', err.message);
     }
   }
 
@@ -48,7 +38,7 @@ class AdminService {
       if (res.rows.length === 0) return false;
 
       const storedHash = res.rows[0].password_hash;
-      return bcrypt.compareSync(password, storedHash);
+      return await bcrypt.compare(password, storedHash);
     } catch (err) {
       console.error('Error verifying admin password:', err.message);
       return false;
@@ -308,9 +298,18 @@ class AdminService {
         `UPDATE public.users SET is_banned = $1 WHERE id = $2 RETURNING id, full_name, is_banned`,
         [isBanned, userId]
       );
-      if (res.rows.length === 0) throw new Error('User not found');
       // Invalidate Redis ban cache immediately
       await redis.del(`user:is_banned:${userId}`).catch(() => {});
+      if (isBanned) {
+        await redis.set(
+          `user_active_session:${userId}`,
+          JSON.stringify({ sessionId: null, isBanned: true }),
+          'EX',
+          30 * 24 * 60 * 60
+        ).catch(() => {});
+      } else {
+        await redis.del(`user_active_session:${userId}`).catch(() => {});
+      }
       return res.rows[0];
     } catch (err) {
       console.error(`❌ Error setting ban status for user ${userId}:`, err.message);

@@ -17,6 +17,9 @@ const RESERVED_USERNAMES = new Set([
   'api', 'auth', 'user', 'users', 'me'
 ]);
 
+// Session TTL matching JWT refresh token lifespan (30 days) to prevent Redis memory leaks
+const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
+
 /**
  * Validates username per Instagram-style format and reserved words
  * - 3–20 characters
@@ -46,6 +49,9 @@ function validateUsername(username) {
   }
   if (RESERVED_USERNAMES.has(normalized)) {
     return { valid: false, isReserved: true, message: 'it already exist fix it' };
+  }
+  if (/^\d+$/.test(normalized)) {
+    return { valid: false, message: 'Username cannot consist solely of numbers.' };
   }
   return { valid: true, normalized };
 }
@@ -137,31 +143,86 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // 2. Identify and fetch user (check by username or phone)
+    // 2. Identify and fetch user (check by phone or username with direct index scans)
     const phoneDigits = rawLogin.replace(/\D/g, '');
+    const cleanUserName = cleanLogin.replace(/^@+/, '');
+    const isExplicitUsername = rawLogin.startsWith('@') || /[a-zA-Z]/.test(rawLogin);
+    const isExplicitPhone = rawLogin.startsWith('+');
     let userRes;
 
-    if (phoneDigits.length >= 7) {
+    const USER_SELECT_FIELDS = `
+      u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.password_hash,
+      u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, 
+      u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, u.is_banned,
+      u.incoming_paid_calls_enabled,
+      w.spendable_balance, w.earned_balance, (COALESCE(w.spendable_balance, 0) + COALESCE(w.earned_balance, 0)) AS balance
+    `;
+
+    if (isExplicitUsername) {
+      // Explicit username (starts with '@' or contains letters): direct index scan on LOWER(user_name)
       userRes = await db.query(
-        `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.password_hash,
-                u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, 
-                u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, u.is_banned,
-                w.spendable_balance, w.earned_balance, (COALESCE(w.spendable_balance, 0) + COALESCE(w.earned_balance, 0)) AS balance
+        `SELECT ${USER_SELECT_FIELDS}
          FROM public.users u
          LEFT JOIN public.wallets w ON w.user_id = u.id
-         WHERE LOWER(u.user_name) = $1 
-            OR u.mobile = $2 
-            OR u.phone_number = $3 
-            OR u.phone_number = $4
+         WHERE LOWER(u.user_name) = $1
          LIMIT 1`,
-        [cleanLogin, phoneDigits, `+${phoneDigits}`, phoneDigits]
+        [cleanUserName]
       );
+    } else if (isExplicitPhone) {
+      // Explicit phone (starts with '+'): direct index scan on phone_number / mobile
+      userRes = await db.query(
+        `SELECT ${USER_SELECT_FIELDS}
+         FROM public.users u
+         LEFT JOIN public.wallets w ON w.user_id = u.id
+         WHERE u.phone_number = $1 
+            OR u.phone_number = $2 
+            OR u.mobile = $3
+         LIMIT 1`,
+        [rawLogin, phoneDigits, phoneDigits]
+      );
+    } else if (phoneDigits.length >= 7) {
+      // Ambiguous numeric input: check phone lookup first
+      userRes = await db.query(
+        `SELECT ${USER_SELECT_FIELDS}
+         FROM public.users u
+         LEFT JOIN public.wallets w ON w.user_id = u.id
+         WHERE u.phone_number = $1 
+            OR u.phone_number = $2 
+            OR u.mobile = $3
+         LIMIT 1`,
+        [phoneDigits, `+${phoneDigits}`, phoneDigits]
+      );
+
+      // If phone found but password doesn't match, check if input also matches an all-numeric username
+      if (userRes.rows.length > 0 && userRes.rows[0].password_hash) {
+        const isPwValid = await bcrypt.compare(rawPassword, userRes.rows[0].password_hash);
+        if (!isPwValid) {
+          const usernameFallback = await db.query(
+            `SELECT ${USER_SELECT_FIELDS}
+             FROM public.users u
+             LEFT JOIN public.wallets w ON w.user_id = u.id
+             WHERE LOWER(u.user_name) = $1
+             LIMIT 1`,
+            [cleanLogin]
+          );
+          if (usernameFallback.rows.length > 0) {
+            userRes = usernameFallback;
+          }
+        }
+      } else if (userRes.rows.length === 0) {
+        // No phone found; fallback to username lookup
+        userRes = await db.query(
+          `SELECT ${USER_SELECT_FIELDS}
+           FROM public.users u
+           LEFT JOIN public.wallets w ON w.user_id = u.id
+           WHERE LOWER(u.user_name) = $1
+           LIMIT 1`,
+          [cleanLogin]
+        );
+      }
     } else {
       userRes = await db.query(
-        `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.password_hash,
-                u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, 
-                u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, u.is_banned,
-                w.spendable_balance, w.earned_balance, (COALESCE(w.spendable_balance, 0) + COALESCE(w.earned_balance, 0)) AS balance
+        `SELECT ${USER_SELECT_FIELDS}
          FROM public.users u
          LEFT JOIN public.wallets w ON w.user_id = u.id
          WHERE LOWER(u.user_name) = $1
@@ -169,6 +230,7 @@ router.post('/login', async (req, res) => {
         [cleanLogin]
       );
     }
+
 
     if (userRes.rows.length === 0) {
       const attempts = await redis.incr(loginAttemptsKey);
@@ -233,7 +295,12 @@ router.post('/login', async (req, res) => {
       }
     } catch (_) {}
 
-    await redis.set(`user_active_session:${user.id}`, sessionId);
+    await redis.set(
+      `user_active_session:${user.id}`,
+      JSON.stringify({ sessionId, isBanned: Boolean(user.is_banned) }),
+      'EX',
+      SESSION_TTL_SECONDS
+    );
 
     // 8. Generate Tokens
     const jti = crypto.randomUUID();
@@ -244,12 +311,27 @@ router.post('/login', async (req, res) => {
       countryCode: user.country_code,
       mobile: user.mobile,
       sessionId,
+      gender: user.gender || null,
+      city: user.city || null,
+      incoming_paid_calls_enabled: user.incoming_paid_calls_enabled === true,
     };
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
     const refreshToken = jwt.sign({ id: user.id, jti, sessionId }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
 
     await redis.set(`refresh:${user.id}:${jti}`, '1', 'EX', 30 * 24 * 60 * 60);
+    // Cache profile attributes in Redis for fast zero-DB socket connect lookups
+    await redis.set(
+      `user:profile:${user.id}`,
+      JSON.stringify({
+        id: user.id,
+        city: user.city || null,
+        gender: user.gender || null,
+        incoming_paid_calls_enabled: user.incoming_paid_calls_enabled === true,
+      }),
+      'EX',
+      7 * 24 * 60 * 60
+    );
 
     const isProfileComplete = Boolean(user.full_name && user.full_name.trim().length > 0);
     const sBal = parseFloat(user.spendable_balance) || 0;
@@ -536,20 +618,19 @@ router.get('/search', authMiddleware, userSearchLimiter, async (req, res) => {
   const parsedLimit = parseInt(req.query.limit, 10);
   const limit = (!isNaN(parsedLimit) && parsedLimit > 0) ? Math.min(parsedLimit, 25) : 20;
 
-  // Cache is keyed by user ID to guarantee requesting user is never included from a shared cache
-  const cacheKey = `search:users:${currentUserId}:${cleanQuery}:${limit}`;
+  // Shared cache across all users: fetch limit + 1 from DB, cached for 60s
+  const cacheKey = `search:users:${cleanQuery}:${limit}`;
 
   try {
-    const cachedUsers = await cacheService.getOrSet(cacheKey, 15, async () => {
+    const cachedUsers = await cacheService.getOrSet(cacheKey, 60, async () => {
       const searchRes = await db.query(
         `SELECT id, full_name, user_name, avatar_seed, avatar_style, gender, is_telecaller
          FROM public.users
          WHERE LOWER(user_name) LIKE LOWER($1) || '%'
            AND (is_banned IS NOT TRUE)
-           AND id != $2::UUID
          ORDER BY LOWER(user_name) ASC
-         LIMIT $3`,
-        [cleanQuery, currentUserId, limit]
+         LIMIT $2`,
+        [cleanQuery, limit + 1]
       );
 
       return searchRes.rows.map((row) => ({
@@ -565,10 +646,15 @@ router.get('/search', authMiddleware, userSearchLimiter, async (req, res) => {
       }));
     });
 
+    // Filter out requesting user in Node memory after reading from shared cache
+    const users = (cachedUsers || [])
+      .filter((u) => u.id !== currentUserId)
+      .slice(0, limit);
+
     return res.json({
       success: true,
       query: cleanQuery,
-      users: cachedUsers || [],
+      users,
     });
   } catch (err) {
     console.error('❌ Error executing user search:', err.message);
@@ -722,7 +808,7 @@ router.post('/otp/verify', async (req, res) => {
     let userResult = await db.query(
       `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.password_hash, u.dob, u.gender, u.language, 
               u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, 
-              u.country, u.state, u.city, u.latitude, u.longitude, 
+              u.country, u.state, u.city, u.latitude, u.longitude, u.incoming_paid_calls_enabled, u.is_banned,
               w.spendable_balance, w.earned_balance, (COALESCE(w.spendable_balance, 0) + COALESCE(w.earned_balance, 0)) AS balance 
        FROM public.users u
        LEFT JOIN public.wallets w ON w.user_id = u.id
@@ -746,7 +832,7 @@ router.post('/otp/verify', async (req, res) => {
                country_code, mobile, phone_number, full_name, user_name, dob, gender, language, avatar_seed, avatar_style, country, state, city
              ) 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
-             RETURNING id, country_code, mobile, phone_number, full_name, user_name, dob, gender, language, avatar_seed, avatar_style, is_telecaller, has_claimed_intro_offer, country, state, city, latitude, longitude`,
+             RETURNING id, country_code, mobile, phone_number, full_name, user_name, dob, gender, language, avatar_seed, avatar_style, is_telecaller, has_claimed_intro_offer, country, state, city, latitude, longitude, incoming_paid_calls_enabled`,
             [
               cleanCountryCode, cleanMobile, fullPhoneNumber,
               'Google Reviewer', 'googlereviewer', '1998-01-01', 'Male', 'English', 'male_2f', 'avataaars', 'India', 'Delhi', 'New Delhi'
@@ -756,7 +842,7 @@ router.post('/otp/verify', async (req, res) => {
           insertUserRes = await client.query(
             `INSERT INTO public.users (country_code, mobile, phone_number, avatar_seed, avatar_style) 
              VALUES ($1, $2, $3, 'male_2f', 'avataaars') 
-             RETURNING id, country_code, mobile, phone_number, full_name, user_name, dob, gender, language, avatar_seed, avatar_style, is_telecaller, has_claimed_intro_offer, country, state, city, latitude, longitude`,
+             RETURNING id, country_code, mobile, phone_number, full_name, user_name, dob, gender, language, avatar_seed, avatar_style, is_telecaller, has_claimed_intro_offer, country, state, city, latitude, longitude, incoming_paid_calls_enabled`,
             [cleanCountryCode, cleanMobile, fullPhoneNumber]
           );
         }
@@ -781,6 +867,14 @@ router.post('/otp/verify', async (req, res) => {
       }
     } else {
       user = userResult.rows[0];
+
+      // Check if account is banned
+      if (user.is_banned === true) {
+        return res.status(403).json({
+          error: 'ACCOUNT_BANNED',
+          message: 'This account has been suspended or banned.',
+        });
+      }
 
       // Ensure existing test reviewer account has complete profile and active balance
       if (isTestAccount) {
@@ -835,8 +929,13 @@ router.post('/otp/verify', async (req, res) => {
       }
     } catch (_) {}
 
-    // Store active session in Redis (no TTL or long TTL, valid until overwritten/logged out)
-    await redis.set(`user_active_session:${user.id}`, sessionId);
+    // Store active session in Redis with 30-day TTL (includes isBanned flag for 1-GET auth checks)
+    await redis.set(
+      `user_active_session:${user.id}`,
+      JSON.stringify({ sessionId, isBanned: Boolean(user.is_banned) }),
+      'EX',
+      SESSION_TTL_SECONDS
+    );
 
     // 7. Generate Tokens
     const jti = crypto.randomUUID();
@@ -846,6 +945,9 @@ router.post('/otp/verify', async (req, res) => {
       countryCode: cleanCountryCode,
       mobile: cleanMobile,
       sessionId,
+      gender: user.gender || null,
+      city: user.city || null,
+      incoming_paid_calls_enabled: user.incoming_paid_calls_enabled === true,
     };
 
     // Short-lived Access Token (1 day)
@@ -856,6 +958,18 @@ router.post('/otp/verify', async (req, res) => {
 
     // Store Refresh Token status in Redis: refresh:{userId}:{jti} -> TTL 30 days (2,592,000s)
     await redis.set(`refresh:${user.id}:${jti}`, '1', 'EX', 30 * 24 * 60 * 60);
+    // Cache profile attributes in Redis for fast zero-DB socket connect lookups
+    await redis.set(
+      `user:profile:${user.id}`,
+      JSON.stringify({
+        id: user.id,
+        city: user.city || null,
+        gender: user.gender || null,
+        incoming_paid_calls_enabled: user.incoming_paid_calls_enabled === true,
+      }),
+      'EX',
+      7 * 24 * 60 * 60
+    );
 
     const isProfileComplete = !!(user.full_name && user.full_name.trim().length > 0);
 
@@ -897,7 +1011,7 @@ router.post('/otp/verify', async (req, res) => {
  * Endpoint: POST /api/auth/refresh
  * Rotates the refresh token: verifies signature & Redis presence, invalidates old token, and issues new Access + Refresh tokens.
  */
-router.post('/refresh', async (req, res) => {
+router.post(['/refresh', '/token/refresh'], async (req, res) => {
   const { refreshToken } = req.body;
 
   if (!refreshToken || typeof refreshToken !== 'string') {
@@ -924,7 +1038,14 @@ router.post('/refresh', async (req, res) => {
     }
 
     // Check active session ID in Redis to ensure this refresh token belongs to current active device
-    const activeSessionId = await redis.get(`user_active_session:${id}`);
+    const rawSession = await redis.get(`user_active_session:${id}`);
+    let activeSessionId = rawSession;
+    if (rawSession && rawSession.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(rawSession);
+        activeSessionId = parsed.sessionId;
+      } catch (_) {}
+    }
     if (activeSessionId && (!sessionId || activeSessionId !== sessionId)) {
       await redis.del(redisKey);
       return res.status(401).json({
@@ -938,7 +1059,7 @@ router.post('/refresh', async (req, res) => {
 
     // Fetch user details
     const userRes = await db.query(
-      `SELECT id, country_code, mobile, phone_number, full_name FROM public.users WHERE id = $1`,
+      `SELECT id, country_code, mobile, phone_number, full_name, city, gender, incoming_paid_calls_enabled, is_banned FROM public.users WHERE id = $1`,
       [id]
     );
 
@@ -948,9 +1069,18 @@ router.post('/refresh', async (req, res) => {
 
     const user = userRes.rows[0];
 
+    if (user.is_banned === true) {
+      return res.status(403).json({ error: 'ACCOUNT_BANNED', message: 'This account has been suspended or banned.' });
+    }
+
     const currentSessionId = activeSessionId || sessionId || crypto.randomUUID();
     if (!activeSessionId) {
-      await redis.set(`user_active_session:${id}`, currentSessionId);
+      await redis.set(
+        `user_active_session:${id}`,
+        JSON.stringify({ sessionId: currentSessionId, isBanned: Boolean(user.is_banned) }),
+        'EX',
+        SESSION_TTL_SECONDS
+      );
     }
 
     // Issue new tokens
@@ -961,6 +1091,9 @@ router.post('/refresh', async (req, res) => {
       countryCode: user.country_code,
       mobile: user.mobile,
       sessionId: currentSessionId,
+      gender: user.gender || null,
+      city: user.city || null,
+      incoming_paid_calls_enabled: user.incoming_paid_calls_enabled === true,
     };
 
     const newAccessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
@@ -968,6 +1101,18 @@ router.post('/refresh', async (req, res) => {
 
     // Store new refresh token in Redis
     await redis.set(`refresh:${user.id}:${newJti}`, '1', 'EX', 30 * 24 * 60 * 60);
+    // Refresh cached profile attributes in Redis
+    await redis.set(
+      `user:profile:${user.id}`,
+      JSON.stringify({
+        id: user.id,
+        city: user.city || null,
+        gender: user.gender || null,
+        incoming_paid_calls_enabled: user.incoming_paid_calls_enabled === true,
+      }),
+      'EX',
+      7 * 24 * 60 * 60
+    );
 
     res.json({
       success: true,
@@ -1209,6 +1354,8 @@ router.post('/profile', authMiddleware, async (req, res) => {
       );
     }
 
+    // Note: City changes take effect on next socket reconnect, not live;
+    // this is an intentional design decision given normal mobile reconnect churn.
     if (country !== undefined || state !== undefined || city !== undefined || latitude !== undefined || longitude !== undefined) {
       await db.query(
         `UPDATE public.users 
@@ -1223,7 +1370,7 @@ router.post('/profile', authMiddleware, async (req, res) => {
 
     // Fetch and return the updated user object (including user_name and password_hash)
     const updatedUserRes = await db.query(
-      `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.password_hash, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, 
+      `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.password_hash, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, u.incoming_paid_calls_enabled,
               w.spendable_balance, w.earned_balance, (COALESCE(w.spendable_balance, 0) + COALESCE(w.earned_balance, 0)) AS balance 
        FROM public.users u
        LEFT JOIN public.wallets w ON w.user_id = u.id
@@ -1232,6 +1379,19 @@ router.post('/profile', authMiddleware, async (req, res) => {
     );
 
     const userRow = updatedUserRes.rows[0];
+    if (userRow) {
+      await redis.set(
+        `user:profile:${userId}`,
+        JSON.stringify({
+          id: userRow.id,
+          city: userRow.city || null,
+          gender: userRow.gender || null,
+          incoming_paid_calls_enabled: userRow.incoming_paid_calls_enabled === true,
+        }),
+        'EX',
+        7 * 24 * 60 * 60
+      );
+    }
     const sBal = parseFloat(userRow?.spendable_balance) || 0;
     const eBal = parseFloat(userRow?.earned_balance) || 0;
     const userObj = userRow ? {

@@ -132,16 +132,48 @@ bool _fuzzyMatch(String city, String query) {
 /// Bottom sheet to customize and broadcast a new Buddy Request.
 class CreateBuddyRequestSheet extends ConsumerStatefulWidget {
   final BuddyType buddyType;
+  final String? campaignId;
+  final String? customTitle;
+  final String? customSubtitle;
+  final String? customIconUrl;
+  final int? customCoinCost;
+  final Color? customAccentColor;
 
-  const CreateBuddyRequestSheet({super.key, required this.buddyType});
+  const CreateBuddyRequestSheet({
+    super.key,
+    required this.buddyType,
+    this.campaignId,
+    this.customTitle,
+    this.customSubtitle,
+    this.customIconUrl,
+    this.customCoinCost,
+    this.customAccentColor,
+  });
 
-  static Future<void> show(BuildContext context, BuddyType buddyType) {
+  static Future<void> show(
+    BuildContext context,
+    BuddyType buddyType, {
+    String? campaignId,
+    String? customTitle,
+    String? customSubtitle,
+    String? customIconUrl,
+    int? customCoinCost,
+    Color? customAccentColor,
+  }) {
     return showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => CreateBuddyRequestSheet(buddyType: buddyType),
+      builder: (ctx) => CreateBuddyRequestSheet(
+        buddyType: buddyType,
+        campaignId: campaignId,
+        customTitle: customTitle,
+        customSubtitle: customSubtitle,
+        customIconUrl: customIconUrl,
+        customCoinCost: customCoinCost,
+        customAccentColor: customAccentColor,
+      ),
     );
   }
 
@@ -184,7 +216,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
   Future<void> _submitRequest() async {
     if (_isSubmitting) return;
 
-    final requiredCoins = widget.buddyType.coinCost;
+    final requiredCoins = widget.customCoinCost ?? widget.buddyType.coinCost;
     final currentCoins = ref.read(walletBalanceProvider).value ?? 0;
     if (currentCoins < requiredCoins) {
       AppSnackBar.showError(
@@ -201,14 +233,16 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
         type: widget.buddyType,
         city: _selectedCity,
         targetGender: _selectedGender,
+        campaignId: widget.campaignId,
       );
 
       if (!mounted) return;
       Navigator.of(context).pop(); // Close create sheet
 
+      final displayTitle = widget.customTitle ?? widget.buddyType.title;
       AppSnackBar.showSuccess(
         context,
-        '${widget.buddyType.title} broadcast is live in $_selectedCity!',
+        '$displayTitle broadcast is live in $_selectedCity!',
       );
 
       // Open waiting modal for the initiator
@@ -234,6 +268,13 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
     final colors = context.colors;
     final typography = context.typography;
     final type = widget.buddyType;
+    final displayTitle = widget.customTitle ?? type.title;
+    final displaySubtitle = widget.customSubtitle ?? type.subtitle;
+    final effectiveCoins = widget.customCoinCost ?? type.coinCost;
+    final effectiveAccent = widget.customAccentColor ?? type.accentColor;
+    final effectiveGradients = widget.customAccentColor != null
+        ? [widget.customAccentColor!, widget.customAccentColor!.withValues(alpha: 0.8)]
+        : type.gradientColors;
 
     return Container(
       decoration: BoxDecoration(
@@ -280,20 +321,32 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
                   height: 54,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: type.gradientColors,
+                      colors: effectiveGradients,
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                   ),
-                  child: Image.asset(
-                    type.stickerAsset,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, error, stack) => const Icon(
-                      Icons.local_activity_rounded,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
+                  child: widget.customIconUrl != null && widget.customIconUrl!.isNotEmpty
+                      ? (widget.customIconUrl!.startsWith('http')
+                          ? Image.network(
+                              widget.customIconUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Image.asset(type.stickerAsset, fit: BoxFit.cover),
+                            )
+                          : Image.asset(
+                              widget.customIconUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Image.asset(type.stickerAsset, fit: BoxFit.cover),
+                            ))
+                      : Image.asset(
+                          type.stickerAsset,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, error, stack) => const Icon(
+                            Icons.local_activity_rounded,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(width: 14),
@@ -302,7 +355,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      type.title,
+                      displayTitle,
                       style: typography.titleCard.copyWith(
                         fontWeight: FontWeight.bold,
                         fontSize: 19,
@@ -311,7 +364,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      type.subtitle,
+                      displaySubtitle,
                       style: typography.bodySmall.copyWith(
                         color: colors.textSecondary,
                         fontSize: 12.5,
@@ -425,11 +478,11 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
                       padding: const EdgeInsets.symmetric(vertical: 11),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? type.accentColor.withValues(alpha: 0.12)
+                            ? effectiveAccent.withValues(alpha: 0.12)
                             : colors.surfaceMuted,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: isSelected ? type.accentColor : colors.cardBorder,
+                          color: isSelected ? effectiveAccent : colors.cardBorder,
                           width: isSelected ? 1.6 : 1.0,
                         ),
                       ),
@@ -439,7 +492,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
                           Icon(
                             icon,
                             size: 20,
-                            color: isSelected ? type.accentColor : colors.textSecondary,
+                            color: isSelected ? effectiveAccent : colors.textSecondary,
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -447,7 +500,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                              color: isSelected ? type.accentColor : colors.textPrimary,
+                              color: isSelected ? effectiveAccent : colors.textPrimary,
                             ),
                           ),
                         ],
@@ -476,7 +529,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
                     const AppCoinIcon(size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      'Cost: ${type.coinCost} Coin${type.coinCost == 1 ? '' : 's'}',
+                      'Cost: $effectiveCoins Coin${effectiveCoins == 1 ? '' : 's'}',
                       style: typography.bodyMedium.copyWith(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -522,9 +575,9 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
             child: ElevatedButton(
               onPressed: _isSubmitting ? null : _submitRequest,
               style: ElevatedButton.styleFrom(
-                backgroundColor: type.accentColor,
+                backgroundColor: effectiveAccent,
                 elevation: 3,
-                shadowColor: type.accentColor.withValues(alpha: 0.4),
+                shadowColor: effectiveAccent.withValues(alpha: 0.4),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -537,7 +590,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
                         const AppCoinIcon(size: 18),
                         const SizedBox(width: 8),
                         Text(
-                          'Broadcast Request (${type.coinCost} Coin${type.coinCost == 1 ? '' : 's'})',
+                          'Broadcast Request ($effectiveCoins Coin${effectiveCoins == 1 ? '' : 's'})',
                           style: typography.bodyMedium.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,

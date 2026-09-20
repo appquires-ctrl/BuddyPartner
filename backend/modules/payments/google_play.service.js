@@ -109,36 +109,8 @@ class GooglePlayService {
    * Initialize table for storing verified Google Play purchases to prevent replay attacks
    */
   static async initTable() {
-    try {
-      await db.query(`
-        CREATE TABLE IF NOT EXISTS public.google_play_purchases (
-          id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-          user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-          product_id TEXT NOT NULL,
-          purchase_token TEXT UNIQUE NOT NULL,
-          order_id TEXT,
-          purchase_type TEXT NOT NULL,
-          amount_paid NUMERIC(10, 2) NOT NULL,
-          coins_credited INTEGER DEFAULT 0,
-          status TEXT DEFAULT 'COMPLETED',
-          voided_at TIMESTAMPTZ,
-          void_reason TEXT,
-          raw_payload JSONB,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-        );
-        ALTER TABLE public.google_play_purchases 
-          ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'COMPLETED',
-          ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ,
-          ADD COLUMN IF NOT EXISTS void_reason TEXT;
-        CREATE INDEX IF NOT EXISTS idx_gp_purchases_token ON public.google_play_purchases(purchase_token);
-        CREATE INDEX IF NOT EXISTS idx_gp_purchases_user ON public.google_play_purchases(user_id);
-        CREATE INDEX IF NOT EXISTS idx_gp_purchases_order_id ON public.google_play_purchases(order_id);
-        CREATE INDEX IF NOT EXISTS idx_gp_purchases_status ON public.google_play_purchases(status);
-      `);
-      console.log('✅ Google Play purchases table initialized.');
-    } catch (err) {
-      console.error('❌ Failed to initialize Google Play purchases table:', err.message);
-    }
+    // Managed via versioned migration 026_core_tables_and_buddy_feed_indexes.sql
+    return;
   }
 
   /**

@@ -7,6 +7,7 @@ const MALE_QUEUE_KEY = 'queue:male';
 const FEMALE_QUEUE_KEY = 'queue:female';
 const USER_SOCKET_MAP_KEY = 'matchmaking:user_socket'; // hash: userId → socketId
 const USER_GENDER_MAP_KEY = 'matchmaking:user_gender'; // hash: userId → gender
+const USER_QUEUE_MAP_KEY = 'matchmaking:user_queue'; // hash: userId → queueKey|member (O(1) reverse lookup)
 
 const CROSS_GENDER_LUA_SCRIPT = fs.readFileSync(
   path.join(__dirname, 'match_cross_gender.lua'),
@@ -44,29 +45,21 @@ class MatchmakingService {
     }
 
     const score = Date.now();
-    await this.redis.zadd(queueKey, score, `${userId}:${socketId}`);
+    const member = `${userId}:${socketId}`;
+    await this.redis.zadd(queueKey, score, member);
     await this.redis.hset(USER_SOCKET_MAP_KEY, userId, socketId);
     await this.redis.hset(USER_GENDER_MAP_KEY, userId, gender);
+    await this.redis.hset(USER_QUEUE_MAP_KEY, userId, `${queueKey}|${member}`);
 
     return true;
   }
 
   /**
-   * Remove a user from all matchmaking queues.
-   * Since we may not know gender at disconnect, we check both queues.
+   * Remove a user from all matchmaking queues in O(1) time.
    *
    * @param {string} userId
    */
   async leaveQueue(userId) {
-    const socketId = await this.redis.hget(USER_SOCKET_MAP_KEY, userId);
-    if (socketId) {
-      await this.redis.zrem(MALE_QUEUE_KEY, `${userId}:${socketId}`);
-      await this.redis.zrem(FEMALE_QUEUE_KEY, `${userId}:${socketId}`);
-      await this.redis.hdel(USER_SOCKET_MAP_KEY, userId);
-      await this.redis.hdel(USER_GENDER_MAP_KEY, userId);
-    }
-
-    // Fallback: scan both queues and remove any entries for this userId
     await this._removeFromAllQueues(userId);
   }
 
@@ -92,11 +85,15 @@ class MatchmakingService {
     const [maleUserId, maleSocketId] = this._parseMember(maleMember);
     const [femaleUserId, femaleSocketId] = this._parseMember(femaleMember);
 
-    // Clean up the user→socket and user→gender mappings
-    await this.redis.hdel(USER_SOCKET_MAP_KEY, maleUserId);
-    await this.redis.hdel(USER_SOCKET_MAP_KEY, femaleUserId);
-    await this.redis.hdel(USER_GENDER_MAP_KEY, maleUserId);
-    await this.redis.hdel(USER_GENDER_MAP_KEY, femaleUserId);
+    // Clean up the user→socket, user→gender, and user→queue mappings
+    await Promise.all([
+      this.redis.hdel(USER_SOCKET_MAP_KEY, maleUserId),
+      this.redis.hdel(USER_SOCKET_MAP_KEY, femaleUserId),
+      this.redis.hdel(USER_GENDER_MAP_KEY, maleUserId),
+      this.redis.hdel(USER_GENDER_MAP_KEY, femaleUserId),
+      this.redis.hdel(USER_QUEUE_MAP_KEY, maleUserId),
+      this.redis.hdel(USER_QUEUE_MAP_KEY, femaleUserId),
+    ]);
 
     return {
       userA: { userId: maleUserId, socketId: maleSocketId, gender: 'male' },
@@ -150,28 +147,32 @@ class MatchmakingService {
    * @param {string} userId
    */
   async _removeFromAllQueues(userId) {
-    const socketId = await this.redis.hget(USER_SOCKET_MAP_KEY, userId);
-    if (socketId) {
-      const member = `${userId}:${socketId}`;
-      await Promise.all([
-        this.redis.zrem(MALE_QUEUE_KEY, member),
-        this.redis.zrem(FEMALE_QUEUE_KEY, member),
-      ]);
-    } else {
-      // Fallback in case socketId was cleared prematurely
-      for (const queueKey of [MALE_QUEUE_KEY, FEMALE_QUEUE_KEY]) {
-        const members = await this.redis.zrangebyscore(queueKey, '-inf', '+inf');
-        for (const member of members) {
-          if (member.startsWith(`${userId}:`)) {
-            await this.redis.zrem(queueKey, member);
-          }
-        }
+    const [socketId, queueMapping] = await Promise.all([
+      this.redis.hget(USER_SOCKET_MAP_KEY, userId),
+      this.redis.hget(USER_QUEUE_MAP_KEY, userId),
+    ]);
+
+    const removals = [];
+
+    // O(1) removal using reverse-lookup hash matchmaking:user_queue
+    if (queueMapping) {
+      const [queueKey, member] = queueMapping.split('|');
+      if (queueKey && member) {
+        removals.push(this.redis.zrem(queueKey, member));
       }
     }
-    await Promise.all([
-      this.redis.hdel(USER_SOCKET_MAP_KEY, userId),
-      this.redis.hdel(USER_GENDER_MAP_KEY, userId),
-    ]);
+
+    if (socketId) {
+      const member = `${userId}:${socketId}`;
+      removals.push(this.redis.zrem(MALE_QUEUE_KEY, member));
+      removals.push(this.redis.zrem(FEMALE_QUEUE_KEY, member));
+    }
+
+    removals.push(this.redis.hdel(USER_SOCKET_MAP_KEY, userId));
+    removals.push(this.redis.hdel(USER_GENDER_MAP_KEY, userId));
+    removals.push(this.redis.hdel(USER_QUEUE_MAP_KEY, userId));
+
+    await Promise.all(removals);
   }
 
   /**

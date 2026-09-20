@@ -371,6 +371,7 @@ class BuddyController extends Notifier<BuddyState> {
     required BuddyType type,
     required String city,
     required BuddyTargetGender targetGender,
+    String? campaignId,
   }) async {
     state = state.copyWith(isLoading: true, clearErrorMessage: true);
     try {
@@ -378,6 +379,7 @@ class BuddyController extends Notifier<BuddyState> {
         buddyType: type,
         city: city,
         targetGender: targetGender,
+        campaignId: campaignId,
       );
 
       // Refresh wallet balance (100 coins deducted)

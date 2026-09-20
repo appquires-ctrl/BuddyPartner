@@ -23,6 +23,7 @@ class BuddyService {
     required BuddyType buddyType,
     required String city,
     required BuddyTargetGender targetGender,
+    String? campaignId,
   }) async {
     try {
       final response = await _apiClient.dio.post(
@@ -31,6 +32,7 @@ class BuddyService {
           'buddyType': buddyType.id,
           'city': city.trim(),
           'targetGender': targetGender.id,
+          if (campaignId != null && campaignId.isNotEmpty) 'campaignId': campaignId,
         },
       );
 

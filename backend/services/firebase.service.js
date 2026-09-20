@@ -58,7 +58,7 @@ initFirebase();
 /**
  * Sends a single FCM Push Notification to a device token
  */
-async function sendPushNotification({ token, title, body, tag, data = {} }) {
+async function sendPushNotification({ token, title, body, tag, data = {}, collapseKey, notificationCount }) {
   if (!token) return null;
   if (!isInitialized) {
     console.log(`[FCM Mock] Single push to ${token.substring(0, 10)}... | ${title}: ${body}`);
@@ -72,8 +72,9 @@ async function sendPushNotification({ token, title, body, tag, data = {} }) {
     }
 
     const notifTag = tag || (stringData.conversationId ? `chat_${stringData.conversationId}` : (stringData.senderId ? `chat_${stringData.senderId}` : undefined));
+    const effectiveCollapseKey = collapseKey || (stringData.type === 'chat_message' ? 'chat_updates' : undefined);
 
-    const response = await admin.messaging().send({
+    const messagePayload = {
       token,
       notification: {
         title,
@@ -82,15 +83,31 @@ async function sendPushNotification({ token, title, body, tag, data = {} }) {
       data: stringData,
       android: {
         priority: 'high',
+        ...(effectiveCollapseKey ? { collapseKey: effectiveCollapseKey } : {}),
         notification: {
           channelId: 'buddypartner_notifications',
           priority: 'max',
           tag: notifTag,
           defaultSound: true,
           defaultVibrateTimings: true,
+          ...(notificationCount ? { notificationCount: Number(notificationCount) } : {}),
         },
       },
-    });
+      apns: {
+        headers: {
+          ...(effectiveCollapseKey ? { 'apns-collapse-id': effectiveCollapseKey } : {}),
+        },
+        payload: {
+          aps: {
+            sound: 'default',
+            threadId: stringData.conversationId ? `chat_${stringData.conversationId}` : 'chat_group',
+            ...(notificationCount ? { badge: Number(notificationCount) } : {}),
+          },
+        },
+      },
+    };
+
+    const response = await admin.messaging().send(messagePayload);
 
     console.log(`🔔 [FCM Push] Sent successfully to ${token.substring(0, 10)}... (tag: ${notifTag}, ID: ${response})`);
     return response;
@@ -159,47 +176,61 @@ async function sendMulticastPushNotification({ tokens = [], title, body, tag, da
     const allResponses = [];
     const tokensToPrune = [];
 
-    for (let batchIndex = 0; batchIndex < chunks.length; batchIndex++) {
-      const batchTokens = chunks[batchIndex];
-      const response = await admin.messaging().sendEachForMulticast({
-        tokens: batchTokens,
-        notification: {
-          title,
-          body,
-        },
-        data: stringData,
-        android: {
-          priority: 'high',
+    const batchPromises = chunks.map(async (batchTokens, batchIndex) => {
+      try {
+        const response = await admin.messaging().sendEachForMulticast({
+          tokens: batchTokens,
           notification: {
-            channelId: 'buddypartner_notifications',
-            priority: 'max',
-            tag: notifTag,
-            defaultSound: true,
-            defaultVibrateTimings: true,
+            title,
+            body,
           },
-        },
-      });
-
-      totalSuccess += (response.successCount || 0);
-      totalFailure += (response.failureCount || 0);
-      allResponses.push(response);
-
-      if (response.failureCount > 0 && response.responses) {
-        response.responses.forEach((resp, idx) => {
-          if (!resp.success && resp.error) {
-            const code = resp.error.code;
-            if (
-              code === 'messaging/registration-token-not-registered' ||
-              code === 'messaging/invalid-registration-token' ||
-              code === 'messaging/invalid-argument'
-            ) {
-              tokensToPrune.push(batchTokens[idx]);
-            }
-          }
+          data: stringData,
+          android: {
+            priority: 'high',
+            notification: {
+              channelId: 'buddypartner_notifications',
+              priority: 'max',
+              tag: notifTag,
+              defaultSound: true,
+              defaultVibrateTimings: true,
+            },
+          },
         });
-      }
 
-      console.log(`🔔 [FCM Multicast Batch ${batchIndex + 1}/${chunks.length}] Dispatched to ${batchTokens.length} devices (tag: ${notifTag}, ${response.successCount} succeeded, ${response.failureCount} failed)`);
+        console.log(`🔔 [FCM Multicast Batch ${batchIndex + 1}/${chunks.length}] Dispatched to ${batchTokens.length} devices (tag: ${notifTag}, ${response.successCount} succeeded, ${response.failureCount} failed)`);
+        return { response, batchTokens };
+      } catch (batchErr) {
+        console.warn(`⚠️ [FCM Multicast Batch ${batchIndex + 1}/${chunks.length}] Failed:`, batchErr.message);
+        return { error: batchErr, batchTokens };
+      }
+    });
+
+    const results = await Promise.allSettled(batchPromises);
+
+    for (const res of results) {
+      if (res.status === 'fulfilled' && res.value && res.value.response) {
+        const { response, batchTokens } = res.value;
+        totalSuccess += (response.successCount || 0);
+        totalFailure += (response.failureCount || 0);
+        allResponses.push(response);
+
+        if (response.failureCount > 0 && response.responses) {
+          response.responses.forEach((resp, idx) => {
+            if (!resp.success && resp.error) {
+              const code = resp.error.code;
+              if (
+                code === 'messaging/registration-token-not-registered' ||
+                code === 'messaging/invalid-registration-token' ||
+                code === 'messaging/invalid-argument'
+              ) {
+                tokensToPrune.push(batchTokens[idx]);
+              }
+            }
+          });
+        }
+      } else if (res.status === 'fulfilled' && res.value && res.value.error) {
+        totalFailure += (res.value.batchTokens?.length || 0);
+      }
     }
 
     // Prune invalid or unregistered tokens from database

@@ -22,21 +22,36 @@ async function authMiddleware(req, res, next) {
     const decoded = jwt.verify(token, secret);
     req.user = decoded; // Decoded payload contains { id, phone, sessionId }
 
-    // Single-device active session check in Redis (In-Memory ~0.5ms lookup)
-    const activeSessionId = await redis.get(`user_active_session:${decoded.id}`);
+    // Single-lookup active session & ban check in Redis (1 GET per request instead of 2)
+    const rawSession = await redis.get(`user_active_session:${decoded.id}`);
+    let activeSessionId = rawSession;
+    let isBanned = false;
+
+    if (rawSession) {
+      if (rawSession.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(rawSession);
+          activeSessionId = parsed.sessionId;
+          isBanned = Boolean(parsed.isBanned);
+        } catch (_) {}
+      }
+    } else {
+      // If session key is absent in Redis (e.g. key eviction or pre-login token), check ban from ModerationService
+      const status = await ModerationService.isUserBlocked(decoded.id);
+      isBanned = status.isBanned;
+    }
+
+    if (isBanned) {
+      return res.status(403).json({
+        error: 'ACCOUNT_BANNED',
+        message: 'Your account has been blocked due to multiple reports from other users.',
+      });
+    }
+
     if (activeSessionId && (!decoded.sessionId || activeSessionId !== decoded.sessionId)) {
       return res.status(401).json({
         error: 'SESSION_TERMINATED',
         message: 'Your account has been logged in on another device. Please log in again.',
-      });
-    }
-
-    // Moderation status check — check ONLY isBanned
-    const status = await ModerationService.isUserBlocked(decoded.id);
-    if (status.isBanned) {
-      return res.status(403).json({
-        error: 'ACCOUNT_BANNED',
-        message: 'Your account has been blocked due to multiple reports from other users.',
       });
     }
 

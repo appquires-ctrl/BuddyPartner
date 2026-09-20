@@ -17,10 +17,11 @@ function hashOtp(otp) {
   return crypto.createHmac('sha256', getPepper()).update(String(otp).trim()).digest('hex');
 }
 
+const BUDDY_AES_KEY = crypto.scryptSync(getPepper(), 'buddy_salt_2026', 32);
+
 function encryptOtp(otp) {
-  const key = crypto.scryptSync(getPepper(), 'buddy_salt_2026', 32);
   const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const cipher = crypto.createCipheriv('aes-256-gcm', BUDDY_AES_KEY, iv);
   let encrypted = cipher.update(String(otp).trim(), 'utf8', 'hex');
   encrypted += cipher.final('hex');
   const tag = cipher.getAuthTag().toString('hex');
@@ -32,8 +33,7 @@ function decryptOtp(encryptedStr) {
   const parts = encryptedStr.split(':');
   if (parts.length !== 3) return null;
   const [ivHex, tagHex, cipherHex] = parts;
-  const key = crypto.scryptSync(getPepper(), 'buddy_salt_2026', 32);
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'));
+  const decipher = crypto.createDecipheriv('aes-256-gcm', BUDDY_AES_KEY, Buffer.from(ivHex, 'hex'));
   decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
   let decrypted = decipher.update(cipherHex, 'hex', 'utf8');
   decrypted += decipher.final('utf8');
@@ -520,6 +520,10 @@ class BuddyService {
       const completedRequest = updateRes.rows[0];
 
       // Credit 50 coins directly to earned_balance
+      // Note: This deterministic fallback key (`buddy_reward_${requestId}`) assumes exactly one credit
+      // per reference ID. Do not copy this pattern verbatim for any future endpoint where the same
+      // reference ID could legitimately need multiple distinct credits (e.g. recurring rewards),
+      // since the deterministic key would then wrongly block legitimate repeats.
       const creditRes = await WalletService.creditCoins({
         userId: accepterId,
         spendable: 0,
@@ -633,53 +637,58 @@ class BuddyService {
     const normalizedCity = this._normalizeCity(city);
     const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || BUDDY_LIMITS.DEFAULT_FEED_LIMIT, 1), BUDDY_LIMITS.MAX_FEED_LIMIT);
     const parsedOffset = Math.max(parseInt(offset, 10) || 0, 0);
+    const genderKey = (userGender || 'all').toLowerCase().trim();
+    const typeKey = (buddyType || 'all').toLowerCase().trim();
 
-    const params = [normalizedCity];
-    let query = `
-      SELECT r.id, r.initiator_id, r.buddy_type, r.city, r.target_gender,
-             r.status, r.initiator_coin_cost, r.accepter_coin_reward, r.created_at,
-             u.full_name AS initiator_name,
-             u.user_name AS initiator_username,
-             u.avatar_seed AS initiator_avatar_seed,
-             u.avatar_style AS initiator_avatar_style,
-             u.gender AS initiator_gender
-      FROM public.buddy_requests r
-      JOIN public.users u ON u.id = r.initiator_id
-      WHERE r.city = $1
-        AND r.status = 'open'
-    `;
+    // Cache feed across users in same city/gender/type with 5-second TTL
+    const cacheKey = `buddy:feed:${normalizedCity}:${genderKey}:${typeKey}:${parsedLimit}:${parsedOffset}`;
 
-    if (userGender) {
-      params.push(userGender.toLowerCase().trim());
-      query += ` AND (r.target_gender = $${params.length} OR r.target_gender = 'all')`;
-    }
+    const rawRows = await cacheService.getOrSet(cacheKey, 5, async () => {
+      const params = [normalizedCity];
+      let query = `
+        SELECT r.id, r.initiator_id, r.buddy_type, r.city, r.target_gender,
+               r.status, r.initiator_coin_cost, r.accepter_coin_reward, r.created_at,
+               u.full_name AS initiator_name,
+               u.user_name AS initiator_username,
+               u.avatar_seed AS initiator_avatar_seed,
+               u.avatar_style AS initiator_avatar_style,
+               u.gender AS initiator_gender
+        FROM public.buddy_requests r
+        JOIN public.users u ON u.id = r.initiator_id
+        WHERE r.city = $1
+          AND r.status = 'open'
+      `;
 
-    if (userId) {
-      params.push(userId);
-      query += ` AND r.initiator_id != $${params.length}`;
-    }
+      if (userGender) {
+        params.push(userGender.toLowerCase().trim());
+        query += ` AND (r.target_gender = $${params.length} OR r.target_gender = 'all')`;
+      }
 
-    if (buddyType && BUDDY_TYPES[buddyType]) {
-      params.push(buddyType);
-      query += ` AND r.buddy_type = $${params.length}`;
-    }
+      if (buddyType && BUDDY_TYPES[buddyType]) {
+        params.push(buddyType);
+        query += ` AND r.buddy_type = $${params.length}`;
+      }
 
-    params.push(parsedLimit);
-    query += ` ORDER BY r.created_at DESC LIMIT $${params.length}`;
+      params.push(parsedLimit);
+      query += ` ORDER BY r.created_at DESC LIMIT $${params.length}`;
 
-    params.push(parsedOffset);
-    query += ` OFFSET $${params.length};`;
+      params.push(parsedOffset);
+      query += ` OFFSET $${params.length};`;
 
-    const result = await db.query(query, params);
+      const result = await db.query(query, params);
+      return result.rows;
+    });
 
     const isFemaleViewer = (userGender || '').toLowerCase().trim() === 'female';
     const rewardPercentage = isFemaleViewer
       ? BUDDY_PRICING.FEMALE_REWARD_PERCENTAGE
       : BUDDY_PRICING.MALE_REWARD_PERCENTAGE;
 
-    return result.rows.map(row => {
-      const cost = row.initiator_coin_cost || BUDDY_PRICING.INITIATOR_COIN_COST;
-      const potentialReward = Math.max(1, Math.round(cost * rewardPercentage));
+    return (rawRows || [])
+      .filter(row => !userId || row.initiator_id !== userId)
+      .map(row => {
+        const cost = row.initiator_coin_cost || BUDDY_PRICING.INITIATOR_COIN_COST;
+        const potentialReward = Math.max(1, Math.round(cost * rewardPercentage));
       return {
         id: row.id,
         initiatorId: row.initiator_id,

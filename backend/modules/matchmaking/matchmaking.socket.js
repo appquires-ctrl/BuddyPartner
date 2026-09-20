@@ -1,109 +1,38 @@
 const { MatchmakingService } = require('./matchmaking.service');
 const { callsService } = require('../calls/calls.service');
-const { WalletService, CALL_RATES } = require('../wallet/wallet.service');
 const { subscriptionsService } = require('../subscriptions/subscriptions.service');
-const { activeInstantCalls, endInstantCallHelper } = require('../instant_connect/instant_connect.socket');
 const { sendPushNotification } = require('../../services/firebase.service');
 const { cacheService } = require('../../services/cache.service');
 const { callQuotaService, TELECOM_BUSY_MESSAGE } = require('../calls/call_quota.service');
 const { PresenceService } = require('../presence/presence.service');
+const { distributedCallService } = require('../calls/distributed_call.service');
 const db = require('../../db');
 const redis = require('../../redis');
 
-// In-memory map of active calls: callId → { userA: { userId, socketId, gender }, userB: { userId, socketId, gender } }
-const activeCalls = new Map();
-// Reverse map: socketId → callId (for fast lookup on disconnect)
-const socketToCall = new Map();
-// Map: userId → socketId (for disconnect cleanup)
-const userSockets = new Map();
-// Map: callRequestId -> { callerId, callerSocketId, callerGender, targetUserId, targetSocketId, targetGender, timer }
-const pendingCallRequests = new Map();
+// ── Distributed Redis Call State Helpers ─────────────────────────────────────
 
-// ── Shared Redis Call State Helpers for Multi-Instance Horizontal Scaling ──
 async function saveActiveCall(callId, callInfo) {
-  activeCalls.set(callId, callInfo);
-  try {
-    const { quotaTimer, ...serializable } = callInfo;
-    await redis.set(`active_call:${callId}`, JSON.stringify(serializable), 'EX', 86400);
-    if (callInfo.userA?.userId) {
-      await redis.set(`user_active_call:${callInfo.userA.userId}`, callId, 'EX', 86400);
-    }
-    if (callInfo.userB?.userId) {
-      await redis.set(`user_active_call:${callInfo.userB.userId}`, callId, 'EX', 86400);
-    }
-  } catch (err) {
-    console.warn(`[Redis active_call] Error saving call ${callId}:`, err.message);
-  }
+  return await distributedCallService.saveActiveCall(redis, callId, callInfo);
 }
 
 async function getActiveCall(callId) {
-  if (!callId) return null;
-  const local = activeCalls.get(callId);
-  if (local) return local;
-  try {
-    const raw = await redis.get(`active_call:${callId}`);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      activeCalls.set(callId, parsed);
-      return parsed;
-    }
-  } catch (err) {
-    console.warn(`[Redis active_call] Error reading call ${callId}:`, err.message);
-  }
-  return null;
+  return await distributedCallService.getActiveCall(redis, callId);
 }
 
 async function deleteActiveCall(callId, userAId = null, userBId = null) {
-  if (!callId) return;
-  activeCalls.delete(callId);
-  try {
-    await redis.del(`active_call:${callId}`);
-    if (userAId) await redis.del(`user_active_call:${userAId}`);
-    if (userBId) await redis.del(`user_active_call:${userBId}`);
-  } catch (err) {
-    console.warn(`[Redis active_call] Error deleting call ${callId}:`, err.message);
-  }
+  return await distributedCallService.endCallDistributed(null, redis, callId, 'manual');
 }
 
 async function savePendingCall(callRequestId, reqData) {
-  pendingCallRequests.set(callRequestId, reqData);
-  try {
-    const { timer, ...serializable } = reqData;
-    await redis.set(`pending_call:${callRequestId}`, JSON.stringify(serializable), 'EX', 35);
-  } catch (err) {
-    console.warn(`[Redis pending_call] Error saving request ${callRequestId}:`, err.message);
-  }
+  return await distributedCallService.savePendingCall(redis, callRequestId, reqData);
 }
 
 async function getPendingCall(callRequestId) {
-  if (!callRequestId) return null;
-  const local = pendingCallRequests.get(callRequestId);
-  if (local) return local;
-  try {
-    const raw = await redis.get(`pending_call:${callRequestId}`);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      pendingCallRequests.set(callRequestId, parsed);
-      return parsed;
-    }
-  } catch (err) {
-    console.warn(`[Redis pending_call] Error reading request ${callRequestId}:`, err.message);
-  }
-  return null;
+  return await distributedCallService.getPendingCall(redis, callRequestId);
 }
 
 async function deletePendingCall(callRequestId) {
-  if (!callRequestId) return;
-  const local = pendingCallRequests.get(callRequestId);
-  if (local?.timer) {
-    clearTimeout(local.timer);
-  }
-  pendingCallRequests.delete(callRequestId);
-  try {
-    await redis.del(`pending_call:${callRequestId}`);
-  } catch (err) {
-    console.warn(`[Redis pending_call] Error deleting request ${callRequestId}:`, err.message);
-  }
+  return await distributedCallService.deletePendingCall(redis, callRequestId);
 }
 
 /**
@@ -153,15 +82,10 @@ function isMale(gender) {
 }
 
 /**
- * Helper to safely resolve connected socket for a user ID across map and io.sockets
+ * Helper to safely resolve connected socket for a user ID on this local instance
  */
 function getSocketForUser(io, targetUserId) {
   if (!io || !targetUserId) return null;
-  const socketId = userSockets.get(targetUserId);
-  if (socketId) {
-    const s = io.sockets?.sockets?.get(socketId);
-    if (s && s.connected && s.userId === targetUserId) return s;
-  }
   // O(1) room lookup (all sockets join their own userId room on connect)
   const room = io.sockets?.adapter?.rooms?.get(targetUserId);
   if (room && room.size > 0) {
@@ -169,7 +93,6 @@ function getSocketForUser(io, targetUserId) {
     if (firstSocketId) {
       const s = io.sockets?.sockets?.get(firstSocketId);
       if (s && s.connected && s.userId === targetUserId) {
-        userSockets.set(targetUserId, s.id); // Re-sync mapping
         return s;
       }
     }
@@ -189,29 +112,37 @@ function registerMatchmakingHandlers(io, socket, redis) {
   const matchmakingService = new MatchmakingService(redis);
   const userId = socket.userId;
 
-  // Track this user's socket and purge any stale queue entries from previous sessions
-  userSockets.set(userId, socket.id);
+  // Purge any stale queue entries from previous sessions
   matchmakingService.leaveQueue(userId).catch(() => {});
 
-  // Check if there is a pending direct call request waiting for this user (e.g. user tapped FCM call notification)
-  for (const [callRequestId, reqVal] of pendingCallRequests.entries()) {
-    if (reqVal.targetUserId === userId) {
-      reqVal.targetSocketId = socket.id;
-      fetchPublicProfile(reqVal.callerId).then((callerProfile) => {
-        socket.emit('incoming_call_request', {
-          callRequestId,
-          caller: callerProfile,
-        });
-        console.log(`🔔 [FCM Connect] Delivered pending direct call ${callRequestId} from ${reqVal.callerId} to newly connected user ${userId}`);
-      }).catch((err) => console.error('Error delivering pending direct call to connected user:', err.message));
+  // 1. Reconnection recovery: check if user has an active call in progress
+  distributedCallService.handleReconnection(socket, io, redis).catch((err) => {
+    console.error('[Matchmaking] Error recovering call on reconnect:', err.message);
+  });
+
+  // 2. Check if there is a pending direct call request waiting for this user in Redis
+  redis.get(`user:pending_call:${userId}`).then(async (pendingReqId) => {
+    if (pendingReqId) {
+      const reqVal = await distributedCallService.getPendingCall(redis, pendingReqId);
+      if (reqVal && reqVal.targetUserId === userId) {
+        const callerProfile = await fetchPublicProfile(reqVal.callerId).catch(() => null);
+        if (callerProfile) {
+          socket.emit('incoming_call_request', {
+            callRequestId: pendingReqId,
+            caller: callerProfile,
+          });
+          console.log(`🔔 [FCM Connect] Delivered pending direct call ${pendingReqId} to newly connected user ${userId}`);
+        }
+      }
     }
-  }
+  }).catch(() => {});
 
   // ── join_queue ────────────────────────────────────────────────────────
   socket.on('join_queue', async (callback) => {
     try {
       // Check if user is already in an active call
-      if (socketToCall.has(socket.id)) {
+      const activeCallId = socket.activeCallId || (await distributedCallService.getUserCallId(redis, userId));
+      if (activeCallId) {
         const cb = typeof callback === 'function' ? callback : () => {};
         cb({ error: 'Already in an active call' });
         return;
@@ -283,26 +214,23 @@ function registerMatchmakingHandlers(io, socket, redis) {
   // ── end_call ──────────────────────────────────────────────────────────
   socket.on('end_call', async ({ callId }) => {
     try {
-      const callInfo = await getActiveCall(callId);
+      const targetCallId = callId || socket.activeCallId || (await distributedCallService.getUserCallId(redis, userId));
+      if (!targetCallId) return;
+
+      const callInfo = (await distributedCallService.getActiveCall(redis, targetCallId)) ||
+                       (await distributedCallService.getActiveInstantCall(redis, targetCallId));
       if (callInfo) {
-        // Security Check: Authorize sender participant
-        if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) {
+        const isUserA = callInfo.userA?.userId === userId || callInfo.maleUserId === userId;
+        const isUserB = callInfo.userB?.userId === userId || callInfo.femaleUserId === userId;
+        if (!isUserA && !isUserB) {
           console.warn(`⚠️ Unauthorized attempt to end call by ${userId}`);
           return;
         }
-        await handleCallEnd(callId, callsService, io, 'manual', matchmakingService);
-        return;
       }
 
-      // Check if it's an Instant Connect call
-      const instantEndRes = await endInstantCallHelper(io, redis, {
-        callId,
-        userId,
-        reason: 'manual',
-      });
-      if (instantEndRes) {
-        console.log(`⚡ Instant call ${callId} manually ended by user ${userId}`);
-      }
+      await distributedCallService.endCallDistributed(io, redis, targetCallId, 'manual');
+      socket.activeCallId = null;
+      socket.activeCallType = null;
     } catch (err) {
       console.error('Error in end_call:', err);
     }
@@ -311,16 +239,17 @@ function registerMatchmakingHandlers(io, socket, redis) {
   // ── upgrade_to_video ──────────────────────────────────────────────────
   socket.on('upgrade_to_video', async ({ callId }) => {
     try {
-      let otherSocketId = null;
+      const targetCallId = callId || socket.activeCallId;
+      if (!targetCallId) return;
 
-      const callInfo = await getActiveCall(callId);
+      let otherUserId = null;
+      const callInfo = await distributedCallService.getActiveCall(redis, targetCallId);
       if (callInfo) {
         if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) {
           console.warn(`⚠️ Unauthorized attempt to upgrade call to video by ${userId}`);
           return;
         }
 
-        // Validate video quota for both users (60-minute monthly cap)
         const [quotaVideoA, quotaVideoB] = await Promise.all([
           callQuotaService.checkCanStartVideoCall(callInfo.userA.userId),
           callQuotaService.checkCanStartVideoCall(callInfo.userB.userId),
@@ -333,9 +262,9 @@ function registerMatchmakingHandlers(io, socket, redis) {
           return;
         }
 
-        otherSocketId = callInfo.userA.userId === userId ? callInfo.userB.socketId : callInfo.userA.socketId;
+        otherUserId = callInfo.userA.userId === userId ? callInfo.userB.userId : callInfo.userA.userId;
       } else {
-        const instantCall = activeInstantCalls?.get(callId);
+        const instantCall = await distributedCallService.getActiveInstantCall(redis, targetCallId);
         if (instantCall) {
           if (instantCall.maleUserId !== userId && instantCall.femaleUserId !== userId) {
             console.warn(`⚠️ Unauthorized attempt to upgrade instant call to video by ${userId}`);
@@ -354,23 +283,23 @@ function registerMatchmakingHandlers(io, socket, redis) {
             return;
           }
 
-          otherSocketId = instantCall.maleUserId === userId ? instantCall.femaleSocketId : instantCall.maleSocketId;
+          otherUserId = instantCall.maleUserId === userId ? instantCall.femaleUserId : instantCall.maleUserId;
         }
       }
 
-      if (!otherSocketId) {
-        console.warn(`⚠️ No active call session found for video upgrade request (callId: ${callId})`);
+      if (!otherUserId) {
+        console.warn(`⚠️ No active call session found for video upgrade request (callId: ${targetCallId})`);
         return;
       }
 
       const requesterProfile = await fetchPublicProfile(userId);
 
-      io.to(otherSocketId).emit('video_upgrade_request', {
-        callId,
+      io.to(otherUserId).emit('video_upgrade_request', {
+        callId: targetCallId,
         requesterId: userId,
         requesterName: requesterProfile.fullName || 'User',
       });
-      console.log(`📹 User ${userId} (${requesterProfile.fullName}) requested video upgrade for call ${callId}`);
+      console.log(`📹 User ${userId} (${requesterProfile.fullName}) requested video upgrade for call ${targetCallId}`);
     } catch (err) {
       console.error('Error in upgrade_to_video:', err);
     }
@@ -379,24 +308,23 @@ function registerMatchmakingHandlers(io, socket, redis) {
   // ── video_upgrade_accepted ────────────────────────────────────────────
   socket.on('video_upgrade_accepted', async ({ callId }) => {
     try {
-      let otherSocketId = null;
+      const targetCallId = callId || socket.activeCallId;
+      if (!targetCallId) return;
 
-      const callInfo = await getActiveCall(callId);
+      const callInfo = await distributedCallService.getActiveCall(redis, targetCallId);
       if (callInfo) {
         if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) {
           console.warn(`⚠️ Unauthorized attempt to accept video upgrade by ${userId}`);
           return;
         }
-        await callsService.upgradeToVideo(callId);
+        await callsService.upgradeToVideo(targetCallId);
 
-        // Accumulate voice time spent so far
+        let totalAudioSeconds = callInfo.totalAudioSeconds || 0;
         if (callInfo.callType === 'voice') {
           const audioElapsed = Math.floor((Date.now() - (callInfo.voiceStartedAt || callInfo.startedAt)) / 1000);
-          callInfo.totalAudioSeconds = (callInfo.totalAudioSeconds || 0) + Math.max(0, audioElapsed);
-          callInfo.voiceStartedAt = null;
+          totalAudioSeconds += Math.max(0, audioElapsed);
         }
 
-        // Switch call timer to remaining video quota
         const [quotaVideoA, quotaVideoB] = await Promise.all([
           callQuotaService.checkCanStartVideoCall(callInfo.userA.userId),
           callQuotaService.checkCanStartVideoCall(callInfo.userB.userId),
@@ -405,80 +333,73 @@ function registerMatchmakingHandlers(io, socket, redis) {
         const remainingVideoB = Math.max(0, quotaVideoB.remainingSeconds - (callInfo.totalVideoSeconds || 0));
         const maxVideoSeconds = Math.min(remainingVideoA, remainingVideoB);
 
-        if (callInfo.quotaTimer) {
-          clearTimeout(callInfo.quotaTimer);
-          callInfo.quotaTimer = null;
-        }
+        await distributedCallService.updateActiveCall(redis, targetCallId, {
+          callType: 'video',
+          voiceStartedAt: '',
+          videoStartedAt: Date.now(),
+          totalAudioSeconds,
+        });
 
-        callInfo.callType = 'video';
-        callInfo.videoStartedAt = Date.now();
-        await saveActiveCall(callId, callInfo);
-        if (maxVideoSeconds > 0) {
-          callInfo.quotaTimer = setTimeout(() => {
-            handleCallEnd(callId, callsService, io, 'timeout', matchmakingService);
-          }, maxVideoSeconds * 1000);
-        } else {
-          handleCallEnd(callId, callsService, io, 'timeout', matchmakingService);
+        if (maxVideoSeconds <= 0) {
+          await distributedCallService.endCallDistributed(io, redis, targetCallId, 'timeout');
           return;
         }
 
-        otherSocketId = callInfo.userA.userId === userId ? callInfo.userB.socketId : callInfo.userA.socketId;
         const otherUserId = callInfo.userA.userId === userId ? callInfo.userB.userId : callInfo.userA.userId;
-        if (otherUserId) io.to(otherUserId).emit('video_upgrade_accepted', { callId });
+        io.to(otherUserId).emit('video_upgrade_accepted', { callId: targetCallId });
+        socket.emit('video_upgrade_accepted', { callId: targetCallId });
       } else {
-        const instantCall = activeInstantCalls?.get(callId);
+        const instantCall = await distributedCallService.getActiveInstantCall(redis, targetCallId);
         if (instantCall) {
           if (instantCall.maleUserId !== userId && instantCall.femaleUserId !== userId) {
             console.warn(`⚠️ Unauthorized attempt to accept instant video upgrade by ${userId}`);
             return;
           }
+          let totalAudioSeconds = instantCall.totalAudioSeconds || 0;
           if (instantCall.callType !== 'video') {
             const audioElapsed = Math.floor((Date.now() - (instantCall.voiceStartedAt || instantCall.startedAt)) / 1000);
-            instantCall.totalAudioSeconds = (instantCall.totalAudioSeconds || 0) + Math.max(0, audioElapsed);
-            instantCall.voiceStartedAt = null;
+            totalAudioSeconds += Math.max(0, audioElapsed);
           }
-          instantCall.callType = 'video';
-          instantCall.videoStartedAt = Date.now();
-          otherSocketId = instantCall.maleUserId === userId ? instantCall.femaleSocketId : instantCall.maleSocketId;
+          await distributedCallService.updateActiveInstantCall(redis, targetCallId, {
+            callType: 'video',
+            voiceStartedAt: '',
+            videoStartedAt: Date.now(),
+            totalAudioSeconds,
+          });
+
+          const otherUserId = instantCall.maleUserId === userId ? instantCall.femaleUserId : instantCall.maleUserId;
+          io.to(otherUserId).emit('video_upgrade_accepted', { callId: targetCallId });
+          socket.emit('video_upgrade_accepted', { callId: targetCallId });
         }
       }
 
-      if (!otherSocketId) return;
-
-      io.to(otherSocketId).emit('video_upgrade_accepted', { callId });
-      console.log(`✅ User ${userId} accepted video upgrade for call ${callId}`);
+      console.log(`✅ User ${userId} accepted video upgrade for call ${targetCallId}`);
     } catch (err) {
       console.error('Error in video_upgrade_accepted:', err);
     }
   });
 
   // ── video_upgrade_declined ────────────────────────────────────────────
-  socket.on('video_upgrade_declined', ({ callId }) => {
+  socket.on('video_upgrade_declined', async ({ callId }) => {
     try {
-      let otherSocketId = null;
+      const targetCallId = callId || socket.activeCallId;
+      if (!targetCallId) return;
 
-      const callInfo = activeCalls.get(callId);
+      const callInfo = await distributedCallService.getActiveCall(redis, targetCallId);
       if (callInfo) {
-        if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) {
-          console.warn(`⚠️ Unauthorized attempt to decline video upgrade by ${userId}`);
-          return;
-        }
-        otherSocketId = callInfo.userA.userId === userId ? callInfo.userB.socketId : callInfo.userA.socketId;
+        if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) return;
+        const otherUserId = callInfo.userA.userId === userId ? callInfo.userB.userId : callInfo.userA.userId;
+        io.to(otherUserId).emit('video_upgrade_declined', { callId: targetCallId });
       } else {
-        const instantCall = activeInstantCalls?.get(callId);
+        const instantCall = await distributedCallService.getActiveInstantCall(redis, targetCallId);
         if (instantCall) {
-          if (instantCall.maleUserId !== userId && instantCall.femaleUserId !== userId) {
-            console.warn(`⚠️ Unauthorized attempt to decline instant video upgrade by ${userId}`);
-            return;
-          }
-          otherSocketId = instantCall.maleUserId === userId ? instantCall.femaleSocketId : instantCall.maleSocketId;
+          if (instantCall.maleUserId !== userId && instantCall.femaleUserId !== userId) return;
+          const otherUserId = instantCall.maleUserId === userId ? instantCall.femaleUserId : instantCall.maleUserId;
+          io.to(otherUserId).emit('video_upgrade_declined', { callId: targetCallId });
         }
       }
 
-      if (!otherSocketId) return;
-
-      io.to(otherSocketId).emit('video_upgrade_declined', { callId });
-      console.log(`❌ User ${userId} declined video upgrade for call ${callId}`);
+      console.log(`❌ User ${userId} declined video upgrade for call ${targetCallId}`);
     } catch (err) {
       console.error('Error in video_upgrade_declined:', err);
     }
@@ -487,77 +408,58 @@ function registerMatchmakingHandlers(io, socket, redis) {
   // ── switch_to_voice ────────────────────────────────────────────────────
   socket.on('switch_to_voice', async ({ callId }) => {
     try {
-      let otherSocketId = null;
+      const targetCallId = callId || socket.activeCallId;
+      if (!targetCallId) return;
 
-      const callInfo = await getActiveCall(callId);
+      let otherUserId = null;
+      const callInfo = await distributedCallService.getActiveCall(redis, targetCallId);
       if (callInfo) {
-        if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) {
-          console.warn(`⚠️ Unauthorized attempt to switch call to voice by ${userId}`);
-          return;
-        }
-        await callsService.downgradeToVoice(callId);
+        if (callInfo.userA.userId !== userId && callInfo.userB.userId !== userId) return;
+        await callsService.downgradeToVoice(targetCallId);
 
-        // Transition duration tracking from video back to voice
+        let totalVideoSeconds = callInfo.totalVideoSeconds || 0;
         if (callInfo.callType === 'video' && callInfo.videoStartedAt) {
           const videoElapsed = Math.floor((Date.now() - callInfo.videoStartedAt) / 1000);
-          callInfo.totalVideoSeconds = (callInfo.totalVideoSeconds || 0) + Math.max(0, videoElapsed);
-          callInfo.videoStartedAt = null;
-        }
-        callInfo.callType = 'voice';
-        callInfo.voiceStartedAt = Date.now();
-        await saveActiveCall(callId, callInfo);
-        callInfo.voiceStartedAt = Date.now();
-
-        // Switch quota timer back to remaining audio budget
-        if (callInfo.quotaTimer) {
-          clearTimeout(callInfo.quotaTimer);
-          callInfo.quotaTimer = null;
-        }
-        const [quotaAudioA, quotaAudioB] = await Promise.all([
-          callQuotaService.checkCanStartAudioCall(callInfo.userA.userId),
-          callQuotaService.checkCanStartAudioCall(callInfo.userB.userId),
-        ]);
-        const remainingAudioA = Math.max(0, quotaAudioA.remainingSeconds - (callInfo.totalAudioSeconds || 0));
-        const remainingAudioB = Math.max(0, quotaAudioB.remainingSeconds - (callInfo.totalAudioSeconds || 0));
-        const maxAudioSeconds = Math.min(remainingAudioA, remainingAudioB);
-        if (maxAudioSeconds > 0) {
-          callInfo.quotaTimer = setTimeout(() => {
-            handleCallEnd(callId, callsService, io, 'timeout', matchmakingService);
-          }, maxAudioSeconds * 1000);
-        } else {
-          handleCallEnd(callId, callsService, io, 'timeout', matchmakingService);
-          return;
+          totalVideoSeconds += Math.max(0, videoElapsed);
         }
 
-        otherSocketId = callInfo.userA.userId === userId ? callInfo.userB.socketId : callInfo.userA.socketId;
+        await distributedCallService.updateActiveCall(redis, targetCallId, {
+          callType: 'voice',
+          voiceStartedAt: Date.now(),
+          videoStartedAt: '',
+          totalVideoSeconds,
+        });
+
+        otherUserId = callInfo.userA.userId === userId ? callInfo.userB.userId : callInfo.userA.userId;
       } else {
-        const instantCall = activeInstantCalls?.get(callId);
+        const instantCall = await distributedCallService.getActiveInstantCall(redis, targetCallId);
         if (instantCall) {
-          if (instantCall.maleUserId !== userId && instantCall.femaleUserId !== userId) {
-            console.warn(`⚠️ Unauthorized attempt to switch instant call to voice by ${userId}`);
-            return;
-          }
+          if (instantCall.maleUserId !== userId && instantCall.femaleUserId !== userId) return;
+          let totalVideoSeconds = instantCall.totalVideoSeconds || 0;
           if (instantCall.callType === 'video' && instantCall.videoStartedAt) {
             const videoElapsed = Math.floor((Date.now() - instantCall.videoStartedAt) / 1000);
-            instantCall.totalVideoSeconds = (instantCall.totalVideoSeconds || 0) + Math.max(0, videoElapsed);
-            instantCall.videoStartedAt = null;
+            totalVideoSeconds += Math.max(0, videoElapsed);
           }
-          instantCall.callType = 'voice';
-          instantCall.voiceStartedAt = Date.now();
-          otherSocketId = instantCall.maleUserId === userId ? instantCall.femaleSocketId : instantCall.maleSocketId;
+          await distributedCallService.updateActiveInstantCall(redis, targetCallId, {
+            callType: 'voice',
+            voiceStartedAt: Date.now(),
+            videoStartedAt: '',
+            totalVideoSeconds,
+          });
+          otherUserId = instantCall.maleUserId === userId ? instantCall.femaleUserId : instantCall.maleUserId;
         }
       }
 
-      if (!otherSocketId) return;
+      if (!otherUserId) return;
 
       const switcherProfile = await fetchPublicProfile(userId);
       const switcherName = switcherProfile?.fullName || 'Participant';
 
-      io.to(otherSocketId).emit('switched_to_voice', {
-        callId,
+      io.to(otherUserId).emit('switched_to_voice', {
+        callId: targetCallId,
         switcherName,
       });
-      console.log(`🎙️ User ${userId} (${switcherName}) switched call ${callId} to voice`);
+      console.log(`🎙️ User ${userId} (${switcherName}) switched call ${targetCallId} to voice`);
     } catch (err) {
       console.error('Error in switch_to_voice:', err);
     }
@@ -566,7 +468,7 @@ function registerMatchmakingHandlers(io, socket, redis) {
   // ── accept_call_request ────────────────────────────────────────────────
   socket.on('accept_call_request', async ({ callRequestId }) => {
     try {
-      const request = await getPendingCall(callRequestId);
+      const request = await distributedCallService.getPendingCall(redis, callRequestId);
       if (!request) {
         socket.emit('match_error', { error: 'Call request expired or does not exist.' });
         return;
@@ -577,7 +479,8 @@ function registerMatchmakingHandlers(io, socket, redis) {
         return;
       }
 
-      await deletePendingCall(callRequestId);
+      await distributedCallService.deletePendingCall(redis, callRequestId);
+      await redis.del(`user:pending_call:${userId}`);
 
       // Validate audio quota for both caller and target
       const [quotaCaller, quotaTarget] = await Promise.all([
@@ -586,7 +489,6 @@ function registerMatchmakingHandlers(io, socket, redis) {
       ]);
       if (!quotaCaller.allowed || !quotaTarget.allowed) {
         socket.emit('match_error', { error: 'lines_busy', message: TELECOM_BUSY_MESSAGE });
-        io.to(request.callerSocketId).emit('match_error', { error: 'lines_busy', message: TELECOM_BUSY_MESSAGE });
         io.to(request.callerId).emit('match_error', { error: 'lines_busy', message: TELECOM_BUSY_MESSAGE });
         return;
       }
@@ -609,9 +511,9 @@ function registerMatchmakingHandlers(io, socket, redis) {
         fetchPublicProfile(request.targetUserId),
       ]);
 
-      await saveActiveCall(callId, {
-        userA: { userId: request.callerId, socketId: request.callerSocketId, agoraUid: uidA, gender: request.callerGender },
-        userB: { userId: request.targetUserId, socketId: socket.id, agoraUid: uidB, gender: request.targetGender },
+      await distributedCallService.saveActiveCall(redis, callId, {
+        userA: { userId: request.callerId, gender: request.callerGender },
+        userB: { userId: request.targetUserId, gender: request.targetGender },
         channelName,
         startedAt: Date.now(),
         callType: 'voice',
@@ -619,38 +521,32 @@ function registerMatchmakingHandlers(io, socket, redis) {
         videoStartedAt: null,
         totalAudioSeconds: 0,
         totalVideoSeconds: 0,
-        quotaTimer: setTimeout(() => {
-          handleCallEnd(callId, callsService, io, 'timeout', matchmakingService);
-        }, maxCallSeconds * 1000),
+        maxAllowedSeconds: maxCallSeconds,
       });
-      socketToCall.set(request.callerSocketId, callId);
-      socketToCall.set(socket.id, callId);
 
-      await redis.set(`call_lock:${request.callerId}`, '1', 'EX', 7200);
-      await redis.set(`call_lock:${request.targetUserId}`, '1', 'EX', 7200);
+      socket.activeCallId = callId;
+      socket.activeCallType = 'direct';
 
+      await redis.srem('instant:female_pool', request.callerId, request.targetUserId).catch(() => {});
 
-      if (request.callerSocketId) {
-        io.to(request.callerSocketId).emit('match_found', {
-          callId,
-          agoraAppId: process.env.AGORA_APP_ID,
-          agoraChannelName: channelName,
-          agoraToken: tokenA,
-          agoraUid: uidA,
-          matchedUser: profileB,
-        });
-      }
-      if (request.callerId) {
-        io.to(request.callerId).emit('match_found', {
-          callId,
-          agoraAppId: process.env.AGORA_APP_ID,
-          agoraChannelName: channelName,
-          agoraToken: tokenA,
-          agoraUid: uidA,
-          matchedUser: profileB,
-        });
+      // Arm local timeout timer
+      if (maxCallSeconds > 0) {
+        setTimeout(() => {
+          distributedCallService.endCallDistributed(io, redis, callId, 'timeout');
+        }, maxCallSeconds * 1000);
       }
 
+      // Notify Caller
+      io.to(request.callerId).emit('match_found', {
+        callId,
+        agoraAppId: process.env.AGORA_APP_ID,
+        agoraChannelName: channelName,
+        agoraToken: tokenA,
+        agoraUid: uidA,
+        matchedUser: profileB,
+      });
+
+      // Notify Target (current socket)
       socket.emit('match_found', {
         callId,
         agoraAppId: process.env.AGORA_APP_ID,
@@ -659,22 +555,6 @@ function registerMatchmakingHandlers(io, socket, redis) {
         agoraUid: uidB,
         matchedUser: profileA,
       });
-
-      callsService.startCallTimer(callId, (expiredCallId) => {
-        handleCallEnd(expiredCallId, callsService, io, 'timer', matchmakingService);
-      });
-
-      callsService.startCallBilling(
-        callId,
-        request.callerId,
-        request.targetUserId,
-        request.callerGender,
-        request.targetGender,
-        io,
-        (billingCallId) => {
-          handleCallEnd(billingCallId, callsService, io, 'insufficient_balance', matchmakingService);
-        }
-      );
 
       console.log(`✅ Direct call ${callId} established: ${request.callerId} (${request.callerGender}) ↔ ${request.targetUserId} (${request.targetGender})`);
     } catch (err) {
@@ -686,17 +566,12 @@ function registerMatchmakingHandlers(io, socket, redis) {
   // ── decline_call_request ────────────────────────────────────────────────
   socket.on('decline_call_request', async ({ callRequestId }) => {
     try {
-      const request = await getPendingCall(callRequestId);
-      if (!request) return;
+      const request = await distributedCallService.getPendingCall(redis, callRequestId);
+      if (!request || request.targetUserId !== userId) return;
 
-      if (request.targetUserId !== userId) return;
+      await distributedCallService.deletePendingCall(redis, callRequestId);
+      await redis.del(`user:pending_call:${request.targetUserId}`);
 
-      await deletePendingCall(callRequestId);
-
-      io.to(request.callerSocketId).emit('call_response', {
-        callRequestId,
-        status: 'declined',
-      });
       io.to(request.callerId).emit('call_response', {
         callRequestId,
         status: 'declined',
@@ -711,17 +586,12 @@ function registerMatchmakingHandlers(io, socket, redis) {
   // ── cancel_call_request ─────────────────────────────────────────────────
   socket.on('cancel_call_request', async ({ callRequestId }) => {
     try {
-      const request = await getPendingCall(callRequestId);
-      if (!request) return;
+      const request = await distributedCallService.getPendingCall(redis, callRequestId);
+      if (!request || request.callerId !== userId) return;
 
-      if (request.callerId !== userId) return;
+      await distributedCallService.deletePendingCall(redis, callRequestId);
+      await redis.del(`user:pending_call:${request.targetUserId}`);
 
-      await deletePendingCall(callRequestId);
-
-      io.to(request.targetSocketId).emit('call_response', {
-        callRequestId,
-        status: 'cancelled',
-      });
       io.to(request.targetUserId).emit('call_response', {
         callRequestId,
         status: 'cancelled',
@@ -754,52 +624,21 @@ function registerMatchmakingHandlers(io, socket, redis) {
       return;
     }
 
-    if (socketToCall.has(socket.id)) {
-      socket.emit('match_error', { error: 'Already in an active call' });
-      return;
-    }
-    const callerActive = await redis.get(`user_active_call:${userId}`).catch(() => null);
+    // Check if caller is already engaged in an active call
+    const callerActive = socket.activeCallId || (await distributedCallService.getUserCallId(redis, userId));
     if (callerActive) {
       socket.emit('match_error', { error: 'Already in an active call' });
       return;
     }
 
-    const callerInInstant = await redis.get(`instant:in_call:${userId}`);
-    if (callerInInstant) {
-      socket.emit('match_error', { error: 'Already in an active call' });
-      return;
-    }
+    // Check if target is busy or engaged in an active call via Redis O(1)
+    const [targetActiveCall, targetInInstant, targetPending] = await Promise.all([
+      distributedCallService.getUserCallId(redis, targetUserId),
+      redis.get(`instant:in_call:${targetUserId}`).catch(() => null),
+      redis.get(`user:pending_call:${targetUserId}`).catch(() => null),
+    ]);
 
-    const targetSocket = getSocketForUser(io, targetUserId);
-    const targetSocketId = targetSocket?.id || null;
-
-    let isBusy = targetSocketId ? socketToCall.has(targetSocketId) : false;
-    if (!isBusy) {
-      const activeCallForTarget = await redis.get(`user_active_call:${targetUserId}`).catch(() => null);
-      if (activeCallForTarget) isBusy = true;
-    }
-    if (!isBusy) {
-      const inInstant = await redis.get(`instant:in_call:${targetUserId}`);
-      if (inInstant) isBusy = true;
-    }
-    if (!isBusy && activeInstantCalls) {
-      for (const call of activeInstantCalls.values()) {
-        if (call.femaleUserId === targetUserId || call.maleUserId === targetUserId) {
-          isBusy = true;
-          break;
-        }
-      }
-    }
-
-    if (!isBusy) {
-      for (const reqVal of pendingCallRequests.values()) {
-        if (reqVal.callerId === targetUserId || reqVal.targetUserId === targetUserId) {
-          isBusy = true;
-          break;
-        }
-      }
-    }
-    if (isBusy) {
+    if (targetActiveCall || targetInInstant || targetPending) {
       socket.emit('call_response', { status: 'busy' });
       return;
     }
@@ -824,8 +663,7 @@ function registerMatchmakingHandlers(io, socket, redis) {
       const callerGender = callerProfile.gender || (await getUserGender(userId));
       const targetGender = await getUserGender(targetUserId);
 
-      // Check if target is online cluster-wide or has FCM token
-      const isTargetOnline = (targetSocket && targetSocket.connected) || (await PresenceService.isUserOnline(redis, targetUserId));
+      const isTargetOnline = await PresenceService.isUserOnline(redis, targetUserId);
       if (!isTargetOnline) {
         const targetUserRow = await db.query(
           `SELECT fcm_token, full_name FROM public.users WHERE id = $1`,
@@ -852,38 +690,31 @@ function registerMatchmakingHandlers(io, socket, redis) {
         }).catch((err) => console.error('FCM Direct Call error:', err.message));
       }
 
-      const timer = setTimeout(async () => {
-        const req = await getPendingCall(callRequestId);
+      await distributedCallService.savePendingCall(redis, callRequestId, {
+        callRequestId,
+        callerId: userId,
+        callerGender,
+        targetUserId,
+        targetGender,
+        callType,
+        createdAt: Date.now(),
+      });
+      await redis.set(`user:pending_call:${targetUserId}`, callRequestId, 'EX', 35);
+
+      // Arm 30s timeout on caller node
+      setTimeout(async () => {
+        const req = await distributedCallService.getPendingCall(redis, callRequestId);
         if (req) {
           console.log(`⏰ Call request ${callRequestId} timed out (no answer)`);
-          io.to(socket.id).emit('call_response', { callRequestId, status: 'no_answer' });
           io.to(userId).emit('call_response', { callRequestId, status: 'no_answer' });
-          if (targetSocketId) {
-            io.to(targetSocketId).emit('call_response', { callRequestId, status: 'no_answer' });
-          }
           io.to(targetUserId).emit('call_response', { callRequestId, status: 'no_answer' });
-          await deletePendingCall(callRequestId);
+          await distributedCallService.deletePendingCall(redis, callRequestId);
+          await redis.del(`user:pending_call:${targetUserId}`);
         }
       }, 30000);
 
-      await savePendingCall(callRequestId, {
-        callerId: userId,
-        callerSocketId: socket.id,
-        callerGender,
-        targetUserId,
-        targetSocketId,
-        targetGender,
-        callType,
-        timer,
-      });
-
+      // Deliver incoming request cluster-wide to target's personal room
       if (isTargetOnline) {
-        if (targetSocketId) {
-          io.to(targetSocketId).emit('incoming_call_request', {
-            callRequestId,
-            caller: callerProfile,
-          });
-        }
         io.to(targetUserId).emit('incoming_call_request', {
           callRequestId,
           caller: callerProfile,
@@ -910,30 +741,25 @@ function registerMatchmakingHandlers(io, socket, redis) {
     try {
       await matchmakingService.leaveQueue(userId);
 
-      for (const [callRequestId, reqVal] of pendingCallRequests.entries()) {
-        if (reqVal.callerId === userId) {
-          io.to(reqVal.targetSocketId).emit('call_response', { callRequestId, status: 'cancelled' });
-          clearTimeout(reqVal.timer);
-          pendingCallRequests.delete(callRequestId);
-        } else if (reqVal.targetUserId === userId) {
-          io.to(reqVal.callerSocketId).emit('call_response', { callRequestId, status: 'offline' });
-          clearTimeout(reqVal.timer);
-          pendingCallRequests.delete(callRequestId);
+      // Cancel any pending direct call requests involving this user
+      const pendingReqId = await redis.get(`user:pending_call:${userId}`);
+      if (pendingReqId) {
+        const req = await distributedCallService.getPendingCall(redis, pendingReqId);
+        if (req) {
+          await distributedCallService.deletePendingCall(redis, pendingReqId);
+          await redis.del(`user:pending_call:${userId}`);
+          io.to(req.callerId).emit('call_response', { callRequestId: pendingReqId, status: 'cancelled' });
         }
       }
 
-      let callId = socketToCall.get(socket.id);
-      if (!callId) {
-        callId = await redis.get(`user_active_call:${userId}`).catch(() => null);
-      }
+      // Check if user was in an active call
+      const callId = socket.activeCallId || (await distributedCallService.getUserCallId(redis, userId));
       if (callId) {
-        console.log(`⚠️ User ${userId} disconnected during call ${callId}`);
-        await handleCallEnd(callId, callsService, io, 'disconnect', matchmakingService);
+        console.log(`⚠️ User ${userId} disconnected during call ${callId} — starting 15s grace period`);
+        await distributedCallService.handlePeerDisconnect(io, redis, userId, callId);
       }
-
-      userSockets.delete(userId);
     } catch (err) {
-      console.error('Error in disconnect handler:', err);
+      console.error('Error in matchmaking disconnect handler:', err);
     }
   });
 }
@@ -973,18 +799,12 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
   const isValidCrossGender = (isMaleA && isFemaleB) || (isFemaleA && isMaleB);
   if (!isValidCrossGender) {
     console.error(`🚨 INVALID CROSS-GENDER MATCH DETECTED & BLOCKED: ${userA.userId} (${genderA}) ↔ ${userB.userId} (${genderB}). Aborting call setup!`);
-    const socketAId = userSockets.get(userA.userId) || userA.socketId;
-    const socketBId = userSockets.get(userB.userId) || userB.socketId;
-    if (socketAId) io.to(socketAId).emit('match_error', { error: 'Matchmaking error. Please try searching again.' });
-    if (socketBId && socketBId !== socketAId) io.to(socketBId).emit('match_error', { error: 'Matchmaking error. Please try searching again.' });
+    io.to(userA.userId).emit('match_error', { error: 'Matchmaking error. Please try searching again.' });
+    io.to(userB.userId).emit('match_error', { error: 'Matchmaking error. Please try searching again.' });
     return;
   }
 
   try {
-    // Determine active sockets
-    const socketAId = userSockets.get(userA.userId) || userA.socketId;
-    const socketBId = userSockets.get(userB.userId) || userB.socketId;
-
     // Generate Agora channel and tokens
     const channelName = matchmakingService.generateChannelName();
     const uidA = matchmakingService.uuidToAgoraUid(userA.userId);
@@ -1008,12 +828,8 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
     ]);
 
     if (!quotaA.allowed || !quotaB.allowed) {
-      if (!quotaA.allowed && socketAId) {
-        io.to(socketAId).emit('match_error', { error: 'lines_busy', message: TELECOM_BUSY_MESSAGE });
-      }
-      if (!quotaB.allowed && socketBId) {
-        io.to(socketBId).emit('match_error', { error: 'lines_busy', message: TELECOM_BUSY_MESSAGE });
-      }
+      if (!quotaA.allowed) io.to(userA.userId).emit('match_error', { error: 'lines_busy', message: TELECOM_BUSY_MESSAGE });
+      if (!quotaB.allowed) io.to(userB.userId).emit('match_error', { error: 'lines_busy', message: TELECOM_BUSY_MESSAGE });
       await Promise.all([
         matchmakingService.leaveQueue(userA.userId),
         matchmakingService.leaveQueue(userB.userId),
@@ -1023,10 +839,10 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
 
     const maxCallSeconds = Math.min(quotaA.remainingSeconds, quotaB.remainingSeconds);
 
-    // Track active call in Redis & memory
-    await saveActiveCall(callId, {
-      userA: { userId: userA.userId, socketId: socketAId, agoraUid: uidA, gender: genderA },
-      userB: { userId: userB.userId, socketId: socketBId, agoraUid: uidB, gender: genderB },
+    // Track active call in Redis
+    await distributedCallService.saveActiveCall(redis, callId, {
+      userA: { userId: userA.userId, gender: genderA },
+      userB: { userId: userB.userId, gender: genderB },
       channelName,
       startedAt: Date.now(),
       callType: 'voice',
@@ -1034,26 +850,31 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
       videoStartedAt: null,
       totalAudioSeconds: 0,
       totalVideoSeconds: 0,
-      quotaTimer: setTimeout(() => {
-        handleCallEnd(callId, callsService, io, 'timeout', matchmakingService);
-      }, maxCallSeconds * 1000),
+      maxAllowedSeconds: maxCallSeconds,
     });
-    socketToCall.set(socketAId, callId);
-    socketToCall.set(socketBId, callId);
 
-    await redis.set(`call_lock:${userA.userId}`, '1', 'EX', 7200);
-    await redis.set(`call_lock:${userB.userId}`, '1', 'EX', 7200);
+    await redis.srem('instant:female_pool', userA.userId, userB.userId).catch(() => {});
 
+    // Arm timeout safety timer on the matchmaking node
+    if (maxCallSeconds > 0) {
+      setTimeout(() => {
+        distributedCallService.endCallDistributed(io, redis, callId, 'timeout');
+      }, maxCallSeconds * 1000);
+    }
 
-    // Emit match_found to both users (both direct socket and user room for cross-instance relay)
-    io.to(socketAId).emit('match_found', {
-      callId,
-      agoraAppId: process.env.AGORA_APP_ID,
-      agoraChannelName: channelName,
-      agoraToken: tokenA,
-      agoraUid: uidA,
-      matchedUser: profileB,
-    });
+    // Attach activeCallId to local sockets if present on this instance
+    const localSocketA = getSocketForUser(io, userA.userId);
+    const localSocketB = getSocketForUser(io, userB.userId);
+    if (localSocketA) {
+      localSocketA.activeCallId = callId;
+      localSocketA.activeCallType = 'direct';
+    }
+    if (localSocketB) {
+      localSocketB.activeCallId = callId;
+      localSocketB.activeCallType = 'direct';
+    }
+
+    // Emit match_found to both users across cluster via personal rooms
     io.to(userA.userId).emit('match_found', {
       callId,
       agoraAppId: process.env.AGORA_APP_ID,
@@ -1063,14 +884,6 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
       matchedUser: profileB,
     });
 
-    io.to(socketBId).emit('match_found', {
-      callId,
-      agoraAppId: process.env.AGORA_APP_ID,
-      agoraChannelName: channelName,
-      agoraToken: tokenB,
-      agoraUid: uidB,
-      matchedUser: profileA,
-    });
     io.to(userB.userId).emit('match_found', {
       callId,
       agoraAppId: process.env.AGORA_APP_ID,
@@ -1080,148 +893,20 @@ async function attemptMatch(io, redis, matchmakingService, callsService) {
       matchedUser: profileA,
     });
 
-    // Start server-authoritative 5-minute timer
-    callsService.startCallTimer(callId, (expiredCallId) => {
-      handleCallEnd(expiredCallId, callsService, io, 'timer', matchmakingService);
-    });
-
-    // Start gender-aware billing
-    callsService.startCallBilling(
-      callId,
-      userA.userId,
-      userB.userId,
-      genderA,
-      genderB,
-      io,
-      (billingCallId) => {
-        handleCallEnd(billingCallId, callsService, io, 'insufficient_balance', matchmakingService);
-      }
-    );
-
     console.log(`📞 Call ${callId} started: ${userA.userId} (${genderA}) ↔ ${userB.userId} (${genderB})`);
   } catch (err) {
     console.error('Error setting up match:', err);
-    const socketAId = userSockets.get(userA.userId) || userA.socketId;
-    const socketBId = userSockets.get(userB.userId) || userB.socketId;
-    io.to(socketAId).emit('match_error', { error: 'Failed to set up call' });
-    io.to(socketBId).emit('match_error', { error: 'Failed to set up call' });
+    io.to(userA.userId).emit('match_error', { error: 'Failed to set up call' });
+    io.to(userB.userId).emit('match_error', { error: 'Failed to set up call' });
   }
 }
 
 /**
  * Handle call end (manual, timer, or disconnect).
- * Cleans up state and notifies both parties.
- * Gender-aware: sends balance_update to boy, rose_update to girl.
+ * Delegates directly to distributed call service.
  */
 async function handleCallEnd(callId, callsService, io, reason, matchmakingService) {
-  const callInfo = await getActiveCall(callId);
-  if (!callInfo) return; // Already cleaned up
-
-  // 1. Instantly clear timers and remove from tracking maps
-  if (callInfo.quotaTimer) {
-    clearTimeout(callInfo.quotaTimer);
-    callInfo.quotaTimer = null;
-  }
-
-  await deleteActiveCall(callId, callInfo.userA?.userId, callInfo.userB?.userId);
-  if (callInfo.userA?.socketId) socketToCall.delete(callInfo.userA.socketId);
-  if (callInfo.userB?.socketId) socketToCall.delete(callInfo.userB.socketId);
-  const currentSocketA = userSockets.get(callInfo.userA?.userId);
-  const currentSocketB = userSockets.get(callInfo.userB?.userId);
-  if (currentSocketA) socketToCall.delete(currentSocketA);
-  if (currentSocketB) socketToCall.delete(currentSocketB);
-
-  // Calculate audio vs video duration accurately across state transitions
-  const endedAt = Date.now();
-  let audioDurationSec = callInfo.totalAudioSeconds || 0;
-  let videoDurationSec = callInfo.totalVideoSeconds || 0;
-
-  if (callInfo.callType === 'video' && callInfo.videoStartedAt) {
-    const elapsedVideo = Math.floor((endedAt - callInfo.videoStartedAt) / 1000);
-    videoDurationSec += Math.max(0, elapsedVideo);
-  } else {
-    const elapsedAudio = Math.floor((endedAt - (callInfo.voiceStartedAt || callInfo.startedAt || endedAt)) / 1000);
-    audioDurationSec += Math.max(0, elapsedAudio);
-  }
-
-  // Record quota asynchronously (atomic Redis + Postgres rollup)
-  callQuotaService.recordCallUsage(
-    callInfo.userA.userId,
-    callInfo.userB.userId,
-    audioDurationSec,
-    videoDurationSec
-  ).catch((err) => {
-    console.error('[CallQuota] Error recording usage in handleCallEnd:', err.message);
-  });
-
-  // 2. Immediately notify both users' sockets at 0ms latency so the screens cut instantly!
-  const isAFemale = isFemale(callInfo.userA.gender);
-  const boyInfo = isAFemale ? callInfo.userB : callInfo.userA;
-  const girlInfo = isAFemale ? callInfo.userA : callInfo.userB;
-  const socketBoyId = userSockets.get(boyInfo.userId) || boyInfo.socketId;
-  const socketGirlId = userSockets.get(girlInfo.userId) || girlInfo.socketId;
-
-  // Emit instant termination to both users
-  if (socketBoyId) io.to(socketBoyId).emit('call_ended', { callId, reason });
-  if (socketGirlId && socketGirlId !== socketBoyId) io.to(socketGirlId).emit('call_ended', { callId, reason });
-  if (boyInfo.userId) io.to(boyInfo.userId).emit('call_ended', { callId, reason });
-  if (girlInfo.userId && girlInfo.userId !== boyInfo.userId) io.to(girlInfo.userId).emit('call_ended', { callId, reason });
-
-  // 3. Perform database operations, queue cleanups, and balance updates asynchronously in background
-  (async () => {
-    try {
-      if (matchmakingService) {
-        await Promise.all([
-          matchmakingService.leaveQueue(callInfo.userA.userId),
-          matchmakingService.leaveQueue(callInfo.userB.userId),
-        ]);
-      }
-      await redis.del(`call_lock:${callInfo.userA.userId}`);
-      await redis.del(`call_lock:${callInfo.userB.userId}`);
-      await Promise.all([
-        cacheService.invalidate(`user:matches:${callInfo.userA.userId}`),
-        cacheService.invalidate(`user:matches:${callInfo.userB.userId}`),
-      ]);
-
-      await callsService.endCall(callId);
-
-      // Query actual total cost for the boy from wallet_transactions
-      let totalCostBoy = 0;
-      try {
-        const resBoy = await db.query(
-          `SELECT COALESCE(SUM(ABS(spendable_delta) + ABS(earned_delta)), 0) AS total FROM public.wallet_transactions
-           WHERE user_id = $1 AND reference_id = $2`,
-          [boyInfo.userId, callId]
-        );
-        totalCostBoy = parseInt(resBoy.rows[0]?.total, 10) || 0;
-      } catch (_) {}
-
-      // Query total roses earned by the girl from rose_transactions
-      let totalRosesGirl = 0;
-      try {
-        const resGirl = await db.query(
-          `SELECT COALESCE(SUM(amount), 0) AS total FROM public.rose_transactions
-           WHERE user_id = $1 AND reference_id = $2 AND type = 'credit'`,
-          [girlInfo.userId, callId]
-        );
-        totalRosesGirl = parseInt(resGirl.rows[0]?.total, 10) || 0;
-      } catch (_) {}
-
-      // Emit final balance updates
-      const [boyBal, girlBal] = await Promise.all([
-        WalletService.getBalance(boyInfo.userId),
-        WalletService.getBalance(girlInfo.userId),
-      ]);
-      if (socketBoyId) io.to(socketBoyId).emit('balance_update', { balance: boyBal });
-      if (socketGirlId && socketGirlId !== socketBoyId) {
-        io.to(socketGirlId).emit('balance_update', { balance: girlBal });
-      }
-
-      console.log(`📴 Call ${callId} ended (reason: ${reason}) — boy ${boyInfo.userId} spent ${totalCostBoy} coins, girl ${girlInfo.userId} earned ${totalRosesGirl} coins`);
-    } catch (err) {
-      console.error(`Error in async post-call processing for ${callId}:`, err.message);
-    }
-  })();
+  await distributedCallService.endCallDistributed(io, redis, callId, reason);
 }
 
 /**
@@ -1240,7 +925,6 @@ async function fetchPublicProfile(userId) {
 
     const user = result.rows[0];
     const rawGender = (user.gender || '').trim();
-    console.log(`✅ Fetched profile for user ${userId}: ${user.full_name} (${rawGender})`);
     return {
       id: user.id,
       fullName: user.full_name || 'User',
@@ -1268,45 +952,20 @@ async function cleanupUserMatchmaking(io, redis, userId) {
     await matchmakingService.leaveQueue(userId).catch(() => {});
 
     // 2. Clear any pending direct call requests involving this user
-    for (const [callRequestId, reqVal] of pendingCallRequests.entries()) {
-      if (reqVal.callerId === userId) {
-        if (io && reqVal.targetSocketId) {
-          io.to(reqVal.targetSocketId).emit('call_response', { callRequestId, status: 'cancelled' });
-        }
-        clearTimeout(reqVal.timer);
-        pendingCallRequests.delete(callRequestId);
-      } else if (reqVal.targetUserId === userId) {
-        if (io && reqVal.callerSocketId) {
-          io.to(reqVal.callerSocketId).emit('call_response', { callRequestId, status: 'offline' });
-        }
-        clearTimeout(reqVal.timer);
-        pendingCallRequests.delete(callRequestId);
-      }
+    const pendingReqId = await redis.get(`user:pending_call:${userId}`);
+    if (pendingReqId) {
+      await distributedCallService.deletePendingCall(redis, pendingReqId);
+      await redis.del(`user:pending_call:${userId}`);
     }
 
     // 3. End any active calls involving this user
-    for (const [callId, callObj] of activeCalls.entries()) {
-      if (callObj.userA?.userId === userId || callObj.userB?.userId === userId) {
-        console.log(`🛑 Ending active call ${callId} due to user ${userId} logout`);
-        await handleCallEnd(callId, callsService, io, 'logout', matchmakingService).catch(() => {});
-      }
+    const callId = await distributedCallService.getUserCallId(redis, userId);
+    if (callId) {
+      console.log(`🛑 Ending active call ${callId} due to user ${userId} logout`);
+      await distributedCallService.endCallDistributed(io, redis, callId, 'logout').catch(() => {});
     }
 
-    // 4. Disconnect and remove any sockets registered for this user
-    const socketId = userSockets.get(userId);
-    if (socketId) {
-      socketToCall.delete(socketId);
-      userSockets.delete(userId);
-      if (io && io.sockets?.sockets?.has(socketId)) {
-        const s = io.sockets.sockets.get(socketId);
-        if (s) {
-          s.emit('force_disconnect', { reason: 'logged_out' });
-          s.disconnect(true);
-        }
-      }
-    }
-
-    // Scan all live sockets to ensure none retain this userId
+    // 4. Scan all live sockets to ensure none retain this userId
     if (io && io.sockets?.sockets) {
       for (const [, s] of io.sockets.sockets) {
         if (s.userId === userId) {
@@ -1322,6 +981,17 @@ async function cleanupUserMatchmaking(io, redis, userId) {
   }
 }
 
-module.exports = { registerMatchmakingHandlers, userSockets, cleanupUserMatchmaking, getSocketForUser };
+module.exports = {
+  registerMatchmakingHandlers,
+  cleanupUserMatchmaking,
+  getSocketForUser,
+  saveActiveCall,
+  getActiveCall,
+  deleteActiveCall,
+  savePendingCall,
+  getPendingCall,
+  deletePendingCall,
+  handleCallEnd,
+};
 
 

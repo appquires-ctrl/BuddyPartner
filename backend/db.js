@@ -9,8 +9,8 @@ if (!connectionString) {
 
 /**
  * PostgreSQL Connection Pool Configuration for Neon Serverless
- * - max: 40 (Sized safely below Neon's 901 direct engine / 10,000 PgBouncer pooler limits,
- *   providing high concurrency while leaving headroom for multiple backend replicas & admin panel).
+ * - max: 20 (Sized for multi-instance autoscaling: 5 replicas * 20 = 100 connections max,
+ *   safely below Neon's direct engine / PgBouncer pooler limits while preventing pool starvation).
  * - connectionTimeoutMillis: 10000 (Allows Neon compute to wake from scale-to-zero cold storage).
  * - idleTimeoutMillis: 30000 (Releases idle clients after 30 seconds).
  */
@@ -19,7 +19,7 @@ const pool = new Pool({
   ssl: connectionString.includes('localhost') || connectionString.includes('127.0.0.1')
     ? false
     : { rejectUnauthorized: false },
-  max: 40,
+  max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
 });
@@ -32,27 +32,6 @@ pool.on('error', (err) => {
   console.error('❌ Unexpected database error on idle client:', err.message);
 });
 
-// Initialize the favorites table if it doesn't exist (with retry for serverless cold starts)
-async function initCoreTables(retries = 2) {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS public.favorites (
-        user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-        favorite_user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        PRIMARY KEY (user_id, favorite_user_id)
-      );
-    `);
-    await pool.query(`ALTER TABLE public.users ALTER COLUMN avatar_seed TYPE TEXT;`);
-  } catch (err) {
-    if (retries > 0) {
-      setTimeout(() => initCoreTables(retries - 1), 2000);
-    } else {
-      console.warn('⚠️ Initial core table check deferred to server startup:', err.message);
-    }
-  }
-}
-initCoreTables();
 
 /**
  * Profiled query executor with slow-query detection (>200ms)

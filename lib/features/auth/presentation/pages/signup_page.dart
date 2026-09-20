@@ -16,7 +16,7 @@ import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 
 /// SignupPage is the multi-step Profile Onboarding Page.
-/// Step 1: Basic Details (Full Name, Date of Birth, Gender, Language, Terms).
+/// Step 1: Basic Details (Full Name, Date of Birth, Gender, Terms).
 /// Step 2: Account Details (Unique Username, Password, Confirm Password).
 /// Step 3: Avatar Selection (Dedicated page for picking profile avatar).
 class SignupPage extends ConsumerStatefulWidget {
@@ -57,6 +57,9 @@ class SignupPage extends ConsumerStatefulWidget {
     if (reservedUsernames.contains(normalized)) {
       return 'it already exist fix it';
     }
+    if (RegExp(r'^\d+$').hasMatch(normalized)) {
+      return 'Username cannot consist solely of numbers';
+    }
     return null;
   }
 
@@ -82,14 +85,12 @@ class _SignupPageState extends ConsumerState<SignupPage> {
 
   DateTime? _selectedDob;
   String? _selectedGender;
-  String? _selectedLanguage;
   String? _selectedAvatarSeed;
   bool? _selectedIsTelecaller;
   bool _is18Plus = false;
   bool _acceptedTermsAndPrivacy = false;
   
   final List<String> _genders = ['Male', 'Female', 'Other'];
-  final List<String> _languages = ['English', 'Hindi', 'Spanish', 'French', 'Arabic', 'Portuguese'];
 
   @override
   void dispose() {
@@ -167,11 +168,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
 
     if (_selectedGender == null) {
       AppSnackBar.showError(context, 'Please select your gender');
-      return;
-    }
-
-    if (_selectedLanguage == null) {
-      AppSnackBar.showError(context, 'Please select your language');
       return;
     }
     
@@ -274,7 +270,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
           password: _passwordController.text.trim(),
           dob: _selectedDob!,
           gender: _selectedGender!,
-          language: _selectedLanguage!,
+          language: 'English',
           avatarSeed: _selectedAvatarSeed,
           avatarStyle: 'avataaars',
           isTelecaller: _selectedIsTelecaller,
@@ -354,7 +350,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     }
   }
 
-  /// Step 1 UI: Basic Details (Name, DOB, Gender, Language, Terms)
+  /// Step 1 UI: Basic Details (Name, DOB, Gender, Terms)
   Widget _buildStep1BasicDetails(dynamic colors, dynamic typography, AsyncValue<void> authState) {
     return Form(
       key: _basicDetailsFormKey,
@@ -571,46 +567,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
               });
             },
             validator: (value) => value == null ? 'Please select your gender' : null,
-          ),
-          const SizedBox(height: AppSpacing.space20),
-
-          // Preferred Language
-          Text(
-            'Preferred Language',
-            style: typography.bodySmall.copyWith(
-              fontWeight: FontWeight.bold,
-              color: colors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            initialValue: _selectedLanguage,
-            style: typography.bodyMedium.copyWith(color: colors.textPrimary),
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.language_outlined, size: 20),
-              filled: true,
-              fillColor: colors.surface,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.space16,
-                vertical: AppSpacing.space12,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: AppRadius.md,
-                borderSide: BorderSide(color: colors.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: AppRadius.md,
-                borderSide: BorderSide(color: colors.border),
-              ),
-            ),
-            items: _languages.map((lang) {
-              return DropdownMenuItem(
-                value: lang,
-                child: Text(lang),
-              );
-            }).toList(),
-            onChanged: (val) => setState(() => _selectedLanguage = val),
-            validator: (value) => value == null ? 'Please select your language' : null,
           ),
           const SizedBox(height: AppSpacing.space20),
 
@@ -1133,14 +1089,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                               fontWeight: FontWeight.bold,
                               fontSize: 11.0,
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _selectedLanguage ?? '',
-                          style: typography.bodySmall.copyWith(
-                            color: colors.textSecondary,
-                            fontSize: 12.0,
                           ),
                         ),
                       ],

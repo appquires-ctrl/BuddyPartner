@@ -3,8 +3,8 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const db = require('./db');
 const redis = require('./redis');
 const { callsService } = require('./modules/calls/calls.service');
-const { registerMatchmakingHandlers, activeCalls } = require('./modules/matchmaking/matchmaking.socket');
-const { activeInstantCalls } = require('./modules/instant_connect/instant_connect.socket');
+const { registerMatchmakingHandlers } = require('./modules/matchmaking/matchmaking.socket');
+const { distributedCallService } = require('./modules/calls/distributed_call.service');
 
 async function runTest() {
   console.log('================================================================');
@@ -20,32 +20,33 @@ async function runTest() {
     // 1. Mock Socket.io environment
     const emittedEvents = [];
     const mockIo = {
-      to: (socketId) => ({
+      to: (target) => ({
         emit: (eventName, data) => {
-          emittedEvents.push({ socketId, eventName, data });
+          emittedEvents.push({ target, eventName, data });
         },
       }),
     };
 
-    // 2. Register mock active Instant Call in activeInstantCalls map
+    // 2. Register mock active Instant Call in Redis via distributedCallService
     const activeCallObj = {
       callId: instantCallId,
       sessionId,
       maleUserId,
-      maleSocketId: 'socket_male_123',
       femaleUserId,
-      femaleSocketId: 'socket_female_456',
       startedAt: Date.now(),
       bidAmount: 20,
     };
-    activeInstantCalls.set(instantCallId, activeCallObj);
-    console.log(`1. Registered active instant call: ${instantCallId}`);
+    await distributedCallService.saveActiveInstantCall(redis, instantCallId, activeCallObj);
+    console.log(`1. Registered active instant call in Redis: ${instantCallId}`);
 
     // 3. Create mock male socket and register handlers
     const registeredHandlers = {};
     const mockMaleSocket = {
       id: 'socket_male_123',
       userId: maleUserId,
+      emit: (eventName, data) => {
+        emittedEvents.push({ target: 'maleSocket', eventName, data });
+      },
       on: (event, handler) => {
         registeredHandlers[event] = handler;
       },
@@ -57,8 +58,8 @@ async function runTest() {
     await registeredHandlers['video_upgrade_accepted']({ callId: instantCallId });
     const upgradeEvt = emittedEvents.find(e => e.eventName === 'video_upgrade_accepted');
     console.log('Upgrade event emitted to peer:', upgradeEvt);
-    if (!upgradeEvt || upgradeEvt.socketId !== 'socket_female_456') {
-      throw new Error('video_upgrade_accepted was not forwarded to female socket');
+    if (!upgradeEvt || upgradeEvt.target !== femaleUserId) {
+      throw new Error('video_upgrade_accepted was not forwarded to female target');
     }
 
     // 5. Trigger switch_to_voice for instant call (This previously crashed with "invalid input syntax for type uuid" and call_type check constraint)
@@ -67,8 +68,8 @@ async function runTest() {
     
     const voiceEvt = emittedEvents.find(e => e.eventName === 'switched_to_voice');
     console.log('Switched to voice event emitted to peer:', voiceEvt);
-    if (!voiceEvt || voiceEvt.socketId !== 'socket_female_456') {
-      throw new Error('switched_to_voice was not forwarded to female socket');
+    if (!voiceEvt || voiceEvt.target !== femaleUserId) {
+      throw new Error('switched_to_voice was not forwarded to female target');
     }
 
     // 6. Verify callsService safety guard directly
@@ -85,7 +86,7 @@ async function runTest() {
     console.error('❌ TEST FAILED:', err);
     process.exitCode = 1;
   } finally {
-    activeInstantCalls.delete(instantCallId);
+    await distributedCallService.deleteActiveInstantCall(redis, instantCallId, maleUserId, femaleUserId);
     try {
       if (typeof redis.quit === 'function') await redis.quit();
     } catch (_) {}

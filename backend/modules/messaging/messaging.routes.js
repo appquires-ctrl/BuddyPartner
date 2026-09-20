@@ -7,10 +7,12 @@ const router = express.Router();
 const messagingService = new MessagingService();
 
 // ── GET /api/conversations ────────────────────────────────────────────────
-// List all conversations for the authenticated user
+// List paginated conversations for the authenticated user
 router.get('/conversations', authMiddleware, async (req, res) => {
   try {
-    const conversations = await messagingService.getConversations(req.user.id);
+    const limit = parseInt(req.query.limit, 10) || 30;
+    const offset = parseInt(req.query.offset, 10) || 0;
+    const conversations = await messagingService.getConversations(req.user.id, limit, offset);
     res.json({ conversations });
   } catch (err) {
     console.error('Error fetching conversations:', err.message);

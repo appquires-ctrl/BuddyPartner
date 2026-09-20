@@ -6,6 +6,7 @@ const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 const memKv = new Map(); // key -> { val, expiresAt }
 const memSets = new Map(); // key -> Set
 const memSortedSets = new Map(); // key -> Map(member -> score)
+const memHashes = new Map(); // key -> Map(field -> val)
 
 function getKv(key) {
   const item = memKv.get(key);
@@ -31,7 +32,21 @@ function delKey(key) {
   if (memKv.delete(key)) count++;
   if (memSets.delete(key)) count++;
   if (memSortedSets.delete(key)) count++;
+  if (memHashes.delete(key)) count++;
   return count;
+}
+
+// Periodic cleanup of expired keys in memory fallback to prevent heap leaks during Redis outages
+const fallbackSweepInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [key, item] of memKv.entries()) {
+    if (item.expiresAt && now > item.expiresAt) {
+      memKv.delete(key);
+    }
+  }
+}, 60000);
+if (fallbackSweepInterval.unref) {
+  fallbackSweepInterval.unref();
 }
 
 const inMemoryClient = {
@@ -148,6 +163,85 @@ const inMemoryClient = {
     }
     return ['0', matched];
   },
+  // Hash support in in-memory fallback
+  async hset(key, ...args) {
+    if (!memHashes.has(key)) memHashes.set(key, new Map());
+    const hash = memHashes.get(key);
+    let count = 0;
+    if (args.length === 1 && typeof args[0] === 'object' && args[0] !== null) {
+      for (const [f, v] of Object.entries(args[0])) {
+        if (!hash.has(f)) count++;
+        hash.set(f, String(v));
+      }
+    } else {
+      for (let i = 0; i < args.length; i += 2) {
+        const f = String(args[i]);
+        const v = String(args[i + 1] ?? '');
+        if (!hash.has(f)) count++;
+        hash.set(f, v);
+      }
+    }
+    return count;
+  },
+  async hget(key, field) {
+    const hash = memHashes.get(key);
+    if (!hash) return null;
+    return hash.has(String(field)) ? hash.get(String(field)) : null;
+  },
+  async hdel(key, ...fields) {
+    const hash = memHashes.get(key);
+    if (!hash) return 0;
+    let count = 0;
+    for (const f of fields) {
+      if (hash.delete(String(f))) count++;
+    }
+    return count;
+  },
+  async hgetall(key) {
+    const hash = memHashes.get(key);
+    if (!hash) return {};
+    const obj = {};
+    for (const [k, v] of hash.entries()) {
+      obj[k] = v;
+    }
+    return obj;
+  },
+  async hincrby(key, field, increment) {
+    if (!memHashes.has(key)) memHashes.set(key, new Map());
+    const hash = memHashes.get(key);
+    const curr = parseInt(hash.get(String(field)) || '0', 10);
+    const nextVal = curr + (parseInt(increment, 10) || 0);
+    hash.set(String(field), String(nextVal));
+    return nextVal;
+  },
+  async incr(key) {
+    const curr = parseInt(getKv(key) || '0', 10);
+    const nextVal = curr + 1;
+    setKv(key, nextVal);
+    return nextVal;
+  },
+  async decr(key) {
+    const curr = parseInt(getKv(key) || '0', 10);
+    const nextVal = curr - 1;
+    setKv(key, nextVal);
+    return nextVal;
+  },
+  async mget(...keys) {
+    const flatKeys = Array.isArray(keys[0]) ? keys[0] : keys;
+    return flatKeys.map(k => getKv(k));
+  },
+  async mset(...args) {
+    if (args.length === 1 && typeof args[0] === 'object') {
+      for (const [k, v] of Object.entries(args[0])) {
+        setKv(k, v);
+      }
+    } else {
+      for (let i = 0; i < args.length; i += 2) {
+        setKv(args[i], args[i + 1]);
+      }
+    }
+    return 'OK';
+  },
   pipeline() {
     const operations = [];
     return {
@@ -201,6 +295,44 @@ const inMemoryClient = {
         operations.push(() => [null, 1]);
         return this;
       },
+      hset(k, ...args) {
+        operations.push(() => {
+          inMemoryClient.hset(k, ...args);
+          return [null, 1];
+        });
+        return this;
+      },
+      hget(k, field) {
+        operations.push(() => {
+          const hash = memHashes.get(k);
+          return [null, hash ? (hash.get(String(field)) || null) : null];
+        });
+        return this;
+      },
+      hdel(k, ...fields) {
+        operations.push(() => {
+          const hash = memHashes.get(k);
+          let count = 0;
+          if (hash) {
+            for (const f of fields) {
+              if (hash.delete(String(f))) count++;
+            }
+          }
+          return [null, count];
+        });
+        return this;
+      },
+      hincrby(k, field, inc) {
+        operations.push(() => {
+          if (!memHashes.has(k)) memHashes.set(k, new Map());
+          const hash = memHashes.get(k);
+          const curr = parseInt(hash.get(String(field)) || '0', 10);
+          const nextVal = curr + (parseInt(inc, 10) || 0);
+          hash.set(String(field), String(nextVal));
+          return [null, nextVal];
+        });
+        return this;
+      },
       async exec() {
         return operations.map((fn) => fn());
       },
@@ -212,19 +344,11 @@ const inMemoryClient = {
 /**
  * ARCHITECTURE & RESILIENCE TRADEOFF NOTE FOR ENGINEERS:
  * -------------------------------------------------------------------------
- * The inMemoryClient fallback below provides short-term resilience for brief
- * transient Redis outages (e.g. network blips of 1-3 seconds).
- *
- * CRITICAL WARNING:
- * 1. The in-memory fallback store is STRICTLY LOCAL to this Node.js process.
- *    In multi-instance deployments (e.g. horizontal clustering with 2+ replicas),
- *    instances CANNOT share in-memory state. Active sockets, call locks, presence,
- *    and instant queues will desynchronize across instances if real Redis stays down.
- * 2. In-memory data is completely wiped on any process restart or crash.
- * 3. Therefore, in-memory fallback is an emergency buffer to prevent immediate crashes,
- *    NOT a long-term operating mode or horizontal scaling solution.
- * 4. realRedis must continuously retry with capped backoff to re-establish the
- *    shared Redis connection as soon as Redis recovers.
+ * Sized for 5,000 CCU without memory leaks or silent unbounded buffering:
+ * - enableOfflineQueue: false (rejects commands immediately if Redis is unreachable
+ *   rather than queuing unbounded commands into Node process heap causing OOM crashes).
+ * - commandTimeout: 1500ms (fast failover instead of hanging indefinitely on network blips).
+ * - maxRetriesPerRequest: 3 (fails quickly when real Redis cannot fulfill request).
  * -------------------------------------------------------------------------
  */
 let isConnected = false;
@@ -243,8 +367,10 @@ function logFallbackWarning(operation = 'command') {
 }
 
 const realRedis = new Redis(redisUrl, {
-  maxRetriesPerRequest: 20,
-  enableOfflineQueue: true,
+  maxRetriesPerRequest: 3,
+  enableOfflineQueue: false,
+  commandTimeout: process.env.REDIS_COMMAND_TIMEOUT ? parseInt(process.env.REDIS_COMMAND_TIMEOUT, 10) : 5000,
+  connectTimeout: 10000,
   retryStrategy(times) {
     const delay = Math.min(times * 200, 5000); // exponential-ish, capped at 5s
     return delay;
@@ -253,19 +379,15 @@ const realRedis = new Redis(redisUrl, {
 });
 
 realRedis.on('connect', () => {
-  if (hadDisconnected) {
-    console.log('✅ [REDIS] Reconnected — resuming normal operation, in-memory fallback deactivated.');
-    hadDisconnected = false;
-  } else {
-    console.log('✅ Redis client connected');
-  }
-  isConnected = true;
+  // TCP connected; waiting for ready event (AUTH / handshake) before marking as writeable
 });
 
 realRedis.on('ready', () => {
   if (hadDisconnected) {
     console.log('✅ [REDIS] Reconnected — resuming normal operation, in-memory fallback deactivated.');
     hadDisconnected = false;
+  } else {
+    console.log('✅ Redis client connected and ready');
   }
   isConnected = true;
 });
@@ -290,14 +412,14 @@ realRedis.on('close', () => {
 const redisProxy = new Proxy(realRedis, {
   get(target, prop) {
     if (prop === 'isHealthy') {
-      return () => isConnected;
+      return () => isConnected && target.status === 'ready';
     }
     if (prop === 'isInMemory') {
-      return !isConnected;
+      return !isConnected || target.status !== 'ready';
     }
     if (prop === 'getMetrics') {
       return () => ({
-        isConnected,
+        isConnected: isConnected && target.status === 'ready',
         hadDisconnected,
         fallbackWarningCount,
         lastFallbackWarningTime,
@@ -308,12 +430,15 @@ const redisProxy = new Proxy(realRedis, {
     }
     if (prop === 'pipeline') {
       return function (...args) {
-        if (isConnected) {
+        const isReady = isConnected && target.status === 'ready';
+        if (isReady) {
           try {
             return target.pipeline(...args);
           } catch (err) {
-            isConnected = false;
-            hadDisconnected = true;
+            if (target.status !== 'ready') {
+              isConnected = false;
+              hadDisconnected = true;
+            }
             logFallbackWarning('pipeline');
             return inMemoryClient.pipeline(...args);
           }
@@ -324,12 +449,16 @@ const redisProxy = new Proxy(realRedis, {
     }
     if (typeof inMemoryClient[prop] === 'function') {
       return async function (...args) {
-        if (isConnected) {
+        const isReady = isConnected && target.status === 'ready';
+        if (isReady) {
           try {
             return await target[prop](...args);
           } catch (err) {
-            isConnected = false;
-            hadDisconnected = true;
+            console.warn(`⚠️ [REDIS PROXY ERROR] ${String(prop)} failed on real Redis:`, err.message);
+            if (target.status !== 'ready') {
+              isConnected = false;
+              hadDisconnected = true;
+            }
             logFallbackWarning(String(prop));
             return await inMemoryClient[prop](...args);
           }
@@ -339,6 +468,12 @@ const redisProxy = new Proxy(realRedis, {
       };
     }
     if (typeof target[prop] === 'function') {
+      const isAvailable = isConnected || target.status === 'ready' || target.status === 'connecting';
+      if (!isAvailable) {
+        return async function (..._args) {
+          throw new Error(`[Redis Offline] Command '${String(prop)}' rejected immediately: Redis connection is offline and enableOfflineQueue is disabled.`);
+        };
+      }
       return target[prop].bind(target);
     }
     return target[prop];

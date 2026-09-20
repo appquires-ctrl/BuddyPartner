@@ -127,8 +127,16 @@ class ModerationService {
           [reportedUserId]
         );
         isBanned = true;
-        // Invalidate Redis ban cache immediately
-        await redis.del(`user:is_banned:${reportedUserId}`).catch(() => {});
+        // Invalidate Redis ban cache and kill active session immediately
+        await Promise.all([
+          redis.del(`user:is_banned:${reportedUserId}`).catch(() => {}),
+          redis.set(
+            `user_active_session:${reportedUserId}`,
+            JSON.stringify({ sessionId: null, isBanned: true }),
+            'EX',
+            30 * 24 * 60 * 60
+          ).catch(() => {}),
+        ]);
         console.log(`⛔ [Moderation] BAN TRIGGERED: User ${reportedUserId} has been reported by ${distinctReporterCount} distinct reporters.`);
       }
 

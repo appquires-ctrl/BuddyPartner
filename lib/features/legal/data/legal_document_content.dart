@@ -50,7 +50,7 @@ class LegalDocumentContent {
   static const String companyEmail = 'support@buddypartner.in';
   static const String companyWebsite = 'www.appquires.com';
   static const String companyAddress =
-      'GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India';
+      'Ahmadabad City, Ahmedabad- 380015, Gujarat, India';
   static const String jurisdictionCity = 'Ahmedabad, Gujarat, India';
   static const String grievanceOfficerName = 'Nodal Grievance Redressal Officer';
 
@@ -66,7 +66,7 @@ class LegalDocumentContent {
       LegalDocumentSection(
         title: '1. Important Notice & Legal Disclaimer',
         content:
-            'Welcome to BuddyPartner (the "App"), operated by Appquires Global LLP ("Company", "we", "us", or "our"), having its registered office at GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India.\n\nThese Terms of Service ("Terms") govern your access to and use of the BuddyPartner mobile application, websites, software, live voice/video calling network, and subscription passes.\n\nBy creating an account, accessing, or using BuddyPartner, you agree to be bound by these Terms and our Privacy Policy. If you do not agree to these Terms, you must immediately uninstall and discontinue using the App.',
+            'Welcome to BuddyPartner (the "App"), operated by Appquires Global LLP ("Company", "we", "us", or "our"), having its registered office at Ahmadabad City, Ahmedabad- 380015, Gujarat, India.\n\nThese Terms of Service ("Terms") govern your access to and use of the BuddyPartner mobile application, websites, software, live voice/video calling network, and subscription passes.\n\nBy creating an account, accessing, or using BuddyPartner, you agree to be bound by these Terms and our Privacy Policy. If you do not agree to these Terms, you must immediately uninstall and discontinue using the App.',
       ),
       LegalDocumentSection(
         title: '2. Eligibility & Strict Age Requirement (18+ Only)',
@@ -141,7 +141,7 @@ class LegalDocumentContent {
             '• Designation: Nodal Grievance Redressal Officer\n'
             '• Support & Grievance Email: support@buddypartner.in\n'
             '• Company: Appquires Global LLP\n'
-            '• Address: GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India\n'
+            '• Address: Ahmadabad City, Ahmedabad- 380015, Gujarat, India\n'
             '• Response Timeline: Acknowledgment within 24 hours; disposal/resolution within 15 days.',
       ),
     ],
@@ -163,7 +163,7 @@ class LegalDocumentContent {
             '• Profile Information: Mobile number (for WhatsApp OTP login), Full Name, Date of Birth, Gender, Preferred Language, and selected avatar.\n'
             '• Technical & Device Data: Device model, operating system version, unique device identifier, IP address, connection speed, socket telemetry, and app crash logs.\n'
             '• Call Metadata: Timestamps of initiated calls, call connection status, duration, call rating, and reporting logs.\n'
-            '• Transaction Data: Subscription order IDs, purchase timestamps, pass type, and payment gateway confirmation receipts (e.g. Razorpay/Google Play). We NEVER collect or store credit/debit card numbers, CVV, or UPI PINs.',
+            '• Transaction Data: Subscription order IDs, purchase timestamps, pass type, and payment gateway confirmation receipts (e.g. Google Play). We NEVER collect or store credit/debit card numbers, CVV, or UPI PINs.',
       ),
       LegalDocumentSection(
         title: '2. Live Audio & Video Call Privacy (No Stream Recording)',
@@ -175,7 +175,7 @@ class LegalDocumentContent {
       LegalDocumentSection(
         title: '3. Authentication & Verification',
         content:
-            'We utilize secure API endpoints and verified WhatsApp OTP delivery providers (such as Authkey.io) to authenticate your registered mobile number. All authentication tokens and API communications are encrypted via TLS/HTTPS 256-bit encryption.',
+            'We utilize secure API endpoints and verified WhatsApp OTP delivery providers (such as MSG91) to authenticate your registered mobile number. All authentication tokens and API communications are encrypted via TLS/HTTPS 256-bit encryption.',
       ),
       LegalDocumentSection(
         title: '4. How We Use Collected Information',
@@ -191,8 +191,8 @@ class LegalDocumentContent {
         content:
             'We share minimum necessary data with trusted infrastructure providers:\n\n'
             '• Agora.io: Real-time audio and video communications infrastructure.\n'
-            '• Razorpay / App Stores: Secure payment gateways processing subscription pass purchases.\n'
-            '• Authkey.io: WhatsApp OTP delivery service.\n'
+            '• App Stores: Secure payment gateways processing subscription pass purchases.\n'
+            '• MSG91: WhatsApp OTP delivery service.\n'
             '• Firebase / Google Cloud: Secure cloud infrastructure and push notifications.\n\n'
             'We NEVER sell, rent, or trade your personal data to third-party advertisers or data brokers.',
       ),
@@ -211,13 +211,13 @@ class LegalDocumentContent {
             '• Data Security: We implement administrative, physical, and technical safeguards including encrypted database storage, strict role-based access control, and firewalled backend clusters to protect your information.',
       ),
       LegalDocumentSection(
-        title: '8. Privacy Inquiries & Grievance Redressal Officer',
+        title: '8. Privacy Enquiries & Grievance Redressal Officer',
         content:
             'For any questions, clarifications, or requests regarding your personal data or privacy rights, please reach out to:\n\n'
             '• Grievance Officer: Nodal Grievance Redressal Officer\n'
             '• Privacy Email: support@buddypartner.in\n'
             '• Entity: Appquires Global LLP\n'
-            '• Address: GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India',
+            '• Address: Ahmadabad City, Ahmedabad- 380015, Gujarat, India',
       ),
     ],
   );
@@ -299,7 +299,7 @@ class LegalDocumentContent {
             'In rare cases where your bank account, card, or UPI was debited but the subscription pass was not activated in the app due to network latency:\n\n'
             '• Step 1: Please wait 15 minutes and restart the application.\n'
             '• Step 2: If the pass is still inactive, email support@buddypartner.in with your registered mobile number, payment transaction ID, and bank receipt.\n'
-            '• Step 3: Our billing team will verify with the payment gateway (e.g. Razorpay) and manually activate your pass or initiate a direct gateway refund within 24 to 48 hours.',
+            '• Step 3: Our billing team will verify with the payment gateway and manually activate your pass or initiate a direct gateway refund within 24 to 48 hours.',
       ),
       LegalDocumentSection(
         title: '4. Violations & Account Termination Impact',
@@ -437,7 +437,7 @@ class LegalDocumentContent {
             '• Officer Title: Nodal Grievance Redressal Officer\n'
             '• Legal Entity: Appquires Global LLP\n'
             '• Support & Grievance Email: support@buddypartner.in\n'
-            '• Registered Physical Address: GF-001, Mauryansh Elanza, Shyamal Cross Rd, Satelite, Jodhpur Char Rasta, Satelite Police Station, Ahmadabad City, Ahmedabad- 380015, Gujarat, India\n'
+            '• Registered Physical Address: Ahmadabad City, Ahmedabad- 380015, Gujarat, India\n'
             '• Business Hours: Monday to Friday, 10:00 AM to 6:00 PM IST (excluding public holidays)',
       ),
       LegalDocumentSection(

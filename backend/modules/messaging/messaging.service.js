@@ -104,7 +104,7 @@ class MessagingService {
       throw new Error('Message blocked: one party has blocked the other');
     }
 
-    // 3 & 4. Combined CTE: Insert message AND Update conversations last_message_at in 1 DB round trip
+    // 3 & 4. Combined CTE: Insert message AND Update conversations last_message denormalized fields
     const msgResult = await db.query(
       `WITH inserted_msg AS (
          INSERT INTO public.messages (conversation_id, sender_id, content, type, media_url, status)
@@ -113,7 +113,10 @@ class MessagingService {
        ),
        updated_conv AS (
          UPDATE public.conversations
-         SET last_message_at = NOW()
+         SET last_message_at = NOW(),
+             last_message_content = $3,
+             last_message_sender_id = $2,
+             last_message_type = $4
          WHERE id = $1
        )
        SELECT * FROM inserted_msg`,
@@ -122,33 +125,104 @@ class MessagingService {
 
     const message = msgResult.rows[0];
 
+    // Maintain recipient's unread_count counter in message_reads (O(1) inbox reads)
+    await db.query(
+      `INSERT INTO public.message_reads (conversation_id, user_id, unread_count)
+       VALUES ($1, $2, 1)
+       ON CONFLICT (conversation_id, user_id)
+       DO UPDATE SET unread_count = COALESCE(public.message_reads.unread_count, 0) + 1`,
+      [conversationId, otherUserId]
+    ).catch((err) => console.warn('Failed to increment unread_count:', err.message));
+
+    // Set Redis flag with 14-day TTL so recipient's connect handler knows to mark delivered
+    if (initialStatus === 'sent') {
+      try {
+        await redis.set(`user:has_undelivered:${otherUserId}`, '1', 'EX', 14 * 86400);
+      } catch (err) {
+        console.warn('Failed to set undelivered flag in Redis:', err.message);
+      }
+    }
+
     // 5. Dispatch FCM Push Notification ONLY if recipient is offline (not already delivered via WebSocket)
     if (initialStatus !== 'delivered') {
       try {
+        let senderName = 'Someone';
+        try {
+          const cachedSender = await redis.get(`user:profile:${senderId}`);
+          if (cachedSender) {
+            const parsed = JSON.parse(cachedSender);
+            if (parsed.full_name) senderName = parsed.full_name;
+          }
+        } catch (_) {}
+
         const userRes = await db.query(
-          `SELECT u.id, u.fcm_token, 
-                  (SELECT full_name FROM public.users WHERE id = $1) as sender_name
-           FROM public.users u WHERE u.id = $2`,
-          [senderId, otherUserId]
+          senderName !== 'Someone'
+            ? `SELECT u.id, u.fcm_token FROM public.users u WHERE u.id = $1`
+            : `SELECT u.id, u.fcm_token, (SELECT full_name FROM public.users WHERE id = $1) as sender_name FROM public.users u WHERE u.id = $2`,
+          senderName !== 'Someone' ? [otherUserId] : [senderId, otherUserId]
         );
 
         if (userRes.rows.length > 0 && userRes.rows[0].fcm_token) {
           const recipient = userRes.rows[0];
-          const senderName = recipient.sender_name || 'Someone';
+          if (senderName === 'Someone' && recipient.sender_name) {
+            senderName = recipient.sender_name;
+          }
 
-          let notifTitle = senderName;
-          let notifBody = type === 'text' ? content : 'Sent you an attachment';
+          // ── Notification Aggregation & Anti-Spam Throttling ─────────────
+          // Track unique recent offline message senders for this recipient in a 3-minute sliding window.
+          const throttleKey = `user:push_recent_senders:${otherUserId}`;
+          let recentSenderCount = 1;
+          try {
+            await redis.sadd(throttleKey, senderId);
+            await redis.expire(throttleKey, 180); // 3-minute sliding window TTL
+            recentSenderCount = await redis.scard(throttleKey);
+          } catch (redisErr) {
+            console.warn('⚠️ [FCM Aggregation] Redis error reading recent senders:', redisErr.message);
+          }
+
+          let notifTitle;
+          let notifBody;
+          let notifTag;
+          let totalUnread = recentSenderCount;
+
+          // If 3 or fewer distinct senders recently, show individual conversation notification
+          if (recentSenderCount <= 3) {
+            notifTitle = senderName;
+            notifBody = type === 'text' ? content : 'Sent you an attachment';
+            notifTag = `chat_${conversationId}`;
+          } else {
+            // If > 3 distinct senders, collapse into a single aggregated summary notification
+            try {
+              const unreadRes = await db.query(
+                `SELECT COALESCE(SUM(unread_count), 0)::int AS total_unread
+                 FROM public.message_reads
+                 WHERE user_id = $1`,
+                [otherUserId]
+              );
+              totalUnread = unreadRes.rows[0]?.total_unread || recentSenderCount;
+            } catch (unreadErr) {
+              console.warn('⚠️ [FCM Aggregation] Error querying total unread count:', unreadErr.message);
+            }
+
+            notifTitle = 'Buddy Partner';
+            notifBody = `You have ${totalUnread} new messages from ${recentSenderCount} chats`;
+            notifTag = `chat_summary_${otherUserId}`;
+          }
 
           sendPushNotification({
             token: recipient.fcm_token,
             title: notifTitle,
             body: notifBody,
-            tag: `chat_${conversationId}`,
+            tag: notifTag,
+            collapseKey: 'chat_updates',
+            notificationCount: totalUnread,
             data: {
               type: 'chat_message',
               senderId: String(senderId),
               senderName: String(senderName),
               conversationId: String(conversationId),
+              isSummary: recentSenderCount > 3 ? 'true' : 'false',
+              totalUnread: String(totalUnread),
             },
           }).catch((err) => console.error('FCM send error:', err.message));
         }
@@ -223,60 +297,59 @@ class MessagingService {
    * @param {string} userId - Verified Firebase UID
    * @returns {Array} Conversation list with preview data
    */
-  async getConversations(userId) {
+  /**
+   * Get all conversations for a user with last message preview and unread count.
+   * Utilizes indexed UNION ALL over conversations(user_a_id) and (user_b_id)
+   * with denormalized last_message columns and O(1) unread counter.
+   * @param {string} userId - Verified Firebase UID
+   * @param {number} [limit=30]
+   * @param {number} [offset=0]
+   * @returns {Array} Conversation list with preview data
+   */
+  async getConversations(userId, limit = 30, offset = 0) {
+    const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 30, 1), 100);
+    const parsedOffset = Math.max(parseInt(offset, 10) || 0, 0);
+
     const result = await db.query(
-      `SELECT
-        c.id,
-        c.user_a_id,
-        c.user_b_id,
-        c.created_at,
-        c.last_message_at,
-        -- Last message preview
-        lm.content AS last_message_content,
-        lm.type AS last_message_type,
-        lm.sender_id AS last_message_sender_id,
-        lm.created_at AS last_message_created_at,
-        -- Other user's profile
-        u.full_name AS other_user_name,
-        u.gender AS other_user_gender,
-        u.avatar_seed AS other_user_avatar_seed,
-        u.avatar_style AS other_user_avatar_style,
-        -- Unread count: messages after the user's last read message
-        COALESCE(
-          (SELECT COUNT(*) FROM public.messages m
-           WHERE m.conversation_id = c.id
-             AND m.sender_id != $1
-             AND m.created_at > COALESCE(
-               (SELECT m2.created_at FROM public.messages m2
-                WHERE m2.id = mr.last_read_message_id),
-               '1970-01-01'::timestamptz
-             )
-          ), 0
-        )::int AS unread_count
-      FROM public.conversations c
-      -- Join to get the other user's profile
-      LEFT JOIN public.users u ON u.id = CASE
-        WHEN c.user_a_id = $1 THEN c.user_b_id
-        ELSE c.user_a_id
-      END
-      -- Join to get the last message
-      LEFT JOIN LATERAL (
-        SELECT content, type, sender_id, created_at
-        FROM public.messages
-        WHERE conversation_id = c.id
-        ORDER BY created_at DESC
-        LIMIT 1
-      ) lm ON true
-      -- Join to get read receipts
-      LEFT JOIN public.message_reads mr ON mr.conversation_id = c.id AND mr.user_id = $1
-      WHERE c.user_a_id = $1 OR c.user_b_id = $1
-      ORDER BY c.last_message_at DESC`,
-      [userId]
+      `WITH user_convs AS (
+         SELECT c.id, c.user_a_id, c.user_b_id, c.created_at, c.last_message_at,
+                c.last_message_content, c.last_message_type, c.last_message_sender_id,
+                c.user_b_id AS other_user_id
+         FROM public.conversations c
+         WHERE c.user_a_id = $1
+         UNION ALL
+         SELECT c.id, c.user_a_id, c.user_b_id, c.created_at, c.last_message_at,
+                c.last_message_content, c.last_message_type, c.last_message_sender_id,
+                c.user_a_id AS other_user_id
+         FROM public.conversations c
+         WHERE c.user_b_id = $1
+       )
+       SELECT
+         uc.id,
+         uc.user_a_id,
+         uc.user_b_id,
+         uc.created_at,
+         uc.last_message_at,
+         uc.last_message_content,
+         uc.last_message_type,
+         uc.last_message_sender_id,
+         uc.other_user_id,
+         u.full_name AS other_user_name,
+         u.gender AS other_user_gender,
+         u.avatar_seed AS other_user_avatar_seed,
+         u.avatar_style AS other_user_avatar_style,
+         COALESCE(mr.unread_count, 0)::int AS unread_count
+       FROM user_convs uc
+       LEFT JOIN public.users u ON u.id = uc.other_user_id
+       LEFT JOIN public.message_reads mr ON mr.conversation_id = uc.id AND mr.user_id = $1
+       ORDER BY uc.last_message_at DESC NULLS LAST
+       LIMIT $2 OFFSET $3`,
+      [userId, parsedLimit, parsedOffset]
     );
 
     return result.rows.map(row => ({
       id: row.id,
-      otherUserId: row.user_a_id === userId ? row.user_b_id : row.user_a_id,
+      otherUserId: row.other_user_id,
       otherUserName: row.other_user_name || 'User',
       otherUserGender: row.other_user_gender,
       otherUserAvatarSeed: row.other_user_avatar_seed || null,
@@ -326,11 +399,18 @@ class MessagingService {
 
     if (targetMsgId) {
       await db.query(
-        `INSERT INTO public.message_reads (conversation_id, user_id, last_read_message_id)
-         VALUES ($1, $2, $3)
+        `INSERT INTO public.message_reads (conversation_id, user_id, last_read_message_id, unread_count)
+         VALUES ($1, $2, $3, 0)
          ON CONFLICT (conversation_id, user_id)
-         DO UPDATE SET last_read_message_id = $3`,
+         DO UPDATE SET last_read_message_id = $3, unread_count = 0`,
         [conversationId, userId, targetMsgId]
+      );
+    } else {
+      await db.query(
+        `UPDATE public.message_reads
+         SET unread_count = 0
+         WHERE conversation_id = $1 AND user_id = $2`,
+        [conversationId, userId]
       );
     }
 
@@ -341,6 +421,10 @@ class MessagingService {
        WHERE conversation_id = $1 AND sender_id != $2 AND status != 'read'`,
       [conversationId, userId]
     );
+
+    // Remove the other user from recent offline senders set if present
+    const otherUserId = conv.user_a_id === userId ? conv.user_b_id : conv.user_a_id;
+    await redis.srem(`user:push_recent_senders:${userId}`, otherUserId).catch(() => {});
   }
 
   // ── Delivery Catch-up ──────────────────────────────────────────────────
@@ -355,6 +439,12 @@ class MessagingService {
     if (!this._isValidUUID(recipientId)) return;
 
     try {
+      // Guard behind a Redis flag so we don't execute a heavy Postgres UPDATE on every socket connect/reconnect
+      const hasUndelivered = await redis.get(`user:has_undelivered:${recipientId}`);
+      if (!hasUndelivered) {
+        return;
+      }
+
       const updateResult = await db.query(
         `WITH user_convs AS (
            SELECT id FROM public.conversations WHERE user_a_id = $1
@@ -370,6 +460,11 @@ class MessagingService {
          RETURNING m.id, m.conversation_id, m.sender_id`,
         [recipientId]
       );
+
+      // Clean up Redis flag now that all pending messages have transitioned to delivered
+      await redis.del(`user:has_undelivered:${recipientId}`).catch(() => {});
+      // Clean up Redis recent senders set now that recipient is online/connected
+      await redis.del(`user:push_recent_senders:${recipientId}`).catch(() => {});
 
       if (io && updateResult.rows.length > 0) {
         for (const row of updateResult.rows) {

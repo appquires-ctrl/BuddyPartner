@@ -22,25 +22,43 @@ class AppService {
    * Safe fallback: on any error (e.g. Redis unavailable), keep last known cached values.
    */
   async refreshCache() {
-    for (const key of Object.keys(DEFAULT_CONFIGS)) {
+    const keys = Object.keys(DEFAULT_CONFIGS);
+    try {
+      const redisKeys = keys.map((k) => `app_config:${k}`);
+      let redisVals = [];
       try {
-        let val = await redis.get(`app_config:${key}`);
-        if (val === null || val === undefined) {
-          const res = await db.query('SELECT value FROM public.app_config WHERE key = $1', [key]);
-          val = res.rows[0]?.value || DEFAULT_CONFIGS[key] || null;
-          if (val !== null) {
-            await redis.set(`app_config:${key}`, val, 'EX', 86400).catch(() => {});
+        redisVals = await redis.mget(...redisKeys);
+      } catch (_) {}
+
+      const missingKeys = [];
+      for (let i = 0; i < keys.length; i++) {
+        const val = redisVals[i];
+        if (val !== null && val !== undefined) {
+          this.inMemoryConfig[keys[i]] = val;
+        } else {
+          missingKeys.push(keys[i]);
+        }
+      }
+
+      if (missingKeys.length > 0) {
+        const res = await db.query(
+          'SELECT key, value FROM public.app_config WHERE key = ANY($1)',
+          [missingKeys]
+        );
+        const rowMap = new Map(res.rows.map((r) => [r.key, r.value]));
+
+        const pipe = redis.pipeline();
+        for (const k of missingKeys) {
+          const val = rowMap.get(k) || DEFAULT_CONFIGS[k] || null;
+          if (val !== null && val !== undefined) {
+            this.inMemoryConfig[k] = val;
+            pipe.set(`app_config:${k}`, val, 'EX', 86400);
           }
         }
-        if (val !== null && val !== undefined) {
-          this.inMemoryConfig[key] = val;
-        }
-      } catch (err) {
-        console.warn(
-          `[AppConfig Cache] Failed to refresh ${key} from Redis, keeping last known value (${this.inMemoryConfig[key]}):`,
-          err.message
-        );
+        await pipe.exec().catch(() => {});
       }
+    } catch (err) {
+      console.warn('[AppConfig Cache] Failed to refresh cache, keeping defaults:', err.message);
     }
   }
 
@@ -48,28 +66,6 @@ class AppService {
    * Ensure app_config table exists, default keys are seeded, and in-memory cache is primed
    */
   async initAppConfig() {
-    try {
-      await db.query(`
-        CREATE TABLE IF NOT EXISTS public.app_config (
-          key TEXT PRIMARY KEY,
-          value TEXT NOT NULL,
-          updated_at TIMESTAMPTZ DEFAULT NOW()
-        );
-      `);
-
-      for (const [key, value] of Object.entries(DEFAULT_CONFIGS)) {
-        await db.query(
-          `INSERT INTO public.app_config (key, value)
-           VALUES ($1, $2)
-           ON CONFLICT (key) DO NOTHING`,
-          [key, value]
-        );
-      }
-      console.log('✅ App config table and version keys initialized.');
-    } catch (err) {
-      console.error('❌ Error initializing app config:', err.message);
-    }
-
     // Populate in-memory cache on process startup before serving traffic
     await this.refreshCache();
 

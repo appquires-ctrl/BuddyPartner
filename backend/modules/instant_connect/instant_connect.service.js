@@ -26,6 +26,15 @@ class InstantConnectService {
         } else {
           await redis.srem('instant:female_pool', userId);
         }
+
+        try {
+          const cached = await redis.get(`user:profile:${userId}`);
+          if (cached) {
+            const prof = JSON.parse(cached);
+            prof.incoming_paid_calls_enabled = enabled;
+            await redis.set(`user:profile:${userId}`, JSON.stringify(prof), 'EX', 7 * 24 * 60 * 60);
+          }
+        } catch (_) {}
       }
 
       return { success: true, enabled };

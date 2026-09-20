@@ -52,32 +52,19 @@ class CallsService {
 
     try {
       const result = await db.query(
-        'SELECT started_at, status FROM public.calls WHERE id = $1',
+        `UPDATE public.calls 
+         SET status = 'ended', 
+             ended_at = NOW(), 
+             duration_seconds = GREATEST(0, EXTRACT(EPOCH FROM (NOW() - started_at))::INTEGER)
+         WHERE id = $1 AND status != 'ended'
+         RETURNING id, duration_seconds`,
         [callId]
       );
 
       if (result.rows.length === 0) {
-        console.error(`Call record not found: ${callId}`);
+        // Either call didn't exist or was already ended
         return;
       }
-
-      const call = result.rows[0];
-
-      // Guard against double-ending
-      if (call.status === 'ended') {
-        return;
-      }
-
-      const endedAt = new Date();
-      const startedAt = new Date(call.started_at);
-      const durationSeconds = Math.floor((endedAt - startedAt) / 1000);
-
-      await db.query(
-        `UPDATE public.calls 
-         SET status = 'ended', ended_at = $1, duration_seconds = $2 
-         WHERE id = $3`,
-        [endedAt.toISOString(), durationSeconds, callId]
-      );
     } catch (err) {
       console.error('Error ending call in Postgres:', err.message);
     }

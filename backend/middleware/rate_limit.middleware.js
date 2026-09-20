@@ -10,12 +10,40 @@ const redis = require('../redis');
 function getStore(prefix) {
   return new RedisStore({
     prefix: `rl:${prefix}:`,
-    sendCommand: (...args) => redis.call(...args),
+    sendCommand: async (...args) => {
+      if (redis.status !== 'ready') {
+        await new Promise((resolve) => {
+          if (redis.status === 'ready') return resolve();
+          const onReady = () => { cleanup(); resolve(); };
+          const onError = () => { cleanup(); resolve(); };
+          const timer = setTimeout(() => { cleanup(); resolve(); }, 3000);
+          function cleanup() {
+            if (typeof redis.removeListener === 'function') {
+              redis.removeListener('ready', onReady);
+              redis.removeListener('error', onError);
+            }
+            clearTimeout(timer);
+          }
+          if (typeof redis.once === 'function') {
+            redis.once('ready', onReady);
+            redis.once('error', onError);
+          } else {
+            resolve();
+          }
+        });
+      }
+      return redis.call(...args);
+    },
   });
 }
 
 /**
  * Global API rate limiter: 300 requests per minute per IP
+ * Uses express-rate-limit's built-in in-memory sliding window store per Node instance.
+ * Architectural Trade-off: A per-instance limit is looser than a cluster-wide Redis limit
+ * across multiple replicas, but it completely eliminates a Redis Lua EVAL call on EVERY
+ * single HTTP request cluster-wide (saving thousands of Redis ops/sec under 5,000 CCU).
+ * Redis-backed rate limiting remains enabled for sensitive, low-frequency endpoints below.
  */
 const apiGlobalLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -23,7 +51,6 @@ const apiGlobalLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   skip: () => process.env.DISABLE_RATE_LIMIT === 'true',
-  store: getStore('global'),
   message: {
     error: 'Too many requests. Please slow down and try again in a minute.',
   },

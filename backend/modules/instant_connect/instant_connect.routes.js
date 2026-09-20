@@ -88,10 +88,13 @@ function adminOnly(req, res, next) {
 router.get('/dev/queues', async (req, res) => {
   try {
     const db = require('../../db');
-    const { activeInstantCalls } = require('./instant_connect.socket');
-
-    // 1. Reconcile any database in_call sessions that have no matching in-memory active call
-    const activeSessionIds = new Set(Array.from(activeInstantCalls.values()).map((c) => c.sessionId));
+    // 1. Reconcile any database in_call sessions that have no matching active call in Redis
+    const activeKeys = await redis.keys('instant:active:*').catch(() => []);
+    const activeSessionIds = new Set();
+    for (const key of activeKeys) {
+      const sessId = await redis.hget(key, 'sessionId').catch(() => null);
+      if (sessId) activeSessionIds.add(sessId);
+    }
     const staleInCallRes = await db.query(`SELECT id FROM public.instant_call_sessions WHERE status = 'in_call'`);
     for (const row of staleInCallRes.rows) {
       if (!activeSessionIds.has(row.id)) {
@@ -117,18 +120,7 @@ router.get('/dev/queues', async (req, res) => {
       });
     }
 
-    // 3. Active females in Redis (reconcile with DB toggle)
-    const dbFemales = await db.query(`
-      SELECT id, full_name, phone_number, incoming_paid_calls_enabled
-      FROM public.users
-      WHERE incoming_paid_calls_enabled = true
-        AND (LOWER(gender) IN ('female', 'girl', 'woman', 'f'))
-    `);
-
-    if (dbFemales.rows.length > 0) {
-      await redis.sadd('instant:female_pool', ...dbFemales.rows.map((f) => f.id));
-    }
-
+    // 3. Active females in Redis (maintained exclusively by online connected sockets with toggle ON)
     const io = req.app.get('io');
     const { getSocketForUser } = require('./instant_connect.socket');
     const femaleIds = await redis.smembers('instant:female_pool');

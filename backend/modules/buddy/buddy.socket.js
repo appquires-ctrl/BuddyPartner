@@ -10,32 +10,31 @@ const { BUDDY_TYPES, BUDDY_LIMITS, BUDDY_PRICING } = require('./buddy.config');
  */
 
 function registerBuddyHandlers(io, socket, redis) {
-  // Client explicitly joins city + gender rooms
+  // Client explicitly joins city + gender room
   socket.on('join_buddy_city', async ({ city, gender }) => {
     if (city && typeof city === 'string') {
       const normalizedCity = city.trim().toLowerCase();
-      const userGender = (gender || socket.userGender || 'all').trim().toLowerCase();
-      
-      const specificRoom = `buddy:city:${normalizedCity}:${userGender}`;
-      const allRoom = `buddy:city:${normalizedCity}:all`;
-      const legacyRoom = `city:${normalizedCity}:buddy`;
+      const userGender = (gender || socket.gender || 'male').trim().toLowerCase();
 
-      socket.join(specificRoom);
-      socket.join(allRoom);
-      socket.join(legacyRoom);
-      console.log(` Socket ${socket.id} (user ${socket.userId}) joined buddy rooms: ${specificRoom}, ${allRoom}`);
+      // Leave any existing buddy city rooms first
+      for (const r of socket.rooms) {
+        if (r.startsWith('buddy:city:') || r.endsWith(':buddy')) {
+          socket.leave(r);
+        }
+      }
+
+      const room = `buddy:city:${normalizedCity}:${userGender}`;
+      socket.join(room);
+      console.log(`🔌 Socket ${socket.id} (user ${socket.userId}) joined buddy room: ${room}`);
     }
   });
 
   socket.on('leave_buddy_city', ({ city, gender }) => {
     if (city && typeof city === 'string') {
       const normalizedCity = city.trim().toLowerCase();
-      const userGender = (gender || socket.userGender || 'all').trim().toLowerCase();
-      
+      const userGender = (gender || socket.gender || 'male').trim().toLowerCase();
       socket.leave(`buddy:city:${normalizedCity}:${userGender}`);
-      socket.leave(`buddy:city:${normalizedCity}:all`);
-      socket.leave(`city:${normalizedCity}:buddy`);
-      console.log(` Socket ${socket.id} left buddy rooms for city: ${normalizedCity}`);
+      console.log(`🔌 Socket ${socket.id} left buddy room for city: ${normalizedCity}`);
     }
   });
 }
@@ -52,18 +51,14 @@ async function broadcastNewBuddyRequest(io, request) {
   const normalizedCity = request.city.trim().toLowerCase();
   const targetGender = (request.target_gender || 'all').trim().toLowerCase();
 
-  // 1. O(1) Real-time Socket.io Room Broadcast
-  const targetRoom = `buddy:city:${normalizedCity}:${targetGender}`;
-  const allRoom = `buddy:city:${normalizedCity}:all`;
-  const legacyRoom = `city:${normalizedCity}:buddy`;
-
-  io.to(targetRoom).emit('new_buddy_request', request);
-  if (targetGender !== 'all') {
-    io.to(allRoom).emit('new_buddy_request', request);
+  // 1. O(1) Real-time Socket.io Room Broadcast (single packet per recipient, zero duplicate rooms)
+  if (targetGender === 'all') {
+    io.to(`buddy:city:${normalizedCity}:male`).to(`buddy:city:${normalizedCity}:female`).emit('new_buddy_request', request);
+  } else {
+    io.to(`buddy:city:${normalizedCity}:${targetGender}`).emit('new_buddy_request', request);
   }
-  io.to(legacyRoom).emit('new_buddy_request', request);
 
-  console.log(`📢 [Buddy Socket] Broadcasted new_${request.buddy_type} to room '${targetRoom}' and '${legacyRoom}'`);
+  console.log(`📢 [Buddy Socket] Broadcasted new_${request.buddy_type} to city '${normalizedCity}', target: '${targetGender}'`);
 
   // 2. Batched FCM Multicast to Offline Users in Background
   setImmediate(async () => {
@@ -134,10 +129,7 @@ async function broadcastNewBuddyRequest(io, request) {
 function broadcastBuddyRequestTaken(io, { requestId, buddyType, city }) {
   if (!io || !city) return;
   const normalizedCity = city.trim().toLowerCase();
-  io.to(`buddy:city:${normalizedCity}:all`).emit('buddy_request_taken', { requestId, buddyType });
-  io.to(`buddy:city:${normalizedCity}:male`).emit('buddy_request_taken', { requestId, buddyType });
-  io.to(`buddy:city:${normalizedCity}:female`).emit('buddy_request_taken', { requestId, buddyType });
-  io.to(`city:${normalizedCity}:buddy`).emit('buddy_request_taken', { requestId, buddyType });
+  io.to(`buddy:city:${normalizedCity}:male`).to(`buddy:city:${normalizedCity}:female`).emit('buddy_request_taken', { requestId, buddyType });
   console.log(`📢 [Buddy Socket] Broadcasted buddy_request_taken (${requestId}) to city rooms '${normalizedCity}'`);
 }
 

@@ -97,189 +97,9 @@ app.use('/api/app', supportRoutes);
 app.use('/api/payments/google-play', googlePlayRoutes);
 app.use('/api/buddy', buddyRoutes);
 
-// Initialize Admin, App Config & Google Play tables
-adminService.initAdminConfig();
-appService.initAppConfig();
-GooglePlayService.initTable();
-
-// ── Auto-ensure subscriptions table exists ─────────────────────────────────
-db.query(`
-  CREATE TABLE IF NOT EXISTS public.subscriptions (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-    plan_duration_days INTEGER NOT NULL,
-    amount_paid INTEGER NOT NULL,
-    started_at TIMESTAMPTZ DEFAULT NOW(),
-    expires_at TIMESTAMPTZ NOT NULL,
-    payment_reference TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-  );
-  CREATE INDEX IF NOT EXISTS idx_subscriptions_user_expires ON public.subscriptions(user_id, expires_at);
-`).then(() => {
-  console.log('✅ Subscriptions table checked/initialized.');
-}).catch((err) => {
-  console.error('❌ Failed to initialize subscriptions table:', err.message);
-});
-
-// ── Auto-ensure wallet_transactions and wallet defaults ────────────────────
-db.query(`
-  CREATE OR REPLACE FUNCTION public.create_wallet_for_new_user()
-  RETURNS TRIGGER AS $$
-  BEGIN
-    INSERT INTO public.wallets (user_id, spendable_balance, earned_balance)
-    VALUES (NEW.id, 0, 0)
-    ON CONFLICT (user_id) DO NOTHING;
-    RETURN NEW;
-  END;
-  $$ LANGUAGE plpgsql;
-
-  CREATE TABLE IF NOT EXISTS public.wallet_transactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-    spendable_delta BIGINT NOT NULL DEFAULT 0,
-    earned_delta BIGINT NOT NULL DEFAULT 0,
-    idempotency_key TEXT UNIQUE,
-    reason TEXT NOT NULL,
-    reference_id TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-  );
-  CREATE INDEX IF NOT EXISTS idx_wallet_tx_user_created ON public.wallet_transactions(user_id, created_at DESC);
-`).then(() => {
-  console.log('✅ Dual-balance wallets trigger and wallet_transactions table checked/initialized.');
-}).catch((err) => {
-  console.error('❌ Failed to initialize wallet_transactions table:', err.message);
-});
-
-// Auto-ensure user moderation and location columns exist
-db.query(`
-  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS strike_count INTEGER DEFAULT 0;
-  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS suspended_until TIMESTAMPTZ;
-  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE;
-  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_telecaller BOOLEAN;
-  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS country VARCHAR(100);
-  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS state VARCHAR(100);
-  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS city VARCHAR(100);
-  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
-  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
-  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS has_claimed_intro_offer BOOLEAN DEFAULT FALSE;
-  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS incoming_paid_calls_enabled BOOLEAN DEFAULT FALSE;
-  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS fcm_token TEXT;
-`).then(() => {
-  console.log('✅ User moderation, telecaller, location, intro offer, and instant connect columns checked/initialized.');
-}).catch((err) => {
-  console.error('❌ Failed to initialize user columns:', err.message);
-});
-
-// Auto-ensure instant connect sessions and scratch cards tables exist
-db.query(`
-  CREATE TABLE IF NOT EXISTS public.instant_call_sessions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    male_user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-    female_user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
-    bid_amount INTEGER NOT NULL CHECK (bid_amount >= 10),
-    status TEXT CHECK (status IN ('queued', 'ringing', 'in_call', 'completed', 'dropped', 'cancelled')) NOT NULL DEFAULT 'queued',
-    agora_channel_name TEXT,
-    started_at TIMESTAMPTZ,
-    milestone_10m_at TIMESTAMPTZ,
-    ended_at TIMESTAMPTZ,
-    duration_seconds INTEGER DEFAULT 0,
-    scratch_card_unlocked BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-  );
-  CREATE INDEX IF NOT EXISTS idx_instant_sess_male ON public.instant_call_sessions(male_user_id);
-  CREATE INDEX IF NOT EXISTS idx_instant_sess_female ON public.instant_call_sessions(female_user_id);
-
-  CREATE TABLE IF NOT EXISTS public.scratch_cards (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    session_id UUID REFERENCES public.instant_call_sessions(id) ON DELETE SET NULL,
-    female_user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-    coin_reward INTEGER NOT NULL CHECK (coin_reward >= 1),
-    is_scratched BOOLEAN DEFAULT FALSE,
-    scratched_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-  );
-  CREATE INDEX IF NOT EXISTS idx_scratch_cards_female ON public.scratch_cards(female_user_id);
-`).then(() => {
-  console.log('✅ Instant connect sessions and scratch cards tables checked/initialized.');
-}).catch((err) => {
-  console.error('❌ Failed to initialize instant connect tables:', err.message);
-});
-
-
-// Auto-ensure withdrawals table exists
-db.query(`
-  CREATE TABLE IF NOT EXISTS public.withdrawals (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-    amount BIGINT NOT NULL CHECK (amount > 0),
-    rupee_amount BIGINT NOT NULL CHECK (rupee_amount > 0),
-    status TEXT CHECK (status IN ('pending', 'approved', 'rejected', 'paid')) NOT NULL DEFAULT 'pending',
-    idempotency_key TEXT UNIQUE,
-    payout_method TEXT DEFAULT 'upi',
-    payout_details JSONB,
-    admin_note TEXT,
-    requested_at TIMESTAMPTZ DEFAULT NOW(),
-    processed_at TIMESTAMPTZ
-  );
-  CREATE UNIQUE INDEX IF NOT EXISTS idx_withdrawals_single_pending ON public.withdrawals(user_id) WHERE status = 'pending';
-  CREATE INDEX IF NOT EXISTS idx_withdrawals_user_status ON public.withdrawals(user_id, status);
-`).then(() => {
-  console.log('✅ Withdrawals table checked/initialized.');
-}).catch((err) => {
-  console.error('❌ Failed to initialize withdrawals table:', err.message);
-});
-
-// Auto-ensure bug reports and account deletion survey tables exist
-db.query(`
-  CREATE TABLE IF NOT EXISTS public.bug_reports (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
-    category TEXT NOT NULL,
-    description TEXT NOT NULL,
-    app_version TEXT,
-    platform TEXT,
-    device_info TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-  );
-  CREATE INDEX IF NOT EXISTS idx_bug_reports_user ON public.bug_reports(user_id);
-  CREATE INDEX IF NOT EXISTS idx_bug_reports_date ON public.bug_reports(created_at DESC);
-
-  CREATE TABLE IF NOT EXISTS public.account_deletion_surveys (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id TEXT,
-    phone_number TEXT,
-    reason TEXT NOT NULL,
-    feedback TEXT,
-    deleted_at TIMESTAMPTZ DEFAULT NOW()
-  );
-  CREATE INDEX IF NOT EXISTS idx_deletion_surveys_date ON public.account_deletion_surveys(deleted_at DESC);
-`).then(() => {
-  console.log('✅ Bug reports and account deletion survey tables checked/initialized.');
-}).catch((err) => {
-  console.error('❌ Failed to initialize support/deletion tables:', err.message);
-});
-
-
-// Auto-ensure user monthly call usage table exists
-db.query(`
-  CREATE TABLE IF NOT EXISTS public.user_monthly_call_usage (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-    year_month VARCHAR(7) NOT NULL,
-    audio_seconds INTEGER DEFAULT 0 NOT NULL,
-    video_seconds INTEGER DEFAULT 0 NOT NULL,
-    audio_call_count INTEGER DEFAULT 0 NOT NULL,
-    video_call_count INTEGER DEFAULT 0 NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT unique_user_year_month UNIQUE (user_id, year_month)
-  );
-  CREATE INDEX IF NOT EXISTS idx_user_monthly_call_usage_ym ON public.user_monthly_call_usage(year_month);
-  CREATE INDEX IF NOT EXISTS idx_user_monthly_call_usage_user ON public.user_monthly_call_usage(user_id);
-`).then(() => {
-  console.log('✅ User monthly call usage table checked/initialized.');
-}).catch((err) => {
-  console.error('❌ Failed to initialize user monthly call usage table:', err.message);
+// Prime in-memory app config cache (schema managed via versioned migrations)
+appService.refreshCache().catch((err) => {
+  console.warn('⚠️ [AppConfig] Initial cache prime error:', err.message);
 });
 
 const server = http.createServer(app);
@@ -291,6 +111,7 @@ const redis = require('./redis');
 const { createAdapter } = require('@socket.io/redis-adapter');
 
 const io = new Server(server, {
+  transports: ['websocket'],
   cors: {
     origin: '*', // Tighten in production
     methods: ['GET', 'POST'],
@@ -300,35 +121,7 @@ const io = new Server(server, {
 });
 app.set('io', io);
 
-// Multi-instance Socket.IO clustering via Redis adapter
-if (process.env.REDIS_URL) {
-  try {
-    const pubClient = new Redis(process.env.REDIS_URL, {
-      maxRetriesPerRequest: null,
-      retryStrategy: (times) => Math.min(times * 100, 2000),
-      lazyConnect: true,
-    });
-    const subClient = pubClient.duplicate();
-
-    pubClient.on('error', (err) => {
-      console.warn('⚠️ [Socket.io pubClient error]:', err.message);
-    });
-    subClient.on('error', (err) => {
-      console.warn('⚠️ [Socket.io subClient error]:', err.message);
-    });
-
-    Promise.all([pubClient.connect(), subClient.connect()])
-      .then(() => {
-        io.adapter(createAdapter(pubClient, subClient));
-        console.log('✅ Socket.io Redis Adapter active for horizontal multi-instance scaling');
-      })
-      .catch((err) => {
-        console.warn('⚠️ Redis adapter pub/sub failed to connect, using local in-memory adapter:', err.message);
-      });
-  } catch (err) {
-    console.warn('⚠️ Socket.io Redis adapter setup failed:', err.message);
-  }
-}
+// Socket.IO Redis Adapter initialized in startServer() before server.listen()
 
 const { ModerationService } = require('./modules/moderation/moderation.service');
 const { PresenceService } = require('./modules/presence/presence.service');
@@ -360,15 +153,45 @@ io.use(async (socket, next) => {
       }
     }
 
-    // Enforce single-device active session for socket connections
-    const activeSession = await redis.get(`user_active_session:${decoded.id}`);
-    if (activeSession && (!decoded.sessionId || activeSession !== decoded.sessionId)) {
+    // Enforce single-device active session and fetch latest cached profile
+    const [activeSession, cachedProfileStr] = await Promise.all([
+      redis.get(`user_active_session:${decoded.id}`),
+      redis.get(`user:profile:${decoded.id}`).catch(() => null),
+    ]);
+
+    let activeSessionId = activeSession;
+    let isBanned = false;
+    if (activeSession && activeSession.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(activeSession);
+        activeSessionId = parsed.sessionId;
+        isBanned = Boolean(parsed.isBanned);
+      } catch (_) {}
+    }
+
+    if (isBanned) {
+      return next(new Error('ACCOUNT_BANNED'));
+    }
+
+    if (activeSessionId && (!decoded.sessionId || activeSessionId !== decoded.sessionId)) {
       return next(new Error('SESSION_TERMINATED'));
+    }
+
+    let profile = null;
+    if (cachedProfileStr) {
+      try {
+        profile = JSON.parse(cachedProfileStr);
+      } catch (_) {}
     }
 
     socket.userId = decoded.id;
     socket.userPhone = decoded.phone;
     socket.sessionId = decoded.sessionId;
+
+    // Authoritative source: Redis profile is checked first; fallback to JWT claim on cache miss
+    socket.city = profile?.city ?? decoded.city ?? null;
+    socket.gender = profile?.gender ?? decoded.gender ?? null;
+    socket.incomingPaidCallsEnabled = profile?.incoming_paid_calls_enabled ?? decoded.incoming_paid_calls_enabled ?? null;
     next();
   } catch (err) {
     console.error('Socket auth failed:', err.message);
@@ -403,29 +226,17 @@ io.on('connection', (socket) => {
   registerPresenceHandlers(io, socket, redis);
   registerBuddyHandlers(io, socket, redis);
 
-  // Auto-join user's city buddy room if profile city is set
-  db.query('SELECT city FROM public.users WHERE id = $1', [socket.userId])
-    .then((res) => {
-      const city = res.rows[0]?.city;
-      if (city) {
-        const room = `city:${city.trim().toLowerCase()}:buddy`;
-        socket.join(room);
-      }
-    })
-    .catch(() => {});
+  // Auto-join user's city+gender buddy room without Postgres query (authoritative from Redis/JWT during handshake)
+  if (socket.city && typeof socket.city === 'string' && socket.city.trim()) {
+    const userGender = (socket.gender || 'male').trim().toLowerCase();
+    const room = `buddy:city:${socket.city.trim().toLowerCase()}:${userGender}`;
+    socket.join(room);
+  }
 
   socket.on('disconnect', (reason) => {
     console.log(`🔌 User disconnected: ${socket.userId} — ${reason}`);
     // Remove socket from user's active socket set in Redis and broadcast presence if offline
     PresenceService.removeSocket(redis, io, socket.userId, socket.id);
-    
-    // Clean up in-memory socket mapping
-    try {
-      const { userSockets } = require('./modules/matchmaking/matchmaking.socket');
-      if (userSockets.get(socket.userId) === socket.id) {
-        userSockets.delete(socket.userId);
-      }
-    } catch (_) {}
   });
 });
 
@@ -456,24 +267,39 @@ if (process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_PLAY_SERV
   }, 6 * 60 * 60 * 1000);
 }
 
-// ── Start server ────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, async () => {
-  console.log(`🚀 BuddyPartner server listening on port ${PORT}`);
+// ── Start server (ensures Redis adapter is attached before accepting connections) ──
+async function startServer() {
+  if (process.env.REDIS_URL) {
+    try {
+      const pubClient = new Redis(process.env.REDIS_URL, {
+        maxRetriesPerRequest: null,
+        retryStrategy: (times) => Math.min(times * 100, 2000),
+        lazyConnect: true,
+      });
+      const subClient = pubClient.duplicate();
 
-  console.log('✅ [Scaling] Multi-instance Redis cluster active: call state, matchmaking, and instant connect synchronized via Redis.');
-  try {
-    const res = await db.query(`
-      UPDATE public.instant_call_sessions
-      SET status = 'dropped', ended_at = NOW()
-      WHERE status IN ('queued', 'ringing', 'in_call')
-    `);
-    if (res.rowCount > 0) {
-      console.log(`🧹 Reconciled ${res.rowCount} stale instant call sessions on startup.`);
+      pubClient.on('error', (err) => {
+        console.warn('⚠️ [Socket.io pubClient error]:', err.message);
+      });
+      subClient.on('error', (err) => {
+        console.warn('⚠️ [Socket.io subClient error]:', err.message);
+      });
+
+      await Promise.all([pubClient.connect(), subClient.connect()]);
+      io.adapter(createAdapter(pubClient, subClient));
+      console.log('✅ Socket.io Redis Adapter active for horizontal multi-instance scaling');
+    } catch (err) {
+      console.warn('⚠️ Redis adapter pub/sub failed to connect, using local in-memory adapter:', err.message);
     }
-  } catch (err) {
-    console.error('Error reconciling instant call sessions on startup:', err.message);
   }
-});
+
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, () => {
+    console.log(`🚀 BuddyPartner server listening on port ${PORT}`);
+    console.log('✅ [Scaling] Multi-instance Redis cluster active: call state, matchmaking, and instant connect synchronized via Redis.');
+  });
+}
+
+startServer();
 
 module.exports = { app, server, io, redis, db };

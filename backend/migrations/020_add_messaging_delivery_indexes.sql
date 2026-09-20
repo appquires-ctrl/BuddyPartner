@@ -10,7 +10,7 @@
 -- Note: Uses CREATE INDEX CONCURRENTLY to prevent table write locks.
 -- Must be run outside of a multi-statement transaction block.
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_messages_unread_status 
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_messages_sent_status_partial 
   ON public.messages (conversation_id, status) 
   WHERE status = 'sent';
 

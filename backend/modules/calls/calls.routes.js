@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../../db');
 const { authMiddleware } = require('../../middleware/auth.middleware');
-const { userSockets } = require('../matchmaking/matchmaking.socket');
+const { PresenceService } = require('../presence/presence.service');
+const redis = require('../../redis');
 const { cacheService } = require('../../services/cache.service');
 
 /**
@@ -144,14 +145,17 @@ router.get('/matches', authMiddleware, async (req, res) => {
       return result.rows;
     });
 
-    // Dynamically attach real-time online status from active socket map
-    const matches = (rawMatches || []).map(row => ({
+    // Dynamically attach real-time online status from Redis presence service
+    const onlineStatuses = await Promise.all(
+      (rawMatches || []).map(row => PresenceService.isUserOnline(redis, row.id))
+    );
+    const matches = (rawMatches || []).map((row, idx) => ({
       id: row.id,
       fullName: row.full_name || 'User',
       gender: row.gender,
       avatarSeed: row.avatar_seed,
       avatarStyle: row.avatar_style || 'avataaars',
-      isOnline: userSockets ? userSockets.has(row.id) : false,
+      isOnline: Boolean(onlineStatuses[idx]),
       isFavorite: Boolean(row.is_favorite),
     }));
 
@@ -184,13 +188,16 @@ router.get('/favorites', authMiddleware, async (req, res) => {
       return result.rows;
     });
 
-    const favorites = (rawFavorites || []).map(row => ({
+    const onlineStatuses = await Promise.all(
+      (rawFavorites || []).map(row => PresenceService.isUserOnline(redis, row.id))
+    );
+    const favorites = (rawFavorites || []).map((row, idx) => ({
       id: row.id,
       fullName: row.full_name || 'User',
       gender: row.gender,
       avatarSeed: row.avatar_seed,
       avatarStyle: row.avatar_style || 'avataaars',
-      isOnline: userSockets ? userSockets.has(row.id) : false,
+      isOnline: Boolean(onlineStatuses[idx]),
       isFavorite: true
     }));
 

@@ -29,7 +29,7 @@ import 'package:buddypartner/features/home/presentation/widgets/instant_connect_
 import 'package:buddypartner/features/home/presentation/widgets/incoming_paid_calls_banner.dart';
 import 'package:buddypartner/features/chat/application/presence_provider.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/buddy_sticker_carousel.dart';
-import 'package:buddypartner/features/buddy/presentation/widgets/garba_buddy_banner.dart';
+import 'package:buddypartner/features/buddy/presentation/widgets/seasonal_banner_carousel.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/active_buddy_status_banner.dart';
 import 'package:buddypartner/features/buddy/application/buddy_controller.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
@@ -582,166 +582,189 @@ class _HomePageState extends ConsumerState<HomePage> {
                       const SizedBox(height: 10),
 
                       // Female User: Incoming Paid Calls Toggle Card
-                      // Matchmaking Banner Card
-                      GestureDetector(
-                        onTap: _startMatchmaking,
-                        child: Container(
-                          height: 140,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Color(0xFF7A58FF),
-                                Color(0xFFC69CFF),
-                              ],
-                            ),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.18),
-                              width: 1.0,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF7A58FF).withValues(alpha: 0.35),
-                                blurRadius: 18,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: Stack(
-                            children: [
-                              // Background semi-transparent concentric circle patterns
-                              Positioned(
-                                right: -30,
-                                top: -20,
-                                child: Container(
-                                  width: 140,
-                                  height: 140,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.white.withValues(alpha: 0.06),
-                                    border: Border.all(
-                                      color: Colors.white.withValues(alpha: 0.08),
-                                      width: 12,
-                                    ),
-                                  ),
+                      // Matchmaking Banner Card — wrapped in an unclipped Stack so
+                      // the couple illustration can overflow above the card boundary.
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          GestureDetector(
+                            onTap: _startMatchmaking,
+                            child: Container(
+                              height: 140,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFF7A58FF),
+                                    Color(0xFFC69CFF),
+                                  ],
                                 ),
-                              ),
-                              Positioned(
-                                right: 20,
-                                bottom: -45,
-                                child: Container(
-                                  width: 110,
-                                  height: 110,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.white.withValues(alpha: 0.04),
-                                    border: Border.all(
-                                      color: Colors.white.withValues(alpha: 0.06),
-                                      width: 8,
-                                    ),
-                                  ),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.18),
+                                  width: 1.0,
                                 ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF7A58FF).withValues(alpha: 0.35),
+                                    blurRadius: 18,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
                               ),
-                              // Card Content
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0.0),
-                                child: Row(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Stack(
                                   children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                    // Background semi-transparent concentric circle patterns
+                                    Positioned(
+                                      right: -30,
+                                      top: -20,
+                                      child: Container(
+                                        width: 140,
+                                        height: 140,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: Colors.white.withValues(alpha: 0.06),
+                                          border: Border.all(
+                                            color: Colors.white.withValues(alpha: 0.08),
+                                            width: 12,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      right: 20,
+                                      bottom: -45,
+                                      child: Container(
+                                        width: 110,
+                                        height: 110,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: Colors.white.withValues(alpha: 0.04),
+                                          border: Border.all(
+                                            color: Colors.white.withValues(alpha: 0.06),
+                                            width: 8,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    // Card Content
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0.0),
+                                      child: Row(
                                         children: [
-                                          // Row with Sparkle icon and MEET SOMEONE SPECIAL
-                                          Row(
-                                            children: [
-                                              const Icon(
-                                                Icons.auto_awesome,
-                                                color: Colors.white70,
-                                                size: 13,
-                                              ),
-                                              const SizedBox(width: 5),
-                                              Text(
-                                                'MEET SOMEONE SPECIAL',
-                                                style: typography.bodySmall.copyWith(
-                                                  color: Colors.white.withValues(alpha: 0.85),
-                                                  fontSize: 9.5,
-                                                  fontWeight: FontWeight.w700,
-                                                  letterSpacing: 0.5,
+                                          Expanded(
+                                            flex: 11,
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                // Row with Sparkle icon and MEET SOMEONE SPECIAL
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(
+                                                      Icons.auto_awesome,
+                                                      color: Colors.white70,
+                                                      size: 13,
+                                                    ),
+                                                    const SizedBox(width: 5),
+                                                    Flexible(
+                                                      child: Text(
+                                                        'MEET SOMEONE SPECIAL',
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                        style: typography.bodySmall.copyWith(
+                                                          color: Colors.white.withValues(alpha: 0.85),
+                                                          fontSize: 9.5,
+                                                          fontWeight: FontWeight.w700,
+                                                          letterSpacing: 0.5,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 5),
-                                          // Start matchmaking heading text
-                                          Text(
-                                            'Let’s Connect',
-                                            style: typography.titleCard.copyWith(
-                                              color: Colors.white,
-                                              fontSize: 22,
-                                              fontWeight: FontWeight.bold,
-                                              height: 1.15,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          // Punchier Subtitle details text
-                                          Text(
-                                            'Let fate choose your next connection',
-                                            style: typography.bodySmall.copyWith(
-                                              color: Colors.white.withValues(alpha: 0.9),
-                                              fontSize: 12.0,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 10),
-                                          // Explicit CTA button
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius: BorderRadius.circular(18),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.black.withValues(alpha: 0.16),
-                                                  blurRadius: 8,
-                                                  offset: const Offset(0, 2),
-                                                ),
-                                              ],
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: const [
+                                                const SizedBox(height: 5),
+                                                // Start matchmaking heading text
                                                 Text(
-                                                  'Explore Now',
-                                                  style: TextStyle(
-                                                    color: Color(0xFF6D28D9),
+                                                  'Let\'s Connect',
+                                                  style: typography.titleCard.copyWith(
+                                                    color: Colors.white,
+                                                    fontSize: 22,
                                                     fontWeight: FontWeight.bold,
-                                                    fontSize: 12,
+                                                    height: 1.15,
                                                   ),
                                                 ),
-                                                SizedBox(width: 4),
-                                                Icon(
-                                                  Icons.arrow_forward_rounded,
-                                                  size: 13,
-                                                  color: Color(0xFF6D28D9),
+                                                const SizedBox(height: 4),
+                                                // Punchier Subtitle details text
+                                                Text(
+                                                  'Let fate choose your next connection',
+                                                  maxLines: 2,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: typography.bodySmall.copyWith(
+                                                    color: Colors.white.withValues(alpha: 0.9),
+                                                    fontSize: 12.0,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 10),
+                                                // Explicit CTA button
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius: BorderRadius.circular(18),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.black.withValues(alpha: 0.16),
+                                                        blurRadius: 8,
+                                                        offset: const Offset(0, 2),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: const [
+                                                      Text(
+                                                        'Explore Now',
+                                                        style: TextStyle(
+                                                          color: Color(0xFF6D28D9),
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                      SizedBox(width: 4),
+                                                      Icon(
+                                                        Icons.arrow_forward_rounded,
+                                                        size: 13,
+                                                        color: Color(0xFF6D28D9),
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
                                               ],
                                             ),
                                           ),
+                                          const Spacer(flex: 9),
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    // Connected Duo Illustration (Two tilted polaroids with heart connector)
-                                    const ConnectedDuoIllustration(),
                                   ],
                                 ),
                               ),
-                            ],
+                            ),
                           ),
-                        ),
+                          // 3D Couple Illustration — lives OUTSIDE the ClipRRect so it
+                          // overflows above the card top edge for a premium pop-out effect.
+                          Positioned(
+                            right: -10,
+                            bottom: -10,
+                            top: 2,
+                            child: const ConnectedDuoIllustration(),
+                          ),
+                        ],
                       ),
                  if (authUser?.isFemale == true)
                         const IncomingPaidCallsBanner(),
@@ -902,7 +925,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       ],
                 const ActiveBuddyStatusBanner(),
                 const SizedBox(height: 0),
-                const GarbaBuddyBanner(),
+                const SeasonalBannerCarousel(),
                 const SizedBox(height: 0),
                 const BuddyStickerCarousel(),
                 const SizedBox(height: 17),
