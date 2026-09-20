@@ -97,6 +97,11 @@ app.use('/api/app', supportRoutes);
 app.use('/api/payments/google-play', googlePlayRoutes);
 app.use('/api/buddy', buddyRoutes);
 
+// Festive / seasonal banner route fallback
+app.get('/api/banners/seasonal', (_req, res) => {
+  res.json({ success: true, banners: [] });
+});
+
 // Prime in-memory app config cache (schema managed via versioned migrations)
 appService.refreshCache().catch((err) => {
   console.warn('⚠️ [AppConfig] Initial cache prime error:', err.message);

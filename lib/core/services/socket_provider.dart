@@ -162,7 +162,8 @@ class SocketNotifier extends Notifier<sio.Socket?> {
       }
     });
 
-    socket.onConnectError((err) {
+    bool isRefreshingToken = false;
+    socket.onConnectError((err) async {
       debugPrint('[SocketProvider] Connection error: $err');
       final errStr = err.toString();
       if (errStr.contains('SESSION_TERMINATED')) {
@@ -178,6 +179,36 @@ class SocketNotifier extends Notifier<sio.Socket?> {
         final context = rootNavigatorKey.currentContext;
         if (context != null) {
           context.go(RouteNames.updateRequired);
+        }
+      } else if (errStr.contains('Authentication error') || errStr.contains('invalid token')) {
+        if (isRefreshingToken) return;
+        isRefreshingToken = true;
+        try {
+          final refreshed = await ref.read(apiClientProvider).refreshToken();
+          if (refreshed) {
+            final newToken = await ref.read(apiClientProvider).getToken();
+            if (newToken != null && socket.io.options != null) {
+              socket.io.options!['auth'] = {
+                'token': newToken,
+                'appVersion': appVersion,
+                'platform': platform,
+              };
+              socket.disconnect();
+              socket.connect();
+            }
+          } else {
+            _dispose();
+            await ref.read(apiClientProvider).clearTokens();
+            await ref.read(authStateProvider.notifier).clearSession();
+            final context = rootNavigatorKey.currentContext;
+            if (context != null && context.mounted) {
+              AppSnackBar.showError(context, 'Session expired. Please log in again.');
+              context.go(RouteNames.login);
+            }
+          }
+        } catch (_) {
+        } finally {
+          isRefreshingToken = false;
         }
       }
     });

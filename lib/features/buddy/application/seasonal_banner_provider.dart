@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
@@ -14,6 +15,10 @@ final seasonalBannersProvider = FutureProvider<List<SeasonalBannerModel>>((ref) 
     final response = await apiClient.dio.get(
       '/api/banners/seasonal',
       queryParameters: {'placement': 'home'},
+      options: Options(
+        receiveTimeout: const Duration(seconds: 3),
+        sendTimeout: const Duration(seconds: 3),
+      ),
     );
 
     if (response.statusCode == 200 && response.data != null) {

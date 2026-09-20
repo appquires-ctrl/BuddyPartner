@@ -11,28 +11,41 @@ function getStore(prefix) {
   return new RedisStore({
     prefix: `rl:${prefix}:`,
     sendCommand: async (...args) => {
-      if (redis.status !== 'ready') {
-        await new Promise((resolve) => {
-          if (redis.status === 'ready') return resolve();
-          const onReady = () => { cleanup(); resolve(); };
-          const onError = () => { cleanup(); resolve(); };
-          const timer = setTimeout(() => { cleanup(); resolve(); }, 3000);
-          function cleanup() {
-            if (typeof redis.removeListener === 'function') {
-              redis.removeListener('ready', onReady);
-              redis.removeListener('error', onError);
+      try {
+        if (redis.status !== 'ready') {
+          await new Promise((resolve) => {
+            if (redis.status === 'ready') return resolve();
+            const onReady = () => { cleanup(); resolve(); };
+            const onError = () => { cleanup(); resolve(); };
+            const timer = setTimeout(() => { cleanup(); resolve(); }, 1500);
+            function cleanup() {
+              if (typeof redis.removeListener === 'function') {
+                redis.removeListener('ready', onReady);
+                redis.removeListener('error', onError);
+              }
+              clearTimeout(timer);
             }
-            clearTimeout(timer);
-          }
-          if (typeof redis.once === 'function') {
-            redis.once('ready', onReady);
-            redis.once('error', onError);
-          } else {
-            resolve();
-          }
-        });
+            if (typeof redis.once === 'function') {
+              redis.once('ready', onReady);
+              redis.once('error', onError);
+            } else {
+              resolve();
+            }
+          });
+        }
+        if (redis.status === 'ready') {
+          return await redis.call(...args);
+        }
+      } catch (err) {
+        console.warn(`⚠️ [RateLimit Redis] '${args[0]}' failed on Redis: ${err.message}. Failing open.`);
       }
-      return redis.call(...args);
+
+      // Resilient fail-open fallback so rate limiting never crashes critical API routes
+      const command = args[0];
+      if (command === 'SCRIPT') {
+        return 'fallback_rate_limit_sha';
+      }
+      return [1, 60000];
     },
   });
 }
