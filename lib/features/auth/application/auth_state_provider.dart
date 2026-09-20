@@ -255,8 +255,21 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
         } catch (_) {}
       }
 
-      // Asynchronously revalidate session against backend in background
-      _revalidateSession(apiClient);
+      // If we have a verified cached user with a complete profile, return it immediately for instant launch.
+      // Revalidate in background to keep balances & data fresh.
+      if (cachedUser != null && cachedUser.isProfileComplete) {
+        _revalidateSession(apiClient);
+        return cachedUser;
+      }
+
+      // If there is no cached user or the cached profile was marked incomplete,
+      // await backend revalidation so SplashPage gets the authoritative profile before routing.
+      try {
+        final freshUser = await _revalidateSession(apiClient).timeout(const Duration(seconds: 4));
+        if (freshUser != null) {
+          return freshUser;
+        }
+      } catch (_) {}
 
       return cachedUser;
     } catch (_) {
@@ -264,7 +277,7 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
     }
   }
 
-  Future<void> _revalidateSession(ApiClient apiClient) async {
+  Future<CustomUser?> _revalidateSession(ApiClient apiClient) async {
     try {
       final response = await apiClient.dio.get('/api/auth/me');
       if (response.statusCode == 200 && response.data != null) {
@@ -278,10 +291,10 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
           isProfileComplete: isComplete,
         );
 
-        await apiClient.saveUserSessionJson(freshUser.toJson());
         if (state.valueOrNull != freshUser) {
           state = AsyncData(freshUser);
         }
+        await apiClient.saveUserSessionJson(freshUser.toJson());
 
         // Bind user attribution to Apptrove SDK
         AppTroveService.setUser(
@@ -293,15 +306,20 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
             'isProfileComplete': freshUser.isProfileComplete,
           },
         );
+
+        return freshUser;
       }
+      return null;
     } on DioException catch (e) {
       if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
         // Session explicitly revoked or expired
         await apiClient.deleteTokens();
         state = const AsyncData(null);
       }
+      return null;
     } catch (_) {
       // Preserve cached session for offline/network errors
+      return null;
     }
   }
 
