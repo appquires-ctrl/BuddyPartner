@@ -70,12 +70,14 @@ class CustomUser {
   }
 
   factory CustomUser.fromJson(Map<String, dynamic> json) {
+    final rawFullName = (json['fullName'] as String?)?.trim();
+    final bool hasName = rawFullName != null && rawFullName.isNotEmpty;
     return CustomUser(
       id: json['id'] as String? ?? '',
       phoneNumber: json['phoneNumber'] as String? ?? '',
-      isProfileComplete: json['isProfileComplete'] as bool? ?? false,
+      isProfileComplete: (json['isProfileComplete'] as bool? ?? false) || hasName,
       gender: json['gender'] as String? ?? 'Male',
-      fullName: json['fullName'] as String?,
+      fullName: rawFullName,
       userName: (json['userName'] ?? json['user_name']) as String?,
       avatarSeed: json['avatarSeed'] as String?,
       avatarStyle: json['avatarStyle'] as String? ?? 'avataaars',
@@ -107,15 +109,17 @@ class CustomUser {
     String? fallbackAvatarStyle,
     bool? fallbackIsTelecaller,
   }) {
-    final rawFullName = (userMap['fullName'] as String? ?? fallbackFullName ?? '').trim();
+    final rawFullName = (userMap['fullName'] ?? userMap['full_name'] ?? fallbackFullName ?? '').toString().trim();
     final rawUserName = (userMap['userName'] ?? userMap['user_name'] ?? fallbackUserName) as String?;
     final rawPhone = userMap['phoneNumber'] as String? ?? fallbackPhone ?? '';
     final parsedDob = DateTime.tryParse(userMap['dob'] as String? ?? '') ?? fallbackDob;
+    final backendIsComplete = (userMap['isProfileComplete'] as bool?) ?? isProfileComplete;
+    final effectiveIsComplete = backendIsComplete || rawFullName.isNotEmpty;
 
     return CustomUser(
       id: userMap['id'] as String? ?? '',
       phoneNumber: rawPhone,
-      isProfileComplete: isProfileComplete,
+      isProfileComplete: effectiveIsComplete,
       gender: userMap['gender'] as String? ?? fallbackGender ?? 'Male',
       fullName: rawFullName.isNotEmpty ? rawFullName : null,
       userName: rawUserName != null && rawUserName.trim().isNotEmpty ? rawUserName.trim().toLowerCase() : null,
@@ -264,11 +268,14 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
     try {
       final response = await apiClient.dio.get('/api/auth/me');
       if (response.statusCode == 200 && response.data != null) {
-        final userMap = response.data['user'];
-        final fullName = userMap['fullName'] as String? ?? '';
+        final userMap = response.data['user'] as Map<String, dynamic>? ?? {};
+        final fullName = (userMap['fullName'] ?? userMap['full_name'] ?? '').toString().trim();
+        final bool isComplete = (response.data['isProfileComplete'] as bool?) ??
+            (userMap['isProfileComplete'] as bool?) ??
+            fullName.isNotEmpty;
         final freshUser = CustomUser.fromBackendUserMap(
-          userMap as Map<String, dynamic>,
-          isProfileComplete: fullName.trim().isNotEmpty,
+          userMap,
+          isProfileComplete: isComplete,
         );
 
         await apiClient.saveUserSessionJson(freshUser.toJson());

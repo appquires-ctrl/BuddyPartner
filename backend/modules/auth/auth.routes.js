@@ -325,6 +325,7 @@ router.post('/login', async (req, res) => {
       `user:profile:${user.id}`,
       JSON.stringify({
         id: user.id,
+        full_name: user.full_name || '',
         city: user.city || null,
         gender: user.gender || null,
         incoming_paid_calls_enabled: user.incoming_paid_calls_enabled === true,
@@ -397,6 +398,7 @@ router.post('/set-password', authMiddleware, async (req, res) => {
 
     // Invalidate cached profile
     await cacheService.invalidate(`user:profile:${userId}`);
+    await cacheService.invalidate(`user:me_profile:${userId}`);
 
     res.json({
       success: true,
@@ -555,6 +557,7 @@ router.post('/forgot-password/reset', async (req, res) => {
 
     // Purge cached profile & old sessions so user must log in fresh
     await cacheService.invalidate(`user:profile:${userId}`);
+    await cacheService.invalidate(`user:me_profile:${userId}`);
     await redis.del(`user_active_session:${userId}`);
     try {
       const oldRefreshKeys = await scanKeys(redis, `refresh:${userId}:*`);
@@ -963,6 +966,7 @@ router.post('/otp/verify', async (req, res) => {
       `user:profile:${user.id}`,
       JSON.stringify({
         id: user.id,
+        full_name: user.full_name || '',
         city: user.city || null,
         gender: user.gender || null,
         incoming_paid_calls_enabled: user.incoming_paid_calls_enabled === true,
@@ -1106,6 +1110,7 @@ router.post(['/refresh', '/token/refresh'], async (req, res) => {
       `user:profile:${user.id}`,
       JSON.stringify({
         id: user.id,
+        full_name: user.full_name || '',
         city: user.city || null,
         gender: user.gender || null,
         incoming_paid_calls_enabled: user.incoming_paid_calls_enabled === true,
@@ -1367,6 +1372,7 @@ router.post('/profile', authMiddleware, async (req, res) => {
 
     // Invalidate cached user profile in Redis
     await cacheService.invalidate(`user:profile:${userId}`);
+    await cacheService.invalidate(`user:me_profile:${userId}`);
 
     // Fetch and return the updated user object (including user_name and password_hash)
     const updatedUserRes = await db.query(
@@ -1384,6 +1390,7 @@ router.post('/profile', authMiddleware, async (req, res) => {
         `user:profile:${userId}`,
         JSON.stringify({
           id: userRow.id,
+          full_name: userRow.full_name || '',
           city: userRow.city || null,
           gender: userRow.gender || null,
           incoming_paid_calls_enabled: userRow.incoming_paid_calls_enabled === true,
@@ -1438,7 +1445,7 @@ router.get('/me', authMiddleware, async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const userRow = await cacheService.getOrSet(`user:profile:${userId}`, 60, async () => {
+    let userRow = await cacheService.getOrSet(`user:me_profile:${userId}`, 60, async () => {
       const result = await db.query(
         `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.password_hash, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, 
                 w.spendable_balance, w.earned_balance, (COALESCE(w.spendable_balance, 0) + COALESCE(w.earned_balance, 0)) AS balance 
@@ -1450,17 +1457,36 @@ router.get('/me', authMiddleware, async (req, res) => {
       return result.rows.length > 0 ? result.rows[0] : null;
     });
 
+    // Guard against cache collision or partial object where full_name was missing
+    if (!userRow || userRow.full_name === undefined) {
+      const result = await db.query(
+        `SELECT u.id, u.country_code, u.mobile, u.phone_number, u.full_name, u.user_name, u.password_hash, u.dob, u.gender, u.language, u.avatar_seed, u.avatar_style, u.is_telecaller, u.has_claimed_intro_offer, u.country, u.state, u.city, u.latitude, u.longitude, 
+                w.spendable_balance, w.earned_balance, (COALESCE(w.spendable_balance, 0) + COALESCE(w.earned_balance, 0)) AS balance 
+         FROM public.users u
+         LEFT JOIN public.wallets w ON w.user_id = u.id
+         WHERE u.id = $1`,
+        [userId]
+      );
+      userRow = result.rows.length > 0 ? result.rows[0] : null;
+      if (userRow) {
+        await cacheService.set(`user:me_profile:${userId}`, userRow, 60);
+      }
+    }
+
     if (!userRow) {
       return res.status(404).json({ error: 'User profile not found.' });
     }
 
+    const isProfileComplete = Boolean(userRow.full_name && userRow.full_name.trim().length > 0);
     const sBal = Number(userRow.spendable_balance) || 0;
     const eBal = Number(userRow.earned_balance) || 0;
 
     res.json({
       success: true,
+      isProfileComplete,
       user: {
         id: userRow.id,
+        isProfileComplete,
         countryCode: userRow.country_code || '',
         mobile: userRow.mobile || '',
         phoneNumber: userRow.phone_number || `+${userRow.country_code || ''}${userRow.mobile || ''}`,

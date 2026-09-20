@@ -83,7 +83,6 @@ class ChatController extends AutoDisposeFamilyNotifier<ChatState, String> {
         socket.off('message:status_update', _onStatusUpdate);
         socket.off('user:blocked', _onUserBlocked);
         _typingTimer?.cancel();
-        ref.invalidate(conversationsProvider);
       });
     }
 

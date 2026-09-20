@@ -143,7 +143,10 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
 
       _hasNavigated = true;
 
-      if (user != null && user.isProfileComplete) {
+      final bool isProfileComplete = user != null &&
+          (user.isProfileComplete || (user.fullName != null && user.fullName!.trim().isNotEmpty));
+
+      if (user != null && isProfileComplete) {
         final pendingChat = NotificationService.instance.consumePendingChat();
         if (pendingChat != null) {
           context.go(RouteNames.home);
@@ -167,7 +170,7 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
         } else {
           context.go(RouteNames.home);
         }
-      } else if (user != null && !user.isProfileComplete) {
+      } else if (user != null && !isProfileComplete) {
         NotificationService.instance.consumePendingChat(); // Clear if incomplete
         context.go(RouteNames.signup);
       } else {

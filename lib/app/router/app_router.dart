@@ -85,7 +85,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       final currentUser = authAsync.valueOrNull;
       final isAuthLoading = authAsync.isLoading;
       final isLoggedIn = currentUser != null;
-      final isProfileComplete = currentUser?.isProfileComplete ?? false;
+      final isProfileComplete = (currentUser?.isProfileComplete ?? false) ||
+          (currentUser?.fullName != null && currentUser!.fullName!.trim().isNotEmpty);
 
       final isLegalRoute = state.matchedLocation.startsWith('/legal');
       final isBannedRoute = state.matchedLocation == RouteNames.banned ||
