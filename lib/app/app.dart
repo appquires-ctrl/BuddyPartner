@@ -66,10 +66,10 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
         final mmInCall = ref.read(matchmakingControllerProvider).phase == MatchmakingPhase.inCall;
         final instantInCall = ref.read(instantConnectControllerProvider).phase == InstantPhase.inCall;
         if (mmInCall || instantInCall) {
-          debugPrint('🔔 [FCM Click] User is currently in active call. Ignoring instant call notification.');
+          debugPrint('🔔 [FCM Call] User is currently in active call. Ignoring instant call notification.');
           return;
         }
-        ref.read(instantConnectControllerProvider.notifier).handleNotificationLaunch(
+        ref.read(instantConnectControllerProvider.notifier).showIncomingSurgeCall(
           sessionId: sessionId,
           bidAmount: bidAmount,
         );
@@ -133,12 +133,16 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
         navContext.go(RouteNames.activeCall);
       } else if (next.phase == InstantPhase.incomingRequest && prev?.phase != InstantPhase.incomingRequest) {
         final mmPhase = ref.read(matchmakingControllerProvider).phase;
+        debugPrint('🔔 [App] Incoming VIP call detected! mmPhase=$mmPhase. Showing IncomingPaidCallDialog...');
         if (mmPhase == MatchmakingPhase.idle) {
           showDialog(
             context: navContext,
             barrierDismissible: false,
             builder: (ctx) => const IncomingPaidCallDialog(),
           );
+          debugPrint('🔔 [App] IncomingPaidCallDialog presented.');
+        } else {
+          debugPrint('⚠️ [App] Cannot show incoming call dialog: Matchmaking is not idle ($mmPhase)');
         }
       } else if (prev?.phase == InstantPhase.inCall && (next.phase == InstantPhase.idle || next.phase == InstantPhase.ended)) {
         Navigator.of(navContext, rootNavigator: true).popUntil((route) => route is! PopupRoute);

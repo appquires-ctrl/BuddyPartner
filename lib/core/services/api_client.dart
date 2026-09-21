@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:dio/dio.dart';
@@ -33,6 +34,41 @@ class ApiClient {
   static String? _cachedRefreshToken;
   bool _isRefreshing = false;
 
+  /// Checks whether a DioException represents a client-side offline or DNS resolution failure.
+  /// When true, retrying is counter-productive because the client has no network connectivity.
+  static bool isOfflineOrDnsError(DioException err) {
+    if (err.type == DioExceptionType.connectionError) {
+      final error = err.error;
+      if (error is SocketException) {
+        final msg = error.message.toLowerCase();
+        final osMsg = (error.osError?.message ?? '').toLowerCase();
+        final osCode = error.osError?.errorCode ?? 0;
+        if (msg.contains('failed host lookup') ||
+            msg.contains('no address associated') ||
+            msg.contains('network is unreachable') ||
+            msg.contains('connection refused') ||
+            osMsg.contains('no address associated') ||
+            osMsg.contains('network unreachable') ||
+            osCode == 7 ||
+            osCode == 101 ||
+            osCode == 111 ||
+            osCode == 113 ||
+            osCode == 11001 ||
+            osCode == 10051 ||
+            osCode == 10061) {
+          return true;
+        }
+      }
+      final errMessage = (err.message ?? '').toLowerCase();
+      if (errMessage.contains('failed host lookup') ||
+          errMessage.contains('no address associated') ||
+          errMessage.contains('network is unreachable')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /// Cache app version once at startup to prevent native platform-channel delays on every API call.
   static Future<void> initAppVersion() async {
     try {
@@ -53,9 +89,12 @@ class ApiClient {
     dio = Dio(
       BaseOptions(
         baseUrl: AppConfig.backendUrl,
-        connectTimeout: const Duration(seconds: 60),
-        receiveTimeout: const Duration(seconds: 60),
-        sendTimeout: const Duration(seconds: 60),
+        // Production 5,000 CCU mobile timeouts:
+        // 8s connect timeout ensures instant fast-fail when offline or DNS unresolvable,
+        // and prevents socket descriptor exhaustion on the reverse proxy.
+        connectTimeout: const Duration(seconds: 8),
+        receiveTimeout: const Duration(seconds: 15),
+        sendTimeout: const Duration(seconds: 15),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -91,14 +130,21 @@ class ApiClient {
           return handler.next(response);
         },
         onError: (DioException err, handler) async {
+          final isOffline = isOfflineOrDnsError(err);
+
           // Do not log routine client-side request cancellations as API failures
           if (err.type != DioExceptionType.cancel) {
-            AppLogger.apiError(
-              err.requestOptions.method,
-              err.requestOptions.path,
-              err.response?.statusCode,
-              err.error ?? err.message ?? 'Network Error',
-            );
+            if (isOffline) {
+              // Clean log for offline/DNS failure: prevents 15 startup requests from flooding logs with multi-line errors
+              debugPrint('ℹ️ [Offline] ${err.requestOptions.method} ${err.requestOptions.path}: No internet or DNS unreachable');
+            } else {
+              AppLogger.apiError(
+                err.requestOptions.method,
+                err.requestOptions.path,
+                err.response?.statusCode,
+                err.error ?? err.message ?? 'Network Error',
+              );
+            }
           }
 
           // Handle HTTP 426 Upgrade Required
@@ -109,27 +155,33 @@ class ApiClient {
             }
           }
 
-          // Automatic single-retry for transient network timeout / connection errors (e.g. Render server cold start)
+          // Production 5,000 CCU Reliability Rules:
+          // 1. NEVER auto-retry if device is offline or host DNS lookup failed (guaranteed to fail, freezes UI, drains battery).
+          // 2. ONLY retry idempotent methods (GET, HEAD, OPTIONS). Retrying mutating POST/PATCH/DELETE could cause duplicate coin debits or duplicate operations.
+          // 3. NEVER auto-retry non-idempotent OTP or financial endpoints.
+          final method = err.requestOptions.method.toUpperCase();
+          final isIdempotent = method == 'GET' || method == 'HEAD' || method == 'OPTIONS';
+          final isOtpEndpoint = err.requestOptions.path.contains('/otp/');
+
           final isTimeoutOrConnErr = err.type == DioExceptionType.connectionTimeout ||
               err.type == DioExceptionType.receiveTimeout ||
               err.type == DioExceptionType.sendTimeout ||
-              err.type == DioExceptionType.connectionError;
-
-          // Never auto-retry non-idempotent OTP endpoints — the server may have
-          // already consumed the OTP, so a retry would get a 400 "invalid code".
-          final isOtpEndpoint = err.requestOptions.path.contains('/otp/');
+              (err.type == DioExceptionType.connectionError && !isOffline);
 
           final retried = err.requestOptions.extra['retried'] == true;
-          if (isTimeoutOrConnErr && !retried && !isOtpEndpoint) {
+          if (!isOffline && isIdempotent && isTimeoutOrConnErr && !retried && !isOtpEndpoint) {
             err.requestOptions.extra['retried'] = true;
             try {
+              // Full Jitter Backoff (1.5s - 3.0s):
+              // Prevents a Thundering Herd from 5,000 CCU hitting Render at the exact same millisecond.
+              final jitterMs = 1500 + Random().nextInt(1500);
               AppLogger.apiError(
                 err.requestOptions.method,
                 err.requestOptions.path,
                 null,
-                'Connection timeout. Retrying request after 2s...',
+                'Transient timeout. Retrying request after ${(jitterMs / 1000).toStringAsFixed(1)}s (jittered)...',
               );
-              await Future.delayed(const Duration(seconds: 2));
+              await Future.delayed(Duration(milliseconds: jitterMs));
               final cloneReq = await dio.fetch(err.requestOptions);
               return handler.resolve(cloneReq);
             } catch (_) {

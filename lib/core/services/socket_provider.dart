@@ -109,9 +109,13 @@ class SocketNotifier extends Notifier<sio.Socket?> {
           .setAuth(authPayload)
           .enableAutoConnect()
           .enableReconnection()
-          .setReconnectionDelay(500)
-          .setReconnectionDelayMax(3000)
-          .setTimeout(5000)
+          // Production 5,000 CCU Reconnection Policy:
+          // Exponential backoff with 50% randomization factor (jitter) prevents
+          // 5,000 users from simultaneously reconnecting and swamping the Node.js/Socket.io cluster.
+          .setReconnectionDelay(2000)
+          .setReconnectionDelayMax(15000)
+          .setRandomizationFactor(0.5)
+          .setTimeout(8000)
           .build(),
     );
 
@@ -163,9 +167,19 @@ class SocketNotifier extends Notifier<sio.Socket?> {
     });
 
     bool isRefreshingToken = false;
+    int lastTimeoutLogMs = 0;
     socket.onConnectError((err) async {
-      debugPrint('[SocketProvider] Connection error: $err');
       final errStr = err.toString();
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      // Throttle repetitive timeout logs while offline to once every 10s
+      if (errStr.contains('timeout')) {
+        if (nowMs - lastTimeoutLogMs > 10000) {
+          lastTimeoutLogMs = nowMs;
+          debugPrint('ℹ️ [SocketProvider] Connection waiting for network (jittered backoff active)...');
+        }
+      } else {
+        debugPrint('[SocketProvider] Connection error: $err');
+      }
       if (errStr.contains('SESSION_TERMINATED')) {
         _dispose();
         ref.read(apiClientProvider).clearTokens();

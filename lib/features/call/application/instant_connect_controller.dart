@@ -224,17 +224,30 @@ class InstantConnectController extends Notifier<InstantConnectState> {
     }
   }
 
+  void _syncIncomingPaidCallsState(sio.Socket socket) {
+    final user = ref.read(authStateProvider).value;
+    if (user != null && user.isFemale) {
+      debugPrint('⚡ [InstantConnect] Female socket connected, syncing instant:toggle_incoming enabled=true');
+      socket.emit('instant:toggle_incoming', {'enabled': true});
+    }
+  }
+
   void _setupSocketListeners(sio.Socket socket) {
     if (_listenersRegistered) return;
     _listenersRegistered = true;
 
-    socket.on('connect', (_) => _checkAndEmitPendingSurge(socket));
+    socket.on('connect', (_) {
+      _checkAndEmitPendingSurge(socket);
+      _syncIncomingPaidCallsState(socket);
+    });
     if (socket.connected) {
       _checkAndEmitPendingSurge(socket);
+      _syncIncomingPaidCallsState(socket);
     }
 
     // Incoming 1:2 parallel ring for female
     socket.on('incoming_instant_call', (data) {
+      debugPrint('📞 [InstantConnect] Received incoming_instant_call payload: $data');
       if (data is Map) {
         final req = IncomingPaidCallRequest.fromJson(Map<String, dynamic>.from(data));
 
@@ -259,6 +272,7 @@ class InstantConnectController extends Notifier<InstantConnectState> {
           return;
         }
 
+        debugPrint('🔔 [InstantConnect] Setting state to incomingRequest for callRequestId: ${req.callRequestId}, session: ${req.sessionId}');
         state = state.copyWith(
           phase: InstantPhase.incomingRequest,
           incomingRequest: req,
@@ -504,37 +518,41 @@ class InstantConnectController extends Notifier<InstantConnectState> {
     }
   }
 
-  /// Female: Accept incoming paid call
+  /// Female: Accept incoming paid call (handles both live socket ring and push surge call)
   void acceptIncomingCall() {
     final req = state.incomingRequest;
     if (req == null) return;
     final socket = _socket;
     if (socket != null && socket.connected) {
-      socket.emitWithAck(
-        'instant:accept_call',
-        {'callRequestId': req.callRequestId},
-        ack: (response) {
-          debugPrint('[Instant Connect] accept_call response: $response');
-          if (response is Map && response['success'] == false) {
-            final isSubRequired = response['error'] == 'SUBSCRIPTION_REQUIRED';
-            state = state.copyWith(
-              phase: InstantPhase.idle,
-              clearIncomingRequest: true,
-              errorMessage: response['message'] as String? ?? 'Call request is no longer available.',
-            );
-            if (isSubRequired) {
-              final navContext = rootNavigatorKey.currentContext;
-              if (navContext != null && navContext.mounted) {
-                AppSnackBar.showError(
-                  navContext,
-                  response['message'] as String? ?? 'Active VIP Subscription Pass required to answer VIP calls.',
-                );
-                navContext.push(RouteNames.subscribe);
+      if (req.callRequestId.isNotEmpty) {
+        socket.emitWithAck(
+          'instant:accept_call',
+          {'callRequestId': req.callRequestId},
+          ack: (response) {
+            debugPrint('[Instant Connect] accept_call response: $response');
+            if (response is Map && response['success'] == false) {
+              final isSubRequired = response['error'] == 'SUBSCRIPTION_REQUIRED';
+              state = state.copyWith(
+                phase: InstantPhase.idle,
+                clearIncomingRequest: true,
+                errorMessage: response['message'] as String? ?? 'Call request is no longer available.',
+              );
+              if (isSubRequired) {
+                final navContext = rootNavigatorKey.currentContext;
+                if (navContext != null && navContext.mounted) {
+                  AppSnackBar.showError(
+                    navContext,
+                    response['message'] as String? ?? 'Active VIP Subscription Pass required to answer VIP calls.',
+                  );
+                  navContext.push(RouteNames.subscribe);
+                }
               }
             }
-          }
-        },
-      );
+          },
+        );
+      } else if (req.sessionId != null && req.sessionId!.isNotEmpty) {
+        _emitClaimAndJoin(socket, req.sessionId!, req.bidAmount);
+      }
     }
   }
 
@@ -542,10 +560,48 @@ class InstantConnectController extends Notifier<InstantConnectState> {
   void declineIncomingCall() {
     final req = state.incomingRequest;
     if (req != null) {
-      _declinedRequestIds.add(req.callRequestId);
-      _socket?.emit('instant:decline_call', {'callRequestId': req.callRequestId});
+      if (req.callRequestId.isNotEmpty) {
+        _declinedRequestIds.add(req.callRequestId);
+        _socket?.emit('instant:decline_call', {'callRequestId': req.callRequestId});
+      }
+      if (req.sessionId != null && req.sessionId!.isNotEmpty) {
+        _declinedRequestIds.add(req.sessionId!);
+      }
     }
     state = state.copyWith(phase: InstantPhase.idle, clearIncomingRequest: true);
+  }
+
+  /// Female: Show incoming surge call dialog with Accept/Decline options
+  void showIncomingSurgeCall({required String sessionId, required int bidAmount}) {
+    debugPrint('🔔 [InstantConnect] showIncomingSurgeCall called: session=$sessionId, bid=$bidAmount');
+    if (sessionId.isEmpty) return;
+
+    // Drop if user previously declined this request
+    if (_declinedRequestIds.contains(sessionId)) {
+      debugPrint('[InstantConnect] Dropped already declined surge session: $sessionId');
+      return;
+    }
+
+    // Guard: If already in call or handling an incoming request, do not overwrite
+    final mmPhase = ref.read(matchmakingControllerProvider).phase;
+    if (state.phase == InstantPhase.inCall ||
+        state.phase == InstantPhase.incomingRequest ||
+        mmPhase != MatchmakingPhase.idle) {
+      debugPrint('ℹ️ [InstantConnect] User busy (phase: ${state.phase}), suppressing incoming surge call.');
+      return;
+    }
+
+    final req = IncomingPaidCallRequest(
+      callRequestId: '',
+      sessionId: sessionId,
+      bidAmount: bidAmount,
+      timeoutSeconds: 25,
+    );
+
+    state = state.copyWith(
+      phase: InstantPhase.incomingRequest,
+      incomingRequest: req,
+    );
   }
 
   /// Female: Handle app launch from an Instant VIP push notification click (One-tap direct join)
@@ -636,7 +692,15 @@ class InstantConnectController extends Notifier<InstantConnectState> {
       final apiClient = ref.read(apiClientProvider);
       final res = await apiClient.dio.get('/api/instant/status');
       if (res.statusCode == 200 && res.data != null) {
-        state = state.copyWith(femaleStatus: FemaleInstantStatus.fromJson(res.data));
+        final status = FemaleInstantStatus.fromJson(res.data);
+        state = state.copyWith(femaleStatus: status);
+        if (status.incomingPaidCallsEnabled) {
+          final socket = _socket;
+          if (socket != null && socket.connected) {
+            debugPrint('⚡ [InstantConnect] Status fetched: syncing toggle_incoming enabled=true');
+            socket.emit('instant:toggle_incoming', {'enabled': true});
+          }
+        }
       }
     } catch (_) {}
   }

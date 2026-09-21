@@ -926,7 +926,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 const ActiveBuddyStatusBanner(),
                 const SizedBox(height: 0),
                 const SeasonalBannerCarousel(),
-                const SizedBox(height: 0),
+                const SizedBox(height: 4),
                 const BuddyStickerCarousel(),
                 const SizedBox(height: 17),
 

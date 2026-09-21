@@ -215,9 +215,18 @@ class NotificationService {
     final data = message.data;
     final type = data['type']?.toString();
 
-    // Do NOT show in-app chat banner for call notifications!
-    if (type == 'instant_call' || type == 'incoming_call') {
-      debugPrint('🔔 [FCM Foreground] Received call alert ($type). Suppressing chat banner.');
+    // Trigger incoming VIP call dialog for foreground instant_call alerts
+    if (type == 'instant_call') {
+      final sessionId = data['sessionId']?.toString() ?? '';
+      final bidAmount = int.tryParse(data['bidAmount']?.toString() ?? '10') ?? 10;
+      debugPrint('🔔 [FCM Foreground] Instant VIP call received: session=$sessionId, bid=$bidAmount');
+      onInstantCallNotification?.call(sessionId: sessionId, bidAmount: bidAmount);
+      return;
+    }
+
+    // Do NOT show in-app chat banner for standard call notifications
+    if (type == 'incoming_call') {
+      debugPrint('🔔 [FCM Foreground] Standard incoming call received. Suppressing chat banner.');
       return;
     }
 
