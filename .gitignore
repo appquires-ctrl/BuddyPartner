@@ -47,12 +47,26 @@ app.*.map.json
 # Node dependencies & environment files
 **/node_modules/
 **/node_modules
-backend/.env
+*.env
+*.env.*
+**/.env
+**/.env.*
+backend/.env*
 /android/key.properties
+android/local.properties
 .kotlin/
 android/.kotlin/
 *-firebase-adminsdk-*.json
 project-*.json
 service-account*.json
 *.key.json
+*.service_account.json
+credentials.json
+client_secret*.json
+*.jks
+*.keystore
+*.p8
+*.p12
+*.pem
+*.key
 
