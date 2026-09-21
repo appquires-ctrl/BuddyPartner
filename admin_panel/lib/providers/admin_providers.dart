@@ -17,6 +17,8 @@ class UsersState {
   final String search;
   final String gender;
   final String isBanned;
+  final String sortBy;
+  final String order;
   final String? error;
 
   const UsersState({
@@ -28,6 +30,8 @@ class UsersState {
     this.search = '',
     this.gender = 'all',
     this.isBanned = 'all',
+    this.sortBy = 'created_at',
+    this.order = 'desc',
     this.error,
   });
 
@@ -40,6 +44,8 @@ class UsersState {
     String? search,
     String? gender,
     String? isBanned,
+    String? sortBy,
+    String? order,
     String? error,
   }) {
     return UsersState(
@@ -51,6 +57,8 @@ class UsersState {
       search: search ?? this.search,
       gender: gender ?? this.gender,
       isBanned: isBanned ?? this.isBanned,
+      sortBy: sortBy ?? this.sortBy,
+      order: order ?? this.order,
       error: error,
     );
   }
@@ -68,6 +76,8 @@ class UsersNotifier extends StateNotifier<UsersState> {
         'search': state.search,
         'gender': state.gender,
         'isBanned': state.isBanned,
+        'sortBy': state.sortBy,
+        'order': state.order,
         'page': state.page.toString(),
         'limit': '15',
       });
@@ -94,6 +104,11 @@ class UsersNotifier extends StateNotifier<UsersState> {
 
   void setIsBanned(String isBanned) {
     state = state.copyWith(isBanned: isBanned, page: 1);
+    fetchUsers();
+  }
+
+  void setSort(String sortBy, String order) {
+    state = state.copyWith(sortBy: sortBy, order: order, page: 1);
     fetchUsers();
   }
 

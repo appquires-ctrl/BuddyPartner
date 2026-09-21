@@ -65,13 +65,15 @@ router.get('/stats', adminAuth, async (_req, res) => {
 // ── 3. User Management ──────────────────────────────────────────────────────
 router.get('/users', adminAuth, async (req, res) => {
   try {
-    const { search = '', gender = 'all', isBanned = 'all', page = 1, limit = 20 } = req.query;
+    const { search = '', gender = 'all', isBanned = 'all', page = 1, limit = 20, sortBy = 'created_at', order = 'desc' } = req.query;
     const data = await adminService.getUsers({
       search,
       gender,
       isBanned,
       page: Number(page),
       limit: Number(limit),
+      sortBy,
+      order,
     });
     return res.json({ success: true, ...data });
   } catch (err) {

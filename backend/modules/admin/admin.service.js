@@ -108,7 +108,7 @@ class AdminService {
   /**
    * Paginated, searchable, filterable list of users with dual-balance breakdown.
    */
-  async getUsers({ search = '', gender = 'all', isBanned = 'all', page = 1, limit = 20 }) {
+  async getUsers({ search = '', gender = 'all', isBanned = 'all', page = 1, limit = 20, sortBy = 'created_at', order = 'desc' }) {
     try {
       const offset = (page - 1) * limit;
       const conditions = [];
@@ -145,6 +145,14 @@ class AdminService {
       params.push(currentYearMonth);
       const ymIdx = params.length;
 
+      const sortDirection = String(order).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+      let orderByClause = `ORDER BY u.created_at ${sortDirection} NULLS LAST`;
+      if (sortBy === 'name') {
+        orderByClause = `ORDER BY u.full_name ${sortDirection} NULLS LAST`;
+      } else if (sortBy === 'coin_balance') {
+        orderByClause = `ORDER BY coin_balance ${sortDirection} NULLS LAST`;
+      }
+
       const dataSql = `
         SELECT 
           u.id, 
@@ -175,7 +183,7 @@ class AdminService {
           LIMIT 1
         ) sub ON true
         ${whereClause}
-        ORDER BY u.created_at DESC NULLS LAST
+        ${orderByClause}
         LIMIT $${limitIdx} OFFSET $${offsetIdx}
       `;
 

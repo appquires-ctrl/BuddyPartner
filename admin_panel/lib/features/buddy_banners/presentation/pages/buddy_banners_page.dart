@@ -540,19 +540,6 @@ class _AddEditBannerDialogState extends State<_AddEditBannerDialog> {
   DateTime? _endDate;
   bool _isSaving = false;
 
-  final List<Map<String, String>> _buddyCategories = [
-    {'id': 'garba', 'label': 'Garba Buddy 🪔'},
-    {'id': 'movie', 'label': 'Movie Buddy 🍿'},
-    {'id': 'coffee', 'label': 'Coffee Buddy ☕'},
-    {'id': 'pizza', 'label': 'Pizza Buddy 🍕'},
-    {'id': 'hangout', 'label': 'Hangout Buddy 👥'},
-    {'id': 'trip', 'label': 'Trip Buddy 🧳'},
-    {'id': 'cricket', 'label': 'Cricket Buddy 🏏'},
-    {'id': 'shopping', 'label': 'Shopping Buddy 🛍️'},
-    {'id': 'nightOut', 'label': 'Night Out Buddy 🍹'},
-    {'id': 'clubbing', 'label': 'Clubbing Buddy 🪩'},
-    {'id': 'longDrive', 'label': 'Long Drive Buddy 🚗'},
-  ];
 
   @override
   void initState() {

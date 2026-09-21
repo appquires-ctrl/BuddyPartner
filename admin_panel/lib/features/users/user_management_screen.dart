@@ -237,6 +237,73 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                   ],
                 ),
 
+                // Sort By Dropdown (Create Account Date / Name / Balance)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.sort_rounded,
+                      size: 16,
+                      color: AdminColors.textSecondary,
+                    ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      'Sort: ',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: AdminColors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: '${usersState.sortBy}_${usersState.order}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AdminColors.textPrimary,
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'created_at_desc',
+                              child: Text('Joined: Newest First'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'created_at_asc',
+                              child: Text('Joined: Oldest First'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'name_asc',
+                              child: Text('Name (A-Z)'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'name_desc',
+                              child: Text('Name (Z-A)'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'coin_balance_desc',
+                              child: Text('Coin Balance: High to Low'),
+                            ),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              final parts = val.split('_');
+                              final order = parts.last;
+                              final sortBy = parts.sublist(0, parts.length - 1).join('_');
+                              usersNotifier.setSort(sortBy, order);
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
                 // Total Count
                 Text(
                   'Total Users: ${usersState.total}',
@@ -406,15 +473,42 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                                               ),
                                               const SizedBox(width: 10),
                                               Expanded(
-                                                child: Text(
-                                                  name,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 13,
-                                                  ),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      name,
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        fontSize: 13,
+                                                      ),
+                                                    ),
+                                                    if (user['signup_date'] !=
+                                                        null) ...[
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        'Joined ${() {
+                                                          try {
+                                                            return DateFormat('dd MMM yyyy').format(DateTime.parse(user['signup_date'].toString()));
+                                                          } catch (_) {
+                                                            return user['signup_date'].toString();
+                                                          }
+                                                        }()}',
+                                                        style: const TextStyle(
+                                                          fontSize: 11,
+                                                          color: AdminColors
+                                                              .textMuted,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ],
                                                 ),
                                               ),
                                             ],
