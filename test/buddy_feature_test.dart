@@ -4,8 +4,8 @@ import 'package:buddypartner/features/buddy/domain/seasonal_banner_model.dart';
 
 void main() {
   group('Buddy Activity Feature Tests', () {
-    test('All 11 BuddyTypes have valid assets, titles, IDs, and coin costs', () {
-      expect(BuddyType.values.length, 11);
+    test('All 12 BuddyTypes have valid assets, titles, IDs, and coin costs', () {
+      expect(BuddyType.values.length, 12);
 
       final expectedIds = [
         'movie',
@@ -19,6 +19,7 @@ void main() {
         'clubbing',
         'long_drive',
         'garba',
+        'festival',
       ];
 
       for (final type in BuddyType.values) {
@@ -42,6 +43,7 @@ void main() {
       expect(BuddyType.clubbing.coinCost, 1499);
       expect(BuddyType.longDrive.coinCost, 999);
       expect(BuddyType.garba.coinCost, 1);
+      expect(BuddyType.festival.coinCost, 1);
     });
 
     test('BuddyType.fromString handles valid and fallback values', () {

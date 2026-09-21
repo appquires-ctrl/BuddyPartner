@@ -298,7 +298,7 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                                         Row(
                                           children: [
                                             Text(
-                                              type.title,
+                                              req.displayTitle,
                                               style: typography.bodyMedium.copyWith(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 15,

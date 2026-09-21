@@ -9,6 +9,7 @@ import 'package:buddypartner/features/buddy/application/buddy_controller.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/create_buddy_request_sheet.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/open_buddy_requests_sheet.dart';
+import 'package:buddypartner/features/recharge/presentation/providers/recharge_providers.dart';
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 
@@ -25,7 +26,7 @@ class BuddyStickerCarousel extends ConsumerWidget {
       return;
     }
 
-    // 2. Coin Balance Check (100 coins required).
+    // 2. Coin Balance Check (type.coinCost required).
     // walletBalanceProvider is async — on first load .valueOrNull is null while the
     // network call is in-flight. We must await the real balance before deciding
     // to redirect, otherwise users with enough coins get wrongly sent to recharge.
@@ -46,11 +47,14 @@ class BuddyStickerCarousel extends ConsumerWidget {
 
     final requiredCoins = type.coinCost;
     if (balance < requiredCoins) {
-      AppSnackBar.showError(
-        context,
-        'You need at least $requiredCoins coin${requiredCoins == 1 ? '' : 's'} to broadcast a buddy request. (Current balance: $balance)',
+      // Directly open wallet recharge screen with the optimal plan & Order Summary sheet
+      openRechargeForDeficit(
+        context: context,
+        ref: ref,
+        requiredCoins: requiredCoins,
+        currentBalance: balance,
+        featureName: type.title,
       );
-      context.push(RouteNames.recharge);
       return;
     }
 

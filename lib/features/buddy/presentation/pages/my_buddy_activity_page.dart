@@ -386,7 +386,7 @@ class _MyBuddyActivityPageState extends ConsumerState<MyBuddyActivityPage>
                         const SizedBox(width: 5),
                         Flexible(
                           child: Text(
-                            '${type.title}${city.isNotEmpty ? " • $city" : ""} • ${_formatRelativeTime(request.acceptedAt ?? request.createdAt)}',
+                            '${request.displayTitle}${city.isNotEmpty ? " • $city" : ""} • ${_formatRelativeTime(request.acceptedAt ?? request.createdAt)}',
                             style: TextStyle(
                               fontSize: 12,
                               color: colors.textSecondary,
@@ -575,7 +575,7 @@ class _MyBuddyActivityPageState extends ConsumerState<MyBuddyActivityPage>
                         children: [
                           Flexible(
                             child: Text(
-                              type.title,
+                              req.displayTitle,
                               style: typography.titleCard.copyWith(
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
@@ -693,7 +693,7 @@ class _MyBuddyActivityPageState extends ConsumerState<MyBuddyActivityPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      type.title,
+                      req.displayTitle,
                       style: typography.titleCard.copyWith(
                         fontSize: 14.5,
                         fontWeight: FontWeight.bold,

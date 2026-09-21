@@ -99,6 +99,7 @@ class InstantConnectState {
 
 class InstantConnectController extends Notifier<InstantConnectState> {
   Timer? _callTimer;
+  DateTime? _callStartedAt;
   Timer? _coldStartConnectTimer;
   bool _listenersRegistered = false;
   final Set<String> _declinedRequestIds = {};
@@ -361,11 +362,18 @@ class InstantConnectController extends Notifier<InstantConnectState> {
     // 10-Minute Milestone reached!
     socket.on('instant:milestone_reached', (data) {
       if (data is Map) {
+        final sessId = data['sessionId'] as String?;
+        // Ignore milestones belonging to stale or previous sessions
+        if (sessId != null && state.sessionId != null && sessId != state.sessionId) {
+          debugPrint('⚠️ [InstantConnect] Ignored milestone for outdated session $sessId (current: ${state.sessionId})');
+          return;
+        }
+
         ScratchCardModel? unlockedCard;
         if (data['scratchCardId'] != null) {
           unlockedCard = ScratchCardModel(
             id: data['scratchCardId'] as String,
-            sessionId: data['sessionId'] as String?,
+            sessionId: sessId,
             coinReward: (data['coinReward'] as num?)?.toInt() ?? 0,
             isScratched: false,
             createdAt: DateTime.now(),
@@ -384,6 +392,7 @@ class InstantConnectController extends Notifier<InstantConnectState> {
 
     socket.on('instant:call_ended', (data) {
       _callTimer?.cancel();
+      _callStartedAt = null;
       state = state.reset();
       final authUser = ref.read(authStateProvider).value;
       if (authUser != null && authUser.isFemale) {
@@ -399,12 +408,16 @@ class InstantConnectController extends Notifier<InstantConnectState> {
 
   void _startCallTimer() {
     _callTimer?.cancel();
+    _callStartedAt = DateTime.now();
     _callTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (state.phase != InstantPhase.inCall) {
         timer.cancel();
         return;
       }
-      state = state.copyWith(callSecondsElapsed: state.callSecondsElapsed + 1);
+      final elapsed = _callStartedAt != null
+          ? DateTime.now().difference(_callStartedAt!).inSeconds
+          : state.callSecondsElapsed + 1;
+      state = state.copyWith(callSecondsElapsed: elapsed);
     });
   }
 

@@ -55,7 +55,7 @@ class BuddyService {
    * Debits 100 coins immediately (spendable first, then earned).
    * If total across both buckets is under 100, rejects with 400 INSUFFICIENT_COINS and writes zero rows.
    */
-  async createRequest({ initiatorId, buddyType, city, targetGender, campaignId = null, idempotencyKey = null, correlationId = null }) {
+  async createRequest({ initiatorId, buddyType, city, targetGender, campaignId = null, customTitle = null, idempotencyKey = null, correlationId = null }) {
     if (!this._isValidUUID(initiatorId)) {
       const err = new Error('Invalid initiator ID');
       err.statusCode = 400;
@@ -102,15 +102,19 @@ class BuddyService {
 
     let coinCost = BUDDY_PRICING.TYPE_COIN_COSTS?.[buddyType] ?? BUDDY_PRICING.INITIATOR_COIN_COST;
     let customOtpReward = null;
+    let resolvedCustomTitle = customTitle;
 
     if (campaignId) {
       try {
         const campRes = await db.query(
-          `SELECT sheet_config, otp_reward FROM public.seasonal_banners WHERE id = $1 AND is_active = true`,
+          `SELECT name, sheet_config, otp_reward FROM public.seasonal_banners WHERE id = $1 AND is_active = true`,
           [campaignId]
         );
         if (campRes.rows.length > 0) {
           const cfg = campRes.rows[0].sheet_config || {};
+          if (!resolvedCustomTitle) {
+            resolvedCustomTitle = cfg.title || campRes.rows[0].name;
+          }
           const parsedCost = Number(cfg.broadcastCoinCost || cfg.coinCost);
           if (!isNaN(parsedCost) && parsedCost > 0) {
             coinCost = parsedCost;
@@ -188,10 +192,11 @@ class BuddyService {
       const insertRes = await client.query(
         `INSERT INTO public.buddy_requests (
            initiator_id, buddy_type, city, target_gender,
-           initiator_coin_cost, accepter_coin_reward, status, idempotency_key
-         ) VALUES ($1, $2, $3, $4, $5, $6, 'open', $7)
+           initiator_coin_cost, accepter_coin_reward, status, idempotency_key,
+           custom_title, campaign_id
+         ) VALUES ($1, $2, $3, $4, $5, $6, 'open', $7, $8, $9)
          RETURNING *`,
-        [initiatorId, buddyType, normalizedCity, normalizedGender, coinCost, coinReward, idempotencyKey]
+        [initiatorId, buddyType, normalizedCity, normalizedGender, coinCost, coinReward, idempotencyKey, resolvedCustomTitle, campaignId]
       );
 
       const request = insertRes.rows[0];
@@ -682,6 +687,7 @@ class BuddyService {
       let query = `
         SELECT r.id, r.initiator_id, r.buddy_type, r.city, r.target_gender,
                r.status, r.initiator_coin_cost, r.accepter_coin_reward, r.created_at,
+               r.custom_title, r.campaign_id,
                u.full_name AS initiator_name,
                u.user_name AS initiator_username,
                u.avatar_seed AS initiator_avatar_seed,
@@ -730,6 +736,8 @@ class BuddyService {
         city: row.city,
         targetGender: row.target_gender,
         status: row.status,
+        customTitle: row.custom_title || null,
+        campaignId: row.campaign_id || null,
         initiatorCoinCost: cost,
         accepterCoinReward: row.status === 'open' ? potentialReward : (row.accepter_coin_reward || potentialReward),
         createdAt: row.created_at,
@@ -814,6 +822,8 @@ class BuddyService {
         city: row.city,
         targetGender: row.target_gender,
         status: row.status,
+        customTitle: row.custom_title || null,
+        campaignId: row.campaign_id || null,
         accepterId: row.accepter_id,
         acceptedAt: row.accepted_at,
         completedAt: row.completed_at,

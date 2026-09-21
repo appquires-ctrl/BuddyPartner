@@ -1,3 +1,4 @@
+require('dotenv').config();
 const assert = require('assert');
 
 // 1. Mock DB and Redis modules in require cache so test runs instantly without network
@@ -94,6 +95,7 @@ async function testPricingTiers() {
     { id: 'plan_199', basePriceRupees: 199, gstRupees: 36, priceRupees: 235, expectedCoins: 199, bonusCoins: 0 },
     { id: 'plan_499', basePriceRupees: 499, gstRupees: 90, priceRupees: 589, expectedCoins: 549, bonusCoins: 50 },
     { id: 'plan_999', basePriceRupees: 999, gstRupees: 180, priceRupees: 1179, expectedCoins: 1099, bonusCoins: 100 },
+    { id: 'plan_2500', basePriceRupees: 2500, gstRupees: 450, priceRupees: 2950, expectedCoins: 2750, bonusCoins: 250 },
   ];
 
   for (const tier of expectedTiers) {
@@ -112,7 +114,7 @@ async function testPricingTiers() {
   for (const tier of expectedTiers) {
     assert(catalog.allProductIds.includes(tier.id), `Catalog must include ${tier.id}`);
   }
-  console.log('\n  ✅ Product catalog export verified for all 5 new tiers');
+  console.log('\n  ✅ Product catalog export verified for all 6 new tiers');
 
   // Test purchase verification credits exact coins
   for (const tier of expectedTiers) {
@@ -155,6 +157,7 @@ async function testPricingTiers() {
   console.log('\n====================================================');
   console.log(' ALL PRICING VERIFICATION CHECKS PASSED!');
   console.log('====================================================');
+  process.exit(0);
 }
 
 testPricingTiers().catch((err) => {

@@ -396,6 +396,12 @@ class DistributedCallService {
         }
 
         const { instantConnectService } = require('../instant_connect/instant_connect.service');
+        try {
+          const { cancelMilestoneTimer } = require('../instant_connect/instant_connect.socket');
+          if (typeof cancelMilestoneTimer === 'function' && instantData.sessionId) {
+            cancelMilestoneTimer(instantData.sessionId);
+          }
+        } catch (_) {}
         await instantConnectService.endCallSession(instantData.sessionId, finalStatus, durationSeconds).catch((err) => {
           console.error(`[Instant] DB endCallSession error for ${instantData.sessionId}:`, err.message);
         });

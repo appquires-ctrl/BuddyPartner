@@ -14,6 +14,7 @@ const GOOGLE_PLAY_COIN_PRODUCTS = {
   plan_199: { id: 'plan_199', coins: 199, bonusCoins: 0, basePriceRupees: 199, gstRupees: 36, priceRupees: 235, type: 'inapp' },
   plan_499: { id: 'plan_499', coins: 499, bonusCoins: 50, basePriceRupees: 499, gstRupees: 90, priceRupees: 589, type: 'inapp' },
   plan_999: { id: 'plan_999', coins: 999, bonusCoins: 100, basePriceRupees: 999, gstRupees: 180, priceRupees: 1179, type: 'inapp' },
+  plan_2500: { id: 'plan_2500', coins: 2500, bonusCoins: 250, basePriceRupees: 2500, gstRupees: 450, priceRupees: 2950, type: 'inapp' },
 
   // Legacy tiers maintained for backward compatibility with in-flight transactions
   plan_20: { id: 'plan_20', coins: 20, bonusCoins: 0, priceRupees: 20, type: 'inapp' },

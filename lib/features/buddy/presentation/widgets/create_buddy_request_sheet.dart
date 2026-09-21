@@ -8,6 +8,7 @@ import 'package:buddypartner/features/auth/application/auth_state_provider.dart'
 import 'package:buddypartner/features/buddy/application/buddy_controller.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/initiator_otp_modal.dart';
+import 'package:buddypartner/features/recharge/presentation/providers/recharge_providers.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 
 /// Comprehensive Indian cities list — tier 1, 2 & 3 including all state capitals.
@@ -219,9 +220,13 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
     final requiredCoins = widget.customCoinCost ?? widget.buddyType.coinCost;
     final currentCoins = ref.read(walletBalanceProvider).value ?? 0;
     if (currentCoins < requiredCoins) {
-      AppSnackBar.showError(
-        context,
-        'Insufficient balance: $requiredCoins coin${requiredCoins == 1 ? '' : 's'} required (current balance: $currentCoins coins). Please recharge your wallet.',
+      Navigator.of(context).pop(); // Close create sheet
+      openRechargeForDeficit(
+        context: context,
+        ref: ref,
+        requiredCoins: requiredCoins,
+        currentBalance: currentCoins,
+        featureName: widget.customTitle ?? widget.buddyType.title,
       );
       return;
     }
@@ -234,6 +239,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
         city: _selectedCity,
         targetGender: _selectedGender,
         campaignId: widget.campaignId,
+        customTitle: widget.customTitle,
       );
 
       if (!mounted) return;

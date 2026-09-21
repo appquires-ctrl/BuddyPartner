@@ -31,7 +31,7 @@ class BuddyBanner {
     this.sheetIconUrl,
     this.accentColor = '#9333EA',
     this.broadcastCoinCost = 1,
-    this.buddyType = 'garba',
+    this.buddyType = 'festival',
     this.otpRewardType = 'STATIC',
     this.staticCoinAmount = 50,
     this.malePercentage = 40,
@@ -56,26 +56,21 @@ class BuddyBanner {
         {};
 
     return BuddyBanner(
-      id: json['id']?.toString() ?? json['_id']?.toString() ?? '',
-      name: json['name']?.toString() ?? json['title']?.toString() ?? '',
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
       imageUrl: json['imageUrl']?.toString() ?? json['image_url']?.toString() ?? '',
-      priority: (json['priority'] is int)
-          ? json['priority']
-          : int.tryParse(json['priority']?.toString() ?? '1') ?? 1,
+      priority: (json['priority'] as num?)?.toInt() ?? 1,
       startDate: parseDate(json['startDate'] ?? json['start_date']),
       endDate: parseDate(json['endDate'] ?? json['end_date']),
-      isActive: json['isActive'] == true || json['is_active'] == true,
-      sheetTitle: sheet['title']?.toString() ?? json['sheetTitle']?.toString() ?? 'Garba Buddy 🪔',
-      sheetSubtitle: sheet['subtitle']?.toString() ?? json['sheetSubtitle']?.toString() ?? 'Find someone who matches your Garba vibes',
-      sheetIconUrl: sheet['iconUrl']?.toString() ?? sheet['icon_url']?.toString() ?? json['sheetIconUrl']?.toString(),
+      isActive: json['isActive'] ?? json['is_active'] ?? true,
+      sheetTitle: sheet['title']?.toString() ?? '',
+      sheetSubtitle: sheet['subtitle']?.toString() ?? '',
+      sheetIconUrl: sheet['iconUrl']?.toString() ?? sheet['icon_url']?.toString(),
       accentColor: sheet['accentColor']?.toString() ?? sheet['accent_color']?.toString() ?? '#9333EA',
-      broadcastCoinCost: (sheet['broadcastCoinCost'] as num? ??
-              sheet['broadcast_coin_cost'] as num? ??
-              sheet['coinCost'] as num? ??
-              json['broadcastCoinCost'] as num? ??
-              1)
-          .toInt(),
-      buddyType: sheet['buddyType']?.toString() ?? sheet['type']?.toString() ?? json['buddyType']?.toString() ?? 'garba',
+      broadcastCoinCost: (sheet['broadcastCoinCost'] as num?)?.toInt() ??
+          (sheet['coinCost'] as num?)?.toInt() ??
+          1,
+      buddyType: sheet['buddyType']?.toString() ?? sheet['type']?.toString() ?? json['buddyType']?.toString() ?? 'festival',
       otpRewardType: otp['type']?.toString().toUpperCase() == 'PERCENTAGE' ? 'PERCENTAGE' : 'STATIC',
       staticCoinAmount: (otp['staticCoinAmount'] as num? ?? otp['static_coin_amount'] as num? ?? 50).toInt(),
       malePercentage: (otp['malePercentage'] as num? ?? otp['male_percentage'] as num? ?? 40).toInt(),

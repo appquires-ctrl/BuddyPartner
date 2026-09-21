@@ -6,6 +6,7 @@ import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/widgets/coins/app_coin_balance_card.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/features/recharge/presentation/pages/recharge_page.dart';
+import 'package:buddypartner/features/recharge/presentation/providers/recharge_providers.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 import 'package:buddypartner/features/withdraw/presentation/pages/withdraw_page.dart';
 
@@ -38,10 +39,11 @@ class _WalletHubPageState extends ConsumerState<WalletHubPage>
     super.initState();
 
     final currentUser = ref.read(authStateProvider).value;
-    final initialIndex = widget.initialTab == WalletHubTab.withdraw
-        ? 1
-        : (widget.initialTab == WalletHubTab.recharge
-            ? 0
+    final hasPendingRecharge = ref.read(pendingRechargeOrderProvider) != null;
+    final initialIndex = (hasPendingRecharge || widget.initialTab == WalletHubTab.recharge)
+        ? 0
+        : (widget.initialTab == WalletHubTab.withdraw
+            ? 1
             : ((currentUser?.isFemale ?? false) ? 1 : 0));
 
     _currentTabIndex = initialIndex;
@@ -81,6 +83,12 @@ class _WalletHubPageState extends ConsumerState<WalletHubPage>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<RechargeOrderRequest?>(pendingRechargeOrderProvider, (prev, next) {
+      if (next != null && _tabController.index != 0) {
+        _switchToTab(0);
+      }
+    });
+
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 

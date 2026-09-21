@@ -558,23 +558,21 @@ class _AddEditBannerDialogState extends State<_AddEditBannerDialog> {
   void initState() {
     super.initState();
     final b = widget.banner;
-    _nameController = TextEditingController(text: b?.name ?? (b == null ? 'Find Your Garba Partner' : ''));
+    _nameController = TextEditingController(text: b?.name ?? '');
     _imageUrlController = TextEditingController(
-      text: (b != null && b.imageUrl.isNotEmpty && !b.imageUrl.startsWith('assets/'))
-          ? b.imageUrl
-          : _BuddyBannersPageState.defaultGarbaImageUrl,
+      text: (b != null && !b.imageUrl.startsWith('assets/')) ? b.imageUrl : '',
     );
     _priorityController = TextEditingController(text: b?.priority.toString() ?? '1');
-    _sheetTitleController = TextEditingController(text: b?.sheetTitle ?? 'Garba Buddy 🪔');
-    _sheetSubtitleController = TextEditingController(text: b?.sheetSubtitle ?? 'Find someone who matches your Garba vibes');
+    _sheetTitleController = TextEditingController(text: b?.sheetTitle ?? '');
+    _sheetSubtitleController = TextEditingController(text: b?.sheetSubtitle ?? '');
     _broadcastCoinCostController = TextEditingController(text: b?.broadcastCoinCost.toString() ?? '1');
     _staticCoinsController = TextEditingController(text: b?.staticCoinAmount.toString() ?? '50');
     _accentColorController = TextEditingController(text: b?.accentColor ?? '#9333EA');
 
     _isActive = b?.isActive ?? true;
-    _buddyType = b?.buddyType ?? 'garba';
+    _buddyType = b?.buddyType ?? 'festival';
     _otpRewardType = b?.otpRewardType ?? 'STATIC';
-    _startDate = b?.startDate ?? DateTime.now().subtract(const Duration(days: 2));
+    _startDate = b?.startDate ?? DateTime.now();
     _endDate = b?.endDate ?? DateTime.now().add(const Duration(days: 30));
   }
 
@@ -811,7 +809,7 @@ class _AddEditBannerDialogState extends State<_AddEditBannerDialog> {
 
                       TextFormField(
                         controller: _nameController,
-                        decoration: _inputDecoration('Campaign Name (e.g. Navratri Garba 2026)'),
+                        decoration: _inputDecoration('Campaign Name', hint: 'e.g. Navratri Garba 2026'),
                         validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter campaign name' : null,
                       ),
                       const SizedBox(height: 14),
@@ -821,7 +819,7 @@ class _AddEditBannerDialogState extends State<_AddEditBannerDialog> {
                           Expanded(
                             child: TextFormField(
                               controller: _imageUrlController,
-                              decoration: _inputDecoration('Banner Image URL (1918x820)'),
+                              decoration: _inputDecoration('Banner Image URL (1918x820)', hint: 'Paste image URL or click Upload Banner'),
                               onChanged: (_) => setState(() {}),
                               validator: (v) => (v == null || v.trim().isEmpty) ? 'Image URL is required' : null,
                             ),
@@ -954,35 +952,16 @@ class _AddEditBannerDialogState extends State<_AddEditBannerDialog> {
                       ),
                       const SizedBox(height: 14),
 
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _sheetTitleController,
-                              decoration: _inputDecoration('Sheet Title (e.g. Garba Buddy 🪔)'),
-                              validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter title' : null,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              initialValue: _buddyType,
-                              decoration: _inputDecoration('Buddy Category'),
-                              items: _buddyCategories.map((c) {
-                                return DropdownMenuItem(value: c['id'], child: Text(c['label']!));
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) setState(() => _buddyType = val);
-                              },
-                            ),
-                          ),
-                        ],
+                      TextFormField(
+                        controller: _sheetTitleController,
+                        decoration: _inputDecoration('Sheet Title (e.g. Holi Buddy 🎨, Garba Buddy 🪔)', hint: 'e.g. Holi Buddy 🎨'),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter title' : null,
                       ),
                       const SizedBox(height: 14),
 
                       TextFormField(
                         controller: _sheetSubtitleController,
-                        decoration: _inputDecoration('Sheet Subtitle (e.g. Find someone who matches your Garba vibes)'),
+                        decoration: _inputDecoration('Sheet Subtitle', hint: 'e.g. Find someone who matches your Garba vibes'),
                       ),
                       const SizedBox(height: 14),
 
@@ -1205,9 +1184,11 @@ class _AddEditBannerDialogState extends State<_AddEditBannerDialog> {
     );
   }
 
-  InputDecoration _inputDecoration(String label) {
+  InputDecoration _inputDecoration(String label, {String? hint}) {
     return InputDecoration(
       labelText: label,
+      hintText: hint,
+      hintStyle: TextStyle(fontSize: 13, color: AdminColors.textSecondary.withValues(alpha: 0.6)),
       labelStyle: const TextStyle(fontSize: 13, color: AdminColors.textSecondary),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),

@@ -107,8 +107,8 @@ async function runTests() {
     const scratchCard = await instantConnectService.trigger10MinuteMilestone(callSession.id);
     console.log('   Scratch Card generated:', scratchCard);
 
-    // Bid was 100 -> reward should be between 35% (35) and 65% (65)
-    if (!scratchCard || scratchCard.coin_reward < 35 || scratchCard.coin_reward > 65) {
+    // Bid was 100 -> reward should be between 30% (30) and 40% (40)
+    if (!scratchCard || scratchCard.coin_reward < 30 || scratchCard.coin_reward > 40) {
       throw new Error(`Scratch card reward ${scratchCard?.coin_reward} outside expected margin range for bid 100!`);
     }
     console.log(`   ✅ Scratch Card generated with ${scratchCard.coin_reward} coins reward (App margin: ${100 - scratchCard.coin_reward} coins).\n`);

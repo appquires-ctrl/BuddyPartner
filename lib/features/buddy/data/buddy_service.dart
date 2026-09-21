@@ -24,6 +24,7 @@ class BuddyService {
     required String city,
     required BuddyTargetGender targetGender,
     String? campaignId,
+    String? customTitle,
   }) async {
     try {
       final response = await _apiClient.dio.post(
@@ -33,6 +34,7 @@ class BuddyService {
           'city': city.trim(),
           'targetGender': targetGender.id,
           if (campaignId != null && campaignId.isNotEmpty) 'campaignId': campaignId,
+          if (customTitle != null && customTitle.isNotEmpty) 'customTitle': customTitle,
         },
       );
 

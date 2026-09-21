@@ -166,7 +166,7 @@ class BuddyController extends Notifier<BuddyState> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '$initiatorName is finding a ${request.buddyType.title}!',
+                        '$initiatorName is finding a ${request.displayTitle}!',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 13,
@@ -313,7 +313,7 @@ class BuddyController extends Notifier<BuddyState> {
       if (context != null && context.mounted) {
         AppSnackBar.showSuccess(
           context,
-          '${accepterSummary?.fullName ?? "Someone"} accepted your ${acceptedReq.buddyType.title}! Chat unlocked.',
+          '${accepterSummary?.fullName ?? "Someone"} accepted your ${acceptedReq.displayTitle}! Chat unlocked.',
         );
       }
     } catch (e) {
@@ -372,6 +372,7 @@ class BuddyController extends Notifier<BuddyState> {
     required String city,
     required BuddyTargetGender targetGender,
     String? campaignId,
+    String? customTitle,
   }) async {
     state = state.copyWith(isLoading: true, clearErrorMessage: true);
     try {
@@ -380,6 +381,7 @@ class BuddyController extends Notifier<BuddyState> {
         city: city,
         targetGender: targetGender,
         campaignId: campaignId,
+        customTitle: customTitle,
       );
 
       // Refresh wallet balance (100 coins deducted)

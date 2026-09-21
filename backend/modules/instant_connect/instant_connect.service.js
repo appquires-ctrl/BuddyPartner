@@ -319,14 +319,14 @@ class InstantConnectService {
 
   /**
    * Trigger 10-Minute Milestone and generate Scratch Card for Female
-   * Margin calculation: 35% to 65% of bidAmount awarded to female, rest retained as app margin
+   * Margin calculation: 30% to 40% of bidAmount awarded to female, rest retained as app margin
    * @param {string} sessionId
    * @returns {Promise<Object|null>} generated scratch card
    */
   async trigger10MinuteMilestone(sessionId) {
     try {
       const sessRes = await db.query(
-        `SELECT id, male_user_id, female_user_id, bid_amount, scratch_card_unlocked 
+        `SELECT id, male_user_id, female_user_id, bid_amount, status, scratch_card_unlocked, started_at 
          FROM public.instant_call_sessions 
          WHERE id = $1`,
         [sessionId]
@@ -335,23 +335,40 @@ class InstantConnectService {
       if (sessRes.rows.length === 0) return null;
       const session = sessRes.rows[0];
 
-      if (session.scratch_card_unlocked || !session.female_user_id) {
-        return null; // Already unlocked or invalid
+      // Session MUST be currently active ('in_call'), not yet unlocked, and have a female partner
+      if (session.status !== 'in_call' || session.scratch_card_unlocked || !session.female_user_id) {
+        console.log(`⚠️ [Instant Connect] Rejecting milestone for session ${sessionId}: status=${session.status}, unlocked=${session.scratch_card_unlocked}`);
+        return null;
       }
 
-      // Calculate reward: between 30% and 50% of bid_amount (min 1 coin)
+      // Verify active call duration has genuinely reached 10 minutes (600 seconds)
+      if (session.started_at) {
+        const elapsedSec = (Date.now() - new Date(session.started_at).getTime()) / 1000;
+        if (elapsedSec < 595) { // Allow minor 5s clock jitter margin
+          console.warn(`⚠️ [Instant Connect] Rejecting premature milestone for session ${sessionId}: elapsed=${elapsedSec.toFixed(1)}s < 600s`);
+          return null;
+        }
+      }
+
+      // Calculate reward: between 30% and 40% of bid_amount (min 1 coin)
       const bid = session.bid_amount;
       const minReward = Math.max(1, Math.floor(bid * 0.30));
-      const maxReward = Math.max(minReward + 1, Math.floor(bid * 0.50));
+      const maxReward = Math.max(minReward + 1, Math.floor(bid * 0.40));
       const coinReward = Math.floor(Math.random() * (maxReward - minReward + 1)) + minReward;
 
-      // Update session milestone
-      await db.query(
+      // Update session milestone atomically ONLY if status is still in_call and unlocked is still false
+      const updateRes = await db.query(
         `UPDATE public.instant_call_sessions 
          SET milestone_10m_at = NOW(), scratch_card_unlocked = TRUE 
-         WHERE id = $1`,
+         WHERE id = $1 AND status = 'in_call' AND scratch_card_unlocked = FALSE
+         RETURNING id`,
         [sessionId]
       );
+
+      if (updateRes.rows.length === 0) {
+        console.log(`⚠️ [Instant Connect] Race condition prevented: session ${sessionId} was already ended or unlocked.`);
+        return null;
+      }
 
       // Create scratch card row
       const cardRes = await db.query(

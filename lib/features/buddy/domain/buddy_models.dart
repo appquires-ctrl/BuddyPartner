@@ -86,9 +86,17 @@ enum BuddyType {
     id: 'garba',
     title: 'Garba Buddy',
     subtitle: 'Find someone who matches your Garba vibes',
-    stickerAsset: 'assets/images/stickers/garba_buddy.png',
+    stickerAsset: 'assets/images/garba_buddy.png',
     gradientColors: [Color(0xFF6B21A8), Color(0xFF9333EA)],
     accentColor: Color(0xFF9333EA),
+  ),
+  festival(
+    id: 'festival',
+    title: 'Festival Buddy',
+    subtitle: 'Celebrate festivals & seasonal events together',
+    stickerAsset: 'assets/images/garba_buddy.png',
+    gradientColors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
+    accentColor: Color(0xFFEC4899),
   );
 
   final String id;
@@ -139,6 +147,8 @@ enum BuddyType {
       case BuddyType.longDrive:
         return 999;
       case BuddyType.garba:
+        return 1;
+      case BuddyType.festival:
         return 1;
     }
   }
@@ -243,6 +253,10 @@ class BuddyRequest {
   final bool isInitiator;
   final BuddyUserSummary? initiator;
   final BuddyUserSummary? accepter;
+  final String? customTitle;
+  final String? campaignId;
+
+  String get displayTitle => (customTitle != null && customTitle!.trim().isNotEmpty) ? customTitle! : buddyType.title;
 
   const BuddyRequest({
     required this.id,
@@ -263,6 +277,8 @@ class BuddyRequest {
     this.isInitiator = false,
     this.initiator,
     this.accepter,
+    this.customTitle,
+    this.campaignId,
   });
 
   factory BuddyRequest.fromJson(Map<String, dynamic> json, {String? currentUserId}) {
@@ -290,6 +306,8 @@ class BuddyRequest {
       isInitiator: currentUserId != null ? (initId == currentUserId) : (json['isInitiator'] as bool? ?? false),
       initiator: json['initiator'] != null ? BuddyUserSummary.fromJson(json['initiator'] as Map<String, dynamic>) : null,
       accepter: json['accepter'] != null ? BuddyUserSummary.fromJson(json['accepter'] as Map<String, dynamic>) : null,
+      customTitle: json['customTitle'] as String? ?? json['custom_title'] as String?,
+      campaignId: json['campaignId'] as String? ?? json['campaign_id'] as String?,
     );
   }
 
@@ -312,6 +330,8 @@ class BuddyRequest {
     bool? isInitiator,
     BuddyUserSummary? initiator,
     BuddyUserSummary? accepter,
+    String? customTitle,
+    String? campaignId,
   }) {
     return BuddyRequest(
       id: id ?? this.id,
@@ -332,6 +352,8 @@ class BuddyRequest {
       isInitiator: isInitiator ?? this.isInitiator,
       initiator: initiator ?? this.initiator,
       accepter: accepter ?? this.accepter,
+      customTitle: customTitle ?? this.customTitle,
+      campaignId: campaignId ?? this.campaignId,
     );
   }
 
@@ -355,6 +377,8 @@ class BuddyRequest {
       'isInitiator': isInitiator,
       'initiator': initiator?.toJson(),
       'accepter': accepter?.toJson(),
+      'customTitle': customTitle,
+      'campaignId': campaignId,
     };
   }
 }

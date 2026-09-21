@@ -21,6 +21,7 @@ const Set<String> kGooglePlayCoinProductIds = {
   'plan_199',
   'plan_499',
   'plan_999',
+  'plan_2500',
   'plan_20',
   'plan_50',
   'plan_100',

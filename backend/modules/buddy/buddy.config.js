@@ -70,6 +70,12 @@ const BUDDY_TYPES = Object.freeze({
     subtitle: 'Find someone who matches your Garba vibes',
     stickerPath: 'assets/images/stickers/garba_buddy.png',
   },
+  festival: {
+    id: 'festival',
+    title: 'Festival Buddy',
+    subtitle: 'Celebrate festivals and special events together',
+    stickerPath: 'assets/images/stickers/garba_buddy.png',
+  },
 });
 
 const BUDDY_PRICING = Object.freeze({
@@ -90,6 +96,7 @@ const BUDDY_PRICING = Object.freeze({
     clubbing: 1499,
     long_drive: 999,
     garba: 1,
+    festival: 1,
   }),
 });
 

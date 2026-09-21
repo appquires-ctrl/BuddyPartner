@@ -64,6 +64,7 @@ async function broadcastNewBuddyRequest(io, request) {
   setImmediate(async () => {
     try {
       const buddyInfo = BUDDY_TYPES[request.buddy_type] || { title: 'Buddy Activity' };
+      const displayTitle = request.custom_title || buddyInfo.title;
 
       const fcmQuery = `
         SELECT u.id, u.fcm_token
@@ -97,8 +98,8 @@ async function broadcastNewBuddyRequest(io, request) {
         rewardText = `${potentialMaleReward} Coins`;
       }
 
-      const title = `New ${buddyInfo.title} in ${request.city}!`;
-      const body = `${request.initiator?.fullName || 'Someone'} is looking for a ${buddyInfo.title} partner. Accept & earn ${rewardText}!`;
+      const title = `New ${displayTitle} in ${request.city}!`;
+      const body = `${request.initiator?.fullName || 'Someone'} is looking for a ${displayTitle} partner. Accept & earn ${rewardText}!`;
 
       await sendMulticastPushNotification({
         tokens,
@@ -109,6 +110,7 @@ async function broadcastNewBuddyRequest(io, request) {
           type: 'buddy_request',
           requestId: request.id,
           buddyType: request.buddy_type,
+          customTitle: request.custom_title || '',
           city: request.city,
           initiatorName: request.initiator?.fullName || 'User',
           initiatorAvatarSeed: request.initiator?.avatarSeed || '',

@@ -8,6 +8,7 @@ import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/features/buddy/application/seasonal_banner_provider.dart';
 import 'package:buddypartner/features/buddy/domain/seasonal_banner_model.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/create_buddy_request_sheet.dart';
+import 'package:buddypartner/features/recharge/presentation/providers/recharge_providers.dart';
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 
@@ -92,11 +93,13 @@ class _SeasonalBannerCarouselState extends ConsumerState<SeasonalBannerCarousel>
     if (!mounted) return;
 
     if (balance < requiredCoins) {
-      AppSnackBar.showError(
-        context,
-        'You need at least $requiredCoins coin${requiredCoins == 1 ? '' : 's'} to broadcast this request. (Current balance: $balance)',
+      openRechargeForDeficit(
+        context: context,
+        ref: ref,
+        requiredCoins: requiredCoins,
+        currentBalance: balance,
+        featureName: banner.sheetConfig.title,
       );
-      context.push(RouteNames.recharge);
       return;
     }
 

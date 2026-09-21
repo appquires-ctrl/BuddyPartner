@@ -24,6 +24,18 @@ function uuidToAgoraUid(uuid) {
 const ringingTimers = new Map();
 // FCM Surge cascade timers: sessionId -> Timer (local node timeout handles)
 const surgeTimers = new Map();
+// 10-Minute Scratch Card Milestone timers: sessionId -> Timer
+const milestoneTimers = new Map();
+
+function cancelMilestoneTimer(sessionId) {
+  if (!sessionId) return;
+  const timer = milestoneTimers.get(sessionId);
+  if (timer) {
+    clearTimeout(timer);
+    milestoneTimers.delete(sessionId);
+    console.log(`🛑 [Instant Connect] Cancelled 10m milestone timer for session ${sessionId}`);
+  }
+}
 
 // ── Shared Redis Instant Call State Helpers for Multi-Instance Scaling ─────
 async function saveActiveInstantCall(redisClient, callId, activeCallObj) {
@@ -636,7 +648,9 @@ function registerInstantConnectHandlers(io, socket, redis) {
       }
 
       // Start 10-minute (600-second) server-authoritative milestone timer
+      cancelMilestoneTimer(sessionId);
       const milestoneTimer = setTimeout(async () => {
+        milestoneTimers.delete(sessionId);
         console.log(`🎁 [Instant Connect] 10-Minute Milestone reached for session ${sessionId}! Unlocking scratch card.`);
         const scratchCard = await instantConnectService.trigger10MinuteMilestone(sessionId);
         if (scratchCard) {
@@ -654,6 +668,7 @@ function registerInstantConnectHandlers(io, socket, redis) {
           });
         }
       }, 10 * 60 * 1000); // 10 minutes
+      milestoneTimers.set(sessionId, milestoneTimer);
 
       const activeMaleSocket = getSocketForUser(io, maleUserId) || { id: maleSocketId };
 
@@ -932,7 +947,9 @@ function registerInstantConnectHandlers(io, socket, redis) {
       }
 
       // 11. Start 10-minute milestone timer for scratch card reward (600 seconds)
+      cancelMilestoneTimer(sessionId);
       const milestoneTimer = setTimeout(async () => {
+        milestoneTimers.delete(sessionId);
         console.log(`🎁 [Instant Connect] 10-Minute Milestone reached for session ${sessionId}! Unlocking scratch card.`);
         const scratchCard = await instantConnectService.trigger10MinuteMilestone(sessionId);
         if (scratchCard) {
@@ -950,6 +967,7 @@ function registerInstantConnectHandlers(io, socket, redis) {
           });
         }
       }, 10 * 60 * 1000);
+      milestoneTimers.set(sessionId, milestoneTimer);
 
       const activeMaleSocket = maleSocket;
 
@@ -1192,5 +1210,6 @@ module.exports = {
   saveActiveInstantCall,
   getActiveInstantCall,
   deleteActiveInstantCall,
+  cancelMilestoneTimer,
 };
 

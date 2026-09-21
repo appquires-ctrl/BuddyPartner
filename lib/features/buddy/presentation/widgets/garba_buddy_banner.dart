@@ -6,6 +6,7 @@ import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/create_buddy_request_sheet.dart';
+import 'package:buddypartner/features/recharge/presentation/providers/recharge_providers.dart';
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 
@@ -42,11 +43,13 @@ class GarbaBuddyBanner extends ConsumerWidget {
     if (!context.mounted) return;
 
     if (balance < requiredCoins) {
-      AppSnackBar.showError(
-        context,
-        'You need at least 1 coin to broadcast a Garba buddy request. (Current balance: $balance)',
+      openRechargeForDeficit(
+        context: context,
+        ref: ref,
+        requiredCoins: requiredCoins,
+        currentBalance: balance,
+        featureName: 'Garba Buddy',
       );
-      context.push(RouteNames.recharge);
       return;
     }
 

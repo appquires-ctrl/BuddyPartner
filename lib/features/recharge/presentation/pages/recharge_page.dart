@@ -16,10 +16,14 @@ import 'package:buddypartner/core/services/google_play_purchase_service.dart';
 /// Based on Google Play In-App Billing & Option B (Base price + 18% GST) pricing model.
 class RechargePage extends ConsumerStatefulWidget {
   final bool isEmbedded;
+  final String? initialPlanId;
+  final bool autoOpenOrderSummary;
 
   const RechargePage({
     super.key,
     this.isEmbedded = false,
+    this.initialPlanId,
+    this.autoOpenOrderSummary = false,
   });
 
   @override
@@ -38,10 +42,37 @@ class _RechargePageState extends ConsumerState<RechargePage>
   @override
   void initState() {
     super.initState();
+    if (widget.initialPlanId != null) {
+      _selectedPlanId = widget.initialPlanId;
+    }
     if (!widget.isEmbedded) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(dualWalletProvider.notifier).fetchWallet();
       });
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndHandlePendingOrder();
+    });
+  }
+
+  void _checkAndHandlePendingOrder() {
+    final pending = ref.read(pendingRechargeOrderProvider);
+    final targetPlanId = pending?.planId ?? widget.initialPlanId;
+    final autoOpen = pending?.autoOpenSummary ?? widget.autoOpenOrderSummary;
+
+    if (targetPlanId != null) {
+      setState(() {
+        _selectedPlanId = targetPlanId;
+        _customController.clear();
+      });
+      if (autoOpen) {
+        ref.read(pendingRechargeOrderProvider.notifier).state = null;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _showOrderSummaryBottomSheet(context, _selectedPlan);
+          }
+        });
+      }
     }
   }
 
@@ -120,6 +151,12 @@ class _RechargePageState extends ConsumerState<RechargePage>
       } else if (next.status == GooglePlayPurchaseStatus.error && next.errorMessage != null) {
         AppSnackBar.showError(context, next.errorMessage!);
         ref.read(googlePlayPurchaseProvider.notifier).resetStatus();
+      }
+    });
+
+    ref.listen<RechargeOrderRequest?>(pendingRechargeOrderProvider, (prev, next) {
+      if (next != null) {
+        _checkAndHandlePendingOrder();
       }
     });
 

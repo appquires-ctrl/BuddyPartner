@@ -1,5 +1,8 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:buddypartner/app/router/app_router.dart';
+import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/utils/digital_asset_pricing.dart';
 
 /// RechargePlanUiModel represents the coin purchase pricing model with Option B (18% GST customer pays extra).
@@ -88,5 +91,84 @@ final rechargePlansProvider = Provider<List<RechargePlanUiModel>>((ref) {
       totalPriceRupees: 1179,
       badgeText: 'BEST VALUE',
     ),
+    RechargePlanUiModel(
+      id: 'plan_2500',
+      coins: 2500,
+      bonusCoins: 250,
+      basePriceRupees: 2500,
+      gstRupees: 450,
+      totalPriceRupees: 2950,
+      badgeText: '250 BONUS COINS',
+    ),
   ];
 });
+
+/// Model representing a pending order request to immediately preselect a plan
+/// and display the Order Summary bottom sheet on the wallet/recharge screen.
+@immutable
+class RechargeOrderRequest {
+  final String planId;
+  final bool autoOpenSummary;
+  final String? reason;
+
+  const RechargeOrderRequest({
+    required this.planId,
+    this.autoOpenSummary = true,
+    this.reason,
+  });
+}
+
+/// Provider that tracks a pending order summary request
+final pendingRechargeOrderProvider = StateProvider<RechargeOrderRequest?>((ref) => null);
+
+/// Finds the most optimal coin recharge plan to cover the required coin deficit.
+/// Returns the smallest plan where `totalCoins >= neededCoins`, or the highest plan available.
+RechargePlanUiModel findRecommendedRechargePlan(List<RechargePlanUiModel> plans, int neededCoins) {
+  if (plans.isEmpty) {
+    throw StateError('No recharge plans available');
+  }
+
+  // Sort plans ascending by total coins delivered
+  final sortedPlans = [...plans]..sort((a, b) => a.totalCoins.compareTo(b.totalCoins));
+
+  for (final plan in sortedPlans) {
+    if (plan.totalCoins >= neededCoins) {
+      return plan;
+    }
+  }
+
+  return sortedPlans.last;
+}
+
+/// Helper that calculates the missing coins, selects the optimal recharge plan,
+/// queues the Order Summary bottom sheet, and routes the user directly to the Wallet store.
+void openRechargeForDeficit({
+  BuildContext? context,
+  required WidgetRef ref,
+  required int requiredCoins,
+  required int currentBalance,
+  String? featureName,
+}) {
+  final deficit = (requiredCoins - currentBalance).clamp(1, 999999);
+  final plans = ref.read(rechargePlansProvider);
+  final recommendedPlan = findRecommendedRechargePlan(plans, deficit);
+
+  ref.read(pendingRechargeOrderProvider.notifier).state = RechargeOrderRequest(
+    planId: recommendedPlan.id,
+    autoOpenSummary: true,
+    reason: featureName,
+  );
+
+  final targetContext = (context != null && context.mounted)
+      ? context
+      : rootNavigatorKey.currentContext;
+
+  if (targetContext != null && targetContext.mounted) {
+    try {
+      targetContext.go(RouteNames.plans);
+    } catch (_) {
+      targetContext.push(RouteNames.recharge);
+    }
+  }
+}
+
