@@ -32,8 +32,8 @@ final seasonalBannersProvider = FutureProvider<List<SeasonalBannerModel>>((ref) 
           .map((e) => SeasonalBannerModel.fromJson(e as Map<String, dynamic>))
           .where((b) {
             if (!b.isActive) return false;
-            if (b.startDate != null && b.startDate!.isAfter(now)) return false;
-            if (b.endDate != null && b.endDate!.isBefore(now)) return false;
+            if (b.startDate != null && b.startDate!.isAfter(now.add(const Duration(hours: 12)))) return false;
+            if (b.endDate != null && b.endDate!.isBefore(now.subtract(const Duration(days: 1)))) return false;
             return true;
           })
           .toList();

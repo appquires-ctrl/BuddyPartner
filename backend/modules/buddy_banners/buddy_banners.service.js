@@ -20,10 +20,10 @@ class BuddyBannersService {
           otp_reward AS "otpReward"
         FROM public.seasonal_banners
         WHERE is_active = TRUE
-          AND (start_date IS NULL OR start_date <= $1)
-          AND (end_date IS NULL OR end_date >= $1)
+          AND (start_date IS NULL OR start_date <= (NOW() + interval '12 hours'))
+          AND (end_date IS NULL OR (end_date + interval '1 day') >= NOW())
         ORDER BY priority ASC, created_at DESC
-      `, [now]);
+      `);
 
       return res.rows;
     } catch (err) {

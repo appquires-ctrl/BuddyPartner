@@ -9191,16 +9191,16 @@ MSG91_INTEGRATED_NUMBER=916006329803
 MSG91_TEMPLATE_NAME=otp
 
 # Redis
-REDIS_URL=redis://default:HTPyZNndmXV71TKggmGA5AAjZVE12PPx@milk-nimble-decent-32011.db.redis.io:16871
+REDIS_URL=redis://default:your_redis_password@your_redis_host:16871
 
 # Agora
-AGORA_APP_ID=c1ad9e31c3ea4fb094ce515add9fe61b
-AGORA_APP_CERTIFICATE=8a9a0c6452dc4e399b091404d23983c5
+AGORA_APP_ID=your_agora_app_id_here
+AGORA_APP_CERTIFICATE=your_agora_certificate_here
 
 # Cloudinary Storage
-CLOUDINARY_CLOUD_NAME=o8dwm2ig
-CLOUDINARY_API_KEY=579652961933726
-CLOUDINARY_API_SECRET=2bXI1THE9xSSdnjI33l2hv5SkSE
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 
 # Server
 PORT=3000
