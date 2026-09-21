@@ -1,8 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:buddypartner/core/services/api_client.dart';
-import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
 import 'package:buddypartner/features/buddy/domain/seasonal_banner_model.dart';
 
 /// Provider that fetches active seasonal banners from the backend API.
@@ -29,47 +27,27 @@ final seasonalBannersProvider = FutureProvider<List<SeasonalBannerModel>>((ref) 
               ? raw
               : [];
 
-      if (list.isNotEmpty) {
-        final now = DateTime.now();
-        final parsed = list
-            .map((e) => SeasonalBannerModel.fromJson(e as Map<String, dynamic>))
-            .where((b) {
-              if (!b.isActive) return false;
-              if (b.startDate != null && b.startDate!.isAfter(now)) return false;
-              if (b.endDate != null && b.endDate!.isBefore(now)) return false;
-              return true;
-            })
-            .toList();
+      final now = DateTime.now();
+      final parsed = list
+          .map((e) => SeasonalBannerModel.fromJson(e as Map<String, dynamic>))
+          .where((b) {
+            if (!b.isActive) return false;
+            if (b.startDate != null && b.startDate!.isAfter(now)) return false;
+            if (b.endDate != null && b.endDate!.isBefore(now)) return false;
+            return true;
+          })
+          .toList();
 
-        if (parsed.isNotEmpty) {
-          parsed.sort((a, b) => a.priority.compareTo(b.priority));
-          return parsed;
-        }
-      }
+      parsed.sort((a, b) => a.priority.compareTo(b.priority));
+      return parsed;
     }
   } catch (_) {
-    // Network / backend not yet available — fallback to defaults
+    // Network / backend unreachable offline fallback
   }
 
-  return _defaultSeasonalBanners;
+  return const [];
 });
 
-final List<SeasonalBannerModel> _defaultSeasonalBanners = [
-  const SeasonalBannerModel(
-    id: 'garba_festive_2026',
-    name: 'Find Your Garba Partner',
-    imageUrl: 'assets/images/garba_buddy.png',
-    priority: 1,
-    sheetConfig: SeasonalSheetConfig(
-      title: 'Garba Buddy 🪔',
-      subtitle: 'Find someone who matches your Garba vibes',
-      broadcastCoinCost: 1,
-      buddyType: BuddyType.garba,
-      accentColor: Color(0xFF9333EA),
-    ),
-    otpReward: OtpRewardConfig(
-      type: OtpRewardType.staticReward,
-      staticCoinAmount: 50,
-    ),
-  ),
-];
+const String defaultGarbaBannerUrl =
+    'https://res.cloudinary.com/o8dwm2ig/image/upload/v1789916439/buddy_banners/jyreac8grrwdtnflsa6p.png';
+

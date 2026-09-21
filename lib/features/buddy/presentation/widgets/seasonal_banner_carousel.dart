@@ -114,10 +114,28 @@ class _SeasonalBannerCarouselState extends ConsumerState<SeasonalBannerCarousel>
   }
 
   Widget _buildBannerImage(String imageUrl) {
-    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-      return Image.network(
-        imageUrl,
+    // 1. If it's the bundled Garba festive banner, load directly from local assets in 0ms
+    if (imageUrl.contains('jyreac8grrwdtnflsa6p') ||
+        imageUrl.contains('garba_buddy') ||
+        imageUrl.startsWith('assets/')) {
+      return Image.asset(
+        'assets/images/garba_buddy.png',
         fit: BoxFit.cover,
+        cacheWidth: 800,
+      );
+    }
+
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      // 2. Auto-optimize Cloudinary images (WebP/AVIF format, auto-quality, width 800)
+      String optimizedUrl = imageUrl;
+      if (optimizedUrl.contains('res.cloudinary.com') && !optimizedUrl.contains('/f_auto')) {
+        optimizedUrl = optimizedUrl.replaceFirst('/image/upload/', '/image/upload/f_auto,q_auto:good,w_800/');
+      }
+
+      return Image.network(
+        optimizedUrl,
+        fit: BoxFit.cover,
+        cacheWidth: 800,
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return Container(
@@ -134,6 +152,7 @@ class _SeasonalBannerCarouselState extends ConsumerState<SeasonalBannerCarousel>
         errorBuilder: (_, _, _) => Image.asset(
           'assets/images/garba_buddy.png',
           fit: BoxFit.cover,
+          cacheWidth: 800,
         ),
       );
     }
@@ -141,9 +160,11 @@ class _SeasonalBannerCarouselState extends ConsumerState<SeasonalBannerCarousel>
     return Image.asset(
       imageUrl.isNotEmpty ? imageUrl : 'assets/images/garba_buddy.png',
       fit: BoxFit.cover,
+      cacheWidth: 800,
       errorBuilder: (_, _, _) => Image.asset(
         'assets/images/garba_buddy.png',
         fit: BoxFit.cover,
+        cacheWidth: 800,
       ),
     );
   }
@@ -156,7 +177,7 @@ class _SeasonalBannerCarouselState extends ConsumerState<SeasonalBannerCarousel>
     if (banners.isEmpty) {
       if (bannersAsync.isLoading) {
         return AspectRatio(
-          aspectRatio: 16 / 9,
+          aspectRatio: 1918 / 820,
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
@@ -180,9 +201,9 @@ class _SeasonalBannerCarouselState extends ConsumerState<SeasonalBannerCarousel>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 16:9 Aspect Ratio Widescreen Banner Container
+        // Widescreen Banner Container (1918:820 ratio matching graphic banner assets)
         AspectRatio(
-          aspectRatio: 16 / 9,
+          aspectRatio: 1918 / 820,
           child: Listener(
             onPointerDown: (_) => _stopTimer(), // Pause auto-slide while touching
             onPointerUp: (_) => _startTimer(banners.length), // Resume on release

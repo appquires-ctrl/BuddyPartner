@@ -19,7 +19,7 @@ const router = express.Router();
  */
 router.post('/request', authMiddleware, async (req, res) => {
   try {
-    const { buddyType, city, targetGender } = req.body;
+    const { buddyType, city, targetGender, campaignId } = req.body;
     const idempotencyKey = req.body.idempotencyKey || req.headers['x-idempotency-key'] || null;
 
     // Default to user's registered profile city if omitted
@@ -38,6 +38,7 @@ router.post('/request', authMiddleware, async (req, res) => {
       buddyType,
       city: targetCity,
       targetGender: targetGender || 'all',
+      campaignId: campaignId || null,
       idempotencyKey,
     });
 

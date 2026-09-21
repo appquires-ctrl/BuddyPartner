@@ -31,8 +31,14 @@ class OtpRewardConfig {
     return OtpRewardConfig(
       type: OtpRewardType.fromString(json['type'] as String?),
       staticCoinAmount: (json['staticCoinAmount'] as num? ?? json['static_coin_amount'] as num?)?.toInt() ?? 50,
-      malePercentage: (json['malePercentage'] as num? ?? 40) / 100.0,
-      femalePercentage: (json['femalePercentage'] as num? ?? 20) / 100.0,
+      malePercentage: () {
+        final val = (json['malePercentage'] as num? ?? json['male_percentage'] as num?)?.toDouble() ?? 40.0;
+        return val > 1.0 ? val / 100.0 : val;
+      }(),
+      femalePercentage: () {
+        final val = (json['femalePercentage'] as num? ?? json['female_percentage'] as num?)?.toDouble() ?? 20.0;
+        return val > 1.0 ? val / 100.0 : val;
+      }(),
     );
   }
 

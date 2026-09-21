@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
+import 'package:buddypartner/features/buddy/domain/seasonal_banner_model.dart';
 
 void main() {
   group('Buddy Activity Feature Tests', () {
@@ -140,5 +141,56 @@ void main() {
       expect(accepted.accepterId, 'user_2');
       expect(accepted.city, 'Delhi');
     });
+
+    test('SeasonalBannerModel and OtpRewardConfig parse correctly from JSON', () {
+      final json = {
+        'id': 'banner_diwali_2026',
+        'name': 'Diwali Buddy',
+        'imageUrl': 'https://res.cloudinary.com/test/image.png',
+        'priority': 2,
+        'isActive': true,
+        'sheetConfig': {
+          'title': 'Diwali Spark 🪔',
+          'subtitle': 'Celebrate Diwali with a buddy',
+          'broadcastCoinCost': 5,
+          'buddyType': 'garba',
+          'accentColor': '#FF6D00',
+        },
+        'otpReward': {
+          'type': 'STATIC',
+          'staticCoinAmount': 50,
+          'malePercentage': 40,
+          'femalePercentage': 20,
+        },
+      };
+
+      final banner = SeasonalBannerModel.fromJson(json);
+      expect(banner.id, 'banner_diwali_2026');
+      expect(banner.name, 'Diwali Buddy');
+      expect(banner.sheetConfig.broadcastCoinCost, 5);
+      expect(banner.sheetConfig.buddyType, BuddyType.garba);
+      expect(banner.otpReward.type, OtpRewardType.staticReward);
+      expect(banner.otpReward.staticCoinAmount, 50);
+
+      // Percentage mode test
+      final pctJson = {
+        'id': 'banner_pct',
+        'name': 'Percentage Promo',
+        'imageUrl': 'https://test.com/pct.png',
+        'priority': 1,
+        'sheetConfig': {'title': 'Promo', 'broadcastCoinCost': 100},
+        'otpReward': {
+          'type': 'PERCENTAGE',
+          'malePercentage': 40,
+          'femalePercentage': 20,
+        },
+      };
+
+      final pctBanner = SeasonalBannerModel.fromJson(pctJson);
+      expect(pctBanner.otpReward.type, OtpRewardType.percentage);
+      expect(pctBanner.otpReward.malePercentage, 0.40);
+      expect(pctBanner.otpReward.femalePercentage, 0.20);
+    });
   });
 }
+

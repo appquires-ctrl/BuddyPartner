@@ -55,7 +55,7 @@ class BuddyService {
    * Debits 100 coins immediately (spendable first, then earned).
    * If total across both buckets is under 100, rejects with 400 INSUFFICIENT_COINS and writes zero rows.
    */
-  async createRequest({ initiatorId, buddyType, city, targetGender, idempotencyKey = null, correlationId = null }) {
+  async createRequest({ initiatorId, buddyType, city, targetGender, campaignId = null, idempotencyKey = null, correlationId = null }) {
     if (!this._isValidUUID(initiatorId)) {
       const err = new Error('Invalid initiator ID');
       err.statusCode = 400;
@@ -100,11 +100,45 @@ class BuddyService {
       throw err;
     }
 
-    const coinCost = BUDDY_PRICING.TYPE_COIN_COSTS?.[buddyType] ?? BUDDY_PRICING.INITIATOR_COIN_COST;
-    const rewardPct = normalizedGender === 'male'
-      ? (BUDDY_PRICING.MALE_REWARD_PERCENTAGE || 0.20)
-      : (BUDDY_PRICING.FEMALE_REWARD_PERCENTAGE || 0.40);
-    const coinReward = Math.max(1, Math.round(coinCost * rewardPct));
+    let coinCost = BUDDY_PRICING.TYPE_COIN_COSTS?.[buddyType] ?? BUDDY_PRICING.INITIATOR_COIN_COST;
+    let customOtpReward = null;
+
+    if (campaignId) {
+      try {
+        const campRes = await db.query(
+          `SELECT sheet_config, otp_reward FROM public.seasonal_banners WHERE id = $1 AND is_active = true`,
+          [campaignId]
+        );
+        if (campRes.rows.length > 0) {
+          const cfg = campRes.rows[0].sheet_config || {};
+          const parsedCost = Number(cfg.broadcastCoinCost || cfg.coinCost);
+          if (!isNaN(parsedCost) && parsedCost > 0) {
+            coinCost = parsedCost;
+          }
+          if (campRes.rows[0].otp_reward) {
+            customOtpReward = campRes.rows[0].otp_reward;
+          }
+        }
+      } catch (_) {
+        // Table may not exist yet or offline fallback
+      }
+    }
+
+    let coinReward;
+    if (customOtpReward && customOtpReward.type === 'STATIC' && customOtpReward.staticCoinAmount) {
+      coinReward = Number(customOtpReward.staticCoinAmount);
+    } else {
+      const malePct = customOtpReward?.malePercentage != null
+        ? (customOtpReward.malePercentage > 1 ? customOtpReward.malePercentage / 100 : customOtpReward.malePercentage)
+        : (BUDDY_PRICING.MALE_REWARD_PERCENTAGE || 0.20);
+      const femalePct = customOtpReward?.femalePercentage != null
+        ? (customOtpReward.femalePercentage > 1 ? customOtpReward.femalePercentage / 100 : customOtpReward.femalePercentage)
+        : (BUDDY_PRICING.FEMALE_REWARD_PERCENTAGE || 0.40);
+
+      const rewardPct = normalizedGender === 'male' ? malePct : femalePct;
+      coinReward = Math.max(1, Math.round(coinCost * rewardPct));
+    }
+
     const cid = correlationId || `buddy_create_${crypto.randomBytes(8).toString('hex')}`;
 
     const client = await db.pool.connect();

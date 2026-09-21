@@ -66,6 +66,7 @@ const supportRoutes = require('./modules/support/support.routes');
 const googlePlayRoutes = require('./modules/payments/google_play.routes');
 const { GooglePlayService } = require('./modules/payments/google_play.service');
 const buddyRoutes = require('./modules/buddy/buddy.routes');
+const buddyBannersRoutes = require('./modules/buddy_banners/buddy_banners.routes');
 
 // Serve uploaded images statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -92,15 +93,12 @@ app.use('/api/subscriptions', subscriptionsRoutes);
 app.use('/api/instant', instantConnectRoutes);
 app.use('/api/advertisements', advertisementsRoutes);
 app.use('/api/admin/advertisements', advertisementsRoutes);
+app.use('/api/admin/buddy-banners', buddyBannersRoutes.adminRouter);
+app.use('/api/banners/seasonal', buddyBannersRoutes.publicRouter);
 app.use('/api/support', supportRoutes);
 app.use('/api/app', supportRoutes);
 app.use('/api/payments/google-play', googlePlayRoutes);
 app.use('/api/buddy', buddyRoutes);
-
-// Festive / seasonal banner route fallback
-app.get('/api/banners/seasonal', (_req, res) => {
-  res.json({ success: true, banners: [] });
-});
 
 // Prime in-memory app config cache (schema managed via versioned migrations)
 appService.refreshCache().catch((err) => {

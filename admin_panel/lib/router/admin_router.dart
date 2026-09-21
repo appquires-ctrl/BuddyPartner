@@ -10,6 +10,7 @@ import '../features/users/user_management_screen.dart';
 import '../features/reports/reports_queue_screen.dart';
 import '../features/withdrawals/withdrawals_screen.dart';
 import '../features/advertisements/presentation/pages/advertisements_page.dart';
+import '../features/buddy_banners/presentation/pages/buddy_banners_page.dart';
 import '../features/version_config/presentation/pages/app_config_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -75,6 +76,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/advertisements',
             pageBuilder: (context, state) => const NoTransitionPage(
               child: AdvertisementsPage(),
+            ),
+          ),
+          GoRoute(
+            path: '/buddy-banners',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: BuddyBannersPage(),
             ),
           ),
           GoRoute(

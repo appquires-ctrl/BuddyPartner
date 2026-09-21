@@ -139,11 +139,22 @@ class ApiService {
   }
 
   static dynamic _processResponse(http.Response response) {
-    final body = jsonDecode(response.body);
+    dynamic body;
+    try {
+      body = jsonDecode(response.body);
+    } catch (_) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'success': true, 'data': response.body};
+      }
+      throw Exception('Server returned ${response.statusCode}');
+    }
+
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return body;
     } else {
-      final msg = body is Map && body.containsKey('message') ? body['message'] : 'HTTP Error ${response.statusCode}';
+      final msg = body is Map && body.containsKey('message')
+          ? body['message']
+          : 'HTTP Error ${response.statusCode}';
       throw Exception(msg);
     }
   }

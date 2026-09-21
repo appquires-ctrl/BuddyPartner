@@ -100,6 +100,13 @@ class AdminSidebar extends StatelessWidget {
           ),
           _buildNavItem(
             context,
+            title: 'Buddy Banners',
+            icon: Icons.celebration_rounded,
+            route: '/buddy-banners',
+            isSelected: currentPath == '/buddy-banners',
+          ),
+          _buildNavItem(
+            context,
             title: 'App Version Gate',
             icon: Icons.system_update_rounded,
             route: '/app-config',
