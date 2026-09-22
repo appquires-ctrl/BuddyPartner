@@ -9,6 +9,9 @@ import 'package:buddypartner/features/buddy/application/buddy_controller.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/initiator_otp_modal.dart';
 import 'package:buddypartner/features/recharge/presentation/providers/recharge_providers.dart';
+import 'package:go_router/go_router.dart';
+import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/features/buddy/data/buddy_group_service.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 
 /// Comprehensive Indian cities list — tier 1, 2 & 3 including all state capitals.
@@ -234,6 +237,38 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
     setState(() => _isSubmitting = true);
 
     try {
+      if (widget.buddyType == BuddyType.garba) {
+        // Garba Buddy Group: 6 people group broadcast, 509 coins from host, 0 OTP
+        final newGroup = await ref.read(buddyGroupServiceProvider).createGroupBroadcast(
+          city: _selectedCity,
+          targetGender: _selectedGender.id,
+          title: widget.customTitle ?? 'Garba Buddy Group',
+        );
+
+        if (!mounted) return;
+        Navigator.of(context).pop(); // Close create sheet
+
+        AppSnackBar.showSuccess(
+          context,
+          'Garba Group broadcast is live! 5 other members can now join.',
+        );
+
+        // Invalidate wallet balance and groups list to refresh UI immediately
+        ref.invalidate(walletBalanceProvider);
+        ref.invalidate(myBuddyGroupsProvider);
+
+        // Redirect host directly to the Group Chat screen!
+        context.push(
+          RouteNames.buddyGroupChat,
+          extra: {
+            'groupId': newGroup.id,
+            'title': newGroup.title,
+            'memberCount': 1,
+          },
+        );
+        return;
+      }
+
       final newReq = await ref.read(buddyControllerProvider.notifier).createBuddyRequest(
         type: widget.buddyType,
         city: _selectedCity,

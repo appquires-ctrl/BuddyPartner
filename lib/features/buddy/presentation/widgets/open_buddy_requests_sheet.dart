@@ -9,6 +9,7 @@ import 'package:buddypartner/features/buddy/application/buddy_controller.dart';
 import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
+import 'package:buddypartner/features/buddy/data/buddy_group_service.dart';
 
 /// Bottom sheet to view and accept live open Buddy Requests in the user's city.
 class OpenBuddyRequestsSheet extends ConsumerStatefulWidget {
@@ -31,6 +32,7 @@ class OpenBuddyRequestsSheet extends ConsumerStatefulWidget {
 class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet> {
   BuddyType? _selectedFilterType;
   String? _acceptingRequestId;
+  List<BuddyGroup> _openGroups = [];
 
   @override
   void initState() {
@@ -38,7 +40,17 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final city = ref.read(authStateProvider).value?.city;
       ref.read(buddyControllerProvider.notifier).fetchOpenRequests(city: city);
+      _fetchOpenGroups(city);
     });
+  }
+
+  Future<void> _fetchOpenGroups(String? city) async {
+    try {
+      final groups = await ref.read(buddyGroupServiceProvider).listOpenGroups(city: city);
+      if (mounted) {
+        setState(() => _openGroups = groups);
+      }
+    } catch (_) {}
   }
 
   Future<void> _handleAccept(BuddyRequest request) async {
@@ -88,6 +100,43 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
     }
   }
 
+  Future<void> _handleJoinGroup(BuddyGroup group) async {
+    if (_acceptingRequestId != null) return;
+    setState(() => _acceptingRequestId = group.id);
+
+    try {
+      final joined = await ref.read(buddyGroupServiceProvider).joinGroup(group.id);
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      AppSnackBar.showSuccess(
+        context,
+        'Joined ${joined.title}! Start chatting in the group.',
+      );
+
+      ref.invalidate(myBuddyGroupsProvider);
+
+      context.push(
+        RouteNames.buddyGroupChat,
+        extra: {
+          'groupId': joined.id,
+          'title': joined.title,
+          'memberCount': joined.memberCount,
+        },
+      );
+    } catch (e) {
+      if (mounted) {
+        final err = e.toString().replaceAll('Exception: ', '');
+        AppSnackBar.showError(context, err);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _acceptingRequestId = null);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -96,8 +145,12 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
     final userCity = ref.watch(authStateProvider).value?.city ?? 'your area';
 
     final filteredRequests = _selectedFilterType == null
-        ? buddyState.openRequests
-        : buddyState.openRequests.where((r) => r.buddyType == _selectedFilterType).toList();
+        ? buddyState.openRequests.where((r) => r.buddyType != BuddyType.garba).toList()
+        : buddyState.openRequests.where((r) => r.buddyType == _selectedFilterType && r.buddyType != BuddyType.garba).toList();
+
+    final showGroups = (_selectedFilterType == null || _selectedFilterType == BuddyType.garba);
+    final displayedGroups = showGroups ? _openGroups : <BuddyGroup>[];
+    final totalCount = displayedGroups.length + filteredRequests.length;
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.78,
@@ -188,9 +241,9 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
 
           // Request List
           Expanded(
-            child: buddyState.isLoading && filteredRequests.isEmpty
+            child: buddyState.isLoading && totalCount == 0
                 ? const Center(child: AppLoadingIndicator(size: 28))
-                : (filteredRequests.isEmpty
+                : (totalCount == 0
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -234,14 +287,20 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                     : RefreshIndicator(
                         onRefresh: () async {
                           final city = ref.read(authStateProvider).value?.city;
-                          await ref.read(buddyControllerProvider.notifier).fetchOpenRequests(city: city);
+                          await Future.wait([
+                            ref.read(buddyControllerProvider.notifier).fetchOpenRequests(city: city),
+                            _fetchOpenGroups(city),
+                          ]);
                         },
                         child: ListView.separated(
                           physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-                          itemCount: filteredRequests.length,
+                          itemCount: totalCount,
                           separatorBuilder: (_, index) => const SizedBox(height: 12),
                           itemBuilder: (context, index) {
-                            final req = filteredRequests[index];
+                            if (index < displayedGroups.length) {
+                              return _buildGroupCard(displayedGroups[index]);
+                            }
+                            final req = filteredRequests[index - displayedGroups.length];
                             final type = req.buddyType;
                             final isAccepting = _acceptingRequestId == req.id;
 
@@ -384,6 +443,137 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                           },
                         ),
                       )),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGroupCard(BuddyGroup group) {
+    final colors = context.colors;
+    final typography = context.typography;
+    final isAccepting = _acceptingRequestId == group.id;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.surfaceMuted,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFF9333EA).withValues(alpha: 0.35),
+          width: 1.4,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF9333EA).withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              width: 58,
+              height: 58,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF6B21A8), Color(0xFF9333EA)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Image.asset(
+                'assets/images/garba_buddy.png',
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => const Icon(
+                  Icons.groups_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        group.title,
+                        style: typography.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: colors.textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF9333EA), Color(0xFF6B21A8)],
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${group.memberCount}/${group.maxMembers} Joined',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Host: ${group.hostName ?? "Garba Host"} • Free Join (0 OTP)',
+                  style: typography.bodySmall.copyWith(
+                    fontSize: 12,
+                    color: const Color(0xFF10B981),
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            height: 40,
+            child: ElevatedButton(
+              onPressed: isAccepting ? null : () => _handleJoinGroup(group),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF9333EA),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 1,
+              ),
+              child: isAccepting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text(
+                      'Join Group',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+            ),
           ),
         ],
       ),

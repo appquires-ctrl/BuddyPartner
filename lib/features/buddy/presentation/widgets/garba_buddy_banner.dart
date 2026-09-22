@@ -26,8 +26,8 @@ class GarbaBuddyBanner extends ConsumerWidget {
       return;
     }
 
-    // 2. Coin balance check (1 coin required for special Garba promo)
-    const requiredCoins = 1;
+    // 2. Coin balance check (509 coins required to host a 6-person Garba Buddy Group)
+    const requiredCoins = 509;
     int balance;
     final currentState = ref.read(walletBalanceProvider);
     if (currentState.hasValue) {

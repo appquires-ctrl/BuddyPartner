@@ -147,7 +147,7 @@ enum BuddyType {
       case BuddyType.longDrive:
         return 999;
       case BuddyType.garba:
-        return 1;
+        return 509; // Garba Buddy Group Host cost: 509 coins
       case BuddyType.festival:
         return 1;
     }
@@ -382,3 +382,123 @@ class BuddyRequest {
     };
   }
 }
+
+/// Model for a multi-user Garba Buddy Group (up to 6 members, 0 OTP)
+class BuddyGroup {
+  final String id;
+  final String initiatorId;
+  final String title;
+  final String buddyType;
+  final String city;
+  final String targetGender;
+  final int hostCoinCost;
+  final int maxMembers;
+  final int memberCount;
+  final String status;
+  final String? hostName;
+  final String? hostAvatarSeed;
+  final String? hostAvatarStyle;
+  final String? hostGender;
+  final bool isMember;
+  final String? role;
+  final String? lastMessageContent;
+  final String? lastMessageSenderName;
+  final DateTime? lastMessageTime;
+  final int unreadCount;
+  final DateTime createdAt;
+
+  const BuddyGroup({
+    required this.id,
+    required this.initiatorId,
+    required this.title,
+    this.buddyType = 'garba',
+    required this.city,
+    this.targetGender = 'all',
+    this.hostCoinCost = 509,
+    this.maxMembers = 6,
+    this.memberCount = 1,
+    this.status = 'open',
+    this.hostName,
+    this.hostAvatarSeed,
+    this.hostAvatarStyle,
+    this.hostGender,
+    this.isMember = false,
+    this.role,
+    this.lastMessageContent,
+    this.lastMessageSenderName,
+    this.lastMessageTime,
+    this.unreadCount = 0,
+    required this.createdAt,
+  });
+
+  bool get isFull => memberCount >= maxMembers || status == 'full';
+  int get availableSlots => (maxMembers - memberCount).clamp(0, maxMembers);
+
+  factory BuddyGroup.fromJson(Map<String, dynamic> json) {
+    return BuddyGroup(
+      id: json['id'] as String? ?? '',
+      initiatorId: json['initiator_id'] as String? ?? json['initiatorId'] as String? ?? '',
+      title: json['title'] as String? ?? 'Garba Buddy Group',
+      buddyType: json['buddy_type'] as String? ?? json['buddyType'] as String? ?? 'garba',
+      city: json['city'] as String? ?? '',
+      targetGender: json['target_gender'] as String? ?? json['targetGender'] as String? ?? 'all',
+      hostCoinCost: (json['host_coin_cost'] as num?)?.toInt() ?? 509,
+      maxMembers: (json['max_members'] as num?)?.toInt() ?? 6,
+      memberCount: (json['member_count'] as num?)?.toInt() ?? 1,
+      status: json['status'] as String? ?? 'open',
+      hostName: json['host_name'] as String? ?? json['host']?['fullName'] as String?,
+      hostAvatarSeed: json['host_avatar_seed'] as String? ?? json['host']?['avatarSeed'] as String?,
+      hostAvatarStyle: json['host_avatar_style'] as String? ?? json['host']?['avatarStyle'] as String?,
+      hostGender: json['host_gender'] as String? ?? json['host']?['gender'] as String?,
+      isMember: json['is_member'] == true || json['role'] != null,
+      role: json['role'] as String?,
+      lastMessageContent: json['last_message_content'] as String?,
+      lastMessageSenderName: json['last_message_sender_name'] as String?,
+      lastMessageTime: json['last_message_time'] != null
+          ? DateTime.tryParse(json['last_message_time'] as String)
+          : null,
+      unreadCount: (json['unread_count'] as num?)?.toInt() ?? 0,
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'] as String) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+}
+
+/// Member in a Garba Buddy Group
+class BuddyGroupMember {
+  final String id;
+  final String fullName;
+  final String? avatarSeed;
+  final String? avatarStyle;
+  final String? gender;
+  final String role;
+  final DateTime joinedAt;
+
+  const BuddyGroupMember({
+    required this.id,
+    required this.fullName,
+    this.avatarSeed,
+    this.avatarStyle,
+    this.gender,
+    required this.role,
+    required this.joinedAt,
+  });
+
+  bool get isHost => role == 'host';
+
+  factory BuddyGroupMember.fromJson(Map<String, dynamic> json) {
+    return BuddyGroupMember(
+      id: json['id'] as String? ?? json['user_id'] as String? ?? '',
+      fullName: json['full_name'] as String? ?? 'Member',
+      avatarSeed: json['avatar_seed'] as String?,
+      avatarStyle: json['avatar_style'] as String?,
+      gender: json['gender'] as String?,
+      role: json['role'] as String? ?? 'member',
+      joinedAt: json['joined_at'] != null
+          ? DateTime.tryParse(json['joined_at'] as String) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+}
+

@@ -64,8 +64,8 @@ const advertisementsRoutes = require('./modules/advertisements/advertisements.ro
 const instantConnectRoutes = require('./modules/instant_connect/instant_connect.routes');
 const supportRoutes = require('./modules/support/support.routes');
 const googlePlayRoutes = require('./modules/payments/google_play.routes');
-const { GooglePlayService } = require('./modules/payments/google_play.service');
 const buddyRoutes = require('./modules/buddy/buddy.routes');
+const buddyGroupRoutes = require('./modules/buddy_group/buddy_group.routes');
 const buddyBannersRoutes = require('./modules/buddy_banners/buddy_banners.routes');
 
 // Serve uploaded images statically
@@ -97,8 +97,8 @@ app.use('/api/admin/buddy-banners', buddyBannersRoutes.adminRouter);
 app.use('/api/banners/seasonal', buddyBannersRoutes.publicRouter);
 app.use('/api/support', supportRoutes);
 app.use('/api/app', supportRoutes);
-app.use('/api/payments/google-play', googlePlayRoutes);
 app.use('/api/buddy', buddyRoutes);
+app.use('/api/buddy-group', buddyGroupRoutes);
 
 // Prime in-memory app config cache (schema managed via versioned migrations)
 appService.refreshCache().catch((err) => {
@@ -210,6 +210,7 @@ const messagingService = new MessagingService();
 const { registerInstantConnectHandlers } = require('./modules/instant_connect/instant_connect.socket');
 const { registerPresenceHandlers } = require('./modules/presence/presence.socket');
 const { registerBuddyHandlers } = require('./modules/buddy/buddy.socket');
+const { registerBuddyGroupSocketHandlers } = require('./modules/buddy_group/buddy_group.socket');
 
 io.on('connection', (socket) => {
   console.log(`🔌 User connected: ${socket.userId} (socket: ${socket.id})`);
@@ -228,6 +229,7 @@ io.on('connection', (socket) => {
   registerInstantConnectHandlers(io, socket, redis);
   registerPresenceHandlers(io, socket, redis);
   registerBuddyHandlers(io, socket, redis);
+  registerBuddyGroupSocketHandlers(io, socket, redis);
 
   // Auto-join user's city+gender buddy room without Postgres query (authoritative from Redis/JWT during handshake)
   if (socket.city && typeof socket.city === 'string' && socket.city.trim()) {

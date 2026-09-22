@@ -17,6 +17,7 @@ import 'package:buddypartner/features/call/presentation/pages/incoming_call_page
 import 'package:buddypartner/features/call/presentation/pages/call_summary_page.dart';
 import 'package:buddypartner/features/chat/presentation/pages/conversations_list_page.dart';
 import 'package:buddypartner/features/chat/presentation/pages/chat_page.dart';
+import 'package:buddypartner/features/chat/presentation/pages/buddy_group_chat_page.dart';
 import 'package:buddypartner/features/history/presentation/pages/call_history_page.dart';
 import 'package:buddypartner/features/profile/presentation/pages/profile_page.dart';
 import 'package:buddypartner/features/profile/presentation/pages/account_page.dart';
@@ -246,6 +247,22 @@ final routerProvider = Provider<GoRouter>((ref) {
             avatarSeed: avatarSeed,
             avatarStyle: avatarStyle,
             gender: gender,
+          );
+        },
+      ),
+      GoRoute(
+        path: RouteNames.buddyGroupChat,
+        name: 'BuddyGroupChatPage',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          final qParams = state.uri.queryParameters;
+          final groupId = (extra['groupId'] ?? qParams['groupId'] ?? '').toString();
+          final title = (extra['title'] ?? qParams['title'] ?? 'Garba Buddy Group').toString();
+          final memberCount = (extra['memberCount'] as num?)?.toInt() ?? int.tryParse(qParams['memberCount'] ?? '') ?? 1;
+          return BuddyGroupChatPage(
+            groupId: groupId,
+            title: title,
+            memberCount: memberCount,
           );
         },
       ),

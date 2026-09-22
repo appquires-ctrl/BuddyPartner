@@ -12,6 +12,10 @@ import 'package:buddypartner/core/widgets/gradient_avatar.dart';
 import 'package:buddypartner/core/widgets/shimmer/app_shimmer.dart';
 import 'package:buddypartner/features/home/presentation/providers/matched_users_provider.dart';
 import 'package:buddypartner/core/utils/app_throttler.dart';
+import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
+import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
+import 'package:buddypartner/features/buddy/data/buddy_group_service.dart';
+import 'package:buddypartner/features/buddy/presentation/widgets/open_buddy_requests_sheet.dart';
 
 /// ConversationsListPage displays the user's active conversations
 /// with an ultra-premium, modern dating app messenger design and pixel-accurate skeleton loader.
@@ -27,6 +31,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
   final Set<String> _pageSubscribedUserIds = <String>{};
   String _searchQuery = '';
   String _selectedFilter = 'all'; // 'all', 'unread', 'online'
+  String _chatSection = 'direct'; // 'direct', 'groups'
   bool _isRefreshing = false;
 
   @override
@@ -81,6 +86,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
     setState(() => _isRefreshing = true);
     ref.invalidate(conversationsProvider);
     ref.invalidate(matchedUsersProvider);
+    ref.invalidate(myBuddyGroupsProvider);
     await ref.read(conversationsProvider.future).catchError((_) => <Conversation>[]);
     if (mounted) {
       _updateSubscriptions();
@@ -91,6 +97,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final typography = context.typography;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final authState = ref.watch(authStateProvider).value;
     final currentUserId = authState?.id;
@@ -120,6 +127,11 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
     }).length;
 
     final int onlineCount = conversations.where((c) => presence[c.otherUserId] == true).length;
+
+    // Watch Garba Buddy Groups
+    final myBuddyGroupsAsync = ref.watch(myBuddyGroupsProvider);
+    final myBuddyGroups = myBuddyGroupsAsync.valueOrNull ?? <BuddyGroup>[];
+    final int unreadGroupTotal = myBuddyGroups.fold<int>(0, (sum, g) => sum + g.unreadCount);
 
     // Filter conversations
     final filteredConversations = conversations.where((c) {
@@ -230,6 +242,152 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                 ),
               ),
 
+              // ── 1.5. Segmented Switcher: Direct Chats vs Garba Groups ─────
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E1F2A) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              setState(() => _chatSection = 'direct');
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 9),
+                              decoration: BoxDecoration(
+                                color: _chatSection == 'direct'
+                                    ? (isDark ? const Color(0xFF2E3142) : Colors.white)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: _chatSection == 'direct'
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.chat_bubble_outline_rounded,
+                                    size: 15,
+                                    color: _chatSection == 'direct' ? colors.primary : colors.textSecondary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Direct Chats',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: _chatSection == 'direct' ? FontWeight.bold : FontWeight.w500,
+                                      color: _chatSection == 'direct' ? colors.textPrimary : colors.textSecondary,
+                                    ),
+                                  ),
+                                  if (unreadCount > 0) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFFEF4444),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Text(
+                                        '$unreadCount',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              setState(() => _chatSection = 'groups');
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 9),
+                              decoration: BoxDecoration(
+                                color: _chatSection == 'groups'
+                                    ? (isDark ? const Color(0xFF2E3142) : Colors.white)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: _chatSection == 'groups'
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text('💃 ', style: TextStyle(fontSize: 13)),
+                                  Text(
+                                    'Garba Groups',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: _chatSection == 'groups' ? FontWeight.bold : FontWeight.w500,
+                                      color: _chatSection == 'groups' ? colors.textPrimary : colors.textSecondary,
+                                    ),
+                                  ),
+                                  if (unreadGroupTotal > 0) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                      decoration: BoxDecoration(
+                                        gradient: const LinearGradient(
+                                          colors: [Color(0xFF9333EA), Color(0xFF6B21A8)],
+                                        ),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        '$unreadGroupTotal',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              if (_chatSection == 'groups')
+                _buildGarbaGroupsSliver(context, myBuddyGroupsAsync, isDark, colors, typography)
+              else ...[
               // ── 2. Integrated Search Bar ───────────────────────────────────
               SliverToBoxAdapter(
                 child: Padding(
@@ -658,10 +816,295 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                     ),
                   ),
                 ),
+              ],
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildGarbaGroupsSliver(
+    BuildContext context,
+    AsyncValue<List<BuddyGroup>> groupsAsync,
+    bool isDark,
+    dynamic colors,
+    dynamic typography,
+  ) {
+    return groupsAsync.when(
+      loading: () => SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 40),
+          child: Center(child: AppLoadingIndicator(size: 28)),
+        ),
+      ),
+      error: (e, _) => SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Text(
+              'Failed to load Garba groups',
+              style: TextStyle(color: colors.textSecondary),
+            ),
+          ),
+        ),
+      ),
+      data: (groups) {
+        if (groups.isEmpty) {
+          return SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1C182A) : Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: isDark ? colors.border.withValues(alpha: 0.25) : colors.border.withValues(alpha: 0.6),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF6B21A8), Color(0xFF9333EA)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Image.asset(
+                          'assets/images/garba_buddy.png',
+                          width: 38,
+                          height: 38,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, _, _) => const Icon(Icons.celebration_rounded, color: Colors.white, size: 30),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No Garba Groups Joined Yet',
+                      style: typography.titleCard.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 17,
+                        color: colors.textPrimary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Join an open 6-person Garba broadcast in your city with 0 OTP, or host your own group to celebrate!',
+                      style: typography.bodySmall.copyWith(
+                        color: colors.textSecondary,
+                        fontSize: 13,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 18),
+                    ElevatedButton.icon(
+                      onPressed: () => OpenBuddyRequestsSheet.show(context),
+                      icon: const Icon(Icons.explore_rounded, size: 18, color: Colors.white),
+                      label: const Text(
+                        'Explore Garba Broadcasts',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF9333EA),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        return SliverPadding(
+          padding: const EdgeInsets.only(left: 16, right: 16, bottom: 90),
+          sliver: SliverToBoxAdapter(
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1C182A) : Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color: isDark ? colors.border.withValues(alpha: 0.25) : colors.border.withValues(alpha: 0.7),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: groups.length,
+                  separatorBuilder: (context, index) => Divider(
+                    height: 1,
+                    indent: 82,
+                    endIndent: 18,
+                    color: isDark ? colors.border.withValues(alpha: 0.15) : colors.border.withValues(alpha: 0.5),
+                  ),
+                  itemBuilder: (context, index) {
+                    final group = groups[index];
+                    final lastMsg = group.lastMessageContent ?? 'Group created. Start chatting!';
+                    final senderPrefix = (group.lastMessageSenderName != null && group.lastMessageSenderName!.isNotEmpty)
+                        ? '${group.lastMessageSenderName}: '
+                        : '';
+
+                    return InkWell(
+                      onTap: () async {
+                        HapticFeedback.lightImpact();
+                        await context.push(
+                          RouteNames.buddyGroupChat,
+                          extra: {
+                            'groupId': group.id,
+                            'title': group.title,
+                            'memberCount': group.memberCount,
+                          },
+                        );
+                        if (context.mounted) {
+                          ref.invalidate(myBuddyGroupsProvider);
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(18),
+                              child: Container(
+                                width: 54,
+                                height: 54,
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [Color(0xFF6B21A8), Color(0xFF9333EA)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                ),
+                                child: Image.asset(
+                                  'assets/images/garba_buddy.png',
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) => const Icon(
+                                    Icons.groups_rounded,
+                                    color: Colors.white,
+                                    size: 26,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          group.title,
+                                          style: TextStyle(
+                                            fontSize: 15.5,
+                                            fontWeight: group.unreadCount > 0 ? FontWeight.bold : FontWeight.w600,
+                                            color: colors.textPrimary,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF9333EA).withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: const Color(0xFF9333EA).withValues(alpha: 0.3)),
+                                        ),
+                                        child: Text(
+                                          '${group.memberCount}/${group.maxMembers} Members',
+                                          style: const TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF9333EA),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          '$senderPrefix$lastMsg',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: group.unreadCount > 0 ? colors.textPrimary : colors.textSecondary,
+                                            fontWeight: group.unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (group.unreadCount > 0) ...[
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(
+                                              colors: [Color(0xFF9333EA), Color(0xFF6B21A8)],
+                                            ),
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          child: Text(
+                                            '${group.unreadCount}',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
