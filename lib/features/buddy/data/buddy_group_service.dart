@@ -33,14 +33,17 @@ class BuddyGroupService {
     required String city,
     String targetGender = 'all',
     String? title,
+    String? idempotencyKey,
   }) async {
     try {
+      final key = idempotencyKey ?? 'group_${DateTime.now().millisecondsSinceEpoch}';
       final response = await _apiClient.dio.post(
         '/api/buddy-group/broadcast',
         data: {
           'city': city.trim(),
           'targetGender': targetGender,
           if (title != null && title.isNotEmpty) 'title': title.trim(),
+          'idempotencyKey': key,
         },
       );
 

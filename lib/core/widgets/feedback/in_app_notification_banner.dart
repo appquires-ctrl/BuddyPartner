@@ -13,6 +13,8 @@ class InAppMessageNotification {
   final String? gender;
   final String message;
   final String conversationId;
+  final bool isGroup;
+  final String? groupId;
   final DateTime timestamp;
 
   InAppMessageNotification({
@@ -24,6 +26,8 @@ class InAppMessageNotification {
     this.gender,
     required this.message,
     required this.conversationId,
+    this.isGroup = false,
+    this.groupId,
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
 }
@@ -35,16 +39,19 @@ class InAppNotificationManager {
 
   static Stream<InAppMessageNotification> get stream => _controller.stream;
 
-  /// Currently open conversation ID (to suppress notifications while inside the chat room)
+  /// Currently open conversation or group ID (to suppress notifications while inside that room)
   static String? activeConversationId;
+
+  /// Whether the user is currently on the Messages list tab (index 1 of dashboard)
+  static bool isMessagesTabActive = false;
+
+  /// Returns true if the user is currently anywhere in the chat/messaging flow
+  static bool get isInChatSection => isMessagesTabActive || activeConversationId != null;
 
   /// Shows an in-app notification banner
   static void show(InAppMessageNotification notification) {
-    // If user is currently chatting inside this specific conversation, do not show in-app banner
-    if (activeConversationId != null &&
-        (activeConversationId == notification.conversationId ||
-         activeConversationId == notification.senderId ||
-         activeConversationId == 'user:${notification.senderId}')) {
+    // Only show in-app banner if user is browsing other features outside the chat/messaging section
+    if (isInChatSection) {
       return;
     }
     _controller.add(notification);

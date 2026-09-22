@@ -86,7 +86,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   DateTime? _selectedDob;
   String? _selectedGender;
   String? _selectedAvatarSeed;
-  bool? _selectedIsTelecaller;
   bool _is18Plus = false;
   bool _acceptedTermsAndPrivacy = false;
   
@@ -273,7 +272,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
           language: 'English',
           avatarSeed: _selectedAvatarSeed,
           avatarStyle: 'avataaars',
-          isTelecaller: _selectedIsTelecaller,
         );
 
     if (success && mounted) {

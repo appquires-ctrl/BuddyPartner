@@ -8,6 +8,7 @@ import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
 import 'package:buddypartner/core/widgets/gradient_avatar.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/features/buddy/data/buddy_group_service.dart';
+import 'package:buddypartner/core/widgets/feedback/in_app_notification_banner.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
 
 class BuddyGroupChatPage extends ConsumerStatefulWidget {
@@ -34,22 +35,26 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
   Map<String, dynamic>? _groupDetails;
   bool _isLoading = true;
   bool _isSending = false;
+  late final BuddyGroupService _service;
+  dynamic _socket;
 
   @override
   void initState() {
     super.initState();
-    _loadGroupAndMessages();
+    InAppNotificationManager.activeConversationId = widget.groupId;
+    _service = ref.read(buddyGroupServiceProvider);
+    _socket = ref.read(socketProvider);
     _initSocket();
+    _loadGroupAndMessages();
   }
 
   void _initSocket() {
-    final socket = ref.read(socketProvider);
-    if (socket != null) {
-      socket.emit('join_buddy_group_chat', {'groupId': widget.groupId});
-      socket.off('new_buddy_group_message', _handleNewMessage);
-      socket.on('new_buddy_group_message', _handleNewMessage);
-      socket.off('group_member_joined', _handleMemberJoined);
-      socket.on('group_member_joined', _handleMemberJoined);
+    if (_socket != null) {
+      _socket.emit('join_buddy_group_chat', {'groupId': widget.groupId});
+      _socket.off('new_buddy_group_message', _handleNewMessage);
+      _socket.on('new_buddy_group_message', _handleNewMessage);
+      _socket.off('group_member_joined', _handleMemberJoined);
+      _socket.on('group_member_joined', _handleMemberJoined);
     }
   }
 
@@ -80,11 +85,10 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
 
   Future<void> _loadGroupAndMessages() async {
     setState(() => _isLoading = true);
-    final service = ref.read(buddyGroupServiceProvider);
     try {
       final results = await Future.wait([
-        service.getGroupMessages(widget.groupId),
-        service.getGroupDetails(widget.groupId).catchError((_) => <String, dynamic>{}),
+        _service.getGroupMessages(widget.groupId),
+        _service.getGroupDetails(widget.groupId).catchError((_) => <String, dynamic>{}),
       ]);
 
       if (mounted) {
@@ -103,8 +107,9 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
   }
 
   Future<void> _loadGroupDetails() async {
+    if (!mounted) return;
     try {
-      final details = await ref.read(buddyGroupServiceProvider).getGroupDetails(widget.groupId);
+      final details = await _service.getGroupDetails(widget.groupId);
       if (mounted) {
         setState(() => _groupDetails = details);
       }
@@ -131,8 +136,8 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
     _textController.clear();
     HapticFeedback.selectionClick();
 
-    final socket = ref.read(socketProvider);
-    if (socket != null && socket.connected) {
+    final socket = _socket ?? (mounted ? ref.read(socketProvider) : null);
+    if (socket != null && socket.connected == true) {
       socket.emitWithAck(
         'send_buddy_group_message',
         {
@@ -147,7 +152,7 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
     } else {
       // REST fallback
       try {
-        final newMsg = await ref.read(buddyGroupServiceProvider).sendGroupMessage(widget.groupId, text);
+        final newMsg = await _service.sendGroupMessage(widget.groupId, text);
         if (mounted) {
           setState(() {
             _messages.add(newMsg);
@@ -198,7 +203,6 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  const Text('🎉 ', style: TextStyle(fontSize: 20)),
                   Text(
                     'Group Members (${members.length}/6)',
                     style: typography.titleCard.copyWith(
@@ -289,11 +293,15 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
 
   @override
   void dispose() {
-    final socket = ref.read(socketProvider);
-    if (socket != null) {
-      socket.emit('leave_buddy_group_chat', {'groupId': widget.groupId});
-      socket.off('new_buddy_group_message', _handleNewMessage);
-      socket.off('group_member_joined', _handleMemberJoined);
+    if (InAppNotificationManager.activeConversationId == widget.groupId) {
+      InAppNotificationManager.activeConversationId = null;
+    }
+    if (_socket != null) {
+      try {
+        _socket.emit('leave_buddy_group_chat', {'groupId': widget.groupId});
+        _socket.off('new_buddy_group_message', _handleNewMessage);
+        _socket.off('group_member_joined', _handleMemberJoined);
+      } catch (_) {}
     }
     _textController.dispose();
     _scrollController.dispose();

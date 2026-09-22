@@ -1,35 +1,38 @@
 const db = require('../../db');
+const cacheService = require('../../services/cache.service');
 
 class BuddyBannersService {
   /**
    * Get all active banners within valid date range for client apps.
+   * Cached in Redis with 10-minute (600s) TTL; invalidated on admin banner mutations.
    */
   async getActiveBanners() {
-    try {
-      const now = new Date().toISOString();
-      const res = await db.query(`
-        SELECT 
-          id,
-          name,
-          image_url AS "imageUrl",
-          priority,
-          start_date AS "startDate",
-          end_date AS "endDate",
-          is_active AS "isActive",
-          sheet_config AS "sheetConfig",
-          otp_reward AS "otpReward"
-        FROM public.seasonal_banners
-        WHERE is_active = TRUE
-          AND (start_date IS NULL OR start_date <= (NOW() + interval '12 hours'))
-          AND (end_date IS NULL OR (end_date + interval '1 day') >= NOW())
-        ORDER BY priority ASC, created_at DESC
-      `);
+    return cacheService.getOrSet('buddy_banners:active', 600, async () => {
+      try {
+        const res = await db.query(`
+          SELECT 
+            id,
+            name,
+            image_url AS "imageUrl",
+            priority,
+            start_date AS "startDate",
+            end_date AS "endDate",
+            is_active AS "isActive",
+            sheet_config AS "sheetConfig",
+            otp_reward AS "otpReward"
+          FROM public.seasonal_banners
+          WHERE is_active = TRUE
+            AND (start_date IS NULL OR start_date <= (NOW() + interval '12 hours'))
+            AND (end_date IS NULL OR (end_date + interval '1 day') >= NOW())
+          ORDER BY priority ASC, created_at DESC
+        `);
 
-      return res.rows;
-    } catch (err) {
-      console.error('Error in getActiveBanners:', err.message);
-      return [];
-    }
+        return res.rows;
+      } catch (err) {
+        console.error('Error in getActiveBanners:', err.message);
+        return [];
+      }
+    });
   }
 
   /**
@@ -101,6 +104,7 @@ class BuddyBannersService {
       JSON.stringify(otpReward),
     ]);
 
+    await cacheService.invalidate('buddy_banners:active');
     return res.rows[0];
   }
 
@@ -176,6 +180,7 @@ class BuddyBannersService {
         updated_at AS "updatedAt"
     `, values);
 
+    await cacheService.invalidate('buddy_banners:active');
     return res.rows[0] || null;
   }
 
@@ -189,6 +194,7 @@ class BuddyBannersService {
       RETURNING id
     `, [id]);
 
+    await cacheService.invalidate('buddy_banners:active');
     return res.rowCount > 0;
   }
 }

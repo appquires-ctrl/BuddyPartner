@@ -346,8 +346,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Text('💃 ', style: TextStyle(fontSize: 13)),
-                                  Text(
+                                    Text(
                                     'Garba Groups',
                                     style: TextStyle(
                                       fontSize: 13,

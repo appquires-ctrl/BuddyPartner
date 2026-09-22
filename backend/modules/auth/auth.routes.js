@@ -1548,44 +1548,12 @@ router.post('/location', authMiddleware, handleLocationUpdate);
 router.patch('/location', authMiddleware, handleLocationUpdate);
 
 /**
- * Endpoint: PATCH /api/users/me/telecaller-status (also /api/auth/telecaller-status)
- * Allows female users to toggle their telecaller opt-in mode.
+ * Deprecated: Telecaller mode was removed in the August 1, 2026 unisex subscription pivot.
+ * Endpoints return success no-op for backward compatibility with any legacy client builds.
  */
-async function handleTelecallerStatusUpdate(req, res) {
-  const userId = req.user.id;
-  const { isTelecaller } = req.body;
-
-  if (typeof isTelecaller !== 'boolean') {
-    return res.status(400).json({ error: 'isTelecaller must be a boolean.' });
-  }
-
-  try {
-    const userRes = await db.query('SELECT gender FROM public.users WHERE id = $1', [userId]);
-    if (userRes.rows.length === 0) {
-      return res.status(404).json({ error: 'User profile not found.' });
-    }
-
-    const gender = (userRes.rows[0].gender || '').toLowerCase();
-    const isFemale = (gender === 'female' || gender === 'girl' || gender === 'woman');
-
-    if (!isFemale) {
-      return res.status(403).json({ error: 'Telecaller mode is only available for female users.' });
-    }
-
-    await db.query(
-      'UPDATE public.users SET is_telecaller = $1 WHERE id = $2',
-      [isTelecaller, userId]
-    );
-
-    res.json({ success: true, isTelecaller });
-  } catch (err) {
-    console.error('Error updating telecaller status:', err.message);
-    res.status(500).json({ error: 'Failed to update telecaller status.' });
-  }
-}
-
-router.patch('/telecaller-status', authMiddleware, handleTelecallerStatusUpdate);
-router.patch('/me/telecaller-status', authMiddleware, handleTelecallerStatusUpdate);
+router.patch(['/telecaller-status', '/me/telecaller-status'], authMiddleware, (req, res) => {
+  res.json({ success: true, message: 'Telecaller mode is deprecated.' });
+});
 
 /**
  * Endpoint: POST /api/auth/upload-avatar

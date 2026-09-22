@@ -41,6 +41,9 @@ import 'package:buddypartner/core/utils/app_navigation_observer.dart';
 
 import 'package:buddypartner/features/version/application/version_check_provider.dart';
 import 'package:buddypartner/features/version/presentation/pages/update_required_page.dart';
+import 'package:flutter/services.dart';
+import 'package:buddypartner/core/widgets/feedback/app_exit_dialog.dart';
+import 'package:buddypartner/core/widgets/feedback/in_app_notification_banner.dart';
 import 'package:buddypartner/features/buddy/presentation/pages/my_buddy_activity_page.dart';
 import 'package:buddypartner/features/chat/application/conversations_provider.dart';
 
@@ -355,42 +358,53 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Stateful Nested Shell for Main Dashboard (4 core tabs)
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
-          return Scaffold(
-            extendBody: true,
-            backgroundColor: Colors.transparent,
-            body: Stack(
-              fit: StackFit.expand,
-              children: [
-                Container(color: const Color(0xFFFAF9FE)),
-                Image.asset(
-                  'assets/images/app_bg.jpg',
-                  fit: BoxFit.cover,
-                ),
-                navigationShell,
-              ],
-            ),
-            bottomNavigationBar: Consumer(
-              builder: (context, ref, child) {
-                final matchState = ref.watch(matchmakingControllerProvider);
-                if (matchState.phase != MatchmakingPhase.idle && !matchState.isCallMinimized) {
-                  return const SizedBox.shrink();
-                }
-                final isFemale = ref.watch(authStateProvider).value?.isFemale ?? false;
-                final isSubscribed = ref.watch(subscriptionStatusProvider).value?.isSubscribed ?? false;
-                final unreadChatCount = ref.watch(totalUnreadMessagesCountProvider);
-                return AppBottomNav(
-                  currentIndex: navigationShell.currentIndex,
-                  isFemale: isFemale,
-                  isSubscribed: isSubscribed,
-                  unreadChatCount: unreadChatCount,
-                  onTap: (index) {
-                    navigationShell.goBranch(
-                      index,
-                      initialLocation: index == navigationShell.currentIndex,
-                    );
-                  },
-                );
-              },
+          InAppNotificationManager.isMessagesTabActive = (navigationShell.currentIndex == 1);
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) async {
+              if (didPop) return;
+              final shouldExit = await AppExitDialog.show(context);
+              if (shouldExit) {
+                await SystemNavigator.pop();
+              }
+            },
+            child: Scaffold(
+              extendBody: true,
+              backgroundColor: Colors.transparent,
+              body: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Container(color: const Color(0xFFFAF9FE)),
+                  Image.asset(
+                    'assets/images/app_bg.jpg',
+                    fit: BoxFit.cover,
+                  ),
+                  navigationShell,
+                ],
+              ),
+              bottomNavigationBar: Consumer(
+                builder: (context, ref, child) {
+                  final matchState = ref.watch(matchmakingControllerProvider);
+                  if (matchState.phase != MatchmakingPhase.idle && !matchState.isCallMinimized) {
+                    return const SizedBox.shrink();
+                  }
+                  final isFemale = ref.watch(authStateProvider).value?.isFemale ?? false;
+                  final isSubscribed = ref.watch(subscriptionStatusProvider).value?.isSubscribed ?? false;
+                  final unreadChatCount = ref.watch(totalUnreadMessagesCountProvider);
+                  return AppBottomNav(
+                    currentIndex: navigationShell.currentIndex,
+                    isFemale: isFemale,
+                    isSubscribed: isSubscribed,
+                    unreadChatCount: unreadChatCount,
+                    onTap: (index) {
+                      navigationShell.goBranch(
+                        index,
+                        initialLocation: index == navigationShell.currentIndex,
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           );
         },

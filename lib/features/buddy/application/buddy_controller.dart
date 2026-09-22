@@ -9,6 +9,7 @@ import 'package:buddypartner/features/buddy/data/buddy_service.dart';
 import 'package:buddypartner/app/router/app_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
+import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
 import 'package:go_router/go_router.dart';
 
 class BuddyState {
@@ -402,6 +403,15 @@ class BuddyController extends Notifier<BuddyState> {
 
   /// Accepter accepts an open buddy request.
   Future<BuddyRequest> acceptBuddyRequest(String requestId) async {
+    final isSub = ref.read(subscriptionStatusProvider).value?.isSubscribed ?? false;
+    if (!isSub) {
+      final ctx = rootNavigatorKey.currentContext;
+      if (ctx != null && ctx.mounted) {
+        ctx.push(RouteNames.subscribe);
+      }
+      throw Exception('An active membership subscription is required to accept buddy requests');
+    }
+
     state = state.copyWith(isLoading: true, clearErrorMessage: true);
     try {
       final accepted = await ref.read(buddyServiceProvider).acceptRequest(requestId);

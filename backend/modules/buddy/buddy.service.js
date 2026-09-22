@@ -262,6 +262,15 @@ class BuddyService {
       throw err;
     }
 
+    // Check Subscription (Redis-cached with 300s TTL)
+    const isSub = await subscriptionsService.isSubscribed(accepterId);
+    if (!isSub) {
+      const err = new Error('An active membership subscription is required to accept buddy requests');
+      err.code = 'ACTIVE_SUBSCRIPTION_REQUIRED';
+      err.statusCode = 403;
+      throw err;
+    }
+
     const existingCheck = await db.query(
       `SELECT initiator_id, status, initiator_coin_cost FROM public.buddy_requests WHERE id = $1`,
       [requestId]

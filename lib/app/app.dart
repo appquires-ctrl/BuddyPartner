@@ -59,6 +59,22 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
         }
       };
 
+      notifService.onOpenBuddyGroup = ({
+        required String groupId,
+        required String title,
+      }) {
+        final navContext = rootNavigatorKey.currentContext;
+        if (navContext != null && navContext.mounted) {
+          navContext.push(
+            RouteNames.buddyGroupChat,
+            extra: {
+              'groupId': groupId,
+              'title': title,
+            },
+          );
+        }
+      };
+
       notifService.onInstantCallNotification = ({
         required String sessionId,
         required int bidAmount,
@@ -172,6 +188,16 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
             onNotificationTap: (notif) {
               final navContext = rootNavigatorKey.currentContext;
               if (navContext != null && navContext.mounted) {
+                if (notif.isGroup || (notif.groupId != null && notif.groupId!.isNotEmpty)) {
+                  navContext.push(
+                    RouteNames.buddyGroupChat,
+                    extra: {
+                      'groupId': notif.groupId ?? notif.conversationId,
+                      'title': notif.senderName,
+                    },
+                  );
+                  return;
+                }
                 navContext.push(
                   RouteNames.chat,
                   extra: {

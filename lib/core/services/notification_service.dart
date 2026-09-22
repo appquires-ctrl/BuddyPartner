@@ -29,6 +29,17 @@ class PendingChatNotification {
   });
 }
 
+/// Holds pending group chat payload when app is launched cold from a notification
+class PendingGroupNotification {
+  final String groupId;
+  final String title;
+
+  const PendingGroupNotification({
+    required this.groupId,
+    required this.title,
+  });
+}
+
 /// Top-level background message handler required by Firebase Messaging
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -49,14 +60,23 @@ class NotificationService {
   bool _initialized = false;
   String? _fcmToken;
   PendingChatNotification? _pendingChatNotification;
+  PendingGroupNotification? _pendingGroupNotification;
 
   /// Pending chat notification if launched from terminated state
   PendingChatNotification? get pendingChatNotification => _pendingChatNotification;
+  PendingGroupNotification? get pendingGroupNotification => _pendingGroupNotification;
 
   /// Consumes and clears the pending chat notification
   PendingChatNotification? consumePendingChat() {
     final pending = _pendingChatNotification;
     _pendingChatNotification = null;
+    return pending;
+  }
+
+  /// Consumes and clears the pending group chat notification
+  PendingGroupNotification? consumePendingGroup() {
+    final pending = _pendingGroupNotification;
+    _pendingGroupNotification = null;
     return pending;
   }
 
@@ -70,6 +90,12 @@ class NotificationService {
     String? avatarStyle,
     String? gender,
   })? onOpenChat;
+
+  /// Callback to navigate to a buddy group chat from notification click
+  void Function({
+    required String groupId,
+    required String title,
+  })? onOpenBuddyGroup;
 
   /// Callback when a female taps an Instant VIP call push notification
   void Function({
@@ -232,16 +258,20 @@ class NotificationService {
 
     final notification = message.notification;
 
-    final senderId = data['senderId']?.toString() ?? data['userId']?.toString() ?? '';
+    final groupId = data['groupId']?.toString();
+    final isGroup = type == 'BUDDY_GROUP_MESSAGE' || (groupId != null && groupId.isNotEmpty);
+
+    final senderId = data['senderId']?.toString() ?? data['userId']?.toString() ?? (isGroup ? groupId! : '');
     final senderName = data['senderName']?.toString() ??
         data['userName']?.toString() ??
+        (isGroup ? (data['title']?.toString() ?? 'Garba Buddy Group') : null) ??
         notification?.title?.replaceAll('New message from ', '') ??
         'User';
     final messageBody = data['message']?.toString() ??
         data['text']?.toString() ??
         notification?.body ??
         'Sent you a new message';
-    final conversationId = data['conversationId']?.toString() ?? 'user:$senderId';
+    final conversationId = data['conversationId']?.toString() ?? groupId ?? (senderId.isNotEmpty ? 'user:$senderId' : '');
     final avatar = data['avatar']?.toString() ?? data['senderAvatar']?.toString();
     final avatarSeed = data['avatarSeed']?.toString();
     final avatarStyle = data['avatarStyle']?.toString();
@@ -258,6 +288,8 @@ class NotificationService {
         gender: gender,
         message: messageBody,
         conversationId: conversationId,
+        isGroup: isGroup,
+        groupId: groupId,
       ));
     }
   }
@@ -265,6 +297,14 @@ class NotificationService {
   void _handleInitialMessage(RemoteMessage message) {
     final data = message.data;
     final type = data['type']?.toString();
+    final groupId = data['groupId']?.toString();
+
+    if (type == 'BUDDY_GROUP_MESSAGE' || (groupId != null && groupId.isNotEmpty)) {
+      final title = data['title']?.toString() ?? 'Garba Buddy Group';
+      _pendingGroupNotification = PendingGroupNotification(groupId: groupId!, title: title);
+      debugPrint('🔔 [FCM Terminated] Cached pending buddy group notification: $groupId');
+      return;
+    }
 
     if (type == 'instant_call') {
       final sessionId = data['sessionId']?.toString() ?? '';
@@ -304,6 +344,14 @@ class NotificationService {
   void _handleNotificationClick(RemoteMessage message) {
     final data = message.data;
     final type = data['type']?.toString();
+    final groupId = data['groupId']?.toString();
+
+    if (type == 'BUDDY_GROUP_MESSAGE' || (groupId != null && groupId.isNotEmpty)) {
+      final title = data['title']?.toString() ?? 'Garba Buddy Group';
+      debugPrint('🔔 [FCM Click] User clicked buddy group notification: $groupId');
+      onOpenBuddyGroup?.call(groupId: groupId!, title: title);
+      return;
+    }
 
     if (type == 'instant_call') {
       final sessionId = data['sessionId']?.toString() ?? '';

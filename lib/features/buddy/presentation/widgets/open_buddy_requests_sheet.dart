@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
 import 'package:buddypartner/features/buddy/data/buddy_group_service.dart';
+import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
 
 /// Bottom sheet to view and accept live open Buddy Requests in the user's city.
 class OpenBuddyRequestsSheet extends ConsumerStatefulWidget {
@@ -54,6 +55,13 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
   }
 
   Future<void> _handleAccept(BuddyRequest request) async {
+    final isSub = ref.read(subscriptionStatusProvider).value?.isSubscribed ?? false;
+    if (!isSub) {
+      Navigator.of(context).pop();
+      context.push(RouteNames.subscribe);
+      return;
+    }
+
     if (_acceptingRequestId != null) return;
     setState(() => _acceptingRequestId = request.id);
 

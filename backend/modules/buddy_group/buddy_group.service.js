@@ -56,18 +56,18 @@ class BuddyGroupService {
     try {
       await client.query('BEGIN');
 
-      // Check idempotency
+      // 1. Check idempotency if key provided
       if (idempotencyKey) {
         const existing = await client.query(
           `SELECT bg.*, u.full_name as host_name, u.avatar_seed as host_avatar_seed, u.avatar_style as host_avatar_style, u.gender as host_gender
            FROM public.buddy_groups bg
            JOIN public.users u ON u.id = bg.initiator_id
-           WHERE bg.initiator_id = $1 AND bg.title = $2 AND bg.created_at > NOW() - INTERVAL '5 minutes'
-           ORDER BY bg.created_at DESC LIMIT 1`,
-          [hostId, groupTitle]
+           WHERE bg.idempotency_key = $1`,
+          [idempotencyKey]
         );
         if (existing.rows.length > 0) {
           await client.query('COMMIT');
+          console.log(`🔁 [BuddyGroupService.createGroupBroadcast] Idempotency hit: ${idempotencyKey}`);
           return existing.rows[0];
         }
       }
@@ -95,10 +95,10 @@ class BuddyGroupService {
       const insertGroup = await client.query(
         `INSERT INTO public.buddy_groups (
            initiator_id, title, buddy_type, city, target_gender,
-           host_coin_cost, max_members, member_count, status
-         ) VALUES ($1, $2, 'garba', $3, $4, $5, 6, 1, 'open')
+           host_coin_cost, max_members, member_count, status, idempotency_key
+         ) VALUES ($1, $2, 'garba', $3, $4, $5, 6, 1, 'open', $6)
          RETURNING *`,
-        [hostId, groupTitle, normalizedCity, targetGender || 'all', HOST_COIN_COST]
+        [hostId, groupTitle, normalizedCity, targetGender || 'all', HOST_COIN_COST, idempotencyKey]
       );
       const group = insertGroup.rows[0];
 
@@ -112,7 +112,7 @@ class BuddyGroupService {
       // 6. Insert Welcome System Message
       await client.query(
         `INSERT INTO public.buddy_group_messages (group_id, sender_id, content, type)
-         VALUES ($1, $2, '🎉 Welcome to Garba Buddy Group! Up to 6 members can join and plan Garba together.', 'system')`,
+         VALUES ($1, $2, 'Welcome to Garba Buddy Group! Up to 6 members can join and plan Garba together.', 'system')`,
         [group.id, hostId]
       );
 
@@ -244,7 +244,7 @@ class BuddyGroupService {
       await client.query(
         `INSERT INTO public.buddy_group_messages (group_id, sender_id, content, type)
          VALUES ($1, $2, $3, 'system')`,
-        [groupId, userId, `👋 ${userName} joined the Garba group!`]
+        [groupId, userId, `${userName} joined the Garba group!`]
       );
 
       await client.query('COMMIT');
