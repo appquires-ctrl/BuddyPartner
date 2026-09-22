@@ -63,6 +63,7 @@ const path = require('path');
 const advertisementsRoutes = require('./modules/advertisements/advertisements.routes');
 const instantConnectRoutes = require('./modules/instant_connect/instant_connect.routes');
 const supportRoutes = require('./modules/support/support.routes');
+const { GooglePlayService } = require('./modules/payments/google_play.service');
 const googlePlayRoutes = require('./modules/payments/google_play.routes');
 const buddyRoutes = require('./modules/buddy/buddy.routes');
 const buddyGroupRoutes = require('./modules/buddy_group/buddy_group.routes');
@@ -99,6 +100,7 @@ app.use('/api/support', supportRoutes);
 app.use('/api/app', supportRoutes);
 app.use('/api/buddy', buddyRoutes);
 app.use('/api/buddy-group', buddyGroupRoutes);
+app.use('/api/payments/google-play', googlePlayRoutes);
 
 // Prime in-memory app config cache (schema managed via versioned migrations)
 appService.refreshCache().catch((err) => {
