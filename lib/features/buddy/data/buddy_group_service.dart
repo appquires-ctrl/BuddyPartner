@@ -18,6 +18,16 @@ class BuddyGroupService {
 
   BuddyGroupService(this._apiClient);
 
+  String _extractError(DioException e, String fallback) {
+    final data = e.response?.data;
+    if (data is Map && data['message'] != null) {
+      return data['message'].toString();
+    } else if (data is String && data.isNotEmpty && !data.startsWith('<!DOCTYPE') && !data.startsWith('<html')) {
+      return data;
+    }
+    return e.message ?? fallback;
+  }
+
   /// Host creates a 6-person Garba Buddy Group Broadcast (509 coins deducted from host).
   Future<BuddyGroup> createGroupBroadcast({
     required String city,
@@ -40,8 +50,7 @@ class BuddyGroupService {
       }
       throw Exception(response.data?['message'] ?? 'Failed to create Garba group');
     } on DioException catch (e) {
-      final msg = e.response?.data?['message'] ?? e.message ?? 'Network error';
-      throw Exception(msg);
+      throw Exception(_extractError(e, 'Failed to create Garba group'));
     }
   }
 
@@ -69,8 +78,7 @@ class BuddyGroupService {
       }
       return [];
     } on DioException catch (e) {
-      final msg = e.response?.data?['message'] ?? e.message ?? 'Failed to fetch open groups';
-      throw Exception(msg);
+      throw Exception(_extractError(e, 'Failed to fetch open groups'));
     }
   }
 
@@ -85,8 +93,7 @@ class BuddyGroupService {
       }
       throw Exception(response.data?['message'] ?? 'Failed to join Garba group');
     } on DioException catch (e) {
-      final msg = e.response?.data?['message'] ?? e.message ?? 'Failed to join group';
-      throw Exception(msg);
+      throw Exception(_extractError(e, 'Failed to join group'));
     }
   }
 
@@ -100,9 +107,9 @@ class BuddyGroupService {
         return rawList.map((j) => BuddyGroup.fromJson(j as Map<String, dynamic>)).toList();
       }
       return [];
-    } on DioException catch (e) {
-      final msg = e.response?.data?['message'] ?? e.message ?? 'Failed to fetch your groups';
-      throw Exception(msg);
+    } catch (_) {
+      // Return empty list on network/404 errors so UI gracefully renders
+      return [];
     }
   }
 
@@ -115,7 +122,7 @@ class BuddyGroupService {
       }
       throw Exception('Failed to load group details');
     } on DioException catch (e) {
-      throw Exception(e.response?.data?['message'] ?? e.message);
+      throw Exception(_extractError(e, 'Failed to load group details'));
     }
   }
 
@@ -135,7 +142,7 @@ class BuddyGroupService {
       }
       return [];
     } on DioException catch (e) {
-      throw Exception(e.response?.data?['message'] ?? e.message);
+      throw Exception(_extractError(e, 'Failed to load messages'));
     }
   }
 
@@ -151,7 +158,7 @@ class BuddyGroupService {
       }
       throw Exception('Failed to send message');
     } on DioException catch (e) {
-      throw Exception(e.response?.data?['message'] ?? e.message);
+      throw Exception(_extractError(e, 'Failed to send message'));
     }
   }
 }

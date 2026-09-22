@@ -78,15 +78,12 @@ class _SeasonalBannerCarouselState extends ConsumerState<SeasonalBannerCarousel>
 
     // 2. Coin balance check against admin-configured coin cost
     final requiredCoins = banner.sheetConfig.broadcastCoinCost;
-    int balance;
-    final currentState = ref.read(walletBalanceProvider);
-    if (currentState.hasValue) {
-      balance = currentState.value!;
-    } else {
+    int balance = ref.read(walletBalanceProvider).value ?? -1;
+    if (balance < requiredCoins) {
       try {
-        balance = await ref.read(walletBalanceProvider.notifier).fetchBalance();
+        balance = await ref.read(walletBalanceProvider.notifier).fetchBalance(force: true);
       } catch (_) {
-        balance = 0;
+        balance = balance == -1 ? 0 : balance;
       }
     }
 

@@ -223,8 +223,17 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
     final requiredCoins = widget.buddyType == BuddyType.garba
         ? 509
         : (widget.customCoinCost ?? widget.buddyType.coinCost);
-    final currentCoins = ref.read(walletBalanceProvider).value ?? 0;
+    int currentCoins = ref.read(walletBalanceProvider).value ?? -1;
     if (currentCoins < requiredCoins) {
+      try {
+        currentCoins = await ref.read(walletBalanceProvider.notifier).fetchBalance(force: true);
+      } catch (_) {
+        currentCoins = currentCoins == -1 ? 0 : currentCoins;
+      }
+    }
+
+    if (currentCoins < requiredCoins) {
+      if (!mounted) return;
       Navigator.of(context).pop(); // Close create sheet
       openRechargeForDeficit(
         context: context,
