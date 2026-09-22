@@ -75,10 +75,7 @@ router.get(['/requests', '/open'], authMiddleware, async (req, res) => {
     const userRes = await db.query('SELECT city, gender FROM public.users WHERE id = $1', [req.user.id]);
     const user = userRes.rows[0] || {};
 
-    const targetCity = city || user.city;
-    if (!targetCity) {
-      return res.json({ success: true, requests: [] });
-    }
+    const targetCity = city || user.city || 'all';
 
     const requests = await buddyService.listOpenRequests({
       city: targetCity,

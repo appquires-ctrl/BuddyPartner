@@ -103,12 +103,23 @@ function broadcastNewBuddyGroup(io, group) {
     isGroup: true,
   };
 
-  if (targetGender === 'all') {
+  const isAll = normalizedCity === 'all' || normalizedCity === 'all cities';
+  if (isAll) {
+    if (targetGender === 'all') {
+      io.emit('new_buddy_group_request', payload);
+    } else {
+      io.to(`buddy:city:all:${targetGender}`).emit('new_buddy_group_request', payload);
+    }
+  } else if (targetGender === 'all') {
     io.to(`buddy:city:${normalizedCity}:male`)
       .to(`buddy:city:${normalizedCity}:female`)
+      .to(`buddy:city:all:male`)
+      .to(`buddy:city:all:female`)
       .emit('new_buddy_group_request', payload);
   } else {
-    io.to(`buddy:city:${normalizedCity}:${targetGender}`).emit('new_buddy_group_request', payload);
+    io.to(`buddy:city:${normalizedCity}:${targetGender}`)
+      .to(`buddy:city:all:${targetGender}`)
+      .emit('new_buddy_group_request', payload);
   }
 }
 
@@ -126,14 +137,27 @@ function broadcastGroupSlotUpdate(io, { groupId, city, memberCount, maxMembers, 
     status,
   };
 
-  io.to(`buddy:city:${normalizedCity}:male`)
-    .to(`buddy:city:${normalizedCity}:female`)
-    .emit('buddy_group_slot_update', payload);
-
-  if (status === 'full') {
+  const isAll = normalizedCity === 'all' || normalizedCity === 'all cities';
+  if (isAll) {
+    io.emit('buddy_group_slot_update', payload);
+  } else {
     io.to(`buddy:city:${normalizedCity}:male`)
       .to(`buddy:city:${normalizedCity}:female`)
-      .emit('buddy_group_full', { groupId });
+      .to(`buddy:city:all:male`)
+      .to(`buddy:city:all:female`)
+      .emit('buddy_group_slot_update', payload);
+  }
+
+  if (status === 'full') {
+    if (isAll) {
+      io.emit('buddy_group_full', { groupId });
+    } else {
+      io.to(`buddy:city:${normalizedCity}:male`)
+        .to(`buddy:city:${normalizedCity}:female`)
+        .to(`buddy:city:all:male`)
+        .to(`buddy:city:all:female`)
+        .emit('buddy_group_full', { groupId });
+    }
   }
 }
 

@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
 import 'package:buddypartner/features/buddy/data/buddy_group_service.dart';
+import 'package:buddypartner/features/buddy/presentation/widgets/create_buddy_request_sheet.dart';
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
 
 /// Bottom sheet to view and accept live open Buddy Requests in the user's city.
@@ -34,15 +35,35 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
   BuddyType? _selectedFilterType;
   String? _acceptingRequestId;
   List<BuddyGroup> _openGroups = [];
+  String? _selectedCity;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final city = ref.read(authStateProvider).value?.city;
-      ref.read(buddyControllerProvider.notifier).fetchOpenRequests(city: city);
-      _fetchOpenGroups(city);
+      final userCity = ref.read(authStateProvider).value?.city;
+      _selectedCity = (userCity != null && userCity.isNotEmpty) ? userCity : 'All Cities';
+      _refreshData();
     });
+  }
+
+  void _openCityPicker() {
+    CityPickerSheet.show(context, currentCity: _selectedCity ?? 'All Cities').then((chosen) {
+      if (chosen != null && chosen.isNotEmpty) {
+        setState(() {
+          _selectedCity = chosen;
+        });
+        _refreshData();
+      }
+    });
+  }
+
+  Future<void> _refreshData() async {
+    final queryCity = (_selectedCity == 'All Cities' || _selectedCity == 'All') ? null : _selectedCity;
+    await Future.wait([
+      ref.read(buddyControllerProvider.notifier).fetchOpenRequests(city: queryCity),
+      _fetchOpenGroups(queryCity),
+    ]);
   }
 
   Future<void> _fetchOpenGroups(String? city) async {
@@ -205,12 +226,43 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                         color: colors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Happening now in $userCity',
-                      style: typography.bodySmall.copyWith(
-                        color: colors.textSecondary,
-                        fontSize: 13,
+                    const SizedBox(height: 3),
+                    InkWell(
+                      onTap: _openCityPicker,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2.0),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              (_selectedCity == 'All Cities' || _selectedCity == 'All')
+                                  ? Icons.public_rounded
+                                  : Icons.location_on_rounded,
+                              size: 14,
+                              color: colors.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _selectedCity ?? 'All Cities',
+                              style: typography.bodySmall.copyWith(
+                                color: colors.primary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(width: 2),
+                            Icon(Icons.arrow_drop_down_rounded, size: 18, color: colors.primary),
+                            const SizedBox(width: 4),
+                            Text(
+                              '(Tap to change)',
+                              style: typography.bodySmall.copyWith(
+                                color: colors.textSecondary,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -289,17 +341,29 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                                 textAlign: TextAlign.center,
                               ),
                             ),
+                            if (_selectedCity != 'All Cities') ...[
+                              const SizedBox(height: 14),
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  setState(() => _selectedCity = 'All Cities');
+                                  _refreshData();
+                                },
+                                icon: const Icon(Icons.public_rounded, size: 16),
+                                label: const Text('View All Cities'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: colors.primary,
+                                  side: BorderSide(color: colors.primary),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       )
                     : RefreshIndicator(
-                        onRefresh: () async {
-                          final city = ref.read(authStateProvider).value?.city;
-                          await Future.wait([
-                            ref.read(buddyControllerProvider.notifier).fetchOpenRequests(city: city),
-                            _fetchOpenGroups(city),
-                          ]);
-                        },
+                        onRefresh: _refreshData,
                         child: ListView.separated(
                           physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                           itemCount: totalCount,
@@ -545,7 +609,7 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Host: ${group.hostName ?? "Garba Host"} • Free Join (0 OTP)',
+                  'Host: ${group.hostName ?? "Garba Host"} • ${(group.city.toLowerCase() == "all" || group.city.toLowerCase() == "all cities") ? "All Cities" : group.city} • Free Join (0 OTP)',
                   style: typography.bodySmall.copyWith(
                     fontSize: 12,
                     color: const Color(0xFF10B981),

@@ -43,7 +43,11 @@ function decryptOtp(encryptedStr) {
 class BuddyService {
   _normalizeCity(city) {
     if (!city || typeof city !== 'string') return '';
-    return city.trim().toLowerCase();
+    const trimmed = city.trim().toLowerCase();
+    if (trimmed === 'all' || trimmed === 'all cities' || trimmed === 'all city' || trimmed === 'everywhere' || trimmed === 'nationwide' || trimmed === 'pan india') {
+      return 'all';
+    }
+    return trimmed;
   }
 
   _isValidUUID(uuid) {
@@ -688,11 +692,18 @@ class BuddyService {
     const genderKey = (userGender || 'all').toLowerCase().trim();
     const typeKey = (buddyType || 'all').toLowerCase().trim();
 
+    const isAll = !normalizedCity || normalizedCity === 'all';
     // Cache feed across users in same city/gender/type with 5-second TTL
-    const cacheKey = `buddy:feed:${normalizedCity}:${genderKey}:${typeKey}:${parsedLimit}:${parsedOffset}`;
+    const cacheKey = `buddy:feed:${isAll ? 'all' : normalizedCity}:${genderKey}:${typeKey}:${parsedLimit}:${parsedOffset}`;
 
     const rawRows = await cacheService.getOrSet(cacheKey, 5, async () => {
-      const params = [normalizedCity];
+      const params = [];
+      let cityClause = '';
+      if (!isAll) {
+        params.push(normalizedCity);
+        cityClause = `AND (r.city = $1 OR LOWER(r.city) IN ('all', 'all cities', 'everywhere', 'nationwide'))`;
+      }
+
       let query = `
         SELECT r.id, r.initiator_id, r.buddy_type, r.city, r.target_gender,
                r.status, r.initiator_coin_cost, r.accepter_coin_reward, r.created_at,
@@ -704,8 +715,8 @@ class BuddyService {
                u.gender AS initiator_gender
         FROM public.buddy_requests r
         JOIN public.users u ON u.id = r.initiator_id
-        WHERE r.city = $1
-          AND r.status = 'open'
+        WHERE r.status = 'open'
+          ${cityClause}
       `;
 
       if (userGender) {

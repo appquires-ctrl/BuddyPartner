@@ -6,7 +6,11 @@ const { subscriptionsService } = require('../subscriptions/subscriptions.service
 class BuddyGroupService {
   _normalizeCity(city) {
     if (!city || typeof city !== 'string') return '';
-    return city.trim().toLowerCase();
+    const trimmed = city.trim().toLowerCase();
+    if (trimmed === 'all' || trimmed === 'all cities' || trimmed === 'all city' || trimmed === 'everywhere' || trimmed === 'nationwide' || trimmed === 'pan india') {
+      return 'all';
+    }
+    return trimmed;
   }
 
   _isValidUUID(uuid) {
@@ -280,6 +284,21 @@ class BuddyGroupService {
     const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 50);
     const parsedOffset = Math.max(parseInt(offset, 10) || 0, 0);
 
+    const isAll = !normalizedCity || normalizedCity === 'all';
+    const params = [];
+    let cityClause = '';
+
+    if (isAll) {
+      params.push(userId, parsedLimit, parsedOffset);
+    } else {
+      params.push(normalizedCity, userId, parsedLimit, parsedOffset);
+      cityClause = `AND (LOWER(TRIM(bg.city)) = $1 OR LOWER(TRIM(bg.city)) IN ('all', 'all cities', 'everywhere', 'nationwide'))`;
+    }
+
+    const userParamIndex = isAll ? 1 : 2;
+    const limitParamIndex = isAll ? 2 : 3;
+    const offsetParamIndex = isAll ? 3 : 4;
+
     const query = `
       SELECT 
         bg.id,
@@ -299,18 +318,18 @@ class BuddyGroupService {
         u.gender as host_gender,
         EXISTS (
           SELECT 1 FROM public.buddy_group_members bgm 
-          WHERE bgm.group_id = bg.id AND bgm.user_id = $2
+          WHERE bgm.group_id = bg.id AND bgm.user_id = $${userParamIndex}
         ) as is_member
       FROM public.buddy_groups bg
       JOIN public.users u ON u.id = bg.initiator_id
-      WHERE LOWER(TRIM(bg.city)) = $1
-        AND bg.status = 'open'
+      WHERE bg.status = 'open'
         AND bg.member_count < bg.max_members
+        ${cityClause}
       ORDER BY bg.created_at DESC
-      LIMIT $3 OFFSET $4;
+      LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex};
     `;
 
-    const result = await db.query(query, [normalizedCity, userId, parsedLimit, parsedOffset]);
+    const result = await db.query(query, params);
     return result.rows;
   }
 

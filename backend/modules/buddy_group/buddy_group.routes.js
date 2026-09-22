@@ -67,11 +67,7 @@ router.get('/open', authMiddleware, async (req, res) => {
 
     if (!city) {
       const userRes = await db.query('SELECT city FROM public.users WHERE id = $1', [req.user.id]);
-      city = userRes.rows[0]?.city;
-    }
-
-    if (!city) {
-      return res.json({ success: true, groups: [] });
+      city = userRes.rows[0]?.city || 'all';
     }
 
     const groups = await buddyGroupService.listOpenGroups({

@@ -51,11 +51,25 @@ async function broadcastNewBuddyRequest(io, request) {
   const normalizedCity = request.city.trim().toLowerCase();
   const targetGender = (request.target_gender || 'all').trim().toLowerCase();
 
-  // 1. O(1) Real-time Socket.io Room Broadcast (single packet per recipient, zero duplicate rooms)
-  if (targetGender === 'all') {
-    io.to(`buddy:city:${normalizedCity}:male`).to(`buddy:city:${normalizedCity}:female`).emit('new_buddy_request', request);
+  const isAll = normalizedCity === 'all' || normalizedCity === 'all cities';
+
+  // 1. Real-time Socket.io Room Broadcast
+  if (isAll) {
+    if (targetGender === 'all') {
+      io.emit('new_buddy_request', request);
+    } else {
+      io.to(`buddy:city:all:${targetGender}`).emit('new_buddy_request', request);
+    }
+  } else if (targetGender === 'all') {
+    io.to(`buddy:city:${normalizedCity}:male`)
+      .to(`buddy:city:${normalizedCity}:female`)
+      .to(`buddy:city:all:male`)
+      .to(`buddy:city:all:female`)
+      .emit('new_buddy_request', request);
   } else {
-    io.to(`buddy:city:${normalizedCity}:${targetGender}`).emit('new_buddy_request', request);
+    io.to(`buddy:city:${normalizedCity}:${targetGender}`)
+      .to(`buddy:city:all:${targetGender}`)
+      .emit('new_buddy_request', request);
   }
 
   console.log(`📢 [Buddy Socket] Broadcasted new_${request.buddy_type} to city '${normalizedCity}', target: '${targetGender}'`);
@@ -131,7 +145,16 @@ async function broadcastNewBuddyRequest(io, request) {
 function broadcastBuddyRequestTaken(io, { requestId, buddyType, city }) {
   if (!io || !city) return;
   const normalizedCity = city.trim().toLowerCase();
-  io.to(`buddy:city:${normalizedCity}:male`).to(`buddy:city:${normalizedCity}:female`).emit('buddy_request_taken', { requestId, buddyType });
+  const isAll = normalizedCity === 'all' || normalizedCity === 'all cities';
+  if (isAll) {
+    io.emit('buddy_request_taken', { requestId, buddyType });
+  } else {
+    io.to(`buddy:city:${normalizedCity}:male`)
+      .to(`buddy:city:${normalizedCity}:female`)
+      .to(`buddy:city:all:male`)
+      .to(`buddy:city:all:female`)
+      .emit('buddy_request_taken', { requestId, buddyType });
+  }
   console.log(`📢 [Buddy Socket] Broadcasted buddy_request_taken (${requestId}) to city rooms '${normalizedCity}'`);
 }
 

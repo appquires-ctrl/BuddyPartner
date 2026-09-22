@@ -233,9 +233,11 @@ io.on('connection', (socket) => {
   registerBuddyHandlers(io, socket, redis);
   registerBuddyGroupSocketHandlers(io, socket, redis);
 
-  // Auto-join user's city+gender buddy room without Postgres query (authoritative from Redis/JWT during handshake)
+  // Auto-join user's city+gender buddy room and nationwide 'all' room
+  const userGender = (socket.gender || 'male').trim().toLowerCase();
+  socket.join(`buddy:city:all:${userGender}`);
+  socket.join(`buddy:city:all:all`);
   if (socket.city && typeof socket.city === 'string' && socket.city.trim()) {
-    const userGender = (socket.gender || 'male').trim().toLowerCase();
     const room = `buddy:city:${socket.city.trim().toLowerCase()}:${userGender}`;
     socket.join(room);
   }

@@ -18,6 +18,9 @@ import 'package:buddypartner/features/wallet/application/wallet_balance_provider
 /// Covers ~98% of Indian urban population. Alternate spellings (Bangalore/Bengaluru)
 /// are listed so both match correctly.
 const List<String> kIndianCities = [
+  // ── Testing / Nationwide ──
+  'All Cities',
+
   // ── Mega cities ──
   'Mumbai', 'Delhi', 'Kolkata', 'Chennai', 'Bengaluru', 'Bangalore',
   'Hyderabad', 'Ahmedabad', 'Pune', 'Surat',
@@ -202,13 +205,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
   }
 
   void _openCityPicker() {
-    showModalBottomSheet<String>(
-      context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _CityPickerSheet(currentCity: _selectedCity),
-    ).then((chosenCity) {
+    CityPickerSheet.show(context, currentCity: _selectedCity).then((chosenCity) {
       if (chosenCity != null && chosenCity.isNotEmpty) {
         setState(() {
           _selectedCity = chosenCity;
@@ -667,16 +664,26 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
 }
 
 /// Searchable Sheet for selecting Indian cities
-class _CityPickerSheet extends StatefulWidget {
+class CityPickerSheet extends StatefulWidget {
   final String currentCity;
 
-  const _CityPickerSheet({required this.currentCity});
+  const CityPickerSheet({super.key, required this.currentCity});
+
+  static Future<String?> show(BuildContext context, {required String currentCity}) {
+    return showModalBottomSheet<String>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CityPickerSheet(currentCity: currentCity),
+    );
+  }
 
   @override
-  State<_CityPickerSheet> createState() => _CityPickerSheetState();
+  State<CityPickerSheet> createState() => _CityPickerSheetState();
 }
 
-class _CityPickerSheetState extends State<_CityPickerSheet> {
+class _CityPickerSheetState extends State<CityPickerSheet> {
   late TextEditingController _searchController;
   late List<String> _filteredCities;
 
@@ -779,14 +786,47 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
                 if (index < _filteredCities.length) {
                   final city = _filteredCities[index];
                   final isSelected = city.toLowerCase() == widget.currentCity.toLowerCase();
+                  final isAll = city.toLowerCase() == 'all cities' || city.toLowerCase() == 'all';
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    title: Text(
-                      city,
-                      style: TextStyle(
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                        color: isSelected ? colors.primary : colors.textPrimary,
-                      ),
+                    leading: isAll
+                        ? Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: colors.primary.withValues(alpha: 0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.public_rounded, size: 20, color: colors.primary),
+                          )
+                        : null,
+                    title: Row(
+                      children: [
+                        Text(
+                          city,
+                          style: TextStyle(
+                            fontWeight: (isSelected || isAll) ? FontWeight.bold : FontWeight.w500,
+                            color: isSelected ? colors.primary : colors.textPrimary,
+                          ),
+                        ),
+                        if (isAll) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: colors.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'Nationwide',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: colors.primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     trailing: isSelected ? Icon(Icons.check_circle_rounded, color: colors.primary) : null,
                     onTap: () => Navigator.of(context).pop(city),
