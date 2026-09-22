@@ -63,7 +63,7 @@ class ActiveBuddyStatusBanner extends ConsumerWidget {
     String titleText;
     String subtitleText;
 
-    if (partners.isNotEmpty) {
+    if (handshakesCount > 0) {
       final names = partners
           .map((p) => p.fullName.trim().split(' ').first)
           .where((n) => n.isNotEmpty && n.toLowerCase() != 'user')
@@ -88,19 +88,24 @@ class ActiveBuddyStatusBanner extends ConsumerWidget {
       } else {
         subtitleText = 'Chat open • Meetup OTP ready';
       }
-    } else {
+    } else if (openAsInitiatorList.isNotEmpty) {
       // Broadcasts only
-      final city = openAsInitiatorList.first.city;
-      final displayCity = city.isNotEmpty
-          ? (city[0].toUpperCase() + city.substring(1).toLowerCase())
-          : 'your city';
+      final city = openAsInitiatorList.firstOrNull?.city ?? '';
+      final isAll = city.toLowerCase() == 'all' || city.toLowerCase() == 'all cities';
+      final displayCity = isAll
+          ? 'All Cities'
+          : (city.isNotEmpty
+              ? (city[0].toUpperCase() + city.substring(1).toLowerCase())
+              : 'your city');
       if (broadcastsCount == 1) {
         titleText = 'Broadcast Live';
-        subtitleText = 'Looking for buddies in $displayCity';
+        subtitleText = isAll ? 'Looking for buddies nationwide' : 'Looking for buddies in $displayCity';
       } else {
         titleText = '$broadcastsCount Broadcasts Live';
-        subtitleText = 'Active in $displayCity';
+        subtitleText = isAll ? 'Active nationwide' : 'Active in $displayCity';
       }
+    } else {
+      return const SizedBox.shrink();
     }
 
     return Padding(
