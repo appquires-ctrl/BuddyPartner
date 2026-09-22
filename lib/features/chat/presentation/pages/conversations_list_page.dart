@@ -243,7 +243,8 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
               ),
 
               // ── 1.5. Segmented Switcher: Direct Chats vs Garba Groups ─────
-              SliverToBoxAdapter(
+              if (myBuddyGroups.isNotEmpty)
+                SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                   child: Container(
@@ -385,7 +386,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                 ),
               ),
 
-              if (_chatSection == 'groups')
+              if (_chatSection == 'groups' && myBuddyGroups.isNotEmpty)
                 _buildGarbaGroupsSliver(context, myBuddyGroupsAsync, isDark, colors, typography)
               else ...[
               // ── 2. Integrated Search Bar ───────────────────────────────────

@@ -220,7 +220,9 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
   Future<void> _submitRequest() async {
     if (_isSubmitting) return;
 
-    final requiredCoins = widget.customCoinCost ?? widget.buddyType.coinCost;
+    final requiredCoins = widget.buddyType == BuddyType.garba
+        ? 509
+        : (widget.customCoinCost ?? widget.buddyType.coinCost);
     final currentCoins = ref.read(walletBalanceProvider).value ?? 0;
     if (currentCoins < requiredCoins) {
       Navigator.of(context).pop(); // Close create sheet
@@ -310,8 +312,10 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
     final typography = context.typography;
     final type = widget.buddyType;
     final displayTitle = widget.customTitle ?? type.title;
-    final displaySubtitle = widget.customSubtitle ?? type.subtitle;
-    final effectiveCoins = widget.customCoinCost ?? type.coinCost;
+    final displaySubtitle = type == BuddyType.garba
+        ? 'Start a 6-person Garba group chat'
+        : (widget.customSubtitle ?? type.subtitle);
+    final effectiveCoins = type == BuddyType.garba ? 509 : (widget.customCoinCost ?? type.coinCost);
     final effectiveAccent = widget.customAccentColor ?? type.accentColor;
     final effectiveGradients = widget.customAccentColor != null
         ? [widget.customAccentColor!, widget.customAccentColor!.withValues(alpha: 0.8)]
@@ -597,8 +601,11 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '• The first person in $_selectedCity to accept will unlock chat with you immediately.\n'
-                  '• When you meet in person, share your 6-digit verification code with your buddy.',
+                  type == BuddyType.garba
+                      ? '• Creates a 6-member Garba group. Up to 5 people in $_selectedCity can join for FREE.\n'
+                        '• Group chat unlocks immediately for everyone with ZERO verification OTP.'
+                      : '• The first person in $_selectedCity to accept will unlock chat with you immediately.\n'
+                        '• When you meet in person, share your 6-digit verification code with your buddy.',
                   style: const TextStyle(
                     fontSize: 11.5,
                     color: Color(0xFF78350F),
@@ -631,7 +638,9 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
                         const AppCoinIcon(size: 18),
                         const SizedBox(width: 8),
                         Text(
-                          'Broadcast Request ($effectiveCoins Coin${effectiveCoins == 1 ? '' : 's'})',
+                          type == BuddyType.garba
+                              ? 'Broadcast Group ($effectiveCoins Coins)'
+                              : 'Broadcast Request ($effectiveCoins Coin${effectiveCoins == 1 ? '' : 's'})',
                           style: typography.bodyMedium.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
