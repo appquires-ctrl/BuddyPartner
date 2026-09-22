@@ -1523,7 +1523,20 @@ router.get('/me', authMiddleware, async (req, res) => {
  */
 async function handleLocationUpdate(req, res) {
   const userId = req.user.id;
-  const { country, state, city, latitude, longitude } = req.body;
+  let { country, state, city, latitude, longitude } = req.body;
+
+  // Always remap Android emulator default location (Mountain View, CA) to Lucknow, India
+  const isEmulatorLocation = (city && city.trim().toLowerCase() === 'mountain view') ||
+    (state && state.trim().toLowerCase() === 'california' && country && country.trim().toLowerCase() === 'united states') ||
+    (latitude && longitude && latitude > 37.35 && latitude < 37.50 && longitude > -122.15 && longitude < -122.00);
+
+  if (isEmulatorLocation) {
+    city = 'Lucknow';
+    state = 'Uttar Pradesh';
+    country = 'India';
+    latitude = 26.8467;
+    longitude = 80.9462;
+  }
 
   try {
     await db.query(

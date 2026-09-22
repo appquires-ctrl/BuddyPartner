@@ -173,12 +173,19 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
     final buddyState = ref.watch(buddyControllerProvider);
     final userCity = ref.watch(authStateProvider).value?.city ?? 'your area';
 
+    final currentUserId = ref.watch(authStateProvider).value?.id;
+
     final filteredRequests = _selectedFilterType == null
         ? buddyState.openRequests.where((r) => r.buddyType != BuddyType.garba).toList()
         : buddyState.openRequests.where((r) => r.buddyType == _selectedFilterType && r.buddyType != BuddyType.garba).toList();
 
     final showGroups = (_selectedFilterType == null || _selectedFilterType == BuddyType.garba);
-    final displayedGroups = showGroups ? _openGroups : <BuddyGroup>[];
+    final displayedGroups = showGroups
+        ? _openGroups.where((g) {
+            final isHost = currentUserId != null && g.initiatorId == currentUserId;
+            return !isHost && !g.isMember;
+          }).toList()
+        : <BuddyGroup>[];
     final totalCount = displayedGroups.length + filteredRequests.length;
 
     return Container(
@@ -524,7 +531,9 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
   Widget _buildGroupCard(BuddyGroup group) {
     final colors = context.colors;
     final typography = context.typography;
+    final currentUserId = ref.watch(authStateProvider).value?.id;
     final isAccepting = _acceptingRequestId == group.id;
+    final isMemberOrHost = group.isMember || (currentUserId != null && group.initiatorId == currentUserId);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -625,9 +634,23 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
           SizedBox(
             height: 40,
             child: ElevatedButton(
-              onPressed: isAccepting ? null : () => _handleJoinGroup(group),
+              onPressed: isAccepting
+                  ? null
+                  : isMemberOrHost
+                      ? () {
+                          Navigator.of(context).pop();
+                          context.push(
+                            RouteNames.buddyGroupChat,
+                            extra: {
+                              'groupId': group.id,
+                              'title': group.title,
+                              'memberCount': group.memberCount,
+                            },
+                          );
+                        }
+                      : () => _handleJoinGroup(group),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF9333EA),
+                backgroundColor: isMemberOrHost ? const Color(0xFF10B981) : const Color(0xFF9333EA),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 shape: RoundedRectangleBorder(
@@ -641,9 +664,9 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text(
-                      'Join Group',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  : Text(
+                      isMemberOrHost ? 'Open Chat' : 'Join Group',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
             ),
           ),

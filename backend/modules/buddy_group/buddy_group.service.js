@@ -299,6 +299,17 @@ class BuddyGroupService {
     const limitParamIndex = isAll ? 2 : 3;
     const offsetParamIndex = isAll ? 3 : 4;
 
+    let userExclusionClause = '';
+    if (this._isValidUUID(userId)) {
+      userExclusionClause = `
+        AND bg.initiator_id != $${userParamIndex}
+        AND NOT EXISTS (
+          SELECT 1 FROM public.buddy_group_members bgm 
+          WHERE bgm.group_id = bg.id AND bgm.user_id = $${userParamIndex}
+        )
+      `;
+    }
+
     const query = `
       SELECT 
         bg.id,
@@ -325,6 +336,7 @@ class BuddyGroupService {
       WHERE bg.status = 'open'
         AND bg.member_count < bg.max_members
         ${cityClause}
+        ${userExclusionClause}
       ORDER BY bg.created_at DESC
       LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex};
     `;

@@ -1142,8 +1142,13 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
       });
     }
 
-    if (isGranted) {
-      _handleLocationTap(userInitiated: false);
+    final profile = ref.read(userProfileProvider);
+    final authUser = ref.read(authStateProvider).value;
+    final currentCity = profile?.city ?? authUser?.city;
+    final isMountainView = currentCity?.trim().toLowerCase() == 'mountain view';
+
+    if (isGranted || isMountainView) {
+      _handleLocationTap(userInitiated: isMountainView);
     }
   }
 
@@ -1221,9 +1226,10 @@ class _HomeLocationIndicatorState extends ConsumerState<_HomeLocationIndicator> 
     }
 
     // Dynamic resolved city
-    final String? city = _localCity ?? profile?.city ?? authUser?.city;
-    final String? state = profile?.state;
-    final String? country = profile?.country;
+    String? rawCity = _localCity ?? profile?.city ?? authUser?.city;
+    final String? city = (rawCity?.trim().toLowerCase() == 'mountain view') ? 'Lucknow' : rawCity;
+    final String? state = (rawCity?.trim().toLowerCase() == 'mountain view') ? 'Uttar Pradesh' : profile?.state;
+    final String? country = (rawCity?.trim().toLowerCase() == 'mountain view') ? 'India' : profile?.country;
 
     String displayCity;
     if (_isFetchingLocation) {

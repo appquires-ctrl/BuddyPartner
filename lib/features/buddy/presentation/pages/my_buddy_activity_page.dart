@@ -11,7 +11,6 @@ import 'package:buddypartner/features/auth/application/auth_state_provider.dart'
 import 'package:buddypartner/features/buddy/application/buddy_controller.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/accepter_otp_dialog.dart';
-import 'package:buddypartner/features/buddy/presentation/widgets/create_buddy_request_sheet.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/initiator_otp_modal.dart';
 
 /// Clean, modern screen displaying active Buddy connections, city broadcasts, and history.
@@ -186,22 +185,22 @@ class _MyBuddyActivityPageState extends ConsumerState<MyBuddyActivityPage>
               ),
             ],
           ),
-          floatingActionButton: _selectedTab == 1
-              ? FloatingActionButton.extended(
-                  onPressed: () =>
-                      CreateBuddyRequestSheet.show(context, BuddyType.movie),
-                  backgroundColor: colors.primary,
-                  icon: const Icon(Icons.add_rounded, color: Colors.white),
-                  label: const Text(
-                    'New Broadcast',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: Colors.white,
-                    ),
-                  ),
-                )
-              : null,
+          // floatingActionButton: _selectedTab == 1
+          //     ? FloatingActionButton.extended(
+          //         onPressed: () =>
+          //             CreateBuddyRequestSheet.show(context, BuddyType.movie),
+          //         backgroundColor: colors.primary,
+          //         icon: const Icon(Icons.add_rounded, color: Colors.white),
+          //         label: const Text(
+          //           'New Broadcast',
+          //           style: TextStyle(
+          //             fontWeight: FontWeight.bold,
+          //             fontSize: 13,
+          //             color: Colors.white,
+          //           ),
+          //         ),
+          //       )
+          //     : null,
         ),
       ],
     );

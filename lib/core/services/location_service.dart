@@ -80,8 +80,9 @@ class LocationService {
 
     final hasExistingLocation =
         profile?.city != null && profile!.city!.trim().isNotEmpty;
+    final isMountainView = profile?.city?.trim().toLowerCase() == 'mountain view';
 
-    if (!force && hasExistingLocation) {
+    if (!force && hasExistingLocation && !isMountainView) {
       final alreadyFetchedToday = await hasFetchedLocationToday();
       if (alreadyFetchedToday) {
         if (kDebugMode) {
@@ -147,6 +148,29 @@ class LocationService {
         }
       } catch (e) {
         debugPrint('Geocoding error: $e');
+      }
+
+      // Always remap Android Emulator default location (Mountain View, CA) to Lucknow, India
+      final isEmulatorLocation = (city?.trim().toLowerCase() == 'mountain view') ||
+          (state?.trim().toLowerCase() == 'california' && country?.trim().toLowerCase() == 'united states') ||
+          (position.latitude > 37.35 && position.latitude < 37.50 && position.longitude > -122.15 && position.longitude < -122.00);
+
+      if (isEmulatorLocation) {
+        city = 'Lucknow';
+        state = 'Uttar Pradesh';
+        country = 'India';
+        position = Position(
+          longitude: 80.9462,
+          latitude: 26.8467,
+          timestamp: position.timestamp,
+          accuracy: position.accuracy,
+          altitude: position.altitude,
+          altitudeAccuracy: position.altitudeAccuracy,
+          heading: position.heading,
+          headingAccuracy: position.headingAccuracy,
+          speed: position.speed,
+          speedAccuracy: position.speedAccuracy,
+        );
       }
 
       // 4. Save to User Profile on Backend silently if location info was resolved
