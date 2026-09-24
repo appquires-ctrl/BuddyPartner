@@ -26,6 +26,16 @@ class CallHistoryPage extends ConsumerStatefulWidget {
 class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
   String _selectedFilter = 'all'; // 'all' or 'missed'
 
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      if (mounted) {
+        ref.invalidate(callHistoryProvider);
+      }
+    });
+  }
+
   Future<void> _handleRefresh() async {
     ref.invalidate(callHistoryProvider);
     await ref.read(callHistoryProvider.future);

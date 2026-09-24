@@ -82,7 +82,7 @@ class CallLog {
 }
 
 /// Provider to fetch and cache call history records for the current user.
-final callHistoryProvider = FutureProvider<List<CallLog>>((ref) async {
+final callHistoryProvider = FutureProvider.autoDispose<List<CallLog>>((ref) async {
   final authState = ref.watch(authStateProvider);
   final user = authState.value;
   if (user == null) return const [];
