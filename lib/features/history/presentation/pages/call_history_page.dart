@@ -5,6 +5,7 @@ import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/widgets/shimmer/skeletons/call_history_skeleton.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/app/theme/app_spacing.dart';
+import 'package:buddypartner/app/theme/app_colors.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/features/home/presentation/widgets/matching_illustration.dart';
@@ -111,7 +112,7 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
     );
   }
 
-  Widget _buildFilterTab(String id, String label, dynamic colors) {
+  Widget _buildFilterTab(String id, String label, AppColors colors) {
     final isSelected = _selectedFilter == id;
     return GestureDetector(
       onTap: () => setState(() => _selectedFilter = id),
@@ -126,7 +127,7 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
           border: Border.all(
             color: isSelected
                 ? (id == 'missed' ? const Color(0xFFEF4444) : const Color(0xFF6B4EFF))
-                : colors.surfaceBorder,
+                : colors.border,
             width: 1.2,
           ),
         ),
