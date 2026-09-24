@@ -113,7 +113,7 @@ class RechargeOrderRequest {
 
   const RechargeOrderRequest({
     required this.planId,
-    this.autoOpenSummary = true,
+    this.autoOpenSummary = false,
     this.reason,
   });
 }
@@ -141,7 +141,7 @@ RechargePlanUiModel findRecommendedRechargePlan(List<RechargePlanUiModel> plans,
 }
 
 /// Helper that calculates the missing coins, selects the optimal recharge plan,
-/// queues the Order Summary bottom sheet, and routes the user directly to the Wallet store.
+/// and routes the user directly to the Wallet store with the plan selected.
 void openRechargeForDeficit({
   BuildContext? context,
   required WidgetRef ref,
@@ -155,7 +155,7 @@ void openRechargeForDeficit({
 
   ref.read(pendingRechargeOrderProvider.notifier).state = RechargeOrderRequest(
     planId: recommendedPlan.id,
-    autoOpenSummary: true,
+    autoOpenSummary: false,
     reason: featureName,
   );
 

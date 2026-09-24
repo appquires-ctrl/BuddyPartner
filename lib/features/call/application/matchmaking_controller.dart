@@ -13,6 +13,7 @@ import 'package:buddypartner/features/subscription/application/subscription_prov
 import 'package:buddypartner/features/home/presentation/providers/matched_users_provider.dart';
 import 'package:buddypartner/features/history/data/call_history_provider.dart';
 
+import 'package:buddypartner/core/services/callkit_service.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
 
@@ -220,16 +221,28 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
     if (state.phase != MatchmakingPhase.incomingRequest || state.callId == null) return;
 
     try {
-      // 1. Emit accept immediately to eliminate any permission checking latency
-      _socket?.emit('accept_call_request', {'callRequestId': state.callId});
+      // 1. Dismiss CallKit notification and stop ringing
+      await CallkitService.endAllCalls();
 
-      // 2. Parallel permission verification
+      // 2. Ensure permissions are resolved sequentially BEFORE emitting accept to prevent PlatformException
       final micGranted = await Permission.microphone.isGranted;
-      final cameraGranted = await Permission.camera.isGranted;
-
-      if (!micGranted || !cameraGranted) {
-        await [Permission.microphone, Permission.camera].request();
+      if (!micGranted) {
+        final status = await Permission.microphone.request();
+        if (!status.isGranted) {
+          state = state.copyWith(errorMessage: 'Microphone permission is required to accept calls.');
+          declineCall();
+          return;
+        }
       }
+
+      // Check camera permission if needed
+      final cameraGranted = await Permission.camera.isGranted;
+      if (!cameraGranted) {
+        await Permission.camera.request();
+      }
+
+      // 3. Emit accept to backend once permissions are secured
+      _socket?.emit('accept_call_request', {'callRequestId': state.callId});
     } catch (e) {
       debugPrint('Error accepting call request: $e');
       state = state.copyWith(errorMessage: 'Failed to accept call request.');
@@ -239,10 +252,52 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
   /// Decline the incoming direct call request.
   void declineCall() {
     if (state.phase != MatchmakingPhase.incomingRequest || state.callId == null) return;
+    CallkitService.endAllCalls();
     _socket?.emit('decline_call_request', {'callRequestId': state.callId});
     _callingTimeoutTimer?.cancel();
     _callingTimeoutTimer = null;
     state = state.reset();
+  }
+
+  /// Accept call triggered from external native CallKit UI
+  Future<void> acceptCallFromCallKit({
+    required String callRequestId,
+    required String callerId,
+    required String callerName,
+  }) async {
+    debugPrint('📲 [MatchmakingController] acceptCallFromCallKit: $callRequestId ($callerName)');
+    if (state.phase == MatchmakingPhase.incomingRequest && state.callId == callRequestId) {
+      await acceptCall();
+      return;
+    }
+
+    state = state.copyWith(
+      phase: MatchmakingPhase.incomingRequest,
+      callId: callRequestId,
+      matchedUser: MatchedUserInfo(
+        id: callerId,
+        fullName: callerName,
+      ),
+    );
+
+    if (_socket != null && _socket!.connected) {
+      await acceptCall();
+    } else {
+      _socket?.once('connect', (_) {
+        acceptCall();
+      });
+    }
+  }
+
+  /// Decline call triggered from external native CallKit UI
+  void declineCallFromCallKit(String callRequestId) {
+    debugPrint('📲 [MatchmakingController] declineCallFromCallKit: $callRequestId');
+    _socket?.emit('decline_call_request', {'callRequestId': callRequestId});
+    if (state.callId == callRequestId) {
+      _callingTimeoutTimer?.cancel();
+      _callingTimeoutTimer = null;
+      state = state.reset();
+    }
   }
 
   /// Cancel the outgoing direct call request before it is accepted.
@@ -737,6 +792,13 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
         matchedUser: caller,
       );
 
+      // Present incoming call with ringtone via CallKit
+      CallkitService.showIncomingCall(
+        callRequestId: callRequestId,
+        callerId: caller.id,
+        callerName: caller.fullName,
+        callerAvatar: caller.avatarUrl ?? caller.avatarSeed,
+      );
 
       _callingTimeoutTimer?.cancel();
       _callingTimeoutTimer = Timer(const Duration(seconds: 32), () {
@@ -769,6 +831,7 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
       _callingTimeoutTimer?.cancel();
       _callingTimeoutTimer = null;
       _pendingDirectCallUserId = null;
+      CallkitService.endAllCalls();
 
       String message = 'Call request ended';
       if (status == 'declined') {

@@ -1,24 +1,50 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/core/services/callkit_service.dart';
 import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
 import 'package:buddypartner/features/call/application/matchmaking_state.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/core/widgets/app_avatar.dart';
 
-class IncomingCallPage extends ConsumerWidget {
+class IncomingCallPage extends ConsumerStatefulWidget {
   const IncomingCallPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<IncomingCallPage> createState() => _IncomingCallPageState();
+}
+
+class _IncomingCallPageState extends ConsumerState<IncomingCallPage> {
+  Timer? _vibrationTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start repeating vibration rhythm for incoming call ringing
+    HapticFeedback.vibrate();
+    _vibrationTimer = Timer.periodic(const Duration(milliseconds: 1400), (_) {
+      HapticFeedback.vibrate();
+    });
+  }
+
+  @override
+  void dispose() {
+    _vibrationTimer?.cancel();
+    CallkitService.endAllCalls();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final matchState = ref.watch(matchmakingControllerProvider);
     final controller = ref.read(matchmakingControllerProvider.notifier);
 
     ref.listen<MatchmakingState>(matchmakingControllerProvider, (prev, next) {
       if (next.phase == MatchmakingPhase.idle) {
-        if (mounted(context)) {
+        if (mounted) {
           context.go(RouteNames.home);
         }
       }
@@ -108,6 +134,8 @@ class IncomingCallPage extends ConsumerWidget {
                     GestureDetector(
                       onTap: () {
                         HapticFeedback.mediumImpact();
+                        _vibrationTimer?.cancel();
+                        CallkitService.endAllCalls();
                         controller.declineCall();
                       },
                       child: Container(
@@ -143,6 +171,8 @@ class IncomingCallPage extends ConsumerWidget {
                     GestureDetector(
                       onTap: () {
                         HapticFeedback.heavyImpact();
+                        _vibrationTimer?.cancel();
+                        CallkitService.endAllCalls();
                         controller.acceptCall();
                       },
                       child: Container(
@@ -176,15 +206,6 @@ class IncomingCallPage extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  bool mounted(BuildContext context) {
-    try {
-      // ignore: unnecessary_null_comparison
-      return context != null && (context as Element).mounted;
-    } catch (_) {
-      return false;
-    }
   }
 }
 

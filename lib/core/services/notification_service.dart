@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/core/services/apptrove_service.dart';
+import 'package:buddypartner/core/services/callkit_service.dart';
 import 'package:buddypartner/core/widgets/feedback/in_app_notification_banner.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
@@ -48,6 +49,32 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   } catch (_) {}
   if (kDebugMode) {
     debugPrint('🔔 [FCM Background] Received push: ${message.messageId}, data: ${message.data}');
+  }
+
+  final data = message.data;
+  final type = data['type']?.toString();
+
+  if (type == 'incoming_call') {
+    final callRequestId = data['callRequestId']?.toString() ?? '';
+    final callerId = data['callerId']?.toString() ?? '';
+    final callerName = data['callerName']?.toString() ?? 'BuddyPartner User';
+    final callerAvatar = data['callerAvatar']?.toString();
+
+    if (callRequestId.isNotEmpty) {
+      await CallkitService.showIncomingCall(
+        callRequestId: callRequestId,
+        callerId: callerId,
+        callerName: callerName,
+        callerAvatar: callerAvatar,
+      );
+    }
+  } else if (type == 'call_ended' || type == 'call_cancelled' || type == 'call_missed') {
+    final callRequestId = data['callRequestId']?.toString();
+    if (callRequestId != null && callRequestId.isNotEmpty) {
+      await CallkitService.endCall(callRequestId);
+    } else {
+      await CallkitService.endAllCalls();
+    }
   }
 }
 
@@ -103,7 +130,19 @@ class NotificationService {
     required int bidAmount,
   })? onInstantCallNotification;
 
-  /// Initializes Firebase and Firebase Messaging safely
+  /// Callback when user accepts call from CallKit UI
+  void Function({
+    required String callRequestId,
+    required String callerId,
+    required String callerName,
+  })? onCallKitAccept;
+
+  /// Callback when user declines call from CallKit UI
+  void Function({
+    required String callRequestId,
+  })? onCallKitDecline;
+
+  /// Initializes Firebase, Firebase Messaging, and CallKit listeners safely
   Future<void> initialize(WidgetRef? ref) async {
     if (_initialized) return;
 
@@ -113,6 +152,20 @@ class NotificationService {
       if (kDebugMode) {
         debugPrint('🔥 [Firebase] Initialized successfully');
       }
+
+      // Initialize CallKit event listeners
+      CallkitService.initializeListeners(
+        onAccept: (callRequestId, callerId, callerName) {
+          onCallKitAccept?.call(
+            callRequestId: callRequestId,
+            callerId: callerId,
+            callerName: callerName,
+          );
+        },
+        onDecline: (callRequestId) {
+          onCallKitDecline?.call(callRequestId: callRequestId);
+        },
+      );
 
       // 1. Request notification permissions (Android 13+ & iOS)
       final messaging = FirebaseMessaging.instance;

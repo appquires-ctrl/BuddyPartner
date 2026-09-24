@@ -6,9 +6,7 @@ import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/create_buddy_request_sheet.dart';
-import 'package:buddypartner/features/recharge/presentation/providers/recharge_providers.dart';
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
-import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 
 /// Festive seasonal banner for "Find Your Garba Partner".
 /// Tapping directly opens [CreateBuddyRequestSheet] pre-selected with [BuddyType.garba].
@@ -26,31 +24,9 @@ class GarbaBuddyBanner extends ConsumerWidget {
       return;
     }
 
-    // 2. Coin balance check (509 coins required to host a 6-person Garba Buddy Group)
-    const requiredCoins = 509;
-    int balance = ref.read(walletBalanceProvider).value ?? -1;
-    if (balance < requiredCoins) {
-      try {
-        balance = await ref.read(walletBalanceProvider.notifier).fetchBalance(force: true);
-      } catch (_) {
-        balance = balance == -1 ? 0 : balance;
-      }
-    }
-
-    if (!context.mounted) return;
-
-    if (balance < requiredCoins) {
-      openRechargeForDeficit(
-        context: context,
-        ref: ref,
-        requiredCoins: requiredCoins,
-        currentBalance: balance,
-        featureName: 'Garba Buddy',
-      );
-      return;
-    }
-
-    // 3. Open Creation Sheet pre-selected with Garba Buddy
+    // 2. Open Creation Sheet pre-selected with Garba Buddy
+    // Coin balance verification and recharge redirection occur when clicking
+    // "Broadcast Group" inside the bottom sheet.
     CreateBuddyRequestSheet.show(context, BuddyType.garba);
   }
 

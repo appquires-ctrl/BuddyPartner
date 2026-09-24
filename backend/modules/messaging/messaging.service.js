@@ -185,11 +185,13 @@ class MessagingService {
           let notifTag;
           let totalUnread = recentSenderCount;
 
-          // If 3 or fewer distinct senders recently, show individual conversation notification
-          if (recentSenderCount <= 3) {
+          // If missed call or 3 or fewer distinct senders recently, show individual conversation notification
+          if (type === 'missed_call' || recentSenderCount <= 3) {
             notifTitle = senderName;
-            notifBody = type === 'text' ? content : 'Sent you an attachment';
-            notifTag = `chat_${conversationId}`;
+            notifBody = type === 'missed_call'
+              ? 'Missed audio call'
+              : (type === 'text' ? content : 'Sent you an attachment');
+            notifTag = type === 'missed_call' ? `missed_call_${conversationId}` : `chat_${conversationId}`;
           } else {
             // If > 3 distinct senders, collapse into a single aggregated summary notification
             try {
@@ -214,14 +216,14 @@ class MessagingService {
             title: notifTitle,
             body: notifBody,
             tag: notifTag,
-            collapseKey: 'chat_updates',
+            collapseKey: type === 'missed_call' ? 'call_updates' : 'chat_updates',
             notificationCount: totalUnread,
             data: {
-              type: 'chat_message',
+              type: type === 'missed_call' ? 'missed_call' : 'chat_message',
               senderId: String(senderId),
               senderName: String(senderName),
               conversationId: String(conversationId),
-              isSummary: recentSenderCount > 3 ? 'true' : 'false',
+              isSummary: (type !== 'missed_call' && recentSenderCount > 3) ? 'true' : 'false',
               totalUnread: String(totalUnread),
             },
           }).catch((err) => console.error('FCM send error:', err.message));

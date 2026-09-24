@@ -8,6 +8,80 @@ const { PresenceService } = require('../presence/presence.service');
 const { distributedCallService } = require('../calls/distributed_call.service');
 const db = require('../../db');
 const redis = require('../../redis');
+const { MessagingService } = require('../messaging/messaging.service');
+
+const messagingService = new MessagingService();
+
+/**
+ * Record a missed call system message in the chat conversation and notify both users.
+ */
+async function recordMissedCall({ io, callerId, targetUserId, reason = 'missed' }) {
+  try {
+    if (!callerId || !targetUserId || callerId === targetUserId) return;
+
+    // 1. Fetch caller profile
+    const callerProfile = await fetchPublicProfile(callerId);
+
+    // 2. Find or create 1-on-1 conversation
+    const conv = await messagingService.findOrCreateConversation(callerId, targetUserId);
+    if (!conv) return;
+
+    // 3. Insert missed call message
+    const message = await messagingService.sendMessage(
+      conv.id,
+      callerId,
+      'Missed audio call',
+      'missed_call',
+      null,
+      'delivered',
+      conv
+    );
+
+    // 4. Emit to both users via socket
+    io.to(callerId).emit('message:new', { message });
+    io.to(targetUserId).emit('message:new', { message });
+
+    console.log(`📞 [Missed Call] Recorded missed call message in conversation ${conv.id} (${callerId} → ${targetUserId}, reason: ${reason})`);
+
+    // 5. Also record into public.calls so it appears in /api/calls/history
+    await db.query(
+      `INSERT INTO public.calls (caller_id, matched_user_id, status, call_type, duration_seconds, started_at, ended_at)
+       VALUES ($1, $2, 'missed', 'voice', 0, NOW(), NOW())`,
+      [callerId, targetUserId]
+    ).catch((err) => {
+      console.warn('Could not insert missed call into public.calls:', err.message);
+    });
+  } catch (err) {
+    console.error('Error recording missed call in chat:', err.message);
+  }
+}
+
+/**
+ * Send a background push to dismiss CallKit ringing on target device.
+ */
+async function sendCallDismissPush(targetUserId, callRequestId) {
+  try {
+    const targetUserRow = await db.query(
+      `SELECT fcm_token FROM public.users WHERE id = $1`,
+      [targetUserId]
+    );
+    const targetFcm = targetUserRow.rows[0]?.fcm_token;
+    if (targetFcm) {
+      sendPushNotification({
+        token: targetFcm,
+        title: '',
+        body: '',
+        tag: `direct_call_${callRequestId}`,
+        data: {
+          type: 'call_ended',
+          callRequestId: String(callRequestId),
+        },
+      }).catch(() => {});
+    }
+  } catch (err) {
+    console.error('Error sending call dismiss push:', err.message);
+  }
+}
 
 // ── Distributed Redis Call State Helpers ─────────────────────────────────────
 
@@ -578,6 +652,14 @@ function registerMatchmakingHandlers(io, socket, redis) {
       });
       
       console.log(`❌ Call request ${callRequestId} declined by target user ${userId}`);
+
+      sendCallDismissPush(userId, callRequestId);
+      recordMissedCall({
+        io,
+        callerId: request.callerId,
+        targetUserId: userId,
+        reason: 'declined',
+      });
     } catch (err) {
       console.error('Error in decline_call_request:', err);
     }
@@ -598,6 +680,14 @@ function registerMatchmakingHandlers(io, socket, redis) {
       });
 
       console.log(`🛑 Call request ${callRequestId} cancelled by caller ${userId}`);
+
+      sendCallDismissPush(request.targetUserId, callRequestId);
+      recordMissedCall({
+        io,
+        callerId: userId,
+        targetUserId: request.targetUserId,
+        reason: 'cancelled',
+      });
     } catch (err) {
       console.error('Error in cancel_call_request:', err);
     }
@@ -664,18 +754,18 @@ function registerMatchmakingHandlers(io, socket, redis) {
       const targetGender = await getUserGender(targetUserId);
 
       const isTargetOnline = await PresenceService.isUserOnline(redis, targetUserId);
-      if (!isTargetOnline) {
-        const targetUserRow = await db.query(
-          `SELECT fcm_token, full_name FROM public.users WHERE id = $1`,
-          [targetUserId]
-        );
-        const targetFcm = targetUserRow.rows[0]?.fcm_token;
-        if (!targetFcm) {
-          socket.emit('call_response', { status: 'offline' });
-          return;
-        }
+      const targetUserRow = await db.query(
+        `SELECT fcm_token, full_name FROM public.users WHERE id = $1`,
+        [targetUserId]
+      );
+      const targetFcm = targetUserRow.rows[0]?.fcm_token;
+      if (!isTargetOnline && !targetFcm) {
+        socket.emit('call_response', { status: 'offline' });
+        return;
+      }
 
-        console.log(`📡 [FCM Direct Call] Target is offline. Dispatching call push to ${targetUserId}`);
+      if (targetFcm) {
+        console.log(`📡 [FCM Direct Call] Dispatching call push to ${targetUserId}`);
         sendPushNotification({
           token: targetFcm,
           title: `📞 Incoming Call from ${callerProfile.fullName}`,
@@ -686,6 +776,7 @@ function registerMatchmakingHandlers(io, socket, redis) {
             callRequestId,
             callerId: String(userId),
             callerName: String(callerProfile.fullName),
+            callerAvatar: String(callerProfile.avatarSeed || ''),
           },
         }).catch((err) => console.error('FCM Direct Call error:', err.message));
       }
@@ -710,6 +801,14 @@ function registerMatchmakingHandlers(io, socket, redis) {
           io.to(targetUserId).emit('call_response', { callRequestId, status: 'no_answer' });
           await distributedCallService.deletePendingCall(redis, callRequestId);
           await redis.del(`user:pending_call:${targetUserId}`);
+
+          sendCallDismissPush(targetUserId, callRequestId);
+          recordMissedCall({
+            io,
+            callerId: userId,
+            targetUserId,
+            reason: 'timeout',
+          });
         }
       }, 30000);
 
@@ -749,6 +848,14 @@ function registerMatchmakingHandlers(io, socket, redis) {
           await distributedCallService.deletePendingCall(redis, pendingReqId);
           await redis.del(`user:pending_call:${userId}`);
           io.to(req.callerId).emit('call_response', { callRequestId: pendingReqId, status: 'cancelled' });
+
+          sendCallDismissPush(req.targetUserId, pendingReqId);
+          recordMissedCall({
+            io,
+            callerId: req.callerId,
+            targetUserId: req.targetUserId,
+            reason: 'cancelled',
+          });
         }
       }
 

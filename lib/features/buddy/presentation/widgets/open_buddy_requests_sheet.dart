@@ -11,7 +11,10 @@ import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
 import 'package:buddypartner/features/buddy/data/buddy_group_service.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/create_buddy_request_sheet.dart';
+import 'package:buddypartner/core/services/location_service.dart';
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
+import 'package:buddypartner/features/home/presentation/widgets/vip_live_activity_ticker.dart';
+import 'package:buddypartner/features/home/presentation/widgets/instant_connect_sheet.dart';
 
 /// Bottom sheet to view and accept live open Buddy Requests in the user's city.
 class OpenBuddyRequestsSheet extends ConsumerStatefulWidget {
@@ -36,19 +39,25 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
   String? _acceptingRequestId;
   List<BuddyGroup> _openGroups = [];
   String? _selectedCity;
+  bool _isLocating = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final userCity = ref.read(authStateProvider).value?.city;
-      _selectedCity = (userCity != null && userCity.isNotEmpty) ? userCity : 'All Cities';
-      _refreshData();
+      if (userCity != null && userCity.trim().isNotEmpty) {
+        _selectedCity = userCity.trim();
+        _refreshData();
+      }
+      // If userCity is not set, _selectedCity remains null,
+      // showing the "Enable Location / Select City" prompt card
+      // instead of silently querying all cities nationwide.
     });
   }
 
   void _openCityPicker() {
-    CityPickerSheet.show(context, currentCity: _selectedCity ?? 'All Cities').then((chosen) {
+    CityPickerSheet.show(context, currentCity: _selectedCity ?? '').then((chosen) {
       if (chosen != null && chosen.isNotEmpty) {
         setState(() {
           _selectedCity = chosen;
@@ -58,7 +67,48 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
     });
   }
 
+  Future<void> _handleEnableLocation() async {
+    setState(() => _isLocating = true);
+    try {
+      final granted = await LocationService.requestLocationPermission();
+      if (!granted) {
+        if (mounted) {
+          AppSnackBar.showError(
+            context,
+            'Location permission denied. Please select your city manually.',
+          );
+        }
+        return;
+      }
+
+      final detectedCity = await LocationService.fetchAndSaveUserLocation(ref, force: true);
+      if (mounted) {
+        if (detectedCity != null && detectedCity.trim().isNotEmpty) {
+          setState(() {
+            _selectedCity = detectedCity.trim();
+          });
+          _refreshData();
+          AppSnackBar.showSuccess(context, 'Location set to $detectedCity');
+        } else {
+          AppSnackBar.showError(
+            context,
+            'Could not detect city automatically. Please select your city manually.',
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.showError(context, 'Error enabling location: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLocating = false);
+      }
+    }
+  }
+
   Future<void> _refreshData() async {
+    if (_selectedCity == null) return;
     final queryCity = (_selectedCity == 'All Cities' || _selectedCity == 'All') ? null : _selectedCity;
     await Future.wait([
       ref.read(buddyControllerProvider.notifier).fetchOpenRequests(city: queryCity),
@@ -131,6 +181,13 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
 
   Future<void> _handleJoinGroup(BuddyGroup group) async {
     if (_acceptingRequestId != null) return;
+    if (group.isFull || group.memberCount >= group.maxMembers) {
+      AppSnackBar.showError(
+        context,
+        'Sorry, this Garba group is already full (6/6 members)!',
+      );
+      return;
+    }
     setState(() => _acceptingRequestId = group.id);
 
     try {
@@ -158,6 +215,8 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
       if (mounted) {
         final err = e.toString().replaceAll('Exception: ', '');
         AppSnackBar.showError(context, err);
+        // Refresh open groups so user sees current capacity
+        _refreshData();
       }
     } finally {
       if (mounted) {
@@ -243,26 +302,32 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              (_selectedCity == 'All Cities' || _selectedCity == 'All')
-                                  ? Icons.public_rounded
-                                  : Icons.location_on_rounded,
+                              _selectedCity == null
+                                  ? Icons.location_off_rounded
+                                  : ((_selectedCity == 'All Cities' || _selectedCity == 'All')
+                                      ? Icons.public_rounded
+                                      : Icons.location_on_rounded),
                               size: 14,
-                              color: colors.primary,
+                              color: _selectedCity == null ? colors.textSecondary : colors.primary,
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              _selectedCity ?? 'All Cities',
+                              _selectedCity ?? 'Set Location',
                               style: typography.bodySmall.copyWith(
-                                color: colors.primary,
+                                color: _selectedCity == null ? colors.textSecondary : colors.primary,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                               ),
                             ),
                             const SizedBox(width: 2),
-                            Icon(Icons.arrow_drop_down_rounded, size: 18, color: colors.primary),
+                            Icon(
+                              Icons.arrow_drop_down_rounded,
+                              size: 18,
+                              color: _selectedCity == null ? colors.textSecondary : colors.primary,
+                            ),
                             const SizedBox(width: 4),
                             Text(
-                              '(Tap to change)',
+                              _selectedCity == null ? '(Tap to set)' : '(Tap to change)',
                               style: typography.bodySmall.copyWith(
                                 color: colors.textSecondary,
                                 fontSize: 11,
@@ -281,61 +346,189 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
-          // Filter bar
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: Row(
-              children: [
-                _buildFilterChip('All Activities', isSelected: _selectedFilterType == null, onTap: () {
-                  setState(() => _selectedFilterType = null);
-                }),
-                ...BuddyType.values.map((type) {
-                  return _buildFilterChip(
-                    type.title,
-                    isSelected: _selectedFilterType == type,
-                    onTap: () {
-                      setState(() => _selectedFilterType = type);
-                    },
-                  );
-                }),
-              ],
-            ),
+          // VIP Live Activity Banner (simulated indicator)
+          VipLiveDemandBanner(
+            isDark: false,
+            onTap: () {
+              Navigator.of(context).pop();
+              InstantConnectSheet.show(context);
+            },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
-          // Request List
-          Expanded(
-            child: buddyState.isLoading && totalCount == 0
-                ? const Center(child: AppLoadingIndicator(size: 28))
-                : (totalCount == 0
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                color: colors.surfaceMuted,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.people_outline_rounded,
-                                size: 48,
-                                color: colors.textSecondary.withValues(alpha: 0.6),
-                              ),
+          // When location/city is not set yet, show an engaging Location Setup Card
+          if (_selectedCity == null) ...[
+            Expanded(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 76,
+                        height: 76,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: colors.primary.withValues(alpha: 0.12),
+                          border: Border.all(
+                            color: colors.primary.withValues(alpha: 0.25),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.location_on_rounded,
+                          size: 38,
+                          color: colors.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        'Set Your Location',
+                        style: typography.titleCard.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 19,
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Text(
+                          'Live buddy requests are real-world meetups. Turn on location or select your city to see requests in your area.',
+                          textAlign: TextAlign.center,
+                          style: typography.bodySmall.copyWith(
+                            color: colors.textSecondary,
+                            fontSize: 13,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      // Enable Location button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton.icon(
+                          onPressed: _isLocating ? null : _handleEnableLocation,
+                          icon: _isLocating
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.my_location_rounded, size: 18),
+                          label: Text(
+                            _isLocating ? 'Detecting Location...' : 'Enable Location',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colors.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
                             ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No open requests in $userCity',
-                              style: typography.titleCard.copyWith(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: colors.textPrimary,
-                              ),
+                            elevation: 0,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Select City Manually button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: OutlinedButton.icon(
+                          onPressed: _openCityPicker,
+                          icon: const Icon(Icons.location_city_rounded, size: 18),
+                          label: const Text(
+                            'Select City Manually',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: colors.primary,
+                            side: BorderSide(color: colors.primary.withValues(alpha: 0.4)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
                             ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Subtle option to view all cities
+                      TextButton.icon(
+                        onPressed: () {
+                          setState(() => _selectedCity = 'All Cities');
+                          _refreshData();
+                        },
+                        icon: Icon(Icons.public_rounded, size: 15, color: colors.textSecondary),
+                        label: Text(
+                          'Or view all cities nationwide',
+                          style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ] else ...[
+            // Filter bar
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: [
+                  _buildFilterChip('All Activities', isSelected: _selectedFilterType == null, onTap: () {
+                    setState(() => _selectedFilterType = null);
+                  }),
+                  ...BuddyType.values.map((type) {
+                    return _buildFilterChip(
+                      type.title,
+                      isSelected: _selectedFilterType == type,
+                      onTap: () {
+                        setState(() => _selectedFilterType = type);
+                      },
+                    );
+                  }),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Request List
+            Expanded(
+              child: buddyState.isLoading && totalCount == 0
+                  ? const Center(child: AppLoadingIndicator(size: 28))
+                  : (totalCount == 0
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  color: colors.surfaceMuted,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.people_outline_rounded,
+                                  size: 48,
+                                  color: colors.textSecondary.withValues(alpha: 0.6),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _selectedCity == 'All Cities'
+                                    ? 'No open requests nationwide'
+                                    : 'No open requests in ${_selectedCity ?? userCity}',
+                                style: typography.titleCard.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: colors.textPrimary,
+                                ),
+                              ),
                             const SizedBox(height: 6),
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 32.0),
@@ -524,8 +717,9 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                       )),
           ),
         ],
-      ),
-    );
+      ],
+    ),
+  );
   }
 
   Widget _buildGroupCard(BuddyGroup group) {
@@ -534,6 +728,8 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
     final currentUserId = ref.watch(authStateProvider).value?.id;
     final isAccepting = _acceptingRequestId == group.id;
     final isMemberOrHost = group.isMember || (currentUserId != null && group.initiatorId == currentUserId);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isFull = group.isFull || group.memberCount >= group.maxMembers;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -648,15 +844,28 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                             },
                           );
                         }
-                      : () => _handleJoinGroup(group),
+                      : isFull
+                          ? () => AppSnackBar.showError(
+                                context,
+                                'Sorry, this Garba group is already full (6/6 members)!',
+                              )
+                          : () => _handleJoinGroup(group),
               style: ElevatedButton.styleFrom(
-                backgroundColor: isMemberOrHost ? const Color(0xFF10B981) : const Color(0xFF9333EA),
-                foregroundColor: Colors.white,
+                backgroundColor: isMemberOrHost
+                    ? const Color(0xFF10B981)
+                    : isFull
+                        ? (isDark ? const Color(0xFF2D253B) : const Color(0xFFE5E7EB))
+                        : const Color(0xFF9333EA),
+                foregroundColor: isMemberOrHost
+                    ? Colors.white
+                    : isFull
+                        ? colors.textSecondary
+                        : Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                elevation: 1,
+                elevation: isFull ? 0 : 1,
               ),
               child: isAccepting
                   ? const SizedBox(
@@ -665,8 +874,20 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
                   : Text(
-                      isMemberOrHost ? 'Open Chat' : 'Join Group',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      isMemberOrHost
+                          ? 'Open Chat'
+                          : isFull
+                              ? 'Full (6/6)'
+                              : 'Join Group',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: isMemberOrHost
+                            ? Colors.white
+                            : isFull
+                                ? colors.textSecondary
+                                : Colors.white,
+                      ),
                     ),
             ),
           ),

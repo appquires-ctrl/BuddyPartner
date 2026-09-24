@@ -9,9 +9,7 @@ import 'package:buddypartner/features/buddy/application/buddy_controller.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/create_buddy_request_sheet.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/open_buddy_requests_sheet.dart';
-import 'package:buddypartner/features/recharge/presentation/providers/recharge_providers.dart';
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
-import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 
 /// Horizontal scrollable row of 10 sticker activity buttons on the Home Screen.
 class BuddyStickerCarousel extends ConsumerWidget {
@@ -26,39 +24,9 @@ class BuddyStickerCarousel extends ConsumerWidget {
       return;
     }
 
-    // 2. Coin Balance Check (type.coinCost required).
-    // walletBalanceProvider is async — on first load .valueOrNull is null while the
-    // network call is in-flight. We must await the real balance before deciding
-    // to redirect, otherwise users with enough coins get wrongly sent to recharge.
-    int balance;
-    final currentState = ref.read(walletBalanceProvider);
-    if (currentState.hasValue) {
-      balance = currentState.value!;
-    } else {
-      // Still loading or errored — fetch now and wait for the real result.
-      try {
-        balance = await ref.read(walletBalanceProvider.notifier).fetchBalance();
-      } catch (_) {
-        balance = 0;
-      }
-    }
-
-    if (!context.mounted) return;
-
-    final requiredCoins = type.coinCost;
-    if (balance < requiredCoins) {
-      // Directly open wallet recharge screen with the optimal plan & Order Summary sheet
-      openRechargeForDeficit(
-        context: context,
-        ref: ref,
-        requiredCoins: requiredCoins,
-        currentBalance: balance,
-        featureName: type.title,
-      );
-      return;
-    }
-
-    // 3. Open Creation Sheet
+    // 2. Open Creation Sheet normally.
+    // Coin balance verification and recharge redirection occur when clicking
+    // "Broadcast Request" inside the bottom sheet.
     CreateBuddyRequestSheet.show(context, type);
   }
 

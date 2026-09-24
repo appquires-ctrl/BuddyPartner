@@ -7,6 +7,9 @@ import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
 import 'package:buddypartner/core/widgets/shimmer/skeletons/chat_message_skeleton.dart';
 import 'package:buddypartner/app/theme/app_spacing.dart';
 import 'package:buddypartner/app/theme/app_radius.dart';
+import 'package:buddypartner/app/theme/app_colors.dart';
+import 'package:buddypartner/app/theme/app_typography.dart';
+import 'package:buddypartner/features/chat/domain/message.dart';
 import 'package:buddypartner/features/call/presentation/widgets/report_block_dialog.dart';
 import 'package:buddypartner/features/call/application/matchmaking_controller.dart';
 import 'package:buddypartner/features/call/application/matchmaking_state.dart';
@@ -286,7 +289,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     color: colors.primary.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.phone_rounded, color: colors.primary, size: 18),
+                  child: Icon(Icons.videocam_sharp, color: colors.primary, size: 18),
                 ),
                 onPressed: () {
                   final matchState = ref.read(matchmakingControllerProvider);
@@ -349,6 +352,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
                                   final msg = chatState.messages[index];
                                   final isMe = msg.senderId == currentUser?.id;
+                                  final isMissedCall = msg.type == 'missed_call' ||
+                                      (msg.content.toLowerCase().contains('missed audio call'));
                                   final bubbleBg = isMe
                                       ? colors.primary
                                       : (isDark ? const Color(0xFF1E1A2E) : Colors.white);
@@ -375,44 +380,55 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                         Column(
                                           crossAxisAlignment: alignment,
                                           children: [
-                                            Container(
-                                              constraints: BoxConstraints(
-                                                maxWidth: MediaQuery.of(context).size.width * 0.72,
-                                              ),
-                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                              decoration: BoxDecoration(
-                                                color: bubbleBg,
-                                                borderRadius: BorderRadius.only(
-                                                  topLeft: const Radius.circular(18),
-                                                  topRight: const Radius.circular(18),
-                                                  bottomLeft: Radius.circular(isMe ? 18 : 3),
-                                                  bottomRight: Radius.circular(isMe ? 3 : 18),
+                                            if (isMissedCall)
+                                              _buildMissedCallCard(
+                                                context: context,
+                                                msg: msg,
+                                                isMe: isMe,
+                                                isDark: isDark,
+                                                colors: colors,
+                                                typography: typography,
+                                                resolvedName: resolvedName,
+                                              )
+                                            else
+                                              Container(
+                                                constraints: BoxConstraints(
+                                                  maxWidth: MediaQuery.of(context).size.width * 0.72,
                                                 ),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-                                                    blurRadius: 6,
-                                                    offset: const Offset(0, 2),
+                                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                                decoration: BoxDecoration(
+                                                  color: bubbleBg,
+                                                  borderRadius: BorderRadius.only(
+                                                    topLeft: const Radius.circular(18),
+                                                    topRight: const Radius.circular(18),
+                                                    bottomLeft: Radius.circular(isMe ? 18 : 3),
+                                                    bottomRight: Radius.circular(isMe ? 3 : 18),
                                                   ),
-                                                ],
-                                                border: isMe
-                                                    ? null
-                                                    : Border.all(
-                                                        color: isDark
-                                                            ? colors.border.withValues(alpha: 0.2)
-                                                            : colors.border.withValues(alpha: 0.6),
-                                                      ),
-                                              ),
-                                              child: Text(
-                                                msg.content,
-                                                style: typography.bodyMedium.copyWith(
-                                                  color: txtColor,
-                                                  fontSize: 14.5,
-                                                  height: 1.35,
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                                                      blurRadius: 6,
+                                                      offset: const Offset(0, 2),
+                                                    ),
+                                                  ],
+                                                  border: isMe
+                                                      ? null
+                                                      : Border.all(
+                                                          color: isDark
+                                                              ? colors.border.withValues(alpha: 0.2)
+                                                              : colors.border.withValues(alpha: 0.6),
+                                                        ),
+                                                ),
+                                                child: Text(
+                                                  msg.content,
+                                                  style: typography.bodyMedium.copyWith(
+                                                    color: txtColor,
+                                                    fontSize: 14.5,
+                                                    height: 1.35,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            if (isMe)
+                                            if (isMe && !isMissedCall)
                                               Padding(
                                                 padding: const EdgeInsets.only(top: 2, right: 4),
                                                 child: Icon(
@@ -1014,5 +1030,158 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         ),
       );
     }
+  }
+
+  Widget _buildMissedCallCard({
+    required BuildContext context,
+    required Message msg,
+    required bool isMe,
+    required bool isDark,
+    required AppColors colors,
+    required AppTypography typography,
+    required String resolvedName,
+  }) {
+    final hour = msg.createdAt.hour % 12 == 0 ? 12 : msg.createdAt.hour % 12;
+    final minute = msg.createdAt.minute.toString().padLeft(2, '0');
+    final period = msg.createdAt.hour >= 12 ? 'PM' : 'AM';
+    final timeStr = '$hour:$minute $period';
+
+    const missedRed = Color(0xFFFF5252);
+    final cardBg = isDark
+        ? (isMe ? const Color(0xFF1F1B2F) : const Color(0xFF2A1B22))
+        : (isMe ? const Color(0xFFF3F0FA) : const Color(0xFFFFF0F2));
+    final borderColor = isMe
+        ? (isDark ? colors.border.withValues(alpha: 0.2) : colors.border.withValues(alpha: 0.6))
+        : missedRed.withValues(alpha: isDark ? 0.35 : 0.25);
+
+    return Container(
+      width: 240,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(18),
+          topRight: const Radius.circular(18),
+          bottomLeft: Radius.circular(isMe ? 18 : 4),
+          bottomRight: Radius.circular(isMe ? 4 : 18),
+        ),
+        border: Border.all(color: borderColor, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: isMe
+                      ? colors.primary.withValues(alpha: 0.15)
+                      : missedRed.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isMe ? Icons.phone_forwarded_rounded : Icons.phone_missed_rounded,
+                  color: isMe ? colors.primary : missedRed,
+                  size: 19,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isMe ? 'Outgoing call' : 'Missed audio call',
+                      style: typography.bodyMedium.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: isMe
+                            ? colors.textPrimary
+                            : (isDark ? const Color(0xFFFF8A80) : const Color(0xFFD32F2F)),
+                        fontSize: 13.5,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isMe ? 'No answer • $timeStr' : timeStr,
+                      style: TextStyle(
+                        color: colors.textSecondary.withValues(alpha: 0.8),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            height: 1,
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.black.withValues(alpha: 0.06),
+          ),
+          const SizedBox(height: 8),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () {
+                final matchState = ref.read(matchmakingControllerProvider);
+                if (matchState.phase != MatchmakingPhase.idle) return;
+                ref.read(matchmakingControllerProvider.notifier).callUser(
+                      targetUserId: widget.userId,
+                      targetUserName: resolvedName,
+                    );
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 7),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isMe
+                      ? colors.primary.withValues(alpha: 0.1)
+                      : missedRed.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: (isMe ? colors.primary : missedRed).withValues(alpha: 0.3),
+                    width: 0.8,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      isMe ? Icons.replay_rounded : Icons.phone_rounded,
+                      size: 14,
+                      color: isMe ? colors.primary : missedRed,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      isMe ? 'Call again' : 'Call back',
+                      style: TextStyle(
+                        color: isMe ? colors.primary : missedRed,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

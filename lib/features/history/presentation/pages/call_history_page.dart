@@ -23,6 +23,8 @@ class CallHistoryPage extends ConsumerStatefulWidget {
 }
 
 class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
+  String _selectedFilter = 'all'; // 'all' or 'missed'
+
   Future<void> _handleRefresh() async {
     ref.invalidate(callHistoryProvider);
     await ref.read(callHistoryProvider.future);
@@ -109,11 +111,45 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
     );
   }
 
+  Widget _buildFilterTab(String id, String label, dynamic colors) {
+    final isSelected = _selectedFilter == id;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedFilter = id),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (id == 'missed' ? const Color(0xFFFEE2E2) : const Color(0xFFEDE9FE))
+              : colors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? (id == 'missed' ? const Color(0xFFEF4444) : const Color(0xFF6B4EFF))
+                : colors.surfaceBorder,
+            width: 1.2,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected
+                ? (id == 'missed' ? const Color(0xFFDC2626) : const Color(0xFF6B4EFF))
+                : colors.textSecondary,
+            fontSize: 12.5,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final typography = context.typography;
     final historyAsync = ref.watch(callHistoryProvider);
+    final currentUserId = ref.watch(authStateProvider).value?.id;
 
     return Scaffold(
       appBar: AppBar(
@@ -184,6 +220,11 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
             ),
           ),
           data: (logs) {
+            final missedCount = logs.where((log) => log.status == 'missed' || (log.durationSeconds == 0 && log.status != 'active')).length;
+            final filteredLogs = _selectedFilter == 'missed'
+                ? logs.where((log) => log.status == 'missed' || (log.durationSeconds == 0 && log.status != 'active')).toList()
+                : logs;
+
             if (logs.isEmpty) {
               return SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -193,18 +234,15 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const SizedBox(height: 80),
-                      // Centered concentric call orbits radar illustration
                       const Center(
                         child: MatchingIllustration(
-                          primaryColor: Color(0xFF3B82F6), // Blue orbits
-                          centerCircleColor: Color(0xFFEAF5FF), // Light blue background
-                          icon: Icons.call, // Phone icon
-                          iconColor: Color(0xFF3B82F6), // Blue icon
+                          primaryColor: Color(0xFF3B82F6),
+                          centerCircleColor: Color(0xFFEAF5FF),
+                          icon: Icons.call,
+                          iconColor: Color(0xFF3B82F6),
                         ),
                       ),
                       const SizedBox(height: 48),
-
-                      // Heading text
                       Text(
                         'No Call History',
                         style: typography.titleCard.copyWith(
@@ -215,8 +253,6 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 12),
-
-                      // Helper Subtitle information
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
                         child: Text(
@@ -229,214 +265,259 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
                           textAlign: TextAlign.center,
                         ),
                       ),
-                    //   const SizedBox(height: 32),
-
-                    //   // Light blue pull down action button
-                    //   GestureDetector(
-                    //     onTap: _handleRefresh,
-                    //     child: Container(
-                    //       padding: const EdgeInsets.symmetric(
-                    //         horizontal: 20,
-                    //         vertical: 10,
-                    //       ),
-                    //       decoration: BoxDecoration(
-                    //         color: const Color(0xFFEAF5FF), // light blue fill
-                    //         borderRadius: AppRadius.pill,
-                    //       ),
-                    //       child: const Row(
-                    //         mainAxisSize: MainAxisSize.min,
-                    //         children: [
-                    //           Icon(
-                    //             Icons.refresh,
-                    //             color: Color(0xFF3B82F6), // blue icon
-                    //             size: 16,
-                    //           ),
-                    //           SizedBox(width: 8),
-                    //           Text(
-                    //             'Pull down to refresh',
-                    //             style: TextStyle(
-                    //               color: Color(0xFF3B82F6), // blue text
-                    //               fontSize: 12,
-                    //               fontWeight: FontWeight.bold,
-                    //             ),
-                    //           ),
-                    //         ],
-                    //       ),
-                    //     ),
-                    //   ),
-                    //   const SizedBox(height: 80),
                     ],
                   ),
                 ),
               );
             }
 
-            return ListView.builder(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.space24,
-                vertical: AppSpacing.space16,
-              ),
-              itemCount: logs.length,
-              itemBuilder: (context, index) {
-                final log = logs[index];
-                final isVideo = log.callType == 'video';
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Filter Tabs (All / Missed)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
                   child: Row(
                     children: [
-                      // Other user's avatar or initials
-                      GradientAvatar(
-                        initials: _getInitials(log.otherUserName),
-                        avatarSeed: log.otherUserAvatarSeed,
-                        avatarStyle: log.otherUserAvatarStyle,
-                        gender: log.otherUserGender,
-                        radius: 24,
-                      ),
-                      const SizedBox(width: 14),
+                      _buildFilterTab('all', 'All (${logs.length})', colors),
+                      const SizedBox(width: 10),
+                      _buildFilterTab('missed', 'Missed ($missedCount)', colors),
+                    ],
+                  ),
+                ),
 
-                      // Caller info details
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              log.otherUserName,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: colors.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                // Icon(
-                                //   isOutgoing ? Icons.call_made_rounded : Icons.call_received_rounded,
-                                //   color: isOutgoing ? const Color(0xFF3B82F6) : const Color(0xFF10B981),
-                                //   size: 14,
-                                // ),
-                                // const SizedBox(width: 4),
-                                // Text(
-                                //   isOutgoing ? 'Outgoing' : 'Incoming',
-                                //   style: TextStyle(
-                                //     color: colors.textSecondary,
-                                //     fontSize: 12.5,
-                                //   ),
-                                // ),
-                                // const SizedBox(width: 8),
-                                Container(
-                                  width: 3.5,
-                                  height: 3.5,
-                                  decoration: BoxDecoration(
-                                    color: colors.textSecondary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _formatDateTime(log.startedAt),
-                                  style: TextStyle(
-                                    color: colors.textSecondary,
-                                    fontSize: 12.5,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Action Buttons (Chat & Call) and duration
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
+                // List of calls
+                Expanded(
+                  child: filteredLogs.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              // Chat button (left of call button)
-                              Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  onTap: () => _openChat(log),
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: Container(
-                                    width: 38,
-                                    height: 38,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFEFEAFF),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: const Color(0xFFDDD6FE),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: const Icon(
-                                      Icons.chat_bubble_outline_rounded,
-                                      color: Color(0xFF6B4EFF),
-                                      size: 18,
-                                    ),
-                                  ),
+                              Icon(
+                                Icons.phone_missed_rounded,
+                                size: 48,
+                                color: colors.textSecondary.withValues(alpha: 0.5),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'No Missed Calls',
+                                style: typography.titleCard.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: colors.textPrimary,
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              // Call button
-                              Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  onTap: () => _callUser(log),
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: Container(
-                                    width: 38,
-                                    height: 38,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF3EFFF),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: const Color(0xFFE9D5FF),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Icon(
-                                      isVideo ? Icons.videocam_rounded : Icons.phone_rounded,
-                                      color: const Color(0xFF7A58FF),
-                                      size: 19,
-                                    ),
-                                  ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'You have answered all incoming calls.',
+                                style: typography.bodySmall.copyWith(
+                                  color: colors.textSecondary,
+                                  fontSize: 13,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _formatDuration(log.durationSeconds),
-                            style: TextStyle(
-                              color: colors.textSecondary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
+                        )
+                      : ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.space20,
+                            vertical: 4,
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
+                          itemCount: filteredLogs.length,
+                          itemBuilder: (context, index) {
+                            final log = filteredLogs[index];
+                            final isVideo = log.callType == 'video';
+                            final isOutgoing = log.callerId == currentUserId;
+                            final isMissed = log.status == 'missed' ||
+                                (log.durationSeconds == 0 && log.status != 'active');
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: colors.surface,
+                                borderRadius: BorderRadius.circular(16),
+                                border: isMissed && !isOutgoing
+                                    ? Border.all(color: const Color(0xFFFCA5A5), width: 1)
+                                    : null,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.03),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  // Other user's avatar or initials
+                                  GradientAvatar(
+                                    initials: _getInitials(log.otherUserName),
+                                    avatarSeed: log.otherUserAvatarSeed,
+                                    avatarStyle: log.otherUserAvatarStyle,
+                                    gender: log.otherUserGender,
+                                    radius: 24,
+                                  ),
+                                  const SizedBox(width: 14),
+
+                                  // Caller info details
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          log.otherUserName,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                            color: colors.textPrimary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              isMissed
+                                                  ? (isOutgoing
+                                                      ? Icons.call_made_rounded
+                                                      : Icons.phone_missed_rounded)
+                                                  : (isOutgoing
+                                                      ? Icons.call_made_rounded
+                                                      : Icons.call_received_rounded),
+                                              color: isMissed
+                                                  ? (isOutgoing
+                                                      ? colors.textSecondary
+                                                      : const Color(0xFFEF4444))
+                                                  : (isOutgoing
+                                                      ? const Color(0xFF3B82F6)
+                                                      : const Color(0xFF10B981)),
+                                              size: 14,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              isMissed
+                                                  ? (isOutgoing ? 'Cancelled' : 'Missed Call')
+                                                  : (isOutgoing ? 'Outgoing' : 'Incoming'),
+                                              style: TextStyle(
+                                                color: isMissed && !isOutgoing
+                                                    ? const Color(0xFFEF4444)
+                                                    : colors.textSecondary,
+                                                fontSize: 12.5,
+                                                fontWeight: isMissed && !isOutgoing
+                                                    ? FontWeight.w600
+                                                    : FontWeight.normal,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              width: 3.5,
+                                              height: 3.5,
+                                              decoration: BoxDecoration(
+                                                color: colors.textSecondary,
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              _formatDateTime(log.startedAt),
+                                              style: TextStyle(
+                                                color: colors.textSecondary,
+                                                fontSize: 12.5,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // Action Buttons (Chat & Call) and duration
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          // Chat button
+                                          Material(
+                                            color: Colors.transparent,
+                                            child: InkWell(
+                                              onTap: () => _openChat(log),
+                                              borderRadius: BorderRadius.circular(20),
+                                              child: Container(
+                                                width: 38,
+                                                height: 38,
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFEFEAFF),
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                    color: const Color(0xFFDDD6FE),
+                                                    width: 1,
+                                                  ),
+                                                ),
+                                                alignment: Alignment.center,
+                                                child: const Icon(
+                                                  Icons.chat_bubble_outline_rounded,
+                                                  color: Color(0xFF6B4EFF),
+                                                  size: 18,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          // Call button
+                                          Material(
+                                            color: Colors.transparent,
+                                            child: InkWell(
+                                              onTap: () => _callUser(log),
+                                              borderRadius: BorderRadius.circular(20),
+                                              child: Container(
+                                                width: 38,
+                                                height: 38,
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFF3EFFF),
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                    color: const Color(0xFFE9D5FF),
+                                                    width: 1,
+                                                  ),
+                                                ),
+                                                alignment: Alignment.center,
+                                                child: Icon(
+                                                  isVideo
+                                                      ? Icons.videocam_rounded
+                                                      : Icons.phone_rounded,
+                                                  color: const Color(0xFF7A58FF),
+                                                  size: 19,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        isMissed
+                                            ? (isOutgoing ? 'No answer' : 'Missed')
+                                            : _formatDuration(log.durationSeconds),
+                                        style: TextStyle(
+                                          color: isMissed && !isOutgoing
+                                              ? const Color(0xFFEF4444)
+                                              : colors.textSecondary,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
             );
           },
         ),

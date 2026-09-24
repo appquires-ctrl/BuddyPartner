@@ -8,9 +8,7 @@ import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/features/buddy/application/seasonal_banner_provider.dart';
 import 'package:buddypartner/features/buddy/domain/seasonal_banner_model.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/create_buddy_request_sheet.dart';
-import 'package:buddypartner/features/recharge/presentation/providers/recharge_providers.dart';
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
-import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 
 /// Dynamic 16:9 widescreen seasonal banner carousel.
 /// Slides horizontally every 2 seconds based on active seasonal items created by admin.
@@ -76,31 +74,9 @@ class _SeasonalBannerCarouselState extends ConsumerState<SeasonalBannerCarousel>
       return;
     }
 
-    // 2. Coin balance check against admin-configured coin cost
-    final requiredCoins = banner.sheetConfig.broadcastCoinCost;
-    int balance = ref.read(walletBalanceProvider).value ?? -1;
-    if (balance < requiredCoins) {
-      try {
-        balance = await ref.read(walletBalanceProvider.notifier).fetchBalance(force: true);
-      } catch (_) {
-        balance = balance == -1 ? 0 : balance;
-      }
-    }
-
-    if (!mounted) return;
-
-    if (balance < requiredCoins) {
-      openRechargeForDeficit(
-        context: context,
-        ref: ref,
-        requiredCoins: requiredCoins,
-        currentBalance: balance,
-        featureName: banner.sheetConfig.title,
-      );
-      return;
-    }
-
-    // 3. Open Creation Sheet with dynamic admin details
+    // 2. Open Creation Sheet with dynamic admin details
+    // Coin balance verification and recharge redirection occur when clicking
+    // "Broadcast Request" inside the bottom sheet.
     CreateBuddyRequestSheet.show(
       context,
       banner.sheetConfig.buddyType,

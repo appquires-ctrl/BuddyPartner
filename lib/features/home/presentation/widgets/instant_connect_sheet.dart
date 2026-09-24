@@ -9,6 +9,7 @@ import 'package:buddypartner/core/widgets/coins/app_coin_icon.dart';
 import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
+import 'package:buddypartner/features/home/presentation/widgets/vip_live_activity_ticker.dart';
 
 class InstantConnectSheet extends ConsumerStatefulWidget {
   const InstantConnectSheet({super.key});
@@ -392,7 +393,9 @@ class _InstantConnectSheetState extends ConsumerState<InstantConnectSheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
+              const VipLiveDemandBanner(),
+              const SizedBox(height: 16),
 
               // ── Subscription Notice (if not subscribed) ─────────────
               if (!isSubscribed)

@@ -191,6 +191,9 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
               // Top Unlimited Access Banner
               _buildTopBanner(context),
 
+              // Membership Key Perks Bar (Highlighting Switch to Video)
+              _buildPerksHighlightBar(context),
+
               const SizedBox(height: 20),
 
               // Section Heading
@@ -275,6 +278,109 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPerksHighlightBar(BuildContext context) {
+    final colors = context.colors;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colors.primary.withValues(alpha: 0.15),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildPerkItem(
+            context,
+            icon: Icons.phone_in_talk_rounded,
+            title: 'Unlimited Calls',
+            subtitle: 'Voice connection',
+            color: const Color(0xFF10B981),
+          ),
+          Container(width: 1, height: 28, color: colors.border.withValues(alpha: 0.5)),
+          _buildPerkItem(
+            context,
+            icon: Icons.videocam_rounded,
+            title: 'Switch to Video',
+            subtitle: '1-tap in-call',
+            color: const Color(0xFF8B5CF6),
+          ),
+          Container(width: 1, height: 28, color: colors.border.withValues(alpha: 0.5)),
+          _buildPerkItem(
+            context,
+            icon: Icons.verified_user_rounded,
+            title: '100% Safe',
+            subtitle: 'Mutual consent',
+            color: const Color(0xFF0EA5E9),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPerkItem(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+  }) {
+    final colors = context.colors;
+    final typography = context.typography;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 15),
+        ),
+        const SizedBox(width: 6),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              title,
+              style: typography.bodySmall.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 11.0,
+                color: colors.textPrimary,
+                height: 1.1,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: typography.bodySmall.copyWith(
+                fontSize: 9.0,
+                color: colors.textSecondary,
+                height: 1.1,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

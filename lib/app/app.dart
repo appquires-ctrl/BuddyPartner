@@ -13,6 +13,7 @@ import 'package:buddypartner/features/call/presentation/widgets/incoming_paid_ca
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/core/services/screen_protection_service.dart';
+import 'package:buddypartner/core/services/callkit_service.dart';
 import 'package:buddypartner/features/call/presentation/widgets/floating_minimized_call_overlay.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
@@ -90,6 +91,26 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
           bidAmount: bidAmount,
         );
       };
+
+      notifService.onCallKitAccept = ({
+        required String callRequestId,
+        required String callerId,
+        required String callerName,
+      }) {
+        debugPrint('📲 [App CallKit] Accepted call $callRequestId from $callerName');
+        ref.read(matchmakingControllerProvider.notifier).acceptCallFromCallKit(
+              callRequestId: callRequestId,
+              callerId: callerId,
+              callerName: callerName,
+            );
+      };
+
+      notifService.onCallKitDecline = ({
+        required String callRequestId,
+      }) {
+        debugPrint('📲 [App CallKit] Declined call $callRequestId');
+        ref.read(matchmakingControllerProvider.notifier).declineCallFromCallKit(callRequestId);
+      };
     });
   }
 
@@ -132,6 +153,12 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
         }
         Navigator.of(navContext, rootNavigator: true).popUntil((route) => route is! PopupRoute);
         navContext.go(RouteNames.home);
+      }
+
+      if (next.phase == MatchmakingPhase.idle ||
+          next.phase == MatchmakingPhase.ended ||
+          next.phase == MatchmakingPhase.inCall) {
+        CallkitService.endAllCalls();
       }
 
       if (next.errorMessage != null && next.errorMessage != prev?.errorMessage) {

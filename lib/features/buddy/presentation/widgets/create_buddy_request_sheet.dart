@@ -13,6 +13,7 @@ import 'package:go_router/go_router.dart';
 import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/features/buddy/data/buddy_group_service.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
+import 'package:buddypartner/features/home/presentation/widgets/vip_live_activity_ticker.dart';
 
 /// Comprehensive Indian cities list — tier 1, 2 & 3 including all state capitals.
 /// Covers ~98% of Indian urban population. Alternate spellings (Bangalore/Bengaluru)
@@ -430,7 +431,29 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 14),
+
+          // Live Activity Indicator
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF10B981).withValues(alpha: 0.25),
+                width: 1,
+              ),
+            ),
+            child: const VipLiveActivityTicker(
+              isCompact: true,
+              textStyle: TextStyle(
+                color: Color(0xFF047857),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
 
           // 1. City Selector
           Text(

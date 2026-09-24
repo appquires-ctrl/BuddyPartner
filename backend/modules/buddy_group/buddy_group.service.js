@@ -231,7 +231,7 @@ class BuddyGroupService {
           err.statusCode = 404;
           throw err;
         }
-        const err = new Error('This Garba group is already full (6/6 members)!');
+        const err = new Error('Sorry, this Garba group is already full (6/6 members)!');
         err.code = 'GROUP_FULL';
         err.statusCode = 409;
         throw err;

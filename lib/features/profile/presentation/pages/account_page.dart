@@ -45,7 +45,6 @@ class AccountPage extends ConsumerWidget {
       final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       dobStr = '${dob.day} ${months[dob.month - 1]} ${dob.year}';
     }
-    final String language = profile?.language ?? 'English';
 
     return Scaffold(
       appBar: AppBar(
@@ -225,15 +224,6 @@ class AccountPage extends ConsumerWidget {
                       iconColor: const Color(0xFFF59E0B),
                       label: 'Date of Birth',
                       value: dobStr,
-                    ),
-                    _buildDivider(context),
-                    _buildInfoTile(
-                      context,
-                      icon: Icons.language,
-                      iconBgColor: const Color(0xFFEAF5FF),
-                      iconColor: const Color(0xFF3B82F6),
-                      label: 'Language',
-                      value: language,
                     ),
                   ],
                 ),
@@ -497,12 +487,7 @@ class AccountPage extends ConsumerWidget {
         selectedGender = 'Other';
       }
     }
-    String selectedLanguage = profile?.language ?? 'English';
     String? selectedAvatarSeed = profile?.avatarSeed ?? AvatarCatalog.getSeedsForGender(selectedGender).first;
-    final List<String> languages = ['English', 'Hindi', 'Spanish', 'French', 'Arabic', 'Portuguese'];
-    if (!languages.contains(selectedLanguage)) {
-      languages.add(selectedLanguage);
-    }
 
     showModalBottomSheet(
       context: context,
@@ -611,27 +596,6 @@ class AccountPage extends ConsumerWidget {
 
                     const SizedBox(height: 16),
 
-                    // Language
-                    Text('Language', style: typography.bodySmall.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedLanguage,
-                      style: typography.bodyMedium.copyWith(color: colors.textPrimary),
-                      decoration: InputDecoration(
-                        prefixIcon: const Icon(Icons.language_outlined, size: 20),
-                        filled: true,
-                        fillColor: colors.surface,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        border: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: colors.border)),
-                        enabledBorder: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: colors.border)),
-                      ),
-                      items: languages.map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
-                      onChanged: (val) {
-                        if (val != null) setModalState(() => selectedLanguage = val);
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
                     // Avatar Selection Grid
                     Text('Choose Profile Avatar', style: typography.bodySmall.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
@@ -652,7 +616,7 @@ class AccountPage extends ConsumerWidget {
                       width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: colors.primary,
+                           backgroundColor: colors.primary,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
@@ -680,7 +644,7 @@ class AccountPage extends ConsumerWidget {
                                 fullName: nameText,
                                 dob: selectedDob,
                                 gender: selectedGender,
-                                language: selectedLanguage,
+                                language: profile?.language ?? 'English',
                                 avatarSeed: selectedAvatarSeed,
                                 avatarStyle: 'avataaars',
                               );

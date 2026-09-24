@@ -31,6 +31,7 @@ import 'package:buddypartner/features/chat/application/presence_provider.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/buddy_sticker_carousel.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/seasonal_banner_carousel.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/active_buddy_status_banner.dart';
+import 'package:buddypartner/features/home/presentation/widgets/vip_live_activity_ticker.dart';
 import 'package:buddypartner/features/buddy/application/buddy_controller.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/initiator_otp_modal.dart';
@@ -582,137 +583,164 @@ class _HomePageState extends ConsumerState<HomePage> {
                       const SizedBox(height: 10),
 
                       // Female User: Incoming Paid Calls Toggle Card
-                      // Matchmaking Banner Card — wrapped in an unclipped Stack so
-                      // the couple illustration can overflow above the card boundary.
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          GestureDetector(
+                      // Matchmaking Banner Card — responsive layout with 3D couple illustration
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final cardWidth = constraints.maxWidth;
+                          final isCompact = cardWidth < 360;
+
+                          // Maintain tall hero illustration height (90%+ of card) across all phones
+                          final cardHeight = 140.0;
+                          final illustrationHeight = isCompact ? 126.0 : 144.0;
+                          final illustrationWidth = illustrationHeight * 1.60;
+                          final illustrationRight = isCompact ? -12.0 : -8.0;
+
+                          // Calculate the exact left boundary of the illustration
+                          // so text column padding strictly prevents any overlap.
+                          final illustrationLeftInCard = cardWidth + illustrationRight - illustrationWidth;
+                          final textPaddingRight = (cardWidth - illustrationLeftInCard + 6.0).clamp(140.0, 220.0);
+
+                          final titleFontSize = isCompact ? 19.0 : 22.0;
+
+                          return GestureDetector(
                             onTap: _startMatchmaking,
-                            child: Container(
-                              height: 140,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Color(0xFF7A58FF),
-                                    Color(0xFFC69CFF),
-                                  ],
-                                ),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.18),
-                                  width: 1.0,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF7A58FF).withValues(alpha: 0.35),
-                                    blurRadius: 18,
-                                    offset: const Offset(0, 8),
+                            behavior: HitTestBehavior.opaque,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Container(
+                                  height: cardHeight,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        Color(0xFF7A58FF),
+                                        Color(0xFFC69CFF),
+                                      ],
+                                    ),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.18),
+                                      width: 1.0,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF7A58FF).withValues(alpha: 0.35),
+                                        blurRadius: 18,
+                                        offset: const Offset(0, 8),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: Stack(
-                                  children: [
-                                    // Background semi-transparent concentric circle patterns
-                                    Positioned(
-                                      right: -30,
-                                      top: -20,
-                                      child: Container(
-                                        width: 140,
-                                        height: 140,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: Colors.white.withValues(alpha: 0.06),
-                                          border: Border.all(
-                                            color: Colors.white.withValues(alpha: 0.08),
-                                            width: 12,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Stack(
+                                      children: [
+                                        // Background semi-transparent concentric circle patterns
+                                        Positioned(
+                                          right: -30,
+                                          top: -20,
+                                          child: Container(
+                                            width: 140,
+                                            height: 140,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: Colors.white.withValues(alpha: 0.06),
+                                              border: Border.all(
+                                                color: Colors.white.withValues(alpha: 0.08),
+                                                width: 12,
+                                              ),
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      right: 20,
-                                      bottom: -45,
-                                      child: Container(
-                                        width: 110,
-                                        height: 110,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: Colors.white.withValues(alpha: 0.04),
-                                          border: Border.all(
-                                            color: Colors.white.withValues(alpha: 0.06),
-                                            width: 8,
+                                        Positioned(
+                                          right: 20,
+                                          bottom: -45,
+                                          child: Container(
+                                            width: 110,
+                                            height: 110,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: Colors.white.withValues(alpha: 0.04),
+                                              border: Border.all(
+                                                color: Colors.white.withValues(alpha: 0.06),
+                                                width: 8,
+                                              ),
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ),
-                                    // Card Content
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0.0),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            flex: 11,
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                // Row with Sparkle icon and MEET SOMEONE SPECIAL
-                                                Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    const Icon(
-                                                      Icons.auto_awesome,
-                                                      color: Colors.white70,
-                                                      size: 13,
-                                                    ),
-                                                    const SizedBox(width: 5),
-                                                    Flexible(
-                                                      child: Text(
-                                                        'MEET SOMEONE SPECIAL',
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
-                                                        style: typography.bodySmall.copyWith(
-                                                          color: Colors.white.withValues(alpha: 0.85),
-                                                          fontSize: 9.5,
-                                                          fontWeight: FontWeight.w700,
-                                                          letterSpacing: 0.5,
-                                                        ),
+                                        // Card Content — padded on the right to guarantee no overlap with the couple
+                                        Padding(
+                                          padding: EdgeInsets.only(
+                                            left: isCompact ? 13.0 : 16.0,
+                                            right: textPaddingRight,
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              // Row with Sparkle icon and MEET SOMEONE SPECIAL
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(
+                                                    Icons.auto_awesome,
+                                                    color: Colors.white70,
+                                                    size: 13,
+                                                  ),
+                                                  const SizedBox(width: 5),
+                                                  Flexible(
+                                                    child: Text(
+                                                      'MEET SOMEONE SPECIAL',
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: typography.bodySmall.copyWith(
+                                                        color: Colors.white.withValues(alpha: 0.85),
+                                                        fontSize: isCompact ? 8.5 : 9.5,
+                                                        fontWeight: FontWeight.w700,
+                                                        letterSpacing: 0.5,
                                                       ),
                                                     ),
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 5),
-                                                // Start matchmaking heading text
-                                                Text(
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              // Start matchmaking heading text
+                                              FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment: Alignment.centerLeft,
+                                                child: Text(
                                                   'Let\'s Connect',
                                                   style: typography.titleCard.copyWith(
                                                     color: Colors.white,
-                                                    fontSize: 22,
+                                                    fontSize: titleFontSize,
                                                     fontWeight: FontWeight.bold,
                                                     height: 1.15,
                                                   ),
                                                 ),
-                                                const SizedBox(height: 4),
-                                                // Punchier Subtitle details text
-                                                Text(
-                                                  'Let fate choose your next connection',
-                                                  maxLines: 2,
-                                                  overflow: TextOverflow.ellipsis,
-                                                  style: typography.bodySmall.copyWith(
-                                                    color: Colors.white.withValues(alpha: 0.9),
-                                                    fontSize: 12.0,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
+                                              ),
+                                              const SizedBox(height: 3),
+                                              // Subtitle text
+                                              Text(
+                                                'Let fate choose your next connection',
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: typography.bodySmall.copyWith(
+                                                  color: Colors.white.withValues(alpha: 0.9),
+                                                  fontSize: isCompact ? 10.5 : 12.0,
+                                                  fontWeight: FontWeight.w600,
                                                 ),
-                                                const SizedBox(height: 10),
-                                                // Explicit CTA button
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              // Explicit CTA button
+                                              FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment: Alignment.centerLeft,
+                                                child: Container(
+                                                  padding: EdgeInsets.symmetric(
+                                                    horizontal: isCompact ? 9.0 : 11.0,
+                                                    vertical: 4.5,
+                                                  ),
                                                   decoration: BoxDecoration(
                                                     color: Colors.white,
                                                     borderRadius: BorderRadius.circular(18),
@@ -744,27 +772,29 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                     ],
                                                   ),
                                                 ),
-                                              ],
-                                            ),
+                                              ),
+                                            ],
                                           ),
-                                          const Spacer(flex: 9),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              ),
+                                // 3D Couple Illustration — positioned with full height & pop-out presence
+                                Positioned(
+                                  right: illustrationRight,
+                                  bottom: isCompact ? -4 : -8,
+                                  top: isCompact ? 4 : 0,
+                                  child: ConnectedDuoIllustration(
+                                    height: illustrationHeight,
+                                    width: illustrationWidth,
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          // 3D Couple Illustration — lives OUTSIDE the ClipRRect so it
-                          // overflows above the card top edge for a premium pop-out effect.
-                          Positioned(
-                            right: -10,
-                            bottom: -10,
-                            top: 2,
-                            child: const ConnectedDuoIllustration(),
-                          ),
-                        ],
+                          );
+                        },
                       ),
                  if (authUser?.isFemale == true)
                         const IncomingPaidCallsBanner(),
@@ -813,6 +843,16 @@ class _HomePageState extends ConsumerState<HomePage> {
                                               color: Colors.white70,
                                               fontSize: 12,
                                               fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 5),
+                                          const VipLiveActivityTicker(
+                                            isCompact: true,
+                                            textStyle: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w600,
+                                              letterSpacing: -0.1,
                                             ),
                                           ),
                                         ],
@@ -873,23 +913,23 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 ],
                               ),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 0.0),
+                                padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 0.0),
                                 child: Row(
                                   children: [
                                     Container(
-                                      width: 48,
-                                      height: 48,
+                                      width: 44,
+                                      height: 44,
                                       decoration: BoxDecoration(
                                         color: Colors.white.withValues(alpha: 0.22),
-                                        borderRadius: BorderRadius.circular(14),
+                                        borderRadius: BorderRadius.circular(13),
                                         border: Border.all(
                                           color: Colors.white.withValues(alpha: 0.35),
                                           width: 1,
                                         ),
                                       ),
-                                      child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 28),
+                                      child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 26),
                                     ),
-                                    const SizedBox(width: 14),
+                                    const SizedBox(width: 10),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -904,19 +944,23 @@ class _HomePageState extends ConsumerState<HomePage> {
                                               letterSpacing: 0.3,
                                             ),
                                           ),
-                                          SizedBox(height: 3),
-                                          Text(
-                                            'Skip the line & match with online buddies',
-                                            style: TextStyle(
+                                          SizedBox(height: 4),
+                                          VipLiveActivityTicker(
+                                            isCompact: true,
+                                            textStyle: TextStyle(
                                               color: Colors.white,
-                                              fontSize: 12,
+                                              fontSize: 11.5,
                                               fontWeight: FontWeight.w600,
+                                              letterSpacing: -0.1,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 16),
+                                    const SizedBox(width: 6),
+                                    const VipLiveAvatarStack(count: 24, radius: 10),
+                                    const SizedBox(width: 6),
+                                    const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 14),
                                   ],
                                 ),
                               ),
