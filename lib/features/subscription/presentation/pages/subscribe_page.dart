@@ -5,7 +5,9 @@ import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/features/subscription/domain/subscription_plan.dart';
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
+import 'package:dio/dio.dart';
 import 'package:buddypartner/core/services/google_play_purchase_service.dart';
+import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 
@@ -26,7 +28,11 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
     return p?.price ?? '₹${plan.totalPriceRupees}';
   }
 
-  Future<void> _handleSubscribe(SubscriptionPlan plan) async {
+  Future<void> _handleSubscribe(
+    SubscriptionPlan plan, {
+    String? offerId,
+    String? promoCode,
+  }) async {
     final gpState = ref.read(googlePlayPurchaseProvider);
     final membershipId = 'membership_${plan.id}';
     final passId = 'pass_${plan.id}';
@@ -39,11 +45,16 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
 
     final displayPrice = _getFormattedPrice(plan, gpState);
     AppLogger.button(
-      'Google Play Membership: ${plan.title} ($productId - $displayPrice)',
+      'Google Play Membership: ${plan.title} ($productId - $displayPrice, offer: $offerId, promo: $promoCode)',
       screen: 'SubscribePage',
     );
 
-    await ref.read(googlePlayPurchaseProvider.notifier).buyProduct(productId, isConsumable: false);
+    await ref.read(googlePlayPurchaseProvider.notifier).buyProduct(
+      productId,
+      isConsumable: false,
+      offerId: offerId,
+      promoCode: promoCode,
+    );
   }
 
   void _showOrderSummaryBottomSheet(BuildContext context, SubscriptionPlan plan) {
@@ -53,7 +64,11 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
       backgroundColor: Colors.transparent,
       builder: (bottomSheetContext) => _MembershipOrderSummarySheet(
         plan: plan,
-        onPay: () => _handleSubscribe(plan),
+        onPay: (offerId, promoCode) => _handleSubscribe(
+          plan,
+          offerId: offerId,
+          promoCode: promoCode,
+        ),
       ),
     );
   }
@@ -630,9 +645,9 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
   }
 }
 
-class _MembershipOrderSummarySheet extends ConsumerWidget {
+class _MembershipOrderSummarySheet extends ConsumerStatefulWidget {
   final SubscriptionPlan plan;
-  final VoidCallback onPay;
+  final void Function(String? offerId, String? promoCode) onPay;
 
   const _MembershipOrderSummarySheet({
     required this.plan,
@@ -640,14 +655,105 @@ class _MembershipOrderSummarySheet extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_MembershipOrderSummarySheet> createState() =>
+      _MembershipOrderSummarySheetState();
+}
+
+class _MembershipOrderSummarySheetState
+    extends ConsumerState<_MembershipOrderSummarySheet> {
+  final TextEditingController _promoCtrl = TextEditingController();
+  bool _isApplying = false;
+  String? _appliedPromoCode;
+  String? _appliedOfferId;
+  double _appliedDiscountAmount = 0.0;
+  String? _promoError;
+  String? _promoSuccessMessage;
+
+  @override
+  void dispose() {
+    _promoCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _applyPromoCode() async {
+    final code = _promoCtrl.text.trim().toUpperCase();
+    if (code.isEmpty) return;
+
+    setState(() {
+      _isApplying = true;
+      _promoError = null;
+      _promoSuccessMessage = null;
+    });
+
+    try {
+      final apiClient = ref.read(apiClientProvider);
+      final response = await apiClient.dio.post(
+        '/api/subscriptions/validate-subscription-promo',
+        data: {
+          'code': code,
+          'productId': widget.plan.id,
+        },
+      );
+
+      if (response.statusCode == 200 && response.data?['success'] == true) {
+        final data = response.data as Map<String, dynamic>;
+        final discount = double.tryParse(data['discountAmount'].toString()) ?? 0.0;
+        final offerId = data['googlePlayOfferId'] as String?;
+        final title = data['title'] as String? ?? 'Discount applied';
+
+        setState(() {
+          _appliedPromoCode = data['code'] as String? ?? code;
+          _appliedOfferId = offerId;
+          _appliedDiscountAmount = discount;
+          _promoSuccessMessage = '$title (-₹${discount.toStringAsFixed(0)})';
+          _promoError = null;
+          _isApplying = false;
+        });
+      } else {
+        setState(() {
+          _promoError = response.data?['message'] ?? 'Invalid promo code.';
+          _isApplying = false;
+        });
+      }
+    } on DioException catch (dioErr) {
+      final msg = dioErr.response?.data is Map &&
+              dioErr.response?.data['message'] != null
+          ? dioErr.response?.data['message'].toString()
+          : 'Invalid or expired promo code.';
+      setState(() {
+        _promoError = msg;
+        _isApplying = false;
+      });
+    } catch (e) {
+      setState(() {
+        _promoError = 'Failed to validate code: $e';
+        _isApplying = false;
+      });
+    }
+  }
+
+  void _removePromoCode() {
+    setState(() {
+      _appliedPromoCode = null;
+      _appliedOfferId = null;
+      _appliedDiscountAmount = 0.0;
+      _promoSuccessMessage = null;
+      _promoError = null;
+      _promoCtrl.clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.colors;
     final typography = context.typography;
     final gpState = ref.watch(googlePlayPurchaseProvider);
     final isPurchasing = gpState.status == GooglePlayPurchaseStatus.purchasing ||
         gpState.status == GooglePlayPurchaseStatus.verifying;
 
-    final totalDisplay = '₹${plan.totalPriceRupees}.00';
+    final baseTotal = widget.plan.totalPriceRupees.toDouble();
+    final finalPayable = (baseTotal - _appliedDiscountAmount).clamp(0.0, 999999.0);
+    final totalDisplay = '₹${finalPayable.toStringAsFixed(0)}.00';
 
     return Container(
       decoration: BoxDecoration(
@@ -662,342 +768,551 @@ class _MembershipOrderSummarySheet extends ConsumerWidget {
       ),
       child: SafeArea(
         top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Top Drag Handle
-            Center(
-              child: Container(
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colors.textSecondary.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Sheet Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: colors.primary.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.receipt_long_rounded,
-                        color: colors.primary,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Order Summary',
-                      style: typography.titleCard.copyWith(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: colors.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-                IconButton(
-                  icon: Icon(Icons.close_rounded, color: colors.textSecondary),
-                  onPressed: () => Navigator.of(context).pop(),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Plan Summary Box
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: colors.surfaceMuted,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: colors.primary.withValues(alpha: 0.25),
-                  width: 1.2,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: colors.primary,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.workspace_premium_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Top Drag Handle
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colors.textSecondary.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              plan.title,
-                              style: typography.bodyMedium.copyWith(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                                color: colors.textPrimary,
-                              ),
-                            ),
-                            if (plan.badge != null) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: colors.primary,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  plan.badge!,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          plan.description,
-                          style: typography.bodySmall.copyWith(
-                            fontSize: 12,
-                            color: colors.textSecondary,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // GST Breakdown Table
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                color: colors.surfaceMuted,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
+              // Sheet Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Base Price
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Base Membership Price',
-                        style: typography.bodyMedium.copyWith(
-                          fontSize: 14,
-                          color: colors.textSecondary,
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: colors.primary.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.receipt_long_rounded,
+                          color: colors.primary,
+                          size: 20,
                         ),
                       ),
+                      const SizedBox(width: 10),
                       Text(
-                        '₹${plan.basePriceRupees}.00',
-                        style: typography.bodyMedium.copyWith(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                        'Order Summary',
+                        style: typography.titleCard.copyWith(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                           color: colors.textPrimary,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-
-                  // 18% GST
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Goods & Services Tax (18% GST)',
-                            style: typography.bodyMedium.copyWith(
-                              fontSize: 14,
-                              color: colors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        '+ ₹${plan.gstRupees}.00',
-                        style: typography.bodyMedium.copyWith(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: colors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 10),
-                    child: Divider(height: 1, thickness: 1),
-                  ),
-
-                  // Total Amount
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Total Payable',
-                            style: typography.bodyMedium.copyWith(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: colors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Inclusive of all taxes',
-                            style: typography.bodySmall.copyWith(
-                              fontSize: 11,
-                              color: colors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        totalDisplay,
-                        style: typography.titleCard.copyWith(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: colors.primary,
-                        ),
-                      ),
-                    ],
+                  IconButton(
+                    icon: Icon(Icons.close_rounded, color: colors.textSecondary),
+                    onPressed: () => Navigator.of(context).pop(),
+                    visualDensity: VisualDensity.compact,
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-            // Indian Tax Note
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: colors.primary.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline_rounded,
-                    size: 16,
-                    color: colors.primary,
+              // Plan Summary Box
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: colors.surfaceMuted,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: colors.primary.withValues(alpha: 0.25),
+                    width: 1.2,
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: colors.primary,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.workspace_premium_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                widget.plan.title,
+                                style: typography.bodyMedium.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                  color: colors.textPrimary,
+                                ),
+                              ),
+                              if (widget.plan.badge != null) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colors.primary,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    widget.plan.badge!,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            widget.plan.description,
+                            style: typography.bodySmall.copyWith(
+                              fontSize: 12,
+                              color: colors.textSecondary,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // ── Promo Code Input / Applied Card ──────────────────────────
+              if (_appliedPromoCode == null) ...[
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceMuted,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: _promoError != null
+                          ? Colors.red.shade400
+                          : colors.textSecondary.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Icon(
+                          Icons.local_offer_outlined,
+                          size: 20,
+                          color: colors.primary,
+                        ),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _promoCtrl,
+                          textCapitalization: TextCapitalization.characters,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: colors.textPrimary,
+                            letterSpacing: 0.5,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Enter Promo Code (e.g. SAVE50)',
+                            hintStyle: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.normal,
+                              color: colors.textSecondary.withValues(alpha: 0.7),
+                            ),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                          onSubmitted: (_) => _applyPromoCode(),
+                        ),
+                      ),
+                      SizedBox(
+                        height: 38,
+                        child: ElevatedButton(
+                          onPressed: _isApplying ? null : _applyPromoCode,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: _isApplying
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Apply',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_promoError != null) ...[
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
                     child: Text(
-                      '₹${plan.basePriceRupees} + 18% GST (₹${plan.gstRupees}) = ₹${plan.totalPriceRupees}. Billed securely through Google Play.',
-                      style: typography.bodySmall.copyWith(
-                        fontSize: 11.5,
-                        color: colors.textSecondary,
-                        height: 1.3,
+                      _promoError!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.red.shade600,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 18),
-
-            // Pay CTA Button
-            SizedBox(
-              height: 52,
-              child: ElevatedButton(
-                onPressed: isPurchasing ? null : onPay,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colors.primary,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: colors.primary.withValues(alpha: 0.5),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+              ] else ...[
+                // Applied Promo Tag Card
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Colors.green.withValues(alpha: 0.35),
+                    ),
                   ),
-                  elevation: 3,
-                ),
-                child: isPurchasing
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: Colors.white,
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.check_circle_rounded,
+                        color: Colors.green,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Code "$_appliedPromoCode" Applied!',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13.5,
+                                color: Colors.green,
+                              ),
+                            ),
+                            if (_promoSuccessMessage != null)
+                              Text(
+                                _promoSuccessMessage!,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: colors.textSecondary,
+                                ),
+                              ),
+                          ],
                         ),
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.lock_rounded,
-                            size: 19,
-                            color: Colors.white,
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.cancel_outlined,
+                          size: 20,
+                          color: Colors.redAccent,
+                        ),
+                        tooltip: 'Remove Code',
+                        onPressed: _removePromoCode,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+
+              // GST Breakdown Table
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: colors.surfaceMuted,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    // Base Price
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Base Membership Price',
+                          style: typography.bodyMedium.copyWith(
+                            fontSize: 14,
+                            color: colors.textSecondary,
                           ),
-                          const SizedBox(width: 8),
+                        ),
+                        Text(
+                          '₹${widget.plan.basePriceRupees}.00',
+                          style: typography.bodyMedium.copyWith(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: colors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // 18% GST
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Goods & Services Tax (18% GST)',
+                          style: typography.bodyMedium.copyWith(
+                            fontSize: 14,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          '+ ₹${widget.plan.gstRupees}.00',
+                          style: typography.bodyMedium.copyWith(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: colors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Promo Code Discount Line (if applied)
+                    if (_appliedDiscountAmount > 0) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.discount_rounded,
+                                size: 16,
+                                color: Colors.green,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Promo Discount ($_appliedPromoCode)',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.green,
+                                ),
+                              ),
+                            ],
+                          ),
                           Text(
-                            'Pay $totalDisplay with Google Play',
+                            '- ₹${_appliedDiscountAmount.toStringAsFixed(0)}.00',
                             style: const TextStyle(
+                              fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              fontSize: 15.5,
-                              color: Colors.white,
+                              color: Colors.green,
                             ),
                           ),
                         ],
                       ),
-              ),
-            ),
-            const SizedBox(height: 10),
+                    ],
 
-            // Security reassurance
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.shield_outlined,
-                  size: 13,
-                  color: colors.textSecondary,
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 10),
+                      child: Divider(height: 1, thickness: 1),
+                    ),
+
+                    // Total Amount
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Total Payable',
+                              style: typography.bodyMedium.copyWith(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: colors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Inclusive of all taxes',
+                              style: typography.bodySmall.copyWith(
+                                fontSize: 11,
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            if (_appliedDiscountAmount > 0) ...[
+                              Text(
+                                '₹${widget.plan.totalPriceRupees}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  decoration: TextDecoration.lineThrough,
+                                  color: colors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            Text(
+                              totalDisplay,
+                              style: typography.titleCard.copyWith(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: colors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 5),
-                Text(
-                  '100% Secure Payment • Cancel anytime in Google Play',
-                  style: typography.bodySmall.copyWith(
-                    fontSize: 11,
+              ),
+              const SizedBox(height: 12),
+
+              // Indian Tax Note
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 16,
+                      color: colors.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _appliedDiscountAmount > 0
+                            ? 'Special promo applied: you pay $totalDisplay. Billed securely through Google Play.'
+                            : '₹${widget.plan.basePriceRupees} + 18% GST (₹${widget.plan.gstRupees}) = ₹${widget.plan.totalPriceRupees}. Billed securely through Google Play.',
+                        style: typography.bodySmall.copyWith(
+                          fontSize: 11.5,
+                          color: colors.textSecondary,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // Pay CTA Button
+              SizedBox(
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: isPurchasing
+                      ? null
+                      : () => widget.onPay(_appliedOfferId, _appliedPromoCode),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.primary,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor:
+                        colors.primary.withValues(alpha: 0.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 3,
+                  ),
+                  child: isPurchasing
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.lock_rounded,
+                              size: 19,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Pay $totalDisplay with Google Play',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15.5,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // Security reassurance
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.shield_outlined,
+                    size: 13,
                     color: colors.textSecondary,
                   ),
-                ),
-              ],
-            ),
-          ],
+                  const SizedBox(width: 5),
+                  Text(
+                    '100% Secure Payment • Cancel anytime in Google Play',
+                    style: typography.bodySmall.copyWith(
+                      fontSize: 11,
+                      color: colors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
+

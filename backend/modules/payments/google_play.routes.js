@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../../middleware/auth.middleware');
 const { GooglePlayService } = require('./google_play.service');
+const { PromoCodesService } = require('../promo_codes/promo_codes.service');
 
 const RTDN_EXPECTED_SERVICE_ACCOUNT = process.env.GOOGLE_PLAY_RTDN_SERVICE_ACCOUNT || '';
 const RTDN_EXPECTED_AUDIENCE = process.env.GOOGLE_PLAY_RTDN_AUDIENCE || '';
@@ -27,7 +28,7 @@ router.get('/products', authMiddleware, (req, res) => {
 router.post('/verify', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { productId, purchaseToken, orderId, signature, rawDetails } = req.body;
+    const { productId, purchaseToken, orderId, signature, rawDetails, promoCode } = req.body;
 
     if (!productId || typeof productId !== 'string' || !purchaseToken || typeof purchaseToken !== 'string') {
       return res.status(400).json({
@@ -44,6 +45,10 @@ router.post('/verify', authMiddleware, async (req, res) => {
       signature,
       rawDetails,
     });
+
+    if (result && result.success && promoCode) {
+      await PromoCodesService.recordGooglePlayRedemption(userId, promoCode, orderId || result.orderId);
+    }
 
     res.json(result);
   } catch (err) {

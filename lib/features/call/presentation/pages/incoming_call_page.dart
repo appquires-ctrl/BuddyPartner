@@ -33,7 +33,6 @@ class _IncomingCallPageState extends ConsumerState<IncomingCallPage> {
   @override
   void dispose() {
     _vibrationTimer?.cancel();
-    CallkitService.endAllCalls();
     super.dispose();
   }
 
@@ -43,9 +42,21 @@ class _IncomingCallPageState extends ConsumerState<IncomingCallPage> {
     final controller = ref.read(matchmakingControllerProvider.notifier);
 
     ref.listen<MatchmakingState>(matchmakingControllerProvider, (prev, next) {
-      if (next.phase == MatchmakingPhase.idle) {
+      debugPrint('📞 [IncomingCallPage ref.listen] prev: ${prev?.phase} -> next: ${next.phase}, mounted: $mounted');
+      if (next.phase == MatchmakingPhase.inCall) {
         if (mounted) {
-          context.go(RouteNames.home);
+          debugPrint('📞 [IncomingCallPage] Navigating to activeCall');
+          context.go(RouteNames.activeCall);
+        }
+      } else if (next.phase == MatchmakingPhase.idle || next.phase == MatchmakingPhase.ended) {
+        if (mounted) {
+          if (context.canPop()) {
+            debugPrint('📞 [IncomingCallPage] Popping back');
+            context.pop();
+          } else {
+            debugPrint('📞 [IncomingCallPage] Cannot pop, navigating to home');
+            context.go(RouteNames.home);
+          }
         }
       }
     });
@@ -172,7 +183,6 @@ class _IncomingCallPageState extends ConsumerState<IncomingCallPage> {
                       onTap: () {
                         HapticFeedback.heavyImpact();
                         _vibrationTimer?.cancel();
-                        CallkitService.endAllCalls();
                         controller.acceptCall();
                       },
                       child: Container(

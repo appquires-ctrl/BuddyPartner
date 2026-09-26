@@ -218,11 +218,16 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
 
   /// Accept the incoming direct call request.
   Future<void> acceptCall() async {
-    if (state.phase != MatchmakingPhase.incomingRequest || state.callId == null) return;
+    if (state.phase != MatchmakingPhase.incomingRequest || state.callId == null) {
+      debugPrint('⚠️ [MatchmakingController] acceptCall ignored: not incomingRequest (phase=${state.phase}, callId=${state.callId})');
+      return;
+    }
 
     try {
-      // 1. Dismiss CallKit notification and stop ringing
-      await CallkitService.endAllCalls();
+      // 1. Tell CallKit the call is connected/accepted so it stops ringing and doesn't broadcast decline
+      if (state.callId != null) {
+        await CallkitService.setCallConnected(state.callId!);
+      }
 
       // 2. Ensure permissions are resolved sequentially BEFORE emitting accept to prevent PlatformException
       final micGranted = await Permission.microphone.isGranted;
@@ -251,9 +256,11 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
 
   /// Decline the incoming direct call request.
   void declineCall() {
-    if (state.phase != MatchmakingPhase.incomingRequest || state.callId == null) return;
+    debugPrint('📲 [MatchmakingController] declineCall: ${state.callId}');
     CallkitService.endAllCalls();
-    _socket?.emit('decline_call_request', {'callRequestId': state.callId});
+    if (state.callId != null) {
+      _socket?.emit('decline_call_request', {'callRequestId': state.callId});
+    }
     _callingTimeoutTimer?.cancel();
     _callingTimeoutTimer = null;
     state = state.reset();
@@ -291,13 +298,19 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
 
   /// Decline call triggered from external native CallKit UI
   void declineCallFromCallKit(String callRequestId) {
-    debugPrint('📲 [MatchmakingController] declineCallFromCallKit: $callRequestId');
-    _socket?.emit('decline_call_request', {'callRequestId': callRequestId});
-    if (state.callId == callRequestId) {
-      _callingTimeoutTimer?.cancel();
-      _callingTimeoutTimer = null;
-      state = state.reset();
+    debugPrint('📲 [MatchmakingController] declineCallFromCallKit: $callRequestId (phase=${state.phase}, callId=${state.callId})');
+    // Guard: Only process external decline if we are actually still waiting in incomingRequest for this call.
+    // If user has already answered or is connecting to Agora, ignore spurious CallKit decline events.
+    if (state.phase != MatchmakingPhase.incomingRequest || state.callId != callRequestId) {
+      debugPrint('⚠️ [MatchmakingController] Ignoring CallKit decline because phase is ${state.phase}');
+      return;
     }
+
+    _socket?.emit('decline_call_request', {'callRequestId': callRequestId});
+    _callingTimeoutTimer?.cancel();
+    _callingTimeoutTimer = null;
+    CallkitService.endAllCalls();
+    state = state.reset();
   }
 
   /// Cancel the outgoing direct call request before it is accepted.
@@ -757,6 +770,15 @@ class MatchmakingController extends AutoDisposeNotifier<MatchmakingState> {
     } else if (data is String) {
       errorMsg = data;
     }
+
+    // Suppress expired/stale call errors when user has already declined or moved on to idle
+    final lower = errorMsg.toLowerCase();
+    if (lower.contains('expired') || lower.contains('does not exist')) {
+      debugPrint('ℹ️ [Matchmaking] Suppressing stale call error snackbar: $errorMsg');
+      state = state.reset();
+      return;
+    }
+
     state = state.copyWith(
       phase: MatchmakingPhase.idle,
       errorMessage: errorMsg,

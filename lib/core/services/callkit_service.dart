@@ -106,6 +106,16 @@ class CallkitService {
     }
   }
 
+  /// Mark call as connected/accepted in CallKit (stops ringing, avoids triggering decline)
+  static Future<void> setCallConnected(String callRequestId) async {
+    try {
+      await FlutterCallkitIncoming.setCallConnected(callRequestId);
+      debugPrint('📲 [CallKit] Marked call connected: $callRequestId');
+    } catch (e) {
+      debugPrint('❌ [CallKit] Error setting call connected: $e');
+    }
+  }
+
   /// Dismiss a specific call
   static Future<void> endCall(String callRequestId) async {
     try {

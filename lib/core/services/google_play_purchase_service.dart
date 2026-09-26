@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
@@ -94,6 +95,7 @@ class GooglePlayPurchaseNotifier extends StateNotifier<GooglePlayState> {
   final Ref _ref;
   final InAppPurchase _iap = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
+  String? _pendingPromoCode;
 
   GooglePlayPurchaseNotifier(this._ref) : super(const GooglePlayState()) {
     _init();
@@ -156,9 +158,16 @@ class GooglePlayPurchaseNotifier extends StateNotifier<GooglePlayState> {
   }
 
   /// Initiate purchase for a specific product ID (Coin pack or Subscription pass)
-  Future<bool> buyProduct(String productId, {bool isConsumable = true}) async {
+  /// Optionally passes a Google Play offerId (e.g. '50-off') and promoCode
+  Future<bool> buyProduct(
+    String productId, {
+    bool isConsumable = true,
+    String? offerId,
+    String? promoCode,
+  }) async {
+    _pendingPromoCode = promoCode;
     AppLogger.button(
-      'Buy Google Play Product: $productId',
+      'Buy Google Play Product: $productId (offer: $offerId, promo: $promoCode)',
       screen: 'GooglePlayPurchaseService',
     );
 
@@ -191,9 +200,34 @@ class GooglePlayPurchaseNotifier extends StateNotifier<GooglePlayState> {
     state = state.copyWith(status: GooglePlayPurchaseStatus.purchasing);
 
     try {
-      final PurchaseParam purchaseParam = PurchaseParam(
-        productDetails: product,
-      );
+      PurchaseParam purchaseParam;
+      if (defaultTargetPlatform == TargetPlatform.android &&
+          product is GooglePlayProductDetails) {
+        String? selectedOfferToken;
+        if (offerId != null) {
+          final offers = product.productDetails.subscriptionOfferDetails;
+          if (offers != null) {
+            for (final offer in offers) {
+              if (offer.offerId == offerId) {
+                selectedOfferToken = offer.offerIdToken;
+                debugPrint(
+                  '🎟️ [Google Play Offer Selected]: $offerId (token: $selectedOfferToken)',
+                );
+                break;
+              }
+            }
+          }
+        }
+        purchaseParam = GooglePlayPurchaseParam(
+          productDetails: product,
+          offerToken: selectedOfferToken,
+        );
+      } else {
+        purchaseParam = PurchaseParam(
+          productDetails: product,
+        );
+      }
+
       if (isConsumable) {
         return await _iap.buyConsumable(purchaseParam: purchaseParam);
       } else {
@@ -286,8 +320,10 @@ class GooglePlayPurchaseNotifier extends StateNotifier<GooglePlayState> {
             'transactionDate': purchase.transactionDate,
             'status': purchase.status.name,
           },
+          if (_pendingPromoCode != null) 'promoCode': _pendingPromoCode,
         },
       );
+      _pendingPromoCode = null;
 
       if (response.statusCode == 200 && response.data?['success'] == true) {
         final data = response.data as Map<String, dynamic>;

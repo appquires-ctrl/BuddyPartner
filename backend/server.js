@@ -68,6 +68,7 @@ const googlePlayRoutes = require('./modules/payments/google_play.routes');
 const buddyRoutes = require('./modules/buddy/buddy.routes');
 const buddyGroupRoutes = require('./modules/buddy_group/buddy_group.routes');
 const buddyBannersRoutes = require('./modules/buddy_banners/buddy_banners.routes');
+const promoCodesRoutes = require('./modules/promo_codes/promo_codes.routes');
 
 // Serve uploaded images statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -101,6 +102,9 @@ app.use('/api/app', supportRoutes);
 app.use('/api/buddy', buddyRoutes);
 app.use('/api/buddy-group', buddyGroupRoutes);
 app.use('/api/payments/google-play', googlePlayRoutes);
+app.use('/api/admin/promo-codes', promoCodesRoutes.adminRouter);
+app.use('/api/promos', promoCodesRoutes.userRouter);
+app.use('/api/subscriptions', promoCodesRoutes.userRouter);
 
 // Prime in-memory app config cache (schema managed via versioned migrations)
 appService.refreshCache().catch((err) => {

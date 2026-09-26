@@ -22,7 +22,7 @@ class AppNavigationObserver extends NavigatorObserver {
     if (raw.startsWith('_PageBasedMaterialPageRoute') ||
         raw.startsWith('MaterialPage') ||
         raw.startsWith('MaterialPageRoute')) {
-      return AppLogger.currentScreen;
+      return 'HomeScreen';
     }
 
     String clean = raw;

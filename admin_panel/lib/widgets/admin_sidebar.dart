@@ -112,6 +112,13 @@ class AdminSidebar extends StatelessWidget {
             route: '/app-config',
             isSelected: currentPath == '/app-config',
           ),
+          _buildNavItem(
+            context,
+            title: 'Promo Codes',
+            icon: Icons.local_offer_rounded,
+            route: '/promo-codes',
+            isSelected: currentPath == '/promo-codes',
+          ),
           
 
           const Spacer(),

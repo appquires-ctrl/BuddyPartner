@@ -12,6 +12,7 @@ import '../features/withdrawals/withdrawals_screen.dart';
 import '../features/advertisements/presentation/pages/advertisements_page.dart';
 import '../features/buddy_banners/presentation/pages/buddy_banners_page.dart';
 import '../features/version_config/presentation/pages/app_config_page.dart';
+import '../features/promo_codes/presentation/pages/promo_codes_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
@@ -88,6 +89,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/app-config',
             pageBuilder: (context, state) => const NoTransitionPage(
               child: AppConfigPage(),
+            ),
+          ),
+          GoRoute(
+            path: '/promo-codes',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PromoCodesPage(),
             ),
           ),
         ],

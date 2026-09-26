@@ -136,28 +136,46 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
 
       final wasInCall = prev?.phase == MatchmakingPhase.inCall || prev?.phase == MatchmakingPhase.matched;
       final isNowInCall = next.phase == MatchmakingPhase.inCall || next.phase == MatchmakingPhase.matched;
+      final wasInIncomingOrCalling = prev?.phase == MatchmakingPhase.incomingRequest || prev?.phase == MatchmakingPhase.outgoingRequest;
+
+      final navState = rootNavigatorKey.currentState;
+      final router = ref.read(routerProvider);
+
+      debugPrint('📞 [App CallNavigation] prev: ${prev?.phase} -> next: ${next.phase}');
 
       if (isNowInCall && !wasInCall) {
-        Navigator.of(navContext, rootNavigator: true).popUntil((route) => route is! PopupRoute);
-        navContext.go(RouteNames.activeCall);
+        debugPrint('📞 [App CallNavigation] Navigating to activeCall');
+        try {
+          navState?.popUntil((route) => route is! PopupRoute);
+        } catch (_) {}
+        router.go(RouteNames.activeCall);
       } else if (next.phase == MatchmakingPhase.incomingRequest && prev?.phase != MatchmakingPhase.incomingRequest) {
-        Navigator.of(navContext, rootNavigator: true).popUntil((route) => route is! PopupRoute);
-        navContext.go(RouteNames.incomingCall);
+        debugPrint('📞 [App CallNavigation] Navigating to incomingCall');
+        try {
+          navState?.popUntil((route) => route is! PopupRoute);
+        } catch (_) {}
+        router.go(RouteNames.incomingCall);
       } else if (next.phase == MatchmakingPhase.outgoingRequest && prev?.phase != MatchmakingPhase.outgoingRequest) {
-        Navigator.of(navContext, rootNavigator: true).popUntil((route) => route is! PopupRoute);
-        navContext.go(RouteNames.calling);
-      } else if (wasInCall &&
+        debugPrint('📞 [App CallNavigation] Navigating to calling');
+        try {
+          navState?.popUntil((route) => route is! PopupRoute);
+        } catch (_) {}
+        router.go(RouteNames.calling);
+      } else if ((wasInCall || wasInIncomingOrCalling) &&
           (next.phase == MatchmakingPhase.idle || next.phase == MatchmakingPhase.ended)) {
+        debugPrint('📞 [App CallNavigation] Call ended or idle! Navigating to home');
         if (next.isCallMinimized) {
           ref.read(matchmakingControllerProvider.notifier).restoreCall();
         }
-        Navigator.of(navContext, rootNavigator: true).popUntil((route) => route is! PopupRoute);
-        navContext.go(RouteNames.home);
+        try {
+          navState?.popUntil((route) => route is! PopupRoute);
+        } catch (_) {}
+        router.go(RouteNames.home);
       }
 
-      if (next.phase == MatchmakingPhase.idle ||
-          next.phase == MatchmakingPhase.ended ||
-          next.phase == MatchmakingPhase.inCall) {
+      if (prev?.phase != next.phase &&
+          (next.phase == MatchmakingPhase.idle ||
+           next.phase == MatchmakingPhase.ended)) {
         CallkitService.endAllCalls();
       }
 
@@ -171,9 +189,14 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
       final navContext = rootNavigatorKey.currentContext;
       if (navContext == null || !navContext.mounted) return;
 
+      final navState = rootNavigatorKey.currentState;
+      final router = ref.read(routerProvider);
+
       if (next.phase == InstantPhase.inCall && prev?.phase != InstantPhase.inCall) {
-        Navigator.of(navContext, rootNavigator: true).popUntil((route) => route is! PopupRoute);
-        navContext.go(RouteNames.activeCall);
+        try {
+          navState?.popUntil((route) => route is! PopupRoute);
+        } catch (_) {}
+        router.go(RouteNames.activeCall);
       } else if (next.phase == InstantPhase.incomingRequest && prev?.phase != InstantPhase.incomingRequest) {
         final mmPhase = ref.read(matchmakingControllerProvider).phase;
         debugPrint('🔔 [App] Incoming VIP call detected! mmPhase=$mmPhase. Showing IncomingPaidCallDialog...');
@@ -188,8 +211,10 @@ class _BuddyPartnerAppState extends ConsumerState<BuddyPartnerApp> {
           debugPrint('⚠️ [App] Cannot show incoming call dialog: Matchmaking is not idle ($mmPhase)');
         }
       } else if (prev?.phase == InstantPhase.inCall && (next.phase == InstantPhase.idle || next.phase == InstantPhase.ended)) {
-        Navigator.of(navContext, rootNavigator: true).popUntil((route) => route is! PopupRoute);
-        navContext.go(RouteNames.home);
+        try {
+          navState?.popUntil((route) => route is! PopupRoute);
+        } catch (_) {}
+        router.go(RouteNames.home);
       }
 
       if (next.errorMessage != null && next.errorMessage != prev?.errorMessage) {
