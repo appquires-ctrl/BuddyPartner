@@ -218,9 +218,8 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
   Future<void> _submitRequest() async {
     if (_isSubmitting) return;
 
-    final requiredCoins = widget.buddyType == BuddyType.garba
-        ? 509
-        : (widget.customCoinCost ?? widget.buddyType.coinCost);
+    final requiredCoins = widget.customCoinCost ??
+        (widget.buddyType == BuddyType.garba ? 501 : widget.buddyType.coinCost);
     int currentCoins = ref.read(walletBalanceProvider).value ?? -1;
     if (currentCoins < requiredCoins) {
       try {
@@ -322,7 +321,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
     final displaySubtitle = type == BuddyType.garba
         ? 'Start a 6-person Garba group chat'
         : (widget.customSubtitle ?? type.subtitle);
-    final effectiveCoins = type == BuddyType.garba ? 509 : (widget.customCoinCost ?? type.coinCost);
+    final effectiveCoins = widget.customCoinCost ?? (type == BuddyType.garba ? 501 : type.coinCost);
     final effectiveAccent = widget.customAccentColor ?? type.accentColor;
     final effectiveGradients = widget.customAccentColor != null
         ? [widget.customAccentColor!, widget.customAccentColor!.withValues(alpha: 0.8)]

@@ -80,7 +80,7 @@ const BUDDY_TYPES = Object.freeze({
 
 const BUDDY_PRICING = Object.freeze({
   INITIATOR_COIN_COST: 100, // Fallback default
-  GARBA_INITIATOR_COIN_COST: 509, // Garba Buddy Group Host cost: 509 coins for 6-person group
+  GARBA_INITIATOR_COIN_COST: 501, // Garba Buddy Group Host cost: 501 coins for 6-person group
   ACCEPTER_COIN_REWARD: 50, // Fallback default
   FEMALE_REWARD_PERCENTAGE: 0.40, // 40% of broadcast coin cost for female accepters
   MALE_REWARD_PERCENTAGE: 0.20, // 20% of broadcast coin cost for male accepters
@@ -95,7 +95,7 @@ const BUDDY_PRICING = Object.freeze({
     night_out: 2499,
     clubbing: 1499,
     long_drive: 999,
-    garba: 509,
+    garba: 501,
     festival: 1,
   }),
 });

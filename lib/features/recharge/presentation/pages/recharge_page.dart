@@ -677,6 +677,18 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
     final finalPayable = (baseTotal - _appliedDiscountAmount).clamp(0.0, 999999.0);
     final totalDisplay = '₹${finalPayable.toStringAsFixed(0)}.00';
 
+    // Statutory GST (18%) breakdown:
+    // Under Indian GST laws, GST is levied on the actual discounted transaction value.
+    final double netTaxableAmount;
+    final double netGstAmount;
+    if (_appliedDiscountAmount > 0) {
+      netTaxableAmount = double.parse((finalPayable / 1.18).toStringAsFixed(2));
+      netGstAmount = double.parse((finalPayable - netTaxableAmount).toStringAsFixed(2));
+    } else {
+      netTaxableAmount = widget.plan.basePriceRupees.toDouble();
+      netGstAmount = widget.plan.gstRupees.toDouble();
+    }
+
     final surfaceColor = isDark ? const Color(0xFF1E1A2E) : Colors.white;
     final mutedColor = isDark ? const Color(0xFF28233C) : const Color(0xFFF7F6FC);
     final textColor = isDark ? Colors.white : const Color(0xFF18181B);
@@ -975,54 +987,31 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
                 ),
                 child: Column(
                   children: [
-                    // Base Price
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Coin Pack Base Price',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: textMuted,
-                          ),
-                        ),
-                        Text(
-                          '₹${widget.plan.basePriceRupees}.00',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: textColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-
-                    // 18% GST
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Goods & Services Tax (18% GST)',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: textMuted,
-                          ),
-                        ),
-                        Text(
-                          '+ ₹${widget.plan.gstRupees}.00',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFFF59E0B),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    // Promo Discount Row
                     if (_appliedDiscountAmount > 0) ...[
+                      // Original Pack Price
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Original Pack Price',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: textMuted,
+                            ),
+                          ),
+                          Text(
+                            '₹${widget.plan.totalPriceRupees}.00',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: textColor,
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 10),
+
+                      // Promo Discount Row
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -1050,6 +1039,100 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF10B981),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Divider(height: 1, thickness: 0.8),
+                      ),
+
+                      // Net Taxable Base
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Taxable Amount',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: textMuted,
+                            ),
+                          ),
+                          Text(
+                            '₹${netTaxableAmount.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: textColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+
+                      // 18% GST on discounted amount
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Goods & Services Tax (18% GST)',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: textMuted,
+                            ),
+                          ),
+                          Text(
+                            '+ ₹${netGstAmount.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFFF59E0B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      // Base Price
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Coin Pack Base Price',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: textMuted,
+                            ),
+                          ),
+                          Text(
+                            '₹${widget.plan.basePriceRupees}.00',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: textColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+
+                      // 18% GST
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Goods & Services Tax (18% GST)',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: textMuted,
+                            ),
+                          ),
+                          Text(
+                            '+ ₹${widget.plan.gstRupees}.00',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFFF59E0B),
                             ),
                           ),
                         ],

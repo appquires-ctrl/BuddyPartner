@@ -755,6 +755,18 @@ class _MembershipOrderSummarySheetState
     final finalPayable = (baseTotal - _appliedDiscountAmount).clamp(0.0, 999999.0);
     final totalDisplay = '₹${finalPayable.toStringAsFixed(0)}.00';
 
+    // Statutory GST (18%) breakdown:
+    // Under Indian GST laws, GST is levied on the actual discounted transaction value.
+    final double netTaxableAmount;
+    final double netGstAmount;
+    if (_appliedDiscountAmount > 0) {
+      netTaxableAmount = double.parse((finalPayable / 1.18).toStringAsFixed(2));
+      netGstAmount = double.parse((finalPayable - netTaxableAmount).toStringAsFixed(2));
+    } else {
+      netTaxableAmount = widget.plan.basePriceRupees.toDouble();
+      netGstAmount = widget.plan.gstRupees.toDouble();
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: colors.surface,
@@ -1067,54 +1079,31 @@ class _MembershipOrderSummarySheetState
                 ),
                 child: Column(
                   children: [
-                    // Base Price
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Base Membership Price',
-                          style: typography.bodyMedium.copyWith(
-                            fontSize: 14,
-                            color: colors.textSecondary,
-                          ),
-                        ),
-                        Text(
-                          '₹${widget.plan.basePriceRupees}.00',
-                          style: typography.bodyMedium.copyWith(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: colors.textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-
-                    // 18% GST
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Goods & Services Tax (18% GST)',
-                          style: typography.bodyMedium.copyWith(
-                            fontSize: 14,
-                            color: colors.textSecondary,
-                          ),
-                        ),
-                        Text(
-                          '+ ₹${widget.plan.gstRupees}.00',
-                          style: typography.bodyMedium.copyWith(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: colors.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    // Promo Code Discount Line (if applied)
                     if (_appliedDiscountAmount > 0) ...[
+                      // Original Plan Price
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Original Plan Price',
+                            style: typography.bodyMedium.copyWith(
+                              fontSize: 14,
+                              color: colors.textSecondary,
+                            ),
+                          ),
+                          Text(
+                            '₹${widget.plan.totalPriceRupees}.00',
+                            style: typography.bodyMedium.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: colors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 10),
+
+                      // Promo Code Discount Line
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -1142,6 +1131,100 @@ class _MembershipOrderSummarySheetState
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                               color: Colors.green,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Divider(height: 1, thickness: 0.8),
+                      ),
+
+                      // Net Taxable Base
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Taxable Amount',
+                            style: typography.bodyMedium.copyWith(
+                              fontSize: 14,
+                              color: colors.textSecondary,
+                            ),
+                          ),
+                          Text(
+                            '₹${netTaxableAmount.toStringAsFixed(2)}',
+                            style: typography.bodyMedium.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: colors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+
+                      // 18% GST on discounted amount
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Goods & Services Tax (18% GST)',
+                            style: typography.bodyMedium.copyWith(
+                              fontSize: 14,
+                              color: colors.textSecondary,
+                            ),
+                          ),
+                          Text(
+                            '+ ₹${netGstAmount.toStringAsFixed(2)}',
+                            style: typography.bodyMedium.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: colors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      // Base Price
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Base Membership Price',
+                            style: typography.bodyMedium.copyWith(
+                              fontSize: 14,
+                              color: colors.textSecondary,
+                            ),
+                          ),
+                          Text(
+                            '₹${widget.plan.basePriceRupees}.00',
+                            style: typography.bodyMedium.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: colors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+
+                      // 18% GST
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Goods & Services Tax (18% GST)',
+                            style: typography.bodyMedium.copyWith(
+                              fontSize: 14,
+                              color: colors.textSecondary,
+                            ),
+                          ),
+                          Text(
+                            '+ ₹${widget.plan.gstRupees}.00',
+                            style: typography.bodyMedium.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: colors.primary,
                             ),
                           ),
                         ],

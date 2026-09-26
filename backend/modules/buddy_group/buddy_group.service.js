@@ -53,7 +53,18 @@ class BuddyGroupService {
       throw err;
     }
 
-    const HOST_COIN_COST = 509;
+    let HOST_COIN_COST = 501;
+    try {
+      const bannerRes = await db.query(`
+        SELECT sheet_config FROM public.seasonal_banners 
+        WHERE is_active = TRUE AND (sheet_config->>'buddyType' = 'garba' OR sheet_config->>'buddyType' = 'garba_group')
+        ORDER BY priority ASC, created_at DESC LIMIT 1
+      `);
+      if (bannerRes.rows.length > 0 && bannerRes.rows[0].sheet_config?.broadcastCoinCost) {
+        HOST_COIN_COST = parseInt(bannerRes.rows[0].sheet_config.broadcastCoinCost, 10) || 501;
+      }
+    } catch (_) {}
+
     const groupTitle = (title && title.trim()) ? title.trim() : 'Garba Buddy Group';
 
     const client = await db.pool.connect();
@@ -89,7 +100,7 @@ class BuddyGroupService {
       if (!debitRes.success) {
         await client.query('ROLLBACK');
         const bal = await WalletService.getBalance(hostId);
-        const err = new Error(`Insufficient coins: 509 coins required to host a Garba buddy group (current balance: ${bal.balance} coins).`);
+        const err = new Error(`Insufficient coins: ${HOST_COIN_COST} coins required to host a Garba buddy group (current balance: ${bal.balance} coins).`);
         err.code = 'INSUFFICIENT_COINS';
         err.statusCode = 400;
         throw err;

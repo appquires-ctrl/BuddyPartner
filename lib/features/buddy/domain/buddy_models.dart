@@ -147,7 +147,7 @@ enum BuddyType {
       case BuddyType.longDrive:
         return 999;
       case BuddyType.garba:
-        return 509; // Garba Buddy Group Host cost: 509 coins
+        return 501; // Garba Buddy Group Host cost: 501 coins
       case BuddyType.festival:
         return 1;
     }
@@ -414,7 +414,7 @@ class BuddyGroup {
     this.buddyType = 'garba',
     required this.city,
     this.targetGender = 'all',
-    this.hostCoinCost = 509,
+    this.hostCoinCost = 501,
     this.maxMembers = 6,
     this.memberCount = 1,
     this.status = 'open',
@@ -442,7 +442,7 @@ class BuddyGroup {
       buddyType: json['buddy_type'] as String? ?? json['buddyType'] as String? ?? 'garba',
       city: json['city'] as String? ?? '',
       targetGender: json['target_gender'] as String? ?? json['targetGender'] as String? ?? 'all',
-      hostCoinCost: (json['host_coin_cost'] as num?)?.toInt() ?? 509,
+      hostCoinCost: (json['host_coin_cost'] as num?)?.toInt() ?? 501,
       maxMembers: (json['max_members'] as num?)?.toInt() ?? 6,
       memberCount: (json['member_count'] as num?)?.toInt() ?? 1,
       status: json['status'] as String? ?? 'open',
