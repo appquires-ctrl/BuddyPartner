@@ -245,10 +245,14 @@ class PromoCodesService {
     if (promo.reward_type === 'GOOGLE_PLAY_OFFER' && promo.target_product_id && productId) {
       const cleanTarget = promo.target_product_id.replace(/^membership_|^pass_/, '');
       const cleanIncoming = productId.replace(/^membership_|^pass_/, '');
-      if (cleanTarget !== 'all' && cleanTarget !== cleanIncoming) {
+      const isTargetAll = cleanTarget === 'all' || promo.target_product_id === 'all';
+      const isDirectMatch = promo.target_product_id === productId;
+      const isCleanMatch = cleanTarget === cleanIncoming;
+
+      if (!isTargetAll && !isDirectMatch && !isCleanMatch) {
         throw {
           statusCode: 400,
-          message: `This promo code is only valid for the ${promo.target_product_id} plan.`,
+          message: `This promo code is only valid for the ${promo.target_product_id} plan/pack.`,
         };
       }
     }

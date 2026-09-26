@@ -76,7 +76,20 @@ adminRouter.delete('/:id', adminAuth, async (req, res) => {
 // ── User / Mobile Router (/api/subscriptions or /api/promos) ────────────────
 const userRouter = express.Router();
 
-// Validate code for subscription purchase checkout
+// Validate code for checkout (subscriptions or coin packs)
+userRouter.post('/validate-promo', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { code, productId } = req.body;
+    const result = await PromoCodesService.validateSubscriptionPromo(userId, { code, productId });
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    const statusCode = err.statusCode || 400;
+    return res.status(statusCode).json({ success: false, message: err.message || 'Invalid promo code' });
+  }
+});
+
+// Validate code for subscription purchase checkout (backward-compatibility)
 userRouter.post('/validate-subscription-promo', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;

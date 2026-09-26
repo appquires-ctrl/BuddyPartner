@@ -700,283 +700,339 @@ class _PromoCodeFormDialogState extends State<_PromoCodeFormDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
         width: 620,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.88,
+        ),
         padding: const EdgeInsets.all(28),
         child: Form(
           key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      isEdit ? 'Edit Promo Code' : 'Create New Promo Code',
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AdminColors.textPrimary),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Pinned Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    isEdit ? 'Edit Promo Code' : 'Create New Promo Code',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AdminColors.textPrimary,
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded, color: AdminColors.textSecondary),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
-                const Divider(height: 24),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: AdminColors.textSecondary),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const Divider(height: 24),
 
-                // Code Input
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: TextFormField(
-                        controller: _codeCtrl,
-                        textCapitalization: TextCapitalization.characters,
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: AdminColors.primary),
-                        decoration: InputDecoration(
-                          labelText: 'Promo Code *',
-                          hintText: 'e.g. SAVE50',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        validator: (val) => val == null || val.trim().isEmpty ? 'Code required' : null,
+              // Scrollable Form Body
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Code Input
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: TextFormField(
+                              controller: _codeCtrl,
+                              textCapitalization: TextCapitalization.characters,
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AdminColors.primary),
+                              decoration: InputDecoration(
+                                labelText: 'Promo Code *',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              validator: (val) => val == null || val.trim().isEmpty ? 'Code required' : null,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            flex: 3,
+                            child: TextFormField(
+                              controller: _titleCtrl,
+                              style: const TextStyle(color: AdminColors.textPrimary),
+                              decoration: InputDecoration(
+                                labelText: 'Campaign Title *',
+                                hintText: 'e.g. Flat ₹50 OFF on 1 Month Pass',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              validator: (val) => val == null || val.trim().isEmpty ? 'Title required' : null,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      flex: 3,
-                      child: TextFormField(
-                        controller: _titleCtrl,
+                      const SizedBox(height: 16),
+
+                      // Description
+                      TextFormField(
+                        controller: _descCtrl,
                         style: const TextStyle(color: AdminColors.textPrimary),
                         decoration: InputDecoration(
-                          labelText: 'Campaign Title *',
-                          hintText: 'e.g. Flat ₹50 OFF on 1 Month Pass',
+                          labelText: 'Description (Optional)',
+                          hintText: 'Internal note or user badge details',
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        validator: (val) => val == null || val.trim().isEmpty ? 'Title required' : null,
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
-                // Description
-                TextFormField(
-                  controller: _descCtrl,
-                  style: const TextStyle(color: AdminColors.textPrimary),
-                  decoration: InputDecoration(
-                    labelText: 'Description (Optional)',
-                    hintText: 'Internal note or user badge details',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Reward Type Selection
-                DropdownButtonFormField<String>(
-                  initialValue: _rewardType,
-                  decoration: InputDecoration(
-                    labelText: 'Promo Reward Type *',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  dropdownColor: AdminColors.surface,
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'GOOGLE_PLAY_OFFER',
-                      child: Text('Google Play Subscription Offer (₹ Discount)'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'FREE_COINS',
-                      child: Text('Free Spendable Coins (Added to Wallet)'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'FREE_VIP',
-                      child: Text('Free VIP Membership Pass (Days)'),
-                    ),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) setState(() => _rewardType = val);
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Dynamic Fields based on Type
-                if (_rewardType == 'GOOGLE_PLAY_OFFER') ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: _targetProductId,
-                          decoration: InputDecoration(
-                            labelText: 'Target Subscription Plan',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          dropdownColor: AdminColors.surface,
-                          items: const [
-                            DropdownMenuItem(value: 'pass_1_month', child: Text('1 Month Pass (pass_1_month)')),
-                            DropdownMenuItem(value: 'pass_6_months', child: Text('6 Months Pass (pass_6_months)')),
-                            DropdownMenuItem(value: 'pass_1_year', child: Text('1 Year Pass (pass_1_year)')),
-                            DropdownMenuItem(value: 'all', child: Text('All Subscription Plans')),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) setState(() => _targetProductId = val);
-                          },
+                      // Reward Type Selection
+                      DropdownButtonFormField<String>(
+                        initialValue: _rewardType,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: 'Promo Reward Type *',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         ),
+                        dropdownColor: AdminColors.surface,
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'GOOGLE_PLAY_OFFER',
+                            child: Text('Google Play Subscription Offer (₹ Discount)', overflow: TextOverflow.ellipsis),
+                          ),
+                          DropdownMenuItem(
+                            value: 'FREE_COINS',
+                            child: Text('Free Spendable Coins (Added to Wallet)', overflow: TextOverflow.ellipsis),
+                          ),
+                          DropdownMenuItem(
+                            value: 'FREE_VIP',
+                            child: Text('Free VIP Membership Pass (Days)', overflow: TextOverflow.ellipsis),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) setState(() => _rewardType = val);
+                        },
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _offerIdCtrl,
+                      const SizedBox(height: 16),
+
+                      // Dynamic Fields based on Type
+                      if (_rewardType == 'GOOGLE_PLAY_OFFER') ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                initialValue: _targetProductId,
+                                isExpanded: true,
+                                decoration: InputDecoration(
+                                  labelText: 'Target Plan / Coin Pack',
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                dropdownColor: AdminColors.surface,
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'plan_99',
+                                    child: Text('99 Coins Pack (plan_99)', overflow: TextOverflow.ellipsis),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'plan_49',
+                                    child: Text('49 Coins Pack (plan_49)', overflow: TextOverflow.ellipsis),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'plan_199',
+                                    child: Text('199 Coins Pack (plan_199)', overflow: TextOverflow.ellipsis),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'plan_499',
+                                    child: Text('549 Coins Pack (plan_499)', overflow: TextOverflow.ellipsis),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'plan_999',
+                                    child: Text('1099 Coins Pack (plan_999)', overflow: TextOverflow.ellipsis),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'plan_2500',
+                                    child: Text('2750 Coins Pack (plan_2500)', overflow: TextOverflow.ellipsis),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'pass_1_month',
+                                    child: Text('1 Month Pass (pass_1_month)', overflow: TextOverflow.ellipsis),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'pass_6_months',
+                                    child: Text('6 Months Pass (pass_6_months)', overflow: TextOverflow.ellipsis),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'pass_1_year',
+                                    child: Text('1 Year Pass (pass_1_year)', overflow: TextOverflow.ellipsis),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'all',
+                                    child: Text('All Plans & Packs (all)', overflow: TextOverflow.ellipsis),
+                                  ),
+                                ],
+                                onChanged: (val) {
+                                  if (val != null) setState(() => _targetProductId = val);
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _offerIdCtrl,
+                                style: const TextStyle(color: AdminColors.textPrimary),
+                                decoration: InputDecoration(
+                                  labelText: 'Google Play Offer ID *',
+                                  hintText: 'e.g. 50-off',
+                                  helperText: 'Matches Offer ID in Play Console',
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                validator: (val) => val == null || val.trim().isEmpty ? 'Offer ID required' : null,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _discountAmountCtrl,
+                          keyboardType: TextInputType.number,
                           style: const TextStyle(color: AdminColors.textPrimary),
                           decoration: InputDecoration(
-                            labelText: 'Google Play Offer ID *',
-                            hintText: 'e.g. 50-off',
-                            helperText: 'Matches Offer ID in Play Console',
+                            labelText: 'Discount Amount (₹) *',
+                            hintText: '50',
+                            prefixText: '₹ ',
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                           ),
-                          validator: (val) => val == null || val.trim().isEmpty ? 'Offer ID required' : null,
                         ),
+                      ] else if (_rewardType == 'FREE_COINS') ...[
+                        TextFormField(
+                          controller: _coinsRewardCtrl,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(color: AdminColors.textPrimary),
+                          decoration: InputDecoration(
+                            labelText: 'Free Coins Amount *',
+                            hintText: 'e.g. 50',
+                            helperText: 'Strictly credited to spendable_balance (non-withdrawable)',
+                            prefixIcon: const Icon(Icons.monetization_on_rounded, color: Colors.amber),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ] else if (_rewardType == 'FREE_VIP') ...[
+                        TextFormField(
+                          controller: _vipDaysCtrl,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(color: AdminColors.textPrimary),
+                          decoration: InputDecoration(
+                            labelText: 'Free VIP Days *',
+                            hintText: 'e.g. 7',
+                            helperText: 'Unlocks unlimited calling access for X days',
+                            prefixIcon: const Icon(Icons.workspace_premium_rounded, color: Colors.purple),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+
+                      // Limits & Expiry
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _maxUsesTotalCtrl,
+                              keyboardType: TextInputType.number,
+                              style: const TextStyle(color: AdminColors.textPrimary),
+                              decoration: InputDecoration(
+                                labelText: 'Total Max Claims (Optional)',
+                                hintText: 'Leave empty for unlimited',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _maxUsesPerUserCtrl,
+                              keyboardType: TextInputType.number,
+                              style: const TextStyle(color: AdminColors.textPrimary),
+                              decoration: InputDecoration(
+                                labelText: 'Claims Per User',
+                                hintText: '1',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Expiry Picker Row
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              icon: const Icon(Icons.calendar_today_rounded, size: 18),
+                              label: Text('Expires: ${DateFormat("dd MMM yyyy").format(_expiresAt)}'),
+                              onPressed: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: _expiresAt,
+                                  firstDate: DateTime.now(),
+                                  lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+                                );
+                                if (picked != null) {
+                                  setState(() {
+                                    _expiresAt = DateTime(picked.year, picked.month, picked.day, 23, 59, 59);
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Row(
+                            children: [
+                              const Text('Active:', style: TextStyle(fontWeight: FontWeight.bold, color: AdminColors.textPrimary)),
+                              Switch(
+                                value: _isActive,
+                                activeThumbColor: AdminColors.success,
+                                onChanged: (val) => setState(() => _isActive = val),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _discountAmountCtrl,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(color: AdminColors.textPrimary),
-                    decoration: InputDecoration(
-                      labelText: 'Discount Amount (₹) *',
-                      hintText: '50',
-                      prefixText: '₹ ',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Pinned Actions
+              const Divider(height: 1),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
                   ),
-                ] else if (_rewardType == 'FREE_COINS') ...[
-                  TextFormField(
-                    controller: _coinsRewardCtrl,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(color: AdminColors.textPrimary),
-                    decoration: InputDecoration(
-                      labelText: 'Free Coins Amount *',
-                      hintText: 'e.g. 50',
-                      helperText: 'Strictly credited to spendable_balance (non-withdrawable)',
-                      prefixIcon: const Icon(Icons.monetization_on_rounded, color: Colors.amber),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: _isSaving ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AdminColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                  ),
-                ] else if (_rewardType == 'FREE_VIP') ...[
-                  TextFormField(
-                    controller: _vipDaysCtrl,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(color: AdminColors.textPrimary),
-                    decoration: InputDecoration(
-                      labelText: 'Free VIP Days *',
-                      hintText: 'e.g. 7',
-                      helperText: 'Unlocks unlimited calling access for X days',
-                      prefixIcon: const Icon(Icons.workspace_premium_rounded, color: Colors.purple),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
+                    child: _isSaving
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : Text(isEdit ? 'Save Changes' : 'Create Code'),
                   ),
                 ],
-                const SizedBox(height: 16),
-
-                // Limits & Expiry
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _maxUsesTotalCtrl,
-                        keyboardType: TextInputType.number,
-                        style: const TextStyle(color: AdminColors.textPrimary),
-                        decoration: InputDecoration(
-                          labelText: 'Total Max Claims (Optional)',
-                          hintText: 'Leave empty for unlimited',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _maxUsesPerUserCtrl,
-                        keyboardType: TextInputType.number,
-                        style: const TextStyle(color: AdminColors.textPrimary),
-                        decoration: InputDecoration(
-                          labelText: 'Claims Per User',
-                          hintText: '1',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Expiry Picker Row
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        icon: const Icon(Icons.calendar_today_rounded, size: 18),
-                        label: Text('Expires: ${DateFormat("dd MMM yyyy").format(_expiresAt)}'),
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: _expiresAt,
-                            firstDate: DateTime.now(),
-                            lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
-                          );
-                          if (picked != null) {
-                            setState(() {
-                              _expiresAt = DateTime(picked.year, picked.month, picked.day, 23, 59, 59);
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Row(
-                      children: [
-                        const Text('Active:', style: TextStyle(fontWeight: FontWeight.bold, color: AdminColors.textPrimary)),
-                        Switch(
-                          value: _isActive,
-                          activeThumbColor: AdminColors.success,
-                          onChanged: (val) => setState(() => _isActive = val),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                // Actions
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Cancel'),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: _isSaving ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AdminColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: _isSaving
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : Text(isEdit ? 'Save Changes' : 'Create Code'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

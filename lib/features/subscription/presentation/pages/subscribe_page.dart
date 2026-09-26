@@ -939,7 +939,7 @@ class _MembershipOrderSummarySheetState
                             letterSpacing: 0.5,
                           ),
                           decoration: InputDecoration(
-                            hintText: 'Enter Promo Code (e.g. SAVE50)',
+                            hintText: 'Enter Promo Code',
                             hintStyle: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.normal,
@@ -1300,7 +1300,7 @@ class _MembershipOrderSummarySheetState
                   ),
                   const SizedBox(width: 5),
                   Text(
-                    '100% Secure Payment • Cancel anytime in Google Play',
+                    '100% Secure Payment',
                     style: typography.bodySmall.copyWith(
                       fontSize: 11,
                       color: colors.textSecondary,
