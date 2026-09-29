@@ -201,7 +201,7 @@ test('_getCached returns null for invalid JSON in cache', async () => {
 console.log('\nGroup 3: searchCities with pre-seeded Redis cache');
 
 test('searchCities returns cached data when Redis has it', async () => {
-  const cacheKey = 'geo:cities:SG';
+  const cacheKey = 'geo:cities:v2:SG';
   const cachedData = [
     { city: 'Singapore', state: '' },
     { city: 'Sentosa', state: '' },
@@ -214,7 +214,7 @@ test('searchCities returns cached data when Redis has it', async () => {
 });
 
 test('searchCities filters cached data with query', async () => {
-  const cacheKey = 'geo:cities:AU';
+  const cacheKey = 'geo:cities:v2:AU';
   const cachedData = [
     { city: 'Adelaide', state: 'South Australia' },
     { city: 'Brisbane', state: 'Queensland' },
@@ -237,7 +237,7 @@ test('searchCities returns empty for unknown ISO code', async () => {
 });
 
 test('searchCities is case-insensitive for countryIso', async () => {
-  const cacheKey = 'geo:cities:NP';
+  const cacheKey = 'geo:cities:v2:NP';
   mockRedisStore[cacheKey] = JSON.stringify([{ city: 'Kathmandu', state: 'Bagmati' }]);
 
   const results1 = await geoService.searchCities({ countryIso: 'NP', q: '', limit: 5 });

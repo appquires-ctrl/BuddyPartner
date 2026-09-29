@@ -451,7 +451,7 @@ class GeoService {
       return [];
     }
 
-    const cacheKey = `geo:cities:${iso}`;
+    const cacheKey = `geo:cities:v2:${iso}`;
     let cities = await this._getCached(cacheKey);
 
     if (!cities || cities.length === 0) {
@@ -462,6 +462,29 @@ class GeoService {
       }
       if (cities.length > 0) {
         await this._setCache(cacheKey, cities, CACHE_TTL_SECONDS);
+      }
+    }
+
+    // Unconditionally ensure all verified fallback cities are present
+    const fallbackList = FALLBACK_POPULAR_CITIES[iso] || [];
+    if (fallbackList.length > 0 && Array.isArray(cities)) {
+      const cityMap = new Map();
+      for (const c of cities) {
+        cityMap.set(c.city.toLowerCase(), c);
+      }
+      let added = false;
+      for (const fb of fallbackList) {
+        const key = fb.city.toLowerCase();
+        if (!cityMap.has(key)) {
+          cityMap.set(key, fb);
+          added = true;
+        } else if (!cityMap.get(key).state && fb.state) {
+          cityMap.set(key, fb);
+          added = true;
+        }
+      }
+      if (added) {
+        cities = Array.from(cityMap.values()).sort((a, b) => a.city.localeCompare(b.city));
       }
     }
 

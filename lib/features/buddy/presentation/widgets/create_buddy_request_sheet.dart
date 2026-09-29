@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
@@ -634,6 +635,7 @@ class CityPickerSheet extends ConsumerStatefulWidget {
 
 class _CityPickerSheetState extends ConsumerState<CityPickerSheet> {
   late TextEditingController _searchController;
+  Timer? _debounceTimer;
   List<CityResult> _results = [];
   bool _isLoading = false;
   String _activeCountryIso = '';
@@ -666,33 +668,49 @@ class _CityPickerSheetState extends ConsumerState<CityPickerSheet> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
   Future<void> _search(String query) async {
+    final trimmed = query.trim();
+    // 1. Immediately provide local matches synchronously (0ms perceived latency)
+    final localMatches = ref.read(geoServiceProvider).getLocalMatches(
+          countryIso: _activeCountryIso,
+          q: trimmed,
+          limit: 25,
+        );
+    if (localMatches.isNotEmpty && mounted) {
+      setState(() => _results = localMatches);
+    }
+
     setState(() => _isLoading = true);
     try {
       final results = await ref.read(geoServiceProvider).searchCities(
             countryIso: _activeCountryIso,
-            q: query.trim(),
+            q: trimmed,
             limit: 25,
           );
-      if (mounted) setState(() => _results = results);
+      if (mounted) {
+        setState(() {
+          _results = results.isNotEmpty ? results : localMatches;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() => _results = []);
+      if (mounted && _results.isEmpty) {
+        setState(() => _results = localMatches);
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _onSearchChanged(String value) {
-    // Debounce: cancel previous timer by re-calling after 350ms
-    Future.delayed(const Duration(milliseconds: 350), () {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 250), () {
       if (!mounted) return;
-      if (_searchController.text == value) {
-        _search(value);
-      }
+      _search(value);
     });
   }
 

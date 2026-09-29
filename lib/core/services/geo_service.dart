@@ -46,11 +46,21 @@ class GeoService {
 
   GeoService(this._apiClient);
 
+  /// Synchronous local lookup for instant UI response (0ms perceived latency).
+  /// Especially useful while the user is typing or when offline.
+  List<CityResult> getLocalMatches({
+    required String countryIso,
+    String q = '',
+    int limit = 20,
+  }) {
+    return _getFallbackCities(countryIso, q, limit);
+  }
+
   /// Fetches cities from the backend, scoped to [countryIso] (e.g. 'IN', 'US').
   /// [q] is an optional search query (min 1 char). Returns up to [limit] results.
   ///
-  /// On any network error, returns an empty list gracefully — the UI will show
-  /// a "Use typed city" fallback tile.
+  /// On any network error, returns fallback cities gracefully — the UI will show
+  /// matching local cities or a "Use typed city" fallback tile.
   Future<List<CityResult>> searchCities({
     required String countryIso,
     String q = '',
@@ -73,6 +83,18 @@ class GeoService {
             .map(CityResult.fromJson)
             .toList();
         if (cities.isNotEmpty) {
+          if (q.trim().isNotEmpty) {
+            final fallbackMatches = _getFallbackCities(countryIso, q, limit);
+            final seen = cities.map((c) => c.city.toLowerCase()).toSet();
+            final merged = [...cities];
+            for (final fb in fallbackMatches) {
+              if (!seen.contains(fb.city.toLowerCase())) {
+                merged.add(fb);
+                seen.add(fb.city.toLowerCase());
+              }
+            }
+            return merged.take(limit).toList();
+          }
           return cities;
         }
       }
