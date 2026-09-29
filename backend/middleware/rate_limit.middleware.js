@@ -37,6 +37,9 @@ function getStore(prefix) {
           return await redis.call(...args);
         }
       } catch (err) {
+        if (err.message && err.message.startsWith('NOSCRIPT')) {
+          throw err;
+        }
         console.warn(`⚠️ [RateLimit Redis] '${args[0]}' failed on Redis: ${err.message}. Failing open.`);
       }
 

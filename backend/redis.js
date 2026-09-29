@@ -480,6 +480,10 @@ const redisProxy = new Proxy(realRedis, {
           try {
             return await target[prop](...args);
           } catch (err) {
+            // Propagate NOSCRIPT so callers (e.g. rate-limit-redis) can reload the script via SCRIPT LOAD
+            if (err.message && err.message.startsWith('NOSCRIPT')) {
+              throw err;
+            }
             console.warn(`⚠️ [REDIS PROXY ERROR] ${String(prop)} failed on real Redis:`, err.message);
             if (target.status !== 'ready') {
               isConnected = false;
@@ -511,6 +515,10 @@ const redisProxy = new Proxy(realRedis, {
         try {
           return await target[prop](...args);
         } catch (err) {
+          // Propagate NOSCRIPT so callers (e.g. rate-limit-redis) can reload the script via SCRIPT LOAD
+          if (err.message && err.message.startsWith('NOSCRIPT')) {
+            throw err;
+          }
           console.warn(`⚠️ [REDIS CALL ERROR] '${String(prop)}' failed on real Redis: ${err.message}. Falling back.`);
           if (typeof inMemoryClient[prop] === 'function') {
             return await inMemoryClient[prop](...args);

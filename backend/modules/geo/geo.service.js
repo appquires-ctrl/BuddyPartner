@@ -70,62 +70,207 @@ const ISO_TO_COUNTRY_NAME = {
 // Guaranteed instant response for primary markets even on cold cache or if CountriesNow is down
 const FALLBACK_POPULAR_CITIES = {
   IN: [
+    { city: 'Agartala', state: 'Tripura' },
     { city: 'Agra', state: 'Uttar Pradesh' },
     { city: 'Ahmedabad', state: 'Gujarat' },
+    { city: 'Ahmednagar', state: 'Maharashtra' },
+    { city: 'Aizawl', state: 'Mizoram' },
+    { city: 'Ajmer', state: 'Rajasthan' },
+    { city: 'Akola', state: 'Maharashtra' },
+    { city: 'Aligarh', state: 'Uttar Pradesh' },
     { city: 'Allahabad', state: 'Uttar Pradesh' },
+    { city: 'Alwar', state: 'Rajasthan' },
+    { city: 'Ambala', state: 'Haryana' },
+    { city: 'Amravati', state: 'Maharashtra' },
     { city: 'Amritsar', state: 'Punjab' },
-    { city: 'Aurangabad', state: 'Maharashtra' },
+    { city: 'Anand', state: 'Gujarat' },
+    { city: 'Anantapur', state: 'Andhra Pradesh' },
+    { city: 'Asansol', state: 'West Bengal' },
     { city: 'Aurangabad', state: 'Bihar' },
+    { city: 'Aurangabad', state: 'Maharashtra' },
+    { city: 'Ayodhya', state: 'Uttar Pradesh' },
+    { city: 'Balasore', state: 'Odisha' },
     { city: 'Bangalore', state: 'Karnataka' },
     { city: 'Bareilly', state: 'Uttar Pradesh' },
+    { city: 'Bathinda', state: 'Punjab' },
+    { city: 'Belgaum', state: 'Karnataka' },
+    { city: 'Bellary', state: 'Karnataka' },
+    { city: 'Bengaluru', state: 'Karnataka' },
+    { city: 'Berhampur', state: 'Odisha' },
+    { city: 'Bhagalpur', state: 'Bihar' },
+    { city: 'Bharatpur', state: 'Rajasthan' },
+    { city: 'Bharuch', state: 'Gujarat' },
+    { city: 'Bhavnagar', state: 'Gujarat' },
+    { city: 'Bhilai', state: 'Chhattisgarh' },
+    { city: 'Bhilwara', state: 'Rajasthan' },
     { city: 'Bhopal', state: 'Madhya Pradesh' },
     { city: 'Bhubaneswar', state: 'Odisha' },
+    { city: 'Bhuj', state: 'Gujarat' },
+    { city: 'Bikaner', state: 'Rajasthan' },
+    { city: 'Bilaspur', state: 'Chhattisgarh' },
+    { city: 'Bokaro', state: 'Jharkhand' },
     { city: 'Chandigarh', state: 'Chandigarh' },
+    { city: 'Chandrapur', state: 'Maharashtra' },
     { city: 'Chennai', state: 'Tamil Nadu' },
+    { city: 'Chhatrapati Sambhajinagar', state: 'Maharashtra' },
     { city: 'Coimbatore', state: 'Tamil Nadu' },
+    { city: 'Cuttack', state: 'Odisha' },
+    { city: 'Daman', state: 'Dadra and Nagar Haveli and Daman and Diu' },
+    { city: 'Darbhanga', state: 'Bihar' },
+    { city: 'Darjeeling', state: 'West Bengal' },
     { city: 'Dehradun', state: 'Uttarakhand' },
     { city: 'Delhi', state: 'Delhi' },
+    { city: 'Deoghar', state: 'Jharkhand' },
     { city: 'Dhanbad', state: 'Jharkhand' },
+    { city: 'Dharamshala', state: 'Himachal Pradesh' },
+    { city: 'Dibrugarh', state: 'Assam' },
+    { city: 'Dimapur', state: 'Nagaland' },
+    { city: 'Dispur', state: 'Assam' },
+    { city: 'Diu', state: 'Dadra and Nagar Haveli and Daman and Diu' },
+    { city: 'Durgapur', state: 'West Bengal' },
     { city: 'Faridabad', state: 'Haryana' },
+    { city: 'Firozabad', state: 'Uttar Pradesh' },
+    { city: 'Gandhidham', state: 'Gujarat' },
+    { city: 'Gandhinagar', state: 'Gujarat' },
+    { city: 'Gangtok', state: 'Sikkim' },
+    { city: 'Gaya', state: 'Bihar' },
     { city: 'Ghaziabad', state: 'Uttar Pradesh' },
+    { city: 'Godhra', state: 'Gujarat' },
+    { city: 'Gorakhpur', state: 'Uttar Pradesh' },
+    { city: 'Greater Noida', state: 'Uttar Pradesh' },
+    { city: 'Gulbarga', state: 'Karnataka' },
+    { city: 'Guntur', state: 'Andhra Pradesh' },
     { city: 'Gurgaon', state: 'Haryana' },
     { city: 'Guwahati', state: 'Assam' },
     { city: 'Gwalior', state: 'Madhya Pradesh' },
+    { city: 'Haldwani', state: 'Uttarakhand' },
+    { city: 'Haridwar', state: 'Uttarakhand' },
+    { city: 'Hazaribagh', state: 'Jharkhand' },
+    { city: 'Hisar', state: 'Haryana' },
     { city: 'Howrah', state: 'West Bengal' },
     { city: 'Hubli', state: 'Karnataka' },
     { city: 'Hyderabad', state: 'Telangana' },
+    { city: 'Imphal', state: 'Manipur' },
     { city: 'Indore', state: 'Madhya Pradesh' },
+    { city: 'Itanagar', state: 'Arunachal Pradesh' },
     { city: 'Jabalpur', state: 'Madhya Pradesh' },
     { city: 'Jaipur', state: 'Rajasthan' },
+    { city: 'Jaisalmer', state: 'Rajasthan' },
+    { city: 'Jalandhar', state: 'Punjab' },
+    { city: 'Jalgaon', state: 'Maharashtra' },
+    { city: 'Jammu', state: 'Jammu and Kashmir' },
+    { city: 'Jamnagar', state: 'Gujarat' },
+    { city: 'Jamshedpur', state: 'Jharkhand' },
+    { city: 'Jhansi', state: 'Uttar Pradesh' },
     { city: 'Jodhpur', state: 'Rajasthan' },
+    { city: 'Junagadh', state: 'Gujarat' },
+    { city: 'Kakinada', state: 'Andhra Pradesh' },
+    { city: 'Kalyan', state: 'Maharashtra' },
+    { city: 'Kannur', state: 'Kerala' },
     { city: 'Kanpur', state: 'Uttar Pradesh' },
+    { city: 'Karnal', state: 'Haryana' },
+    { city: 'Kharagpur', state: 'West Bengal' },
     { city: 'Kochi', state: 'Kerala' },
+    { city: 'Kohima', state: 'Nagaland' },
+    { city: 'Kolhapur', state: 'Maharashtra' },
     { city: 'Kolkata', state: 'West Bengal' },
+    { city: 'Kollam', state: 'Kerala' },
+    { city: 'Korba', state: 'Chhattisgarh' },
     { city: 'Kota', state: 'Rajasthan' },
+    { city: 'Kottayam', state: 'Kerala' },
+    { city: 'Kozhikode', state: 'Kerala' },
+    { city: 'Kullu', state: 'Himachal Pradesh' },
+    { city: 'Kurnool', state: 'Andhra Pradesh' },
+    { city: 'Latur', state: 'Maharashtra' },
+    { city: 'Leh', state: 'Ladakh' },
     { city: 'Lucknow', state: 'Uttar Pradesh' },
     { city: 'Ludhiana', state: 'Punjab' },
     { city: 'Madurai', state: 'Tamil Nadu' },
+    { city: 'Malegaon', state: 'Maharashtra' },
+    { city: 'Manali', state: 'Himachal Pradesh' },
+    { city: 'Mangalore', state: 'Karnataka' },
+    { city: 'Mangaluru', state: 'Karnataka' },
+    { city: 'Mathura', state: 'Uttar Pradesh' },
     { city: 'Meerut', state: 'Uttar Pradesh' },
+    { city: 'Mehsana', state: 'Gujarat' },
+    { city: 'Mira-Bhayandar', state: 'Maharashtra' },
+    { city: 'Mohali', state: 'Punjab' },
     { city: 'Moradabad', state: 'Uttar Pradesh' },
+    { city: 'Morbi', state: 'Gujarat' },
+    { city: 'Mount Abu', state: 'Rajasthan' },
     { city: 'Mumbai', state: 'Maharashtra' },
+    { city: 'Muzaffarnagar', state: 'Uttar Pradesh' },
+    { city: 'Muzaffarpur', state: 'Bihar' },
     { city: 'Mysore', state: 'Karnataka' },
+    { city: 'Mysuru', state: 'Karnataka' },
+    { city: 'Nadiad', state: 'Gujarat' },
     { city: 'Nagpur', state: 'Maharashtra' },
+    { city: 'Nainital', state: 'Uttarakhand' },
+    { city: 'Nanded', state: 'Maharashtra' },
     { city: 'Nashik', state: 'Maharashtra' },
     { city: 'Navi Mumbai', state: 'Maharashtra' },
+    { city: 'Navsari', state: 'Gujarat' },
+    { city: 'Nellore', state: 'Andhra Pradesh' },
+    { city: 'New Delhi', state: 'Delhi' },
+    { city: 'Nizamabad', state: 'Telangana' },
     { city: 'Noida', state: 'Uttar Pradesh' },
+    { city: 'Panaji', state: 'Goa' },
+    { city: 'Panchkula', state: 'Haryana' },
+    { city: 'Panipat', state: 'Haryana' },
+    { city: 'Panvel', state: 'Maharashtra' },
+    { city: 'Patan', state: 'Gujarat' },
+    { city: 'Pathankot', state: 'Punjab' },
+    { city: 'Patiala', state: 'Punjab' },
     { city: 'Patna', state: 'Bihar' },
+    { city: 'Porbandar', state: 'Gujarat' },
+    { city: 'Port Blair', state: 'Andaman and Nicobar Islands' },
+    { city: 'Prayagraj', state: 'Uttar Pradesh' },
+    { city: 'Puducherry', state: 'Puducherry' },
     { city: 'Pune', state: 'Maharashtra' },
+    { city: 'Puri', state: 'Odisha' },
+    { city: 'Purnia', state: 'Bihar' },
     { city: 'Raipur', state: 'Chhattisgarh' },
+    { city: 'Rajahmundry', state: 'Andhra Pradesh' },
     { city: 'Rajkot', state: 'Gujarat' },
     { city: 'Ranchi', state: 'Jharkhand' },
+    { city: 'Rishikesh', state: 'Uttarakhand' },
+    { city: 'Rohtak', state: 'Haryana' },
+    { city: 'Roorkee', state: 'Uttarakhand' },
+    { city: 'Rourkela', state: 'Odisha' },
+    { city: 'Saharanpur', state: 'Uttar Pradesh' },
+    { city: 'Salem', state: 'Tamil Nadu' },
+    { city: 'Sambalpur', state: 'Odisha' },
+    { city: 'Sangli', state: 'Maharashtra' },
+    { city: 'Secunderabad', state: 'Telangana' },
+    { city: 'Shillong', state: 'Meghalaya' },
+    { city: 'Shimla', state: 'Himachal Pradesh' },
+    { city: 'Silchar', state: 'Assam' },
+    { city: 'Siliguri', state: 'West Bengal' },
+    { city: 'Silvassa', state: 'Dadra and Nagar Haveli and Daman and Diu' },
     { city: 'Solapur', state: 'Maharashtra' },
+    { city: 'Sonipat', state: 'Haryana' },
     { city: 'Srinagar', state: 'Jammu and Kashmir' },
     { city: 'Surat', state: 'Gujarat' },
+    { city: 'Surendranagar', state: 'Gujarat' },
     { city: 'Thane', state: 'Maharashtra' },
+    { city: 'Thanjavur', state: 'Tamil Nadu' },
+    { city: 'Thiruvananthapuram', state: 'Kerala' },
+    { city: 'Thrissur', state: 'Kerala' },
+    { city: 'Tiruchirappalli', state: 'Tamil Nadu' },
+    { city: 'Tirunelveli', state: 'Tamil Nadu' },
+    { city: 'Tirupati', state: 'Andhra Pradesh' },
+    { city: 'Tiruppur', state: 'Tamil Nadu' },
+    { city: 'Udaipur', state: 'Rajasthan' },
+    { city: 'Ujjain', state: 'Madhya Pradesh' },
     { city: 'Vadodara', state: 'Gujarat' },
+    { city: 'Valsad', state: 'Gujarat' },
+    { city: 'Vapi', state: 'Gujarat' },
     { city: 'Varanasi', state: 'Uttar Pradesh' },
+    { city: 'Vasai-Virar', state: 'Maharashtra' },
+    { city: 'Vellore', state: 'Tamil Nadu' },
     { city: 'Vijayawada', state: 'Andhra Pradesh' },
     { city: 'Visakhapatnam', state: 'Andhra Pradesh' },
+    { city: 'Warangal', state: 'Telangana' },
   ],
   US: [
     { city: 'Albuquerque', state: 'New Mexico' },
@@ -215,30 +360,49 @@ const FALLBACK_POPULAR_CITIES = {
 
 // ── HTTP Helper ─────────────────────────────────────────────────────────────
 /**
- * Makes a POST request to CountriesNow API.
+ * Makes an HTTP request to CountriesNow API with automatic redirect following.
  * Returns parsed JSON body or throws an Error.
  */
-function postJson(url, body) {
+function fetchJson(url, options = {}, maxRedirects = 3) {
   return new Promise((resolve, reject) => {
-    const payload = JSON.stringify(body);
-    const isHttps = url.startsWith('https');
-    const lib = isHttps ? https : http;
+    if (maxRedirects <= 0) return reject(new Error('CountriesNow: too many redirects'));
 
     const urlObj = new URL(url);
-    const options = {
+    const isHttps = urlObj.protocol === 'https:';
+    const lib = isHttps ? https : http;
+
+    const method = options.method || (options.body ? 'POST' : 'GET');
+    const payload = options.body ? JSON.stringify(options.body) : null;
+
+    const reqOptions = {
+      protocol: urlObj.protocol,
       hostname: urlObj.hostname,
       port: urlObj.port || (isHttps ? 443 : 80),
-      path: urlObj.pathname,
-      method: 'POST',
+      path: urlObj.pathname + urlObj.search,
+      method,
       headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(payload),
         'User-Agent': 'BuddyPartner/1.0',
+        'Accept': 'application/json',
+        ...(payload
+          ? {
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(payload),
+            }
+          : {}),
       },
       timeout: 8000,
     };
 
-    const req = lib.request(options, (res) => {
+    const req = lib.request(reqOptions, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        const nextUrl = new URL(res.headers.location, url).href;
+        const nextOptions =
+          res.statusCode === 303 || res.statusCode === 301 || res.statusCode === 302
+            ? { method: 'GET' }
+            : options;
+        return resolve(fetchJson(nextUrl, nextOptions, maxRedirects - 1));
+      }
+
       let data = '';
       res.on('data', (chunk) => (data += chunk));
       res.on('end', () => {
@@ -255,9 +419,16 @@ function postJson(url, body) {
       reject(new Error('CountriesNow: request timed out'));
     });
     req.on('error', (err) => reject(err));
-    req.write(payload);
+
+    if (payload) {
+      req.write(payload);
+    }
     req.end();
   });
+}
+
+function postJson(url, body) {
+  return fetchJson(url, { method: 'POST', body });
 }
 
 // ── GeoService ───────────────────────────────────────────────────────────────
@@ -347,61 +518,46 @@ class GeoService {
    */
   async _fetchFromCountriesNow(countryName, iso) {
     try {
-      // CountriesNow: POST /countries/state/cities returns cities grouped by state
-      const statesResponse = await postJson(`${COUNTRIES_NOW_BASE}/countries/states`, {
-        country: countryName,
-      });
-
-      if (!statesResponse.error && Array.isArray(statesResponse.data?.states)) {
-        const cities = [];
-        const stateList = statesResponse.data.states;
-
-        // For each state, fetch its cities in parallel (up to 5 at a time)
-        const batchSize = 5;
-        for (let i = 0; i < stateList.length; i += batchSize) {
-          const batch = stateList.slice(i, i + batchSize);
-          const results = await Promise.allSettled(
-            batch.map((s) =>
-              postJson(`${COUNTRIES_NOW_BASE}/countries/state/cities`, {
-                country: countryName,
-                state: s.name,
-              }).then((r) => ({ state: s.name, data: r }))
-            )
-          );
-
-          for (const result of results) {
-            if (result.status === 'fulfilled') {
-              const { state, data } = result.value;
-              if (!data.error && Array.isArray(data.data)) {
-                for (const city of data.data) {
-                  if (city && city.trim()) {
-                    cities.push({ city: city.trim(), state: state.trim() });
-                  }
-                }
-              }
-            }
+      // 1. Fetch flat cities via CountriesNow GET endpoint
+      const flat = await this._fetchFlatCities(countryName);
+      if (flat && flat.length > 0) {
+        // Enrich flat cities with known states from fallback list
+        const fallbackList = FALLBACK_POPULAR_CITIES[iso] || [];
+        const stateMap = new Map();
+        for (const item of fallbackList) {
+          if (item.city && item.state) {
+            stateMap.set(item.city.toLowerCase(), item.state);
           }
         }
 
-        if (cities.length > 0) {
-          return cities.sort((a, b) => a.city.localeCompare(b.city));
-        }
-      }
+        const enriched = flat.map((c) => {
+          const knownState = stateMap.get(c.city.toLowerCase());
+          return knownState ? { city: c.city, state: knownState } : c;
+        });
 
-      // Fallback: try the flat cities endpoint
-      return await this._fetchFlatCities(countryName);
+        // Ensure all fallback cities (with full state accuracy) are present
+        const seen = new Set(enriched.map((c) => c.city.toLowerCase()));
+        for (const fb of fallbackList) {
+          if (!seen.has(fb.city.toLowerCase())) {
+            enriched.push(fb);
+            seen.add(fb.city.toLowerCase());
+          }
+        }
+
+        return enriched.sort((a, b) => a.city.localeCompare(b.city));
+      }
     } catch (err) {
       console.error(`[GeoService] CountriesNow fetch failed for ${countryName}:`, err.message);
-      return [];
     }
+    return [];
   }
 
   /** Fallback: flat list of cities without state info */
   async _fetchFlatCities(countryName) {
     try {
-      const response = await postJson(`${COUNTRIES_NOW_BASE}/countries/cities`, {
-        country: countryName,
-      });
+      const response = await fetchJson(
+        `${COUNTRIES_NOW_BASE}/countries/cities/q?country=${encodeURIComponent(countryName)}`
+      );
 
       if (!response.error && Array.isArray(response.data)) {
         return response.data
@@ -417,9 +573,9 @@ class GeoService {
 
   async _fetchStatesFromCountriesNow(countryName) {
     try {
-      const response = await postJson(`${COUNTRIES_NOW_BASE}/countries/states`, {
-        country: countryName,
-      });
+      const response = await fetchJson(
+        `${COUNTRIES_NOW_BASE}/countries/states/q?country=${encodeURIComponent(countryName)}`
+      );
       if (!response.error && Array.isArray(response.data?.states)) {
         return response.data.states
           .map((s) => s.name)
