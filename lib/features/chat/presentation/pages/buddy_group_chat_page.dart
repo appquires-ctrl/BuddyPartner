@@ -204,7 +204,7 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
               Row(
                 children: [
                   Text(
-                    'Group Members (${members.length}/6)',
+                    'Group Members (${members.length}/${_groupDetails?['max_members'] ?? (widget.title.toLowerCase().contains('cricket') ? 11 : 6)})',
                     style: typography.titleCard.copyWith(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
@@ -325,49 +325,61 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
           onPressed: () => context.pop(),
         ),
         titleSpacing: 0,
-        title: InkWell(
-          onTap: _showMembersSheet,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-            child: Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 38,
-                    height: 38,
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF6B21A8), Color(0xFF9333EA)],
-                      ),
-                    ),
-                    child: Image.asset(
-                      'assets/images/garba_buddy.png',
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.groups_rounded, color: Colors.white, size: 20),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        displayTitle,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: colors.textPrimary,
+        title: Builder(
+          builder: (context) {
+            final isCricket = widget.title.toLowerCase().contains('cricket');
+            final groupGradient = isCricket
+                ? const LinearGradient(colors: [Color(0xFF3B82F6), Color(0xFF2563EB)])
+                : const LinearGradient(colors: [Color(0xFF6B21A8), Color(0xFF9333EA)]);
+            final stickerPath = isCricket
+                ? 'assets/images/stickers/cricket_buddy.png'
+                : 'assets/images/garba_buddy.png';
+
+            return InkWell(
+              onTap: _showMembersSheet,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          gradient: groupGradient,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        child: Image.asset(
+                          stickerPath,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Icon(
+                            isCricket ? Icons.sports_cricket_rounded : Icons.groups_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 2),
-                      Row(
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
+                          Text(
+                            displayTitle,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: colors.textPrimary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
                           Container(
                             width: 7,
                             height: 7,
@@ -378,7 +390,7 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
                           ),
                           const SizedBox(width: 5),
                           Text(
-                            '$memberCount/6 Members • View',
+                            '$memberCount/${_groupDetails?['max_members'] ?? (isCricket ? 11 : 6)} Members • View',
                             style: TextStyle(
                               fontSize: 11.5,
                               color: colors.textSecondary,
@@ -392,7 +404,9 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
               ],
             ),
           ),
-        ),
+        );
+      },
+    ),
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline_rounded),
@@ -416,14 +430,27 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
                               Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF9333EA).withValues(alpha: 0.1),
+                                  color: (widget.title.toLowerCase().contains('cricket')
+                                          ? const Color(0xFF3B82F6)
+                                          : const Color(0xFF9333EA))
+                                      .withValues(alpha: 0.1),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(Icons.celebration_rounded, color: Color(0xFF9333EA), size: 36),
+                                child: Icon(
+                                  widget.title.toLowerCase().contains('cricket')
+                                      ? Icons.sports_cricket_rounded
+                                      : Icons.celebration_rounded,
+                                  color: widget.title.toLowerCase().contains('cricket')
+                                      ? const Color(0xFF3B82F6)
+                                      : const Color(0xFF9333EA),
+                                  size: 36,
+                                ),
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                'Welcome to the Garba Group!',
+                                widget.title.toLowerCase().contains('cricket')
+                                    ? 'Welcome to the Cricket Team!'
+                                    : 'Welcome to the Garba Group!',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
@@ -432,7 +459,9 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Start chatting with your group buddies.',
+                                widget.title.toLowerCase().contains('cricket')
+                                    ? 'Start chatting with your team players.'
+                                    : 'Start chatting with your group buddies.',
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: colors.textSecondary,
@@ -565,10 +594,12 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
                         controller: _textController,
                         textInputAction: TextInputAction.send,
                         onSubmitted: (_) => _sendMessage(),
-                        decoration: const InputDecoration(
-                          hintText: 'Plan your Garba night...',
-                          hintStyle: TextStyle(fontSize: 14),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: InputDecoration(
+                          hintText: widget.title.toLowerCase().contains('cricket')
+                              ? 'Plan your match or meetup...'
+                              : 'Plan your Garba night...',
+                          hintStyle: const TextStyle(fontSize: 14),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                           border: InputBorder.none,
                         ),
                       ),
@@ -576,9 +607,11 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Color(0xFF9333EA), Color(0xFF6B21A8)],
+                        colors: widget.title.toLowerCase().contains('cricket')
+                            ? [const Color(0xFF3B82F6), const Color(0xFF2563EB)]
+                            : [const Color(0xFF9333EA), const Color(0xFF6B21A8)],
                       ),
                       shape: BoxShape.circle,
                     ),

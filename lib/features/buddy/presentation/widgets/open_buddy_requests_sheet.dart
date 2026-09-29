@@ -39,6 +39,7 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
   String? _acceptingRequestId;
   List<BuddyGroup> _openGroups = [];
   String? _selectedCity;
+  String _selectedState = '';
   bool _isLocating = false;
 
   @override
@@ -57,10 +58,18 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
   }
 
   void _openCityPicker() {
-    CityPickerSheet.show(context, currentCity: _selectedCity ?? '').then((chosen) {
-      if (chosen != null && chosen.isNotEmpty) {
+    final authUser = ref.read(authStateProvider).value;
+    final countryIso = authUser?.country ?? 'IN';
+    CityPickerSheet.show(
+      context,
+      currentCity: _selectedCity ?? '',
+      currentState: _selectedState,
+      countryIso: countryIso,
+    ).then((result) {
+      if (result != null) {
         setState(() {
-          _selectedCity = chosen;
+          _selectedCity = result.city;
+          _selectedState = result.state;
         });
         _refreshData();
       }
@@ -110,15 +119,16 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
   Future<void> _refreshData() async {
     if (_selectedCity == null) return;
     final queryCity = (_selectedCity == 'All Cities' || _selectedCity == 'All') ? null : _selectedCity;
+    final queryState = (queryCity == null || _selectedState.isEmpty) ? null : _selectedState;
     await Future.wait([
-      ref.read(buddyControllerProvider.notifier).fetchOpenRequests(city: queryCity),
-      _fetchOpenGroups(queryCity),
+      ref.read(buddyControllerProvider.notifier).fetchOpenRequests(city: queryCity, targetState: queryState),
+      _fetchOpenGroups(queryCity, state: queryState),
     ]);
   }
 
-  Future<void> _fetchOpenGroups(String? city) async {
+  Future<void> _fetchOpenGroups(String? city, {String? state}) async {
     try {
-      final groups = await ref.read(buddyGroupServiceProvider).listOpenGroups(city: city);
+      final groups = await ref.read(buddyGroupServiceProvider).listOpenGroups(city: city, state: state);
       if (mounted) {
         setState(() => _openGroups = groups);
       }
@@ -184,7 +194,7 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
     if (group.isFull || group.memberCount >= group.maxMembers) {
       AppSnackBar.showError(
         context,
-        'Sorry, this Garba group is already full (6/6 members)!',
+        'Sorry, this ${group.isCricket ? "Cricket" : "Garba"} group is already full (${group.maxMembers}/${group.maxMembers} members)!',
       );
       return;
     }
@@ -235,14 +245,17 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
     final currentUserId = ref.watch(authStateProvider).value?.id;
 
     final filteredRequests = _selectedFilterType == null
-        ? buddyState.openRequests.where((r) => r.buddyType != BuddyType.garba).toList()
-        : buddyState.openRequests.where((r) => r.buddyType == _selectedFilterType && r.buddyType != BuddyType.garba).toList();
+        ? buddyState.openRequests.where((r) => !r.buddyType.isGroup).toList()
+        : buddyState.openRequests.where((r) => r.buddyType == _selectedFilterType && !r.buddyType.isGroup).toList();
 
-    final showGroups = (_selectedFilterType == null || _selectedFilterType == BuddyType.garba);
+    final showGroups = (_selectedFilterType == null || _selectedFilterType!.isGroup);
     final displayedGroups = showGroups
         ? _openGroups.where((g) {
             final isHost = currentUserId != null && g.initiatorId == currentUserId;
-            return !isHost && !g.isMember;
+            if (isHost || g.isMember) return false;
+            if (_selectedFilterType == BuddyType.cricket && !g.isCricket) return false;
+            if (_selectedFilterType == BuddyType.garba && !g.isGarba) return false;
+            return true;
           }).toList()
         : <BuddyGroup>[];
     final totalCount = displayedGroups.length + filteredRequests.length;
@@ -664,7 +677,7 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                                         ),
                                         const SizedBox(height: 3),
                                         Text(
-                                          'By ${req.initiator?.fullName ?? "A buddy"} • ${req.city}',
+                                          'By ${req.initiator?.fullName ?? "A buddy"} • ${req.locationLabel}',
                                           style: typography.bodySmall.copyWith(
                                             fontSize: 12,
                                             color: colors.textSecondary,
@@ -737,12 +750,12 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
         color: colors.surfaceMuted,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(0xFF9333EA).withValues(alpha: 0.35),
+          color: group.accentColor.withValues(alpha: 0.35),
           width: 1.4,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF9333EA).withValues(alpha: 0.08),
+            color: group.accentColor.withValues(alpha: 0.08),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -755,15 +768,15 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
             child: Container(
               width: 58,
               height: 58,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF6B21A8), Color(0xFF9333EA)],
+                  colors: group.gradientColors,
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
               ),
               child: Image.asset(
-                'assets/images/garba_buddy.png',
+                group.stickerAsset,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) => const Icon(
                   Icons.groups_rounded,
@@ -796,8 +809,8 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF9333EA), Color(0xFF6B21A8)],
+                        gradient: LinearGradient(
+                          colors: group.gradientColors,
                         ),
                         borderRadius: BorderRadius.circular(6),
                       ),
@@ -814,7 +827,7 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Host: ${group.hostName ?? "Garba Host"} • ${(group.city.toLowerCase() == "all" || group.city.toLowerCase() == "all cities") ? "All Cities" : group.city} • Free Join (0 OTP)',
+                  'Host: ${group.hostName ?? (group.isCricket ? "Cricket Host" : "Garba Host")} • ${(group.city.toLowerCase() == "all" || group.city.toLowerCase() == "all cities") ? "All Cities" : group.locationLabel} • Free Join (0 OTP)',
                   style: typography.bodySmall.copyWith(
                     fontSize: 12,
                     color: const Color(0xFF10B981),
@@ -847,7 +860,7 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                       : isFull
                           ? () => AppSnackBar.showError(
                                 context,
-                                'Sorry, this Garba group is already full (6/6 members)!',
+                                'Sorry, this ${group.isCricket ? "Cricket" : "Garba"} group is already full (${group.maxMembers}/${group.maxMembers} members)!',
                               )
                           : () => _handleJoinGroup(group),
               style: ElevatedButton.styleFrom(
@@ -855,7 +868,7 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                     ? const Color(0xFF10B981)
                     : isFull
                         ? (isDark ? const Color(0xFF2D253B) : const Color(0xFFE5E7EB))
-                        : const Color(0xFF9333EA),
+                        : group.accentColor,
                 foregroundColor: isMemberOrHost
                     ? Colors.white
                     : isFull

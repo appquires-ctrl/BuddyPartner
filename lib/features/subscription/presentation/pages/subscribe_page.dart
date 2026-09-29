@@ -10,6 +10,8 @@ import 'package:buddypartner/core/services/google_play_purchase_service.dart';
 import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
+import 'package:buddypartner/core/utils/app_currency.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
 class SubscribePage extends ConsumerStatefulWidget {
   const SubscribePage({super.key});
@@ -21,11 +23,16 @@ class SubscribePage extends ConsumerStatefulWidget {
 class _SubscribePageState extends ConsumerState<SubscribePage> {
   String _selectedPlanId = '1_month';
 
-  String _getFormattedPrice(SubscriptionPlan plan, GooglePlayState gpState) {
-    final p = gpState.products['membership_${plan.id}'] ??
+  String _getFormattedPrice(
+    SubscriptionPlan plan,
+    GooglePlayState gpState, {
+    bool isDomestic = true,
+  }) {
+    final p =
+        gpState.products['membership_${plan.id}'] ??
         gpState.products['pass_${plan.id}'] ??
         gpState.products[plan.id];
-    return p?.price ?? '₹${plan.totalPriceRupees}';
+    return p?.price ?? plan.formattedPrice(isDomestic: isDomestic);
   }
 
   Future<void> _handleSubscribe(
@@ -40,8 +47,10 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
     final productId = gpState.products.containsKey(membershipId)
         ? membershipId
         : (gpState.products.containsKey(passId)
-            ? passId
-            : (gpState.products.containsKey(plan.id) ? plan.id : membershipId));
+              ? passId
+              : (gpState.products.containsKey(plan.id)
+                    ? plan.id
+                    : membershipId));
 
     final displayPrice = _getFormattedPrice(plan, gpState);
     AppLogger.button(
@@ -49,26 +58,30 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
       screen: 'SubscribePage',
     );
 
-    await ref.read(googlePlayPurchaseProvider.notifier).buyProduct(
-      productId,
-      isConsumable: false,
-      offerId: offerId,
-      promoCode: promoCode,
-    );
+    await ref
+        .read(googlePlayPurchaseProvider.notifier)
+        .buyProduct(
+          productId,
+          isConsumable: false,
+          offerId: offerId,
+          promoCode: promoCode,
+        );
   }
 
-  void _showOrderSummaryBottomSheet(BuildContext context, SubscriptionPlan plan) {
+  void _showOrderSummaryBottomSheet(
+    BuildContext context,
+    SubscriptionPlan plan, {
+    bool isDomestic = true,
+  }) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (bottomSheetContext) => _MembershipOrderSummarySheet(
         plan: plan,
-        onPay: (offerId, promoCode) => _handleSubscribe(
-          plan,
-          offerId: offerId,
-          promoCode: promoCode,
-        ),
+        isDomestic: isDomestic,
+        onPay: (offerId, promoCode) =>
+            _handleSubscribe(plan, offerId: offerId, promoCode: promoCode),
       ),
     );
   }
@@ -76,13 +89,17 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    precacheImage(const AssetImage('assets/images/subscription_banner.jpg'), context);
+    precacheImage(
+      const AssetImage('assets/images/subscription_banner.jpg'),
+      context,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     ref.listen<GooglePlayState>(googlePlayPurchaseProvider, (prev, next) {
-      if (next.status == GooglePlayPurchaseStatus.success && next.successMessage != null) {
+      if (next.status == GooglePlayPurchaseStatus.success &&
+          next.successMessage != null) {
         AppSnackBar.showSuccess(context, next.successMessage!);
         ref.read(googlePlayPurchaseProvider.notifier).resetStatus();
         if (Navigator.of(context).canPop()) {
@@ -93,19 +110,27 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
         } else {
           context.go(RouteNames.home);
         }
-      } else if (next.status == GooglePlayPurchaseStatus.error && next.errorMessage != null) {
+      } else if (next.status == GooglePlayPurchaseStatus.error &&
+          next.errorMessage != null) {
         AppSnackBar.showError(context, next.errorMessage!);
         ref.read(googlePlayPurchaseProvider.notifier).resetStatus();
       }
     });
 
     final gpState = ref.watch(googlePlayPurchaseProvider);
-    final isPurchasing = gpState.status == GooglePlayPurchaseStatus.purchasing ||
+    final isPurchasing =
+        gpState.status == GooglePlayPurchaseStatus.purchasing ||
         gpState.status == GooglePlayPurchaseStatus.verifying;
 
     final colors = context.colors;
     final typography = context.typography;
     final subState = ref.watch(subscriptionStatusProvider).value;
+
+    final authUser = ref.watch(authStateProvider).value;
+    final isDomestic = AppCurrency.isDomestic(
+      country: authUser?.country,
+      phoneNumber: authUser?.phoneNumber,
+    );
 
     final allPlans = SubscriptionPlan.defaultPlans;
 
@@ -170,19 +195,25 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
             child: ElevatedButton(
               onPressed: isPurchasing
                   ? null
-                  : () => _showOrderSummaryBottomSheet(context, selectedPlan),
+                  : () => _showOrderSummaryBottomSheet(
+                        context,
+                        selectedPlan,
+                        isDomestic: isDomestic,
+                      ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: colors.primary,
                 foregroundColor: Colors.white,
                 disabledBackgroundColor: colors.primary.withValues(alpha: 0.5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 elevation: 4,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Continue (₹${selectedPlan.basePriceRupees})',
+                    'Continue (${selectedPlan.formattedBasePrice(isDomestic: isDomestic)})',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
@@ -190,7 +221,11 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(Icons.arrow_forward_rounded, size: 19, color: Colors.white),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 19,
+                    color: Colors.white,
+                  ),
                 ],
               ),
             ),
@@ -243,6 +278,7 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
                     gpState,
                     isSelected: isSelected,
                     isCurrentActivePlan: isCurrentActivePlan,
+                    isDomestic: isDomestic,
                     activeLabel: isCurrentActivePlan
                         ? subState?.formattedLabel
                         : null,
@@ -327,7 +363,11 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
             subtitle: 'Voice connection',
             color: const Color(0xFF10B981),
           ),
-          Container(width: 1, height: 28, color: colors.border.withValues(alpha: 0.5)),
+          Container(
+            width: 1,
+            height: 28,
+            color: colors.border.withValues(alpha: 0.5),
+          ),
           _buildPerkItem(
             context,
             icon: Icons.videocam_rounded,
@@ -335,7 +375,11 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
             subtitle: '1-tap in-call',
             color: const Color(0xFF8B5CF6),
           ),
-          Container(width: 1, height: 28, color: colors.border.withValues(alpha: 0.5)),
+          Container(
+            width: 1,
+            height: 28,
+            color: colors.border.withValues(alpha: 0.5),
+          ),
           _buildPerkItem(
             context,
             icon: Icons.verified_user_rounded,
@@ -406,6 +450,7 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
     required bool isSelected,
     required bool isCurrentActivePlan,
     String? activeLabel,
+    bool isDomestic = true,
   }) {
     final colors = context.colors;
     final typography = context.typography;
@@ -413,8 +458,8 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
     final border = isCurrentActivePlan
         ? Border.all(color: colors.primary, width: 2.0)
         : (isSelected
-            ? Border.all(color: colors.primary, width: 2.0)
-            : Border.all(color: Colors.transparent, width: 0.0));
+              ? Border.all(color: colors.primary, width: 2.0)
+              : Border.all(color: Colors.transparent, width: 0.0));
 
     final backgroundColor = isCurrentActivePlan || isSelected
         ? colors.primary.withValues(alpha: 0.08)
@@ -424,7 +469,7 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
       onTap: () {
         AppLogger.click('Select Plan: ${plan.title}', screen: 'SubscribePage');
         if (_selectedPlanId == plan.id) {
-          _showOrderSummaryBottomSheet(context, plan);
+          _showOrderSummaryBottomSheet(context, plan, isDomestic: isDomestic);
         } else {
           setState(() {
             _selectedPlanId = plan.id;
@@ -524,7 +569,7 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '₹${plan.basePriceRupees}',
+                  plan.formattedBasePrice(isDomestic: isDomestic),
                   style: typography.titleCard.copyWith(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -536,8 +581,10 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
                   isCurrentActivePlan
                       ? (activeLabel ?? 'Active')
                       : (plan.durationDays >= 365
-                          ? '365 days'
-                          : (plan.durationDays >= 180 ? '180 days' : '30 days')),
+                            ? '365 days'
+                            : (plan.durationDays >= 180
+                                  ? '180 days'
+                                  : '30 days')),
                   style: typography.bodySmall.copyWith(
                     fontSize: 11.5,
                     fontWeight: isCurrentActivePlan
@@ -647,11 +694,13 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
 
 class _MembershipOrderSummarySheet extends ConsumerStatefulWidget {
   final SubscriptionPlan plan;
+  final bool isDomestic;
   final void Function(String? offerId, String? promoCode) onPay;
 
   const _MembershipOrderSummarySheet({
     required this.plan,
     required this.onPay,
+    this.isDomestic = true,
   });
 
   @override
@@ -689,15 +738,13 @@ class _MembershipOrderSummarySheetState
       final apiClient = ref.read(apiClientProvider);
       final response = await apiClient.dio.post(
         '/api/subscriptions/validate-subscription-promo',
-        data: {
-          'code': code,
-          'productId': widget.plan.id,
-        },
+        data: {'code': code, 'productId': widget.plan.id},
       );
 
       if (response.statusCode == 200 && response.data?['success'] == true) {
         final data = response.data as Map<String, dynamic>;
-        final discount = double.tryParse(data['discountAmount'].toString()) ?? 0.0;
+        final discount =
+            double.tryParse(data['discountAmount'].toString()) ?? 0.0;
         final offerId = data['googlePlayOfferId'] as String?;
         final title = data['title'] as String? ?? 'Discount applied';
 
@@ -705,7 +752,9 @@ class _MembershipOrderSummarySheetState
           _appliedPromoCode = data['code'] as String? ?? code;
           _appliedOfferId = offerId;
           _appliedDiscountAmount = discount;
-          _promoSuccessMessage = '$title (-₹${discount.toStringAsFixed(0)})';
+          _promoSuccessMessage = widget.isDomestic
+              ? '$title (-₹${discount.toStringAsFixed(0)})'
+              : '$title (-\$${discount.toStringAsFixed(2)})';
           _promoError = null;
           _isApplying = false;
         });
@@ -716,7 +765,8 @@ class _MembershipOrderSummarySheetState
         });
       }
     } on DioException catch (dioErr) {
-      final msg = dioErr.response?.data is Map &&
+      final msg =
+          dioErr.response?.data is Map &&
               dioErr.response?.data['message'] != null
           ? dioErr.response?.data['message'].toString()
           : 'Invalid or expired promo code.';
@@ -748,12 +798,21 @@ class _MembershipOrderSummarySheetState
     final colors = context.colors;
     final typography = context.typography;
     final gpState = ref.watch(googlePlayPurchaseProvider);
-    final isPurchasing = gpState.status == GooglePlayPurchaseStatus.purchasing ||
+    final isPurchasing =
+        gpState.status == GooglePlayPurchaseStatus.purchasing ||
         gpState.status == GooglePlayPurchaseStatus.verifying;
 
-    final baseTotal = widget.plan.totalPriceRupees.toDouble();
-    final finalPayable = (baseTotal - _appliedDiscountAmount).clamp(0.0, 999999.0);
-    final totalDisplay = '₹${finalPayable.toStringAsFixed(0)}.00';
+    final isDomestic = widget.isDomestic;
+    final baseTotal = isDomestic
+        ? widget.plan.totalPriceRupees.toDouble()
+        : widget.plan.priceUsd;
+    final finalPayable = (baseTotal - _appliedDiscountAmount).clamp(
+      0.0,
+      999999.0,
+    );
+    final totalDisplay = isDomestic
+        ? '₹${finalPayable.toStringAsFixed(0)}.00'
+        : '\$${finalPayable.toStringAsFixed(2)}';
 
     // Statutory GST (18%) breakdown:
     // Under Indian GST laws, GST is levied on the actual discounted transaction value.
@@ -761,7 +820,9 @@ class _MembershipOrderSummarySheetState
     final double netGstAmount;
     if (_appliedDiscountAmount > 0) {
       netTaxableAmount = double.parse((finalPayable / 1.18).toStringAsFixed(2));
-      netGstAmount = double.parse((finalPayable - netTaxableAmount).toStringAsFixed(2));
+      netGstAmount = double.parse(
+        (finalPayable - netTaxableAmount).toStringAsFixed(2),
+      );
     } else {
       netTaxableAmount = widget.plan.basePriceRupees.toDouble();
       netGstAmount = widget.plan.gstRupees.toDouble();
@@ -828,7 +889,10 @@ class _MembershipOrderSummarySheetState
                     ],
                   ),
                   IconButton(
-                    icon: Icon(Icons.close_rounded, color: colors.textSecondary),
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: colors.textSecondary,
+                    ),
                     onPressed: () => Navigator.of(context).pop(),
                     visualDensity: VisualDensity.compact,
                   ),
@@ -955,11 +1019,15 @@ class _MembershipOrderSummarySheetState
                             hintStyle: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.normal,
-                              color: colors.textSecondary.withValues(alpha: 0.7),
+                              color: colors.textSecondary.withValues(
+                                alpha: 0.7,
+                              ),
                             ),
                             border: InputBorder.none,
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 8,
+                            ),
                           ),
                           onSubmitted: (_) => _applyPromoCode(),
                         ),
@@ -1015,7 +1083,10 @@ class _MembershipOrderSummarySheetState
               ] else ...[
                 // Applied Promo Tag Card
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.green.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(14),
@@ -1072,7 +1143,10 @@ class _MembershipOrderSummarySheetState
 
               // GST Breakdown Table
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 decoration: BoxDecoration(
                   color: colors.surfaceMuted,
                   borderRadius: BorderRadius.circular(16),
@@ -1092,7 +1166,9 @@ class _MembershipOrderSummarySheetState
                             ),
                           ),
                           Text(
-                            '₹${widget.plan.totalPriceRupees}.00',
+                            isDomestic
+                                ? '₹${widget.plan.totalPriceRupees}.00'
+                                : '\$${widget.plan.priceUsd.toStringAsFixed(2)}',
                             style: typography.bodyMedium.copyWith(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -1126,7 +1202,9 @@ class _MembershipOrderSummarySheetState
                             ],
                           ),
                           Text(
-                            '- ₹${_appliedDiscountAmount.toStringAsFixed(0)}.00',
+                            isDomestic
+                                ? '- ₹${_appliedDiscountAmount.toStringAsFixed(0)}.00'
+                                : '- \$${_appliedDiscountAmount.toStringAsFixed(2)}',
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -1140,50 +1218,73 @@ class _MembershipOrderSummarySheetState
                         child: Divider(height: 1, thickness: 0.8),
                       ),
 
-                      // Net Taxable Base
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Taxable Amount',
-                            style: typography.bodyMedium.copyWith(
-                              fontSize: 14,
-                              color: colors.textSecondary,
+                      if (isDomestic) ...[
+                        // Net Taxable Base
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Taxable Amount',
+                              style: typography.bodyMedium.copyWith(
+                                fontSize: 14,
+                                color: colors.textSecondary,
+                              ),
                             ),
-                          ),
-                          Text(
-                            '₹${netTaxableAmount.toStringAsFixed(2)}',
-                            style: typography.bodyMedium.copyWith(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: colors.textPrimary,
+                            Text(
+                              '₹${netTaxableAmount.toStringAsFixed(2)}',
+                              style: typography.bodyMedium.copyWith(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: colors.textPrimary,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
 
-                      // 18% GST on discounted amount
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Goods & Services Tax (18% GST)',
-                            style: typography.bodyMedium.copyWith(
-                              fontSize: 14,
-                              color: colors.textSecondary,
+                        // 18% GST on discounted amount
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Goods & Services Tax (18% GST)',
+                              style: typography.bodyMedium.copyWith(
+                                fontSize: 14,
+                                color: colors.textSecondary,
+                              ),
                             ),
-                          ),
-                          Text(
-                            '+ ₹${netGstAmount.toStringAsFixed(2)}',
-                            style: typography.bodyMedium.copyWith(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: colors.primary,
+                            Text(
+                              '+ ₹${netGstAmount.toStringAsFixed(2)}',
+                              style: typography.bodyMedium.copyWith(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: colors.primary,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ] else ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Applicable Taxes & VAT',
+                              style: typography.bodyMedium.copyWith(
+                                fontSize: 14,
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                            Text(
+                              'Handled at Checkout',
+                              style: typography.bodyMedium.copyWith(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ] else ...[
                       // Base Price
                       Row(
@@ -1197,7 +1298,9 @@ class _MembershipOrderSummarySheetState
                             ),
                           ),
                           Text(
-                            '₹${widget.plan.basePriceRupees}.00',
+                            isDomestic
+                                ? '₹${widget.plan.basePriceRupees}.00'
+                                : '\$${widget.plan.priceUsd.toStringAsFixed(2)}',
                             style: typography.bodyMedium.copyWith(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -1208,27 +1311,62 @@ class _MembershipOrderSummarySheetState
                       ),
                       const SizedBox(height: 10),
 
-                      // 18% GST
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Goods & Services Tax (18% GST)',
-                            style: typography.bodyMedium.copyWith(
-                              fontSize: 14,
-                              color: colors.textSecondary,
+                      if (isDomestic) ...[
+                        // 18% GST
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Goods & Services Tax (18% GST)',
+                              style: typography.bodyMedium.copyWith(
+                                fontSize: 14,
+                                color: colors.textSecondary,
+                              ),
                             ),
-                          ),
-                          Text(
-                            '+ ₹${widget.plan.gstRupees}.00',
-                            style: typography.bodyMedium.copyWith(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: colors.primary,
+                          ],
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Standard 18% Rate',
+                              style: typography.bodySmall.copyWith(
+                                fontSize: 12,
+                                color: colors.textSecondary,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                            Text(
+                              '+ ₹${widget.plan.gstRupees}.00',
+                              style: typography.bodyMedium.copyWith(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: colors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ] else ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Applicable Taxes & VAT',
+                              style: typography.bodyMedium.copyWith(
+                                fontSize: 14,
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                            Text(
+                              'Handled at Checkout',
+                              style: typography.bodyMedium.copyWith(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
 
                     const Padding(
@@ -1265,7 +1403,9 @@ class _MembershipOrderSummarySheetState
                           children: [
                             if (_appliedDiscountAmount > 0) ...[
                               Text(
-                                '₹${widget.plan.totalPriceRupees}',
+                                isDomestic
+                                    ? '₹${widget.plan.totalPriceRupees}'
+                                    : '\$${widget.plan.priceUsd.toStringAsFixed(2)}',
                                 style: TextStyle(
                                   fontSize: 14,
                                   decoration: TextDecoration.lineThrough,
@@ -1291,7 +1431,7 @@ class _MembershipOrderSummarySheetState
               ),
               const SizedBox(height: 12),
 
-              // Indian Tax Note
+              // Tax / Google Play Note
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
@@ -1310,7 +1450,9 @@ class _MembershipOrderSummarySheetState
                       child: Text(
                         _appliedDiscountAmount > 0
                             ? 'Special promo applied: you pay $totalDisplay. Billed securely through Google Play.'
-                            : '₹${widget.plan.basePriceRupees} + 18% GST (₹${widget.plan.gstRupees}) = ₹${widget.plan.totalPriceRupees}. Billed securely through Google Play.',
+                            : (isDomestic
+                                ? '₹${widget.plan.basePriceRupees} + 18% GST (₹${widget.plan.gstRupees}) = ₹${widget.plan.totalPriceRupees}. Billed securely through Google Play.'
+                                : '\$${widget.plan.priceUsd.toStringAsFixed(2)} USD. Billed securely through Google Play.'),
                         style: typography.bodySmall.copyWith(
                           fontSize: 11.5,
                           color: colors.textSecondary,
@@ -1333,8 +1475,9 @@ class _MembershipOrderSummarySheetState
                   style: ElevatedButton.styleFrom(
                     backgroundColor: colors.primary,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor:
-                        colors.primary.withValues(alpha: 0.5),
+                    disabledBackgroundColor: colors.primary.withValues(
+                      alpha: 0.5,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -1398,4 +1541,3 @@ class _MembershipOrderSummarySheetState
     );
   }
 }
-

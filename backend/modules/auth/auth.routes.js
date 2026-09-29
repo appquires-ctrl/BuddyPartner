@@ -123,6 +123,19 @@ router.post('/login', async (req, res) => {
   const cleanLogin = rawLogin.startsWith('@') ? rawLogin.slice(1).trim().toLowerCase() : rawLogin.toLowerCase();
   const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown_ip';
 
+  // Hardware device ban check
+  const rawDeviceId = req.body?.deviceId || req.headers['x-device-id'] || req.headers['device-id'];
+  const deviceId = rawDeviceId && typeof rawDeviceId === 'string' ? rawDeviceId.trim() : null;
+  if (deviceId) {
+    const isDeviceBanned = await redis.sismember('banned_devices_set', deviceId);
+    if (isDeviceBanned) {
+      return res.status(403).json({
+        error: 'DEVICE_BANNED',
+        message: 'This device has been permanently restricted from accessing BuddyPartner.',
+      });
+    }
+  }
+
   const lockoutWindow = 900; // 15 minutes
   const maxAttempts = 5;
   const loginAttemptsKey = `login_attempts:${cleanLogin}`;
@@ -333,6 +346,8 @@ router.post('/login', async (req, res) => {
       'EX',
       7 * 24 * 60 * 60
     );
+
+    db.query('UPDATE public.users SET last_active_at = NOW(), device_id = COALESCE($1, device_id) WHERE id = $2', [deviceId, user.id]).catch(() => {});
 
     const isProfileComplete = Boolean(user.full_name && user.full_name.trim().length > 0);
     const sBal = parseFloat(user.spendable_balance) || 0;
@@ -764,6 +779,19 @@ router.post('/otp/verify', async (req, res) => {
   }
 
   try {
+    // Hardware device ban check
+    const rawDeviceId = req.body?.deviceId || req.headers['x-device-id'] || req.headers['device-id'];
+    const deviceId = rawDeviceId && typeof rawDeviceId === 'string' ? rawDeviceId.trim() : null;
+    if (deviceId) {
+      const isDeviceBanned = await redis.sismember('banned_devices_set', deviceId);
+      if (isDeviceBanned) {
+        return res.status(403).json({
+          error: 'DEVICE_BANNED',
+          message: 'This device has been permanently restricted from accessing BuddyPartner.',
+        });
+      }
+    }
+
     const isTestAccount = (DEMO_TEST_MOBILES.has(cleanMobile) && cleanCountryCode === DEMO_TEST_COUNTRY_CODE);
     const otpRedisKey = `otp:${cleanCountryCode}${cleanMobile}`;
     const attemptsKey = `otp_verify_attempts:${cleanMobile}`;
@@ -974,6 +1002,8 @@ router.post('/otp/verify', async (req, res) => {
       'EX',
       7 * 24 * 60 * 60
     );
+
+    db.query('UPDATE public.users SET last_active_at = NOW(), device_id = COALESCE($1, device_id) WHERE id = $2', [deviceId, user.id]).catch(() => {});
 
     const isProfileComplete = !!(user.full_name && user.full_name.trim().length > 0);
 

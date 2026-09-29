@@ -14,6 +14,7 @@ class RechargePlanUiModel {
   final int basePriceRupees;
   final int gstRupees;
   final int totalPriceRupees;
+  final double priceUsd;
   final String? badgeText;
   final bool isPopular;
 
@@ -24,6 +25,7 @@ class RechargePlanUiModel {
     required this.basePriceRupees,
     required this.gstRupees,
     required this.totalPriceRupees,
+    this.priceUsd = 0.99,
     this.badgeText,
     this.isPopular = false,
   });
@@ -33,6 +35,16 @@ class RechargePlanUiModel {
 
   /// Total coins delivered to the user wallet
   int get totalCoins => coins + bonusCoins;
+
+  /// Formatted base display price (before taxes in India, or base USD in RoW)
+  String formattedBasePrice({bool isDomestic = true}) {
+    return isDomestic ? '₹$basePriceRupees' : '\$${priceUsd.toStringAsFixed(2)}';
+  }
+
+  /// Formatted total display price
+  String formattedTotalPrice({bool isDomestic = true}) {
+    return isDomestic ? '₹$totalPriceRupees' : '\$${priceUsd.toStringAsFixed(2)}';
+  }
 
   /// Digital asset pricing breakdown model
   DigitalAssetPricing get pricing => DigitalAssetPricing(
@@ -52,6 +64,7 @@ final rechargePlansProvider = Provider<List<RechargePlanUiModel>>((ref) {
       basePriceRupees: 49,
       gstRupees: 9,
       totalPriceRupees: 58,
+      priceUsd: 0.99,
       badgeText: 'STARTER',
     ),
     RechargePlanUiModel(
@@ -61,6 +74,7 @@ final rechargePlansProvider = Provider<List<RechargePlanUiModel>>((ref) {
       basePriceRupees: 99,
       gstRupees: 18,
       totalPriceRupees: 117,
+      priceUsd: 1.99,
       badgeText: 'POPULAR',
       isPopular: true,
     ),
@@ -71,6 +85,7 @@ final rechargePlansProvider = Provider<List<RechargePlanUiModel>>((ref) {
       basePriceRupees: 199,
       gstRupees: 36,
       totalPriceRupees: 235,
+      priceUsd: 2.99,
       badgeText: 'STANDARD',
     ),
     RechargePlanUiModel(
@@ -80,6 +95,7 @@ final rechargePlansProvider = Provider<List<RechargePlanUiModel>>((ref) {
       basePriceRupees: 499,
       gstRupees: 90,
       totalPriceRupees: 589,
+      priceUsd: 5.99,
       badgeText: '50 BONUS COINS',
     ),
     RechargePlanUiModel(
@@ -89,6 +105,7 @@ final rechargePlansProvider = Provider<List<RechargePlanUiModel>>((ref) {
       basePriceRupees: 999,
       gstRupees: 180,
       totalPriceRupees: 1179,
+      priceUsd: 9.99,
       badgeText: 'BEST VALUE',
     ),
     RechargePlanUiModel(
@@ -98,6 +115,7 @@ final rechargePlansProvider = Provider<List<RechargePlanUiModel>>((ref) {
       basePriceRupees: 2500,
       gstRupees: 450,
       totalPriceRupees: 2950,
+      priceUsd: 24.99,
       badgeText: '250 BONUS COINS',
     ),
   ];

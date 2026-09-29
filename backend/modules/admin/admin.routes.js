@@ -271,4 +271,77 @@ router.put('/app-config/minimum-version', adminAuth, async (req, res) => {
   }
 });
 
+// ── 8. Live Telemetry & CCU Monitor ──────────────────────────────────────────
+router.get('/metrics/live', adminAuth, async (_req, res) => {
+  try {
+    const telemetry = await adminService.getLiveTelemetry();
+    return res.json({ success: true, telemetry });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── 9. Push Broadcasts ───────────────────────────────────────────────────────
+router.post('/broadcasts/send', adminAuth, async (req, res) => {
+  try {
+    const { title, body, imageUrl, targetSegment, targetCity, targetGender, deepLink } = req.body;
+    const adminUser = req.admin?.username || 'admin';
+    const result = await adminService.sendPushBroadcast({
+      title,
+      body,
+      imageUrl,
+      targetSegment,
+      targetCity,
+      targetGender,
+      deepLink,
+      adminUser,
+    });
+    return res.json({ success: true, message: 'Broadcast dispatched successfully', ...result });
+  } catch (err) {
+    return res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+});
+
+router.get('/broadcasts/history', adminAuth, async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const data = await adminService.getPushBroadcastLogs({ page: Number(page), limit: Number(limit) });
+    return res.json({ success: true, ...data });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── 10. Device Blacklisting & Hardware Ban ──────────────────────────────────
+router.get('/devices', adminAuth, async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const data = await adminService.getBannedDevices({ page: Number(page), limit: Number(limit) });
+    return res.json({ success: true, ...data });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/devices/ban', adminAuth, async (req, res) => {
+  try {
+    const { deviceId, reason } = req.body;
+    const adminUser = req.admin?.username || 'admin';
+    const result = await adminService.banDevice({ deviceId, reason, adminUser });
+    return res.json({ success: true, message: 'Device banned successfully', ...result });
+  } catch (err) {
+    return res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/devices/unban', adminAuth, async (req, res) => {
+  try {
+    const { deviceId } = req.body;
+    const result = await adminService.unbanDevice(deviceId);
+    return res.json({ success: true, message: 'Device unbanned successfully', ...result });
+  } catch (err) {
+    return res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;

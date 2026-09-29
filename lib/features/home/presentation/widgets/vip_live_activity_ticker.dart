@@ -219,13 +219,13 @@ class _VipLiveActivityTickerState extends State<VipLiveActivityTicker> {
       widget.customMessages ??
       (widget.isCompact
           ? [
-              '$_girlsCount+ girls active now',
+              '$_girlsCount+ buddies active now',
               'Connect in < 5 seconds',
               'Switch to Video ready',
             ]
           : [
-              '$_girlsCount+ girls are active right now',
-              '$_vipAvailableCount+ users are available for a VIP call',
+              '$_girlsCount+ buddies are active right now',
+              '$_vipAvailableCount+ buddies are available for a VIP call',
               'People are waiting to connect',
               'Switch to Video supported in-call',
               'Avg. connection: under 5 seconds',

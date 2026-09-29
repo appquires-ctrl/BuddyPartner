@@ -21,7 +21,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
   int _step = 1; // 1 = Enter Phone/Username, 2 = Enter OTP & New Password
 
   final _identifierController = TextEditingController();
-  CountryCode _selectedCountry = CountryCodes.defaultCountry;
+  CountryCode _selectedCountry = CountryCodes.detectDefaultCountry();
 
   // OTP & New Password state
   final List<TextEditingController> _otpControllers = List.generate(6, (_) => TextEditingController());
@@ -31,7 +31,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
 
-  String _resolvedCountryCode = '91';
+  late String _resolvedCountryCode = CountryCodes.detectDefaultCountry().code.replaceAll('+', '');
   String _resolvedMobile = '';
   String? _phoneHint;
 

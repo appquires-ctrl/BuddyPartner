@@ -63,6 +63,7 @@ class PresenceService {
       const pipeline = redis.pipeline();
       pipeline.sadd(key, socketId);
       pipeline.expire(key, LEASE_TTL_SECONDS);
+      pipeline.sadd('online_users_set', userId);
       await pipeline.exec();
 
       // Only broadcast if transitioning from 0 -> 1 (newly online)
@@ -108,6 +109,7 @@ class PresenceService {
           const currentCount = await redis.scard(key);
           if (currentCount === 0) {
             await redis.del(key);
+            await redis.srem('online_users_set', userId);
             this._broadcastPresence(io, userId, false);
           }
         }, DEBOUNCE_DISCONNECT_MS);
@@ -139,6 +141,7 @@ class PresenceService {
     try {
       const key = `online_sockets:${userId}`;
       await redis.del(key);
+      await redis.srem('online_users_set', userId);
       this._broadcastPresence(io, userId, false);
     } catch (err) {
       console.error(`❌ [Presence] Error clearing presence for user ${userId}:`, err.message);
@@ -155,8 +158,24 @@ class PresenceService {
     try {
       const key = `online_sockets:${userId}`;
       await redis.expire(key, LEASE_TTL_SECONDS);
+      await redis.sadd('online_users_set', userId);
     } catch (err) {
       console.error(`❌ [Presence] Error refreshing lease for user ${userId}:`, err.message);
+    }
+  }
+
+  /**
+   * Returns current instantaneous online users (CCU) across all cluster instances.
+   * @param {import('ioredis').Redis} redis
+   * @returns {Promise<number>}
+   */
+  async getOnlineUsersCount(redis) {
+    if (!redis) return 0;
+    try {
+      return await redis.scard('online_users_set');
+    } catch (err) {
+      console.error('❌ [Presence] Error getting online users count:', err.message);
+      return 0;
     }
   }
 

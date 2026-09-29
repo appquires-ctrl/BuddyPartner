@@ -13,6 +13,8 @@ import 'package:buddypartner/features/recharge/presentation/providers/recharge_p
 import 'package:buddypartner/features/recharge/presentation/widgets/recharge_plan_card.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 import 'package:buddypartner/core/services/google_play_purchase_service.dart';
+import 'package:buddypartner/core/utils/app_currency.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
 /// Professional, state-of-the-art Recharge Store screen
 /// Based on Google Play In-App Billing & Option B (Base price + 18% GST) pricing model.
@@ -117,6 +119,10 @@ class _RechargePageState extends ConsumerState<RechargePage>
     return customVal > 0 ? customVal : _selectedPlan.basePriceRupees;
   }
 
+  double get _calculatedUsdPrice {
+    return _selectedPlan.priceUsd;
+  }
+
   Future<void> _handleRecharge(
     RechargePlanUiModel plan, {
     String? offerId,
@@ -124,7 +130,7 @@ class _RechargePageState extends ConsumerState<RechargePage>
   }) async {
     HapticFeedback.mediumImpact();
     AppLogger.button(
-      'Google Play In-App Purchase: ${plan.id} (${plan.totalCoins} Coins - ₹${plan.totalPriceRupees}, offer: $offerId, promo: $promoCode)',
+      'Google Play In-App Purchase: ${plan.id} (${plan.totalCoins} Coins - ${plan.formattedTotalPrice(isDomestic: true)}, offer: $offerId, promo: $promoCode)',
       screen: 'RechargePage',
     );
 
@@ -137,13 +143,18 @@ class _RechargePageState extends ConsumerState<RechargePage>
     );
   }
 
-  void _showOrderSummaryBottomSheet(BuildContext context, RechargePlanUiModel plan) {
+  void _showOrderSummaryBottomSheet(
+    BuildContext context,
+    RechargePlanUiModel plan, {
+    bool isDomestic = true,
+  }) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (bottomSheetContext) => _CoinOrderSummarySheet(
         plan: plan,
+        isDomestic: isDomestic,
         onPay: (offerId, promoCode) => _handleRecharge(
           plan,
           offerId: offerId,
@@ -192,6 +203,12 @@ class _RechargePageState extends ConsumerState<RechargePage>
 
     final plans = ref.watch(rechargePlansProvider);
     final selectedPlan = _selectedPlan;
+
+    final authUser = ref.watch(authStateProvider).value;
+    final isDomestic = AppCurrency.isDomestic(
+      country: authUser?.country,
+      phoneNumber: authUser?.phoneNumber,
+    );
 
     return Scaffold(
       backgroundColor: widget.isEmbedded
@@ -295,6 +312,7 @@ class _RechargePageState extends ConsumerState<RechargePage>
                         return RechargePlanCard(
                           plan: plan,
                           isSelected: isSelected,
+                          isDomestic: isDomestic,
                           onTap: () {
                             HapticFeedback.selectionClick();
                             setState(() {
@@ -496,7 +514,9 @@ class _RechargePageState extends ConsumerState<RechargePage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '₹$_calculatedBasePrice',
+                          isDomestic
+                              ? '₹$_calculatedBasePrice'
+                              : '\$${_calculatedUsdPrice.toStringAsFixed(2)}',
                           style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w900,
@@ -520,7 +540,11 @@ class _RechargePageState extends ConsumerState<RechargePage>
                     child: ElevatedButton(
                       onPressed: isPurchasing
                           ? null
-                          : () => _showOrderSummaryBottomSheet(context, selectedPlan),
+                          : () => _showOrderSummaryBottomSheet(
+                                context,
+                                selectedPlan,
+                                isDomestic: isDomestic,
+                              ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF18181B),
                         foregroundColor: Colors.white,
@@ -569,11 +593,13 @@ typedef OnCoinPayCallback = void Function(String? offerId, String? promoCode);
 
 class _CoinOrderSummarySheet extends ConsumerStatefulWidget {
   final RechargePlanUiModel plan;
+  final bool isDomestic;
   final OnCoinPayCallback onPay;
 
   const _CoinOrderSummarySheet({
     required this.plan,
     required this.onPay,
+    this.isDomestic = true,
   });
 
   @override
@@ -627,7 +653,9 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
           _appliedPromoCode = data['code'] as String? ?? code;
           _appliedOfferId = offerId;
           _appliedDiscountAmount = discount;
-          _promoSuccessMessage = '$title (-₹${discount.toStringAsFixed(0)})';
+          _promoSuccessMessage = widget.isDomestic
+              ? '$title (-₹${discount.toStringAsFixed(0)})'
+              : '$title (-\$${discount.toStringAsFixed(2)})';
           _promoError = null;
           _isApplying = false;
         });
@@ -673,9 +701,14 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
     final isPurchasing = gpState.status == GooglePlayPurchaseStatus.purchasing ||
         gpState.status == GooglePlayPurchaseStatus.verifying;
 
-    final baseTotal = widget.plan.totalPriceRupees.toDouble();
+    final isDomestic = widget.isDomestic;
+    final baseTotal = isDomestic
+        ? widget.plan.totalPriceRupees.toDouble()
+        : widget.plan.priceUsd;
     final finalPayable = (baseTotal - _appliedDiscountAmount).clamp(0.0, 999999.0);
-    final totalDisplay = '₹${finalPayable.toStringAsFixed(0)}.00';
+    final totalDisplay = isDomestic
+        ? '₹${finalPayable.toStringAsFixed(0)}.00'
+        : '\$${finalPayable.toStringAsFixed(2)}';
 
     // Statutory GST (18%) breakdown:
     // Under Indian GST laws, GST is levied on the actual discounted transaction value.
@@ -1000,7 +1033,9 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
                             ),
                           ),
                           Text(
-                            '₹${widget.plan.totalPriceRupees}.00',
+                            isDomestic
+                                ? '₹${widget.plan.totalPriceRupees}.00'
+                                : '\$${widget.plan.priceUsd.toStringAsFixed(2)}',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -1034,7 +1069,9 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
                             ],
                           ),
                           Text(
-                            '- ₹${_appliedDiscountAmount.toStringAsFixed(0)}.00',
+                            isDomestic
+                                ? '- ₹${_appliedDiscountAmount.toStringAsFixed(0)}.00'
+                                : '- \$${_appliedDiscountAmount.toStringAsFixed(2)}',
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -1048,50 +1085,73 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
                         child: Divider(height: 1, thickness: 0.8),
                       ),
 
-                      // Net Taxable Base
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Taxable Amount',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: textMuted,
+                      if (isDomestic) ...[
+                        // Net Taxable Base
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Taxable Amount',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: textMuted,
+                              ),
                             ),
-                          ),
-                          Text(
-                            '₹${netTaxableAmount.toStringAsFixed(2)}',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: textColor,
+                            Text(
+                              '₹${netTaxableAmount.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: textColor,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
 
-                      // 18% GST on discounted amount
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Goods & Services Tax (18% GST)',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: textMuted,
+                        // 18% GST on discounted amount
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Goods & Services Tax (18% GST)',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: textMuted,
+                              ),
                             ),
-                          ),
-                          Text(
-                            '+ ₹${netGstAmount.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFFF59E0B),
+                            Text(
+                              '+ ₹${netGstAmount.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFFF59E0B),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ] else ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Applicable Taxes & VAT',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: textMuted,
+                              ),
+                            ),
+                            Text(
+                              'Handled at Checkout',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ] else ...[
                       // Base Price
                       Row(
@@ -1105,7 +1165,9 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
                             ),
                           ),
                           Text(
-                            '₹${widget.plan.basePriceRupees}.00',
+                            isDomestic
+                                ? '₹${widget.plan.basePriceRupees}.00'
+                                : '\$${widget.plan.priceUsd.toStringAsFixed(2)}',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -1116,27 +1178,50 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
                       ),
                       const SizedBox(height: 10),
 
-                      // 18% GST
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Goods & Services Tax (18% GST)',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: textMuted,
+                      if (isDomestic) ...[
+                        // 18% GST
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Goods & Services Tax (18% GST)',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: textMuted,
+                              ),
                             ),
-                          ),
-                          Text(
-                            '+ ₹${widget.plan.gstRupees}.00',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFFF59E0B),
+                            Text(
+                              '+ ₹${widget.plan.gstRupees}.00',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFFF59E0B),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ] else ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Applicable Taxes & VAT',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: textMuted,
+                              ),
+                            ),
+                            Text(
+                              'Handled at Checkout',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
 
                     const Padding(
@@ -1174,7 +1259,9 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
                           children: [
                             if (_appliedDiscountAmount > 0) ...[
                               Text(
-                                '₹${widget.plan.totalPriceRupees}.00',
+                                isDomestic
+                                    ? '₹${widget.plan.totalPriceRupees}.00'
+                                    : '\$${widget.plan.priceUsd.toStringAsFixed(2)}',
                                 style: TextStyle(
                                   fontSize: 13,
                                   decoration: TextDecoration.lineThrough,
@@ -1199,7 +1286,7 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
               ),
               const SizedBox(height: 12),
 
-              // Regulatory Note
+              // Regulatory / Store Note
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
@@ -1216,7 +1303,9 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '₹${widget.plan.basePriceRupees} + 18% GST (₹${widget.plan.gstRupees}) = ₹${widget.plan.totalPriceRupees}. Billed securely through Google Play.',
+                        isDomestic
+                            ? '₹${widget.plan.basePriceRupees} + 18% GST (₹${widget.plan.gstRupees}) = ₹${widget.plan.totalPriceRupees}. Billed securely through Google Play.'
+                            : '\$${widget.plan.priceUsd.toStringAsFixed(2)} USD. Billed securely through Google Play.',
                         style: TextStyle(
                           fontSize: 11.5,
                           color: textMuted,

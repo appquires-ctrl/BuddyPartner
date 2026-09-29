@@ -4,6 +4,9 @@ const db = require('../../db');
 const redis = require('../../redis');
 const { cacheService } = require('../../services/cache.service');
 const { callQuotaService } = require('../calls/call_quota.service');
+const { PresenceService } = require('../presence/presence.service');
+const { distributedCallService } = require('../calls/distributed_call.service');
+const { sendMulticastPushNotification } = require('../../services/firebase.service');
 
 class AdminService {
   /**
@@ -21,6 +24,7 @@ class AdminService {
         );
         console.log('✅ Admin config initialized with default hash for "admin123".');
       }
+      await this.initDeviceBanCache();
     } catch (err) {
       console.error('❌ Failed to verify admin_config:', err.message);
     }
@@ -618,6 +622,352 @@ class AdminService {
 
   async grantSubscription(userId, planDurationDays = 365, reason = 'admin_gift') {
     return this.giveSubscription(userId, planDurationDays, reason);
+  }
+
+  /**
+   * Live CCU, In-Call count, and real-time financial telemetry for 5,000 CCU monitoring.
+   */
+  async getLiveTelemetry() {
+    try {
+      // 1. Live CCU & active calls from Redis in O(1)
+      const [liveCcu, activeCalls] = await Promise.all([
+        PresenceService.getOnlineUsersCount(redis),
+        distributedCallService.getActiveCallsCount(redis),
+      ]);
+
+      // 2. Dual balance circulating ledger & financial health (cached 3s in Redis to prevent DB load)
+      const cacheKey = 'admin:live_telemetry:db_metrics';
+      const dbMetrics = await cacheService.getOrSet(cacheKey, 3, async () => {
+        const [walletRes, revRes, withdrawalsRes] = await Promise.all([
+          db.query(`
+            SELECT 
+              COALESCE(SUM(spendable_balance), 0)::bigint AS circulating_spendable,
+              COALESCE(SUM(earned_balance), 0)::bigint AS circulating_earned
+            FROM public.wallets
+          `),
+          db.query(`
+            SELECT 
+              (SELECT COALESCE(SUM(amount_paid), 0)::numeric FROM public.subscriptions WHERE started_at >= CURRENT_DATE) AS sub_revenue_today,
+              (SELECT COALESCE(SUM(spendable_delta), 0)::bigint FROM public.wallet_transactions WHERE reason IN ('iap_purchase', 'razorpay_purchase', 'recharge') AND created_at >= CURRENT_DATE) AS coins_purchased_today,
+              (SELECT COUNT(*)::int FROM public.subscriptions WHERE started_at >= CURRENT_DATE) AS subs_sold_today
+          `),
+          db.query(`
+            SELECT 
+              COUNT(*)::int AS pending_withdrawals_count,
+              COALESCE(SUM(amount), 0)::numeric AS pending_withdrawals_amount
+            FROM public.withdrawals 
+            WHERE status = 'pending'
+          `)
+        ]);
+
+        const w = walletRes.rows[0] || {};
+        const r = revRes.rows[0] || {};
+        const wd = withdrawalsRes.rows[0] || {};
+
+        return {
+          circulatingSpendable: parseInt(w.circulating_spendable || 0, 10),
+          circulatingEarned: parseInt(w.circulating_earned || 0, 10),
+          subRevenueToday: parseFloat(r.sub_revenue_today || 0),
+          coinsPurchasedToday: parseInt(r.coins_purchased_today || 0, 10),
+          subsSoldToday: parseInt(r.subs_sold_today || 0, 10),
+          pendingWithdrawalsCount: parseInt(wd.pending_withdrawals_count || 0, 10),
+          pendingWithdrawalsAmount: parseFloat(wd.pending_withdrawals_amount || 0),
+        };
+      });
+
+      const mem = process.memoryUsage();
+
+      return {
+        timestamp: new Date().toISOString(),
+        ccu: liveCcu || 0,
+        activeCalls: activeCalls || 0,
+        circulatingSpendable: dbMetrics.circulatingSpendable,
+        circulatingEarned: dbMetrics.circulatingEarned,
+        subRevenueToday: dbMetrics.subRevenueToday,
+        coinsPurchasedToday: dbMetrics.coinsPurchasedToday,
+        subsSoldToday: dbMetrics.subsSoldToday,
+        pendingWithdrawalsCount: dbMetrics.pendingWithdrawalsCount,
+        pendingWithdrawalsAmount: dbMetrics.pendingWithdrawalsAmount,
+        system: {
+          uptimeSeconds: Math.floor(process.uptime()),
+          memoryRssMb: Math.round(mem.rss / 1024 / 1024),
+          memoryHeapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
+          dbPoolTotal: db.pool?.totalCount || 0,
+          dbPoolIdle: db.pool?.idleCount || 0,
+          dbPoolWaiting: db.pool?.waitingCount || 0,
+        },
+      };
+    } catch (err) {
+      console.error('❌ Error getting live telemetry:', err.message);
+      throw err;
+    }
+  }
+
+  /**
+   * Targeted push notification broadcast via Firebase multicast.
+   */
+  async sendPushBroadcast({
+    title,
+    body,
+    imageUrl = null,
+    targetSegment = 'all',
+    targetCity = null,
+    targetGender = null,
+    deepLink = '/home',
+    adminUser = 'admin'
+  }) {
+    if (!title || !body) {
+      const err = new Error('Broadcast title and body are required.');
+      err.status = 400;
+      throw err;
+    }
+
+    try {
+      const conditions = [
+        "u.fcm_token IS NOT NULL",
+        "u.fcm_token != ''",
+        "COALESCE(u.is_banned, FALSE) = FALSE"
+      ];
+      const params = [];
+
+      // Segment filters
+      if (targetSegment === 'unsubscribed') {
+        conditions.push(`NOT EXISTS (
+          SELECT 1 FROM public.subscriptions s 
+          WHERE s.user_id = u.id AND s.expires_at > NOW()
+        )`);
+      } else if (targetSegment === 'inactive_48h') {
+        conditions.push(`COALESCE(u.last_active_at, u.updated_at, u.created_at) < NOW() - INTERVAL '48 hours'`);
+      } else if (targetSegment === 'active_today') {
+        conditions.push(`COALESCE(u.last_active_at, u.updated_at, u.created_at) >= NOW() - INTERVAL '24 hours'`);
+      }
+
+      // Gender filter
+      if (targetGender && targetGender !== 'all') {
+        params.push(targetGender.toLowerCase());
+        conditions.push(`LOWER(u.gender) = $${params.length}`);
+      }
+
+      // City filter
+      if (targetCity && targetCity.trim()) {
+        params.push(`%${targetCity.trim().toLowerCase()}%`);
+        conditions.push(`LOWER(COALESCE(u.city, '')) LIKE $${params.length}`);
+      }
+
+      const whereClause = `WHERE ${conditions.join(' AND ')}`;
+      const tokenQuery = `SELECT DISTINCT u.fcm_token FROM public.users u ${whereClause}`;
+
+      const tokenRes = await db.query(tokenQuery, params);
+      const tokens = tokenRes.rows.map(r => r.fcm_token).filter(Boolean);
+
+      let successCount = 0;
+      let failureCount = 0;
+      let status = 'sent';
+
+      if (tokens.length > 0) {
+        const result = await sendMulticastPushNotification({
+          tokens,
+          title,
+          body,
+          tag: 'admin_broadcast',
+          data: {
+            type: 'admin_broadcast',
+            deepLink: deepLink || '/home',
+            imageUrl: imageUrl || '',
+            title,
+            body,
+          }
+        });
+
+        if (result) {
+          successCount = result.successCount || 0;
+          failureCount = result.failureCount || 0;
+        }
+      } else {
+        status = 'no_recipients';
+      }
+
+      // Insert broadcast log into public.push_broadcast_logs
+      const logRes = await db.query(`
+        INSERT INTO public.push_broadcast_logs (
+          title, body, image_url, target_segment, target_city, target_gender,
+          deep_link, recipient_count, success_count, failure_count, status, created_by
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        RETURNING *
+      `, [
+        title,
+        body,
+        imageUrl || null,
+        targetSegment,
+        targetCity || null,
+        targetGender || null,
+        deepLink || '/home',
+        tokens.length,
+        successCount,
+        failureCount,
+        status,
+        adminUser
+      ]);
+
+      return {
+        success: true,
+        broadcast: logRes.rows[0],
+        recipientCount: tokens.length,
+        successCount,
+        failureCount,
+      };
+    } catch (err) {
+      console.error('❌ Error sending push broadcast:', err.message);
+      throw err;
+    }
+  }
+
+  /**
+   * Paginated history of past push broadcasts.
+   */
+  async getPushBroadcastLogs({ page = 1, limit = 20 }) {
+    try {
+      const offset = (page - 1) * limit;
+      const countRes = await db.query('SELECT COUNT(*)::int AS total FROM public.push_broadcast_logs');
+      const total = countRes.rows[0]?.total || 0;
+
+      const dataRes = await db.query(`
+        SELECT * FROM public.push_broadcast_logs
+        ORDER BY created_at DESC
+        LIMIT $1 OFFSET $2
+      `, [limit, offset]);
+
+      return {
+        broadcasts: dataRes.rows,
+        total,
+        page: Number(page),
+        totalPages: Math.ceil(total / limit) || 1,
+      };
+    } catch (err) {
+      console.error('❌ Error fetching push broadcast logs:', err.message);
+      throw err;
+    }
+  }
+
+  /**
+   * Device blacklisting / hardware banning
+   */
+  async banDevice({ deviceId, reason = 'Admin manual ban', adminUser = 'admin' }) {
+    if (!deviceId || typeof deviceId !== 'string' || !deviceId.trim()) {
+      const err = new Error('Device ID is required.');
+      err.status = 400;
+      throw err;
+    }
+
+    const cleanDeviceId = deviceId.trim();
+
+    try {
+      // 1. Insert into banned_devices table
+      await db.query(`
+        INSERT INTO public.banned_devices (device_id, reason, banned_by)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (device_id) DO UPDATE SET reason = EXCLUDED.reason, created_at = NOW()
+      `, [cleanDeviceId, reason, adminUser]);
+
+      // 2. Add to Redis set for O(1) instantaneous check
+      await redis.sadd('banned_devices_set', cleanDeviceId);
+
+      // 3. Find and ban any users associated with this device
+      const userRes = await db.query(
+        `UPDATE public.users 
+         SET is_banned = TRUE, strike_count = COALESCE(strike_count, 0) + 1
+         WHERE device_id = $1
+         RETURNING id, full_name, phone_number`,
+        [cleanDeviceId]
+      );
+
+      // 4. Invalidate sessions and presence for affected users immediately
+      for (const u of userRes.rows) {
+        await redis.del(`user_active_session:${u.id}`);
+        await PresenceService.clearUserPresence(redis, null, u.id);
+      }
+
+      return {
+        success: true,
+        deviceId: cleanDeviceId,
+        reason,
+        affectedUsersCount: userRes.rows.length,
+        affectedUsers: userRes.rows,
+      };
+    } catch (err) {
+      console.error(`❌ Error banning device ${deviceId}:`, err.message);
+      throw err;
+    }
+  }
+
+  async unbanDevice(deviceId) {
+    if (!deviceId) {
+      const err = new Error('Device ID is required.');
+      err.status = 400;
+      throw err;
+    }
+    const cleanDeviceId = deviceId.trim();
+    try {
+      await db.query('DELETE FROM public.banned_devices WHERE device_id = $1', [cleanDeviceId]);
+      await redis.srem('banned_devices_set', cleanDeviceId);
+      return { success: true, deviceId: cleanDeviceId };
+    } catch (err) {
+      console.error(`❌ Error unbanning device ${deviceId}:`, err.message);
+      throw err;
+    }
+  }
+
+  async getBannedDevices({ page = 1, limit = 20 }) {
+    try {
+      const offset = (page - 1) * limit;
+      const countRes = await db.query('SELECT COUNT(*)::int AS total FROM public.banned_devices');
+      const total = countRes.rows[0]?.total || 0;
+
+      const dataRes = await db.query(`
+        SELECT 
+          bd.id,
+          bd.device_id,
+          bd.reason,
+          bd.banned_by,
+          bd.created_at,
+          COUNT(u.id)::int AS associated_users_count
+        FROM public.banned_devices bd
+        LEFT JOIN public.users u ON u.device_id = bd.device_id
+        GROUP BY bd.id, bd.device_id, bd.reason, bd.banned_by, bd.created_at
+        ORDER BY bd.created_at DESC
+        LIMIT $1 OFFSET $2
+      `, [limit, offset]);
+
+      return {
+        devices: dataRes.rows,
+        total,
+        page: Number(page),
+        totalPages: Math.ceil(total / limit) || 1,
+      };
+    } catch (err) {
+      console.error('❌ Error getting banned devices:', err.message);
+      throw err;
+    }
+  }
+
+  /**
+   * Warm up banned_devices_set in Redis from PostgreSQL table on startup
+   */
+  async initDeviceBanCache() {
+    try {
+      const res = await db.query('SELECT device_id FROM public.banned_devices');
+      if (res.rows.length > 0) {
+        const deviceIds = res.rows.map(r => r.device_id).filter(Boolean);
+        const pipeline = redis.pipeline();
+        for (const id of deviceIds) {
+          pipeline.sadd('banned_devices_set', id);
+        }
+        await pipeline.exec();
+        console.log(`🛡️ [DeviceBans] Cached ${deviceIds.length} banned devices into Redis.`);
+      }
+    } catch (err) {
+      console.warn('⚠️ [DeviceBans] Error caching banned devices:', err.message);
+    }
   }
 }
 

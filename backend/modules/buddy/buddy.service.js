@@ -59,7 +59,7 @@ class BuddyService {
    * Debits 100 coins immediately (spendable first, then earned).
    * If total across both buckets is under 100, rejects with 400 INSUFFICIENT_COINS and writes zero rows.
    */
-  async createRequest({ initiatorId, buddyType, city, targetGender, campaignId = null, customTitle = null, idempotencyKey = null, correlationId = null }) {
+  async createRequest({ initiatorId, buddyType, city, state = null, targetGender, campaignId = null, customTitle = null, idempotencyKey = null, correlationId = null }) {
     if (!this._isValidUUID(initiatorId)) {
       const err = new Error('Invalid initiator ID');
       err.statusCode = 400;
@@ -78,6 +78,8 @@ class BuddyService {
       err.statusCode = 400;
       throw err;
     }
+
+    const normalizedState = (state && typeof state === 'string' && state.trim().length > 0) ? state.trim() : null;
 
     const validGenders = ['male', 'female', 'all'];
     const normalizedGender = (targetGender || 'all').toLowerCase().trim();
@@ -195,12 +197,12 @@ class BuddyService {
       // 3. Insert buddy request
       const insertRes = await client.query(
         `INSERT INTO public.buddy_requests (
-           initiator_id, buddy_type, city, target_gender,
+           initiator_id, buddy_type, city, state, target_gender,
            initiator_coin_cost, accepter_coin_reward, status, idempotency_key,
            custom_title, campaign_id
-         ) VALUES ($1, $2, $3, $4, $5, $6, 'open', $7, $8, $9)
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'open', $8, $9, $10)
          RETURNING *`,
-        [initiatorId, buddyType, normalizedCity, normalizedGender, coinCost, coinReward, idempotencyKey, resolvedCustomTitle, campaignId]
+        [initiatorId, buddyType, normalizedCity, normalizedState, normalizedGender, coinCost, coinReward, idempotencyKey, resolvedCustomTitle, campaignId]
       );
 
       const request = insertRes.rows[0];
@@ -685,16 +687,17 @@ class BuddyService {
    * Retrieves open requests in a city matching the requesting user's profile.
    * Utilizes idx_buddy_requests_status_city_gender.
    */
-  async listOpenRequests({ city, userGender, buddyType, userId, limit = 20, offset = 0 }) {
+  async listOpenRequests({ city, state = null, userGender, buddyType, userId, limit = 20, offset = 0 }) {
     const normalizedCity = this._normalizeCity(city);
     const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || BUDDY_LIMITS.DEFAULT_FEED_LIMIT, 1), BUDDY_LIMITS.MAX_FEED_LIMIT);
     const parsedOffset = Math.max(parseInt(offset, 10) || 0, 0);
     const genderKey = (userGender || 'all').toLowerCase().trim();
     const typeKey = (buddyType || 'all').toLowerCase().trim();
+    const stateKey = state ? state.toLowerCase().trim() : 'all';
 
     const isAll = !normalizedCity || normalizedCity === 'all';
-    // Cache feed across users in same city/gender/type with 5-second TTL
-    const cacheKey = `buddy:feed:${isAll ? 'all' : normalizedCity}:${genderKey}:${typeKey}:${parsedLimit}:${parsedOffset}`;
+    // Cache feed across users in same city/state/gender/type with 5-second TTL
+    const cacheKey = `buddy:feed:${isAll ? 'all' : normalizedCity}:${stateKey}:${genderKey}:${typeKey}:${parsedLimit}:${parsedOffset}`;
 
     const rawRows = await cacheService.getOrSet(cacheKey, 5, async () => {
       const params = [];
@@ -702,10 +705,14 @@ class BuddyService {
       if (!isAll) {
         params.push(normalizedCity);
         cityClause = `AND (r.city = $1 OR LOWER(r.city) IN ('all', 'all cities', 'everywhere', 'nationwide'))`;
+        if (state && typeof state === 'string' && state.trim()) {
+          params.push(state.trim());
+          cityClause += ` AND (LOWER(TRIM(r.state)) = LOWER($${params.length}) OR r.state IS NULL)`;
+        }
       }
 
       let query = `
-        SELECT r.id, r.initiator_id, r.buddy_type, r.city, r.target_gender,
+        SELECT r.id, r.initiator_id, r.buddy_type, r.city, r.state, r.target_gender,
                r.status, r.initiator_coin_cost, r.accepter_coin_reward, r.created_at,
                r.custom_title, r.campaign_id,
                u.full_name AS initiator_name,
@@ -754,6 +761,7 @@ class BuddyService {
         initiatorId: row.initiator_id,
         buddyType: row.buddy_type,
         city: row.city,
+        state: row.state || null,
         targetGender: row.target_gender,
         status: row.status,
         customTitle: row.custom_title || null,

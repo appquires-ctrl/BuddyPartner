@@ -8,6 +8,8 @@ import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
 import 'package:buddypartner/app/theme/app_spacing.dart';
 import 'package:buddypartner/app/theme/app_radius.dart';
 import 'package:buddypartner/app/router/route_names.dart';
+import 'package:buddypartner/core/utils/app_currency.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
 class SubscriptionItem {
   final String id;
@@ -172,6 +174,12 @@ class TransactionHistoryPage extends ConsumerWidget {
           ),
         ),
         data: (subscriptions) {
+          final authUser = ref.watch(authStateProvider).value;
+          final isDomestic = AppCurrency.isDomestic(
+            country: authUser?.country,
+            phoneNumber: authUser?.phoneNumber,
+          );
+
           if (subscriptions.isEmpty) {
             return RefreshIndicator(
               onRefresh: () => ref
@@ -302,7 +310,7 @@ class TransactionHistoryPage extends ConsumerWidget {
                         ),
                       ),
                       Text(
-                        '₹${sub.amountPaid}',
+                        '${AppCurrency.symbol(isDomestic: isDomestic)}${sub.amountPaid}',
                         style: typography.bodyMedium.copyWith(
                           fontWeight: FontWeight.bold,
                           color: colors.textPrimary,

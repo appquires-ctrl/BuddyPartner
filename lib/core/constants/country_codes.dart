@@ -1,3 +1,5 @@
+import 'package:flutter/widgets.dart';
+
 class CountryCode {
   final String name;
   final String code;
@@ -84,4 +86,24 @@ class CountryCodes {
       orElse: () => defaultCountry,
     );
   }
+
+  static CountryCode findByIso(String iso) {
+    final upper = iso.toUpperCase().trim();
+    return allCountries.firstWhere(
+      (c) => c.iso.toUpperCase() == upper,
+      orElse: () => defaultCountry,
+    );
+  }
+
+  /// Automatically detect user's default country from device locale
+  static CountryCode detectDefaultCountry() {
+    try {
+      final code = WidgetsBinding.instance.platformDispatcher.locale.countryCode;
+      if (code != null && code.isNotEmpty) {
+        return findByIso(code);
+      }
+    } catch (_) {}
+    return defaultCountry;
+  }
 }
+

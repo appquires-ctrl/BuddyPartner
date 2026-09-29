@@ -7,12 +7,14 @@ class RechargePlanCard extends StatelessWidget {
   final RechargePlanUiModel plan;
   final bool isSelected;
   final VoidCallback onTap;
+  final bool isDomestic;
 
   const RechargePlanCard({
     super.key,
     required this.plan,
     required this.isSelected,
     required this.onTap,
+    this.isDomestic = true,
   });
 
   @override
@@ -118,7 +120,7 @@ class RechargePlanCard extends StatelessWidget {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      '₹${plan.basePriceRupees}',
+                      plan.formattedBasePrice(isDomestic: isDomestic),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w900,

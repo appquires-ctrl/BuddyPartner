@@ -69,6 +69,7 @@ const buddyRoutes = require('./modules/buddy/buddy.routes');
 const buddyGroupRoutes = require('./modules/buddy_group/buddy_group.routes');
 const buddyBannersRoutes = require('./modules/buddy_banners/buddy_banners.routes');
 const promoCodesRoutes = require('./modules/promo_codes/promo_codes.routes');
+const geoRoutes = require('./modules/geo/geo.routes');
 
 // Serve uploaded images statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -105,6 +106,7 @@ app.use('/api/payments/google-play', googlePlayRoutes);
 app.use('/api/admin/promo-codes', promoCodesRoutes.adminRouter);
 app.use('/api/promos', promoCodesRoutes.userRouter);
 app.use('/api/subscriptions', promoCodesRoutes.userRouter);
+app.use('/api/geo', geoRoutes);
 
 // Prime in-memory app config cache (schema managed via versioned migrations)
 appService.refreshCache().catch((err) => {
@@ -305,6 +307,10 @@ async function startServer() {
       console.warn('⚠️ Redis adapter pub/sub failed to connect, using local in-memory adapter:', err.message);
     }
   }
+
+  await adminService.initAdminConfig().catch((err) => {
+    console.warn('⚠️ [AdminInit Error]:', err.message);
+  });
 
   const PORT = process.env.PORT || 3000;
   server.listen(PORT, () => {

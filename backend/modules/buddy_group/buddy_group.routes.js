@@ -12,30 +12,35 @@ const router = express.Router();
 
 /**
  * POST /api/buddy-group/broadcast
- * Host initiates a 6-person Garba Buddy Group broadcast.
- * Deducts 509 coins from host.
+ * Host initiates a Buddy Group broadcast (Garba: 6 members, Cricket: 11 members).
  */
 router.post('/broadcast', authMiddleware, async (req, res) => {
   try {
-    const { city, targetGender, title } = req.body;
+    const { city, state, targetGender, title, buddyType } = req.body;
     const idempotencyKey = req.body.idempotencyKey || req.headers['x-idempotency-key'] || null;
 
     let targetCity = city;
+    let targetState = state;
     if (!targetCity) {
-      const userRes = await db.query('SELECT city FROM public.users WHERE id = $1', [req.user.id]);
+      const userRes = await db.query('SELECT city, state FROM public.users WHERE id = $1', [req.user.id]);
       targetCity = userRes.rows[0]?.city;
+      targetState = targetState || userRes.rows[0]?.state;
     }
 
     if (!targetCity) {
-      return res.status(400).json({ error: 'City is required to broadcast a Garba group' });
+      return res.status(400).json({ error: 'City is required to broadcast a group' });
     }
+
+    const cleanBuddyType = (buddyType && buddyType.trim().toLowerCase() === 'cricket') ? 'cricket' : 'garba';
 
     const group = await buddyGroupService.createGroupBroadcast({
       hostId: req.user.id,
       city: targetCity,
+      state: targetState || null,
       targetGender: targetGender || 'all',
-      title: title || 'Garba Buddy Group',
+      title: title || (cleanBuddyType === 'cricket' ? 'Cricket Buddy Group' : 'Garba Buddy Group'),
       idempotencyKey,
+      buddyType: cleanBuddyType,
     });
 
     const io = req.app.get('io');
@@ -52,18 +57,18 @@ router.post('/broadcast', authMiddleware, async (req, res) => {
     const status = err.statusCode || 500;
     res.status(status).json({
       error: err.code || 'FAILED_TO_CREATE_GROUP',
-      message: err.message || 'Failed to create Garba group',
+      message: err.message || 'Failed to create group',
     });
   }
 });
 
 /**
  * GET /api/buddy-group/open
- * List open Garba Buddy Groups in the user's city (< 6 members).
+ * List open Buddy Groups in the user's city (< max_members).
  */
 router.get('/open', authMiddleware, async (req, res) => {
   try {
-    let { city, limit, offset } = req.query;
+    let { city, state, limit, offset, buddyType } = req.query;
 
     if (!city) {
       const userRes = await db.query('SELECT city FROM public.users WHERE id = $1', [req.user.id]);
@@ -72,9 +77,11 @@ router.get('/open', authMiddleware, async (req, res) => {
 
     const groups = await buddyGroupService.listOpenGroups({
       city,
+      state: state || null,
       userId: req.user.id,
       limit,
       offset,
+      buddyType: buddyType || null,
     });
 
     res.json({
@@ -85,7 +92,7 @@ router.get('/open', authMiddleware, async (req, res) => {
     console.error('❌ Error in GET /api/buddy-group/open:', err.message);
     res.status(500).json({
       error: 'FAILED_TO_LIST_GROUPS',
-      message: err.message || 'Failed to list open Garba groups',
+      message: err.message || 'Failed to list open groups',
     });
   }
 });

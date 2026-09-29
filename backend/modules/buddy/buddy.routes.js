@@ -19,14 +19,16 @@ const router = express.Router();
  */
 router.post('/request', authMiddleware, async (req, res) => {
   try {
-    const { buddyType, city, targetGender, campaignId, customTitle } = req.body;
+    const { buddyType, city, state, targetGender, campaignId, customTitle } = req.body;
     const idempotencyKey = req.body.idempotencyKey || req.headers['x-idempotency-key'] || null;
 
     // Default to user's registered profile city if omitted
     let targetCity = city;
+    let targetState = state;
     if (!targetCity) {
-      const userRes = await db.query('SELECT city FROM public.users WHERE id = $1', [req.user.id]);
+      const userRes = await db.query('SELECT city, state FROM public.users WHERE id = $1', [req.user.id]);
       targetCity = userRes.rows[0]?.city;
+      targetState = targetState || userRes.rows[0]?.state;
     }
 
     if (!targetCity) {
@@ -37,6 +39,7 @@ router.post('/request', authMiddleware, async (req, res) => {
       initiatorId: req.user.id,
       buddyType,
       city: targetCity,
+      state: targetState || null,
       targetGender: targetGender || 'all',
       campaignId: campaignId || null,
       customTitle: customTitle || null,
@@ -66,19 +69,21 @@ router.post('/request', authMiddleware, async (req, res) => {
 /**
  * GET /api/buddy/requests & /api/buddy/open
  * List open buddy requests in a city visible to the user.
- * Query: ?city=&buddyType=&limit=&offset=
+ * Query: ?city=&state=&buddyType=&limit=&offset=
  */
 router.get(['/requests', '/open'], authMiddleware, async (req, res) => {
   try {
-    let { city, buddyType, limit, offset } = req.query;
+    let { city, state, buddyType, limit, offset } = req.query;
 
-    const userRes = await db.query('SELECT city, gender FROM public.users WHERE id = $1', [req.user.id]);
+    const userRes = await db.query('SELECT city, state, gender FROM public.users WHERE id = $1', [req.user.id]);
     const user = userRes.rows[0] || {};
 
     const targetCity = city || user.city || 'all';
+    const targetState = state || null;
 
     const requests = await buddyService.listOpenRequests({
       city: targetCity,
+      state: targetState,
       userGender: user.gender,
       buddyType,
       userId: req.user.id,

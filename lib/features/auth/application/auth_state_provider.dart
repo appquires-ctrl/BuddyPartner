@@ -113,8 +113,10 @@ class CustomUser {
     final rawUserName = (userMap['userName'] ?? userMap['user_name'] ?? fallbackUserName) as String?;
     final rawPhone = userMap['phoneNumber'] as String? ?? fallbackPhone ?? '';
     final parsedDob = DateTime.tryParse(userMap['dob'] as String? ?? '') ?? fallbackDob;
+    final hasBackendFullName = (userMap['fullName'] ?? userMap['full_name']) != null &&
+        (userMap['fullName'] ?? userMap['full_name']).toString().trim().isNotEmpty;
     final backendIsComplete = (userMap['isProfileComplete'] as bool?) ?? isProfileComplete;
-    final effectiveIsComplete = backendIsComplete || rawFullName.isNotEmpty;
+    final effectiveIsComplete = backendIsComplete || hasBackendFullName;
 
     return CustomUser(
       id: userMap['id'] as String? ?? '',

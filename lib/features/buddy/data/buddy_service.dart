@@ -22,6 +22,7 @@ class BuddyService {
   Future<BuddyRequest> createRequest({
     required BuddyType buddyType,
     required String city,
+    String? state,
     required BuddyTargetGender targetGender,
     String? campaignId,
     String? customTitle,
@@ -32,6 +33,7 @@ class BuddyService {
         data: {
           'buddyType': buddyType.id,
           'city': city.trim(),
+          if (state != null && state.trim().isNotEmpty) 'state': state.trim(),
           'targetGender': targetGender.id,
           if (campaignId != null && campaignId.isNotEmpty) 'campaignId': campaignId,
           if (customTitle != null && customTitle.isNotEmpty) 'customTitle': customTitle,
@@ -52,6 +54,7 @@ class BuddyService {
   /// List open requests in a city visible to current user.
   Future<List<BuddyRequest>> listOpenRequests({
     String? city,
+    String? state,
     BuddyType? buddyType,
     int limit = 20,
     int offset = 0,
@@ -63,6 +66,9 @@ class BuddyService {
       };
       if (city != null && city.trim().isNotEmpty) {
         queryParams['city'] = city.trim();
+      }
+      if (state != null && state.trim().isNotEmpty) {
+        queryParams['state'] = state.trim();
       }
       if (buddyType != null) {
         queryParams['buddyType'] = buddyType.id;

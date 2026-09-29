@@ -14,128 +14,9 @@ import 'package:buddypartner/app/router/route_names.dart';
 import 'package:buddypartner/features/buddy/data/buddy_group_service.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 import 'package:buddypartner/features/home/presentation/widgets/vip_live_activity_ticker.dart';
+import 'package:buddypartner/core/services/geo_service.dart';
+import 'package:buddypartner/core/constants/country_codes.dart';
 
-/// Comprehensive Indian cities list — tier 1, 2 & 3 including all state capitals.
-/// Covers ~98% of Indian urban population. Alternate spellings (Bangalore/Bengaluru)
-/// are listed so both match correctly.
-const List<String> kIndianCities = [
-  // ── Testing / Nationwide ──
-  'All Cities',
-
-  // ── Mega cities ──
-  'Mumbai', 'Delhi', 'Kolkata', 'Chennai', 'Bengaluru', 'Bangalore',
-  'Hyderabad', 'Ahmedabad', 'Pune', 'Surat',
-
-  // ── State capitals ──
-  'Jaipur', 'Lucknow', 'Bhopal', 'Patna', 'Bhubaneswar', 'Raipur',
-  'Chandigarh', 'Dehradun', 'Shimla', 'Gangtok', 'Guwahati', 'Shillong',
-  'Aizawl', 'Imphal', 'Kohima', 'Itanagar', 'Agartala', 'Dispur',
-  'Panaji', 'Thiruvananthapuram', 'Amaravati', 'Ranchi', 'Jammu',
-  'Srinagar', 'Leh', 'Port Blair', 'Kavaratti', 'Silvassa', 'Daman',
-  'Pondicherry',
-
-  // ── Tier 2 & major cities ──
-  'Noida', 'Gurgaon', 'Gurugram', 'Faridabad', 'Ghaziabad',
-  'Agra', 'Varanasi', 'Kanpur', 'Allahabad', 'Prayagraj', 'Meerut',
-  'Nashik', 'Nagpur', 'Aurangabad', 'Solapur', 'Amravati',
-  'Kolhapur', 'Navi Mumbai', 'Thane', 'Kalyan',
-  'Visakhapatnam', 'Vijayawada', 'Guntur', 'Warangal', 'Tirupati',
-  'Coimbatore', 'Madurai', 'Salem', 'Tiruchirappalli', 'Tiruppur',
-  'Vellore', 'Erode', 'Thoothukudi',
-  'Kochi', 'Kozhikode', 'Thrissur', 'Kannur', 'Kollam',
-  'Mysuru', 'Mysore', 'Mangaluru', 'Mangalore', 'Hubli', 'Dharwad',
-  'Belgaum', 'Belagavi', 'Tumkur',
-  'Indore', 'Gwalior', 'Jabalpur', 'Ujjain',
-  'Jodhpur', 'Kota', 'Bikaner', 'Ajmer', 'Udaipur',
-  'Ludhiana', 'Amritsar', 'Jalandhar', 'Patiala',
-  'Vadodara', 'Rajkot', 'Bhavnagar', 'Jamnagar', 'Gandhinagar',
-  'Jamshedpur', 'Dhanbad', 'Bokaro',
-  'Goa', 'Margao',
-  'Siliguri', 'Asansol', 'Durgapur', 'Howrah',
-  'Guwahati', 'Dibrugarh', 'Jorhat',
-  'Cuttack', 'Rourkela',
-  'Bilaspur', 'Bhilai',
-  'Puducherry', 'Vasco',
-
-  // ── Tier 3 & growing towns ──
-  'Haridwar', 'Rishikesh', 'Roorkee', 'Nainital', 'Mussoorie',
-  'Mathura', 'Vrindavan', 'Aligarh', 'Bareilly', 'Moradabad', 'Gorakhpur',
-  'Jhansi', 'Firozabad', 'Saharanpur',
-  'Tirunelveli', 'Dindigul', 'Kanchipuram', 'Nagercoil',
-  'Calicut', 'Palakkad',
-  'Anantapur', 'Nellore', 'Kurnool', 'Rajahmundry', 'Kakinada',
-  'Aurangabad', 'Latur', 'Nanded', 'Jalgaon', 'Sangli',
-  'Parbhani', 'Osmanabad', 'Bidar', 'Gulbarga', 'Kalaburagi',
-  'Raichur', 'Ballari', 'Davangere',
-  'Jabalpur', 'Satna', 'Sagar', 'Rewa',
-  'Korba', 'Durg', 'Rajnandgaon',
-  'Muzaffarpur', 'Gaya', 'Bhagalpur', 'Darbhanga',
-  'Berhampore', 'Malda', 'Jalpaiguri',
-  'Dimapur', 'Silchar', 'Nagaon',
-  'Shillong', 'Tura',
-  'Agartala', 'Dharmanagar',
-];
-
-/// Pure-Dart Levenshtein edit-distance implementation (no external packages).
-/// Handles transpositions, deletions, insertions and substitutions.
-/// Returns the minimum number of single-character edits to transform [a] into [b].
-int _levenshtein(String a, String b) {
-  if (a == b) return 0;
-  if (a.isEmpty) return b.length;
-  if (b.isEmpty) return a.length;
-
-  // Use two rows for O(min(a,b)) space
-  List<int> prev = List<int>.generate(b.length + 1, (i) => i);
-  List<int> curr = List<int>.filled(b.length + 1, 0);
-
-  for (int i = 1; i <= a.length; i++) {
-    curr[0] = i;
-    for (int j = 1; j <= b.length; j++) {
-      final cost = a[i - 1] == b[j - 1] ? 0 : 1;
-      curr[j] = [
-        prev[j] + 1,         // deletion
-        curr[j - 1] + 1,     // insertion
-        prev[j - 1] + cost,  // substitution
-      ].reduce((v, e) => v < e ? v : e);
-    }
-    final temp = prev;
-    prev = curr;
-    curr = temp;
-  }
-  return prev[b.length];
-}
-
-/// Returns true if [query] is a fuzzy match for [city].
-/// Matches exact substrings first, then allows 1–2 character edits
-/// proportional to the query length (longer queries tolerate more errors).
-bool _fuzzyMatch(String city, String query) {
-  final c = city.toLowerCase();
-  final q = query.toLowerCase().trim();
-  if (q.isEmpty) return true;
-
-  // 1. Exact substring (fastest path)
-  if (c.contains(q)) return true;
-
-  // 2. Query starts-with match on any word in the city name
-  final words = c.split(RegExp(r'\s+'));
-  if (words.any((w) => w.startsWith(q))) return true;
-
-  // 3. Levenshtein on the city prefix of same length as query
-  // Allows: 1 typo for queries ≥4 chars, 2 typos for queries ≥7 chars
-  if (q.length >= 4) {
-    final maxDist = q.length >= 7 ? 2 : 1;
-    final prefix = c.length > q.length ? c.substring(0, q.length) : c;
-    if (_levenshtein(prefix, q) <= maxDist) return true;
-
-    // Also check each word prefix
-    for (final word in words) {
-      final wp = word.length > q.length ? word.substring(0, q.length) : word;
-      if (_levenshtein(wp, q) <= maxDist) return true;
-    }
-  }
-
-  return false;
-}
 
 /// Bottom sheet to customize and broadcast a new Buddy Request.
 class CreateBuddyRequestSheet extends ConsumerStatefulWidget {
@@ -191,6 +72,7 @@ class CreateBuddyRequestSheet extends ConsumerStatefulWidget {
 
 class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestSheet> {
   late String _selectedCity;
+  String _selectedState = '';
   BuddyTargetGender _selectedGender = BuddyTargetGender.all;
   bool _isSubmitting = false;
 
@@ -200,16 +82,27 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
     final profile = ref.read(userProfileProvider);
     final authUser = ref.read(authStateProvider).value;
     final defaultCity = profile?.city ?? authUser?.city;
+    final defaultState = profile?.state ?? authUser?.state;
     _selectedCity = (defaultCity != null && defaultCity.trim().isNotEmpty)
         ? defaultCity.trim()
         : 'Mumbai';
+    _selectedState = defaultState?.trim() ?? '';
   }
 
   void _openCityPicker() {
-    CityPickerSheet.show(context, currentCity: _selectedCity).then((chosenCity) {
-      if (chosenCity != null && chosenCity.isNotEmpty) {
+    // Determine user's registered country ISO for scoping the city search
+    final authUser = ref.read(authStateProvider).value;
+    final countryIso = authUser?.country ?? 'IN';
+    CityPickerSheet.show(
+      context,
+      currentCity: _selectedCity,
+      currentState: _selectedState,
+      countryIso: countryIso,
+    ).then((result) {
+      if (result != null) {
         setState(() {
-          _selectedCity = chosenCity;
+          _selectedCity = result.city;
+          _selectedState = result.state;
         });
       }
     });
@@ -218,8 +111,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
   Future<void> _submitRequest() async {
     if (_isSubmitting) return;
 
-    final requiredCoins = widget.customCoinCost ??
-        (widget.buddyType == BuddyType.garba ? 501 : widget.buddyType.coinCost);
+    final requiredCoins = widget.customCoinCost ?? widget.buddyType.coinCost;
     int currentCoins = ref.read(walletBalanceProvider).value ?? -1;
     if (currentCoins < requiredCoins) {
       try {
@@ -245,20 +137,27 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
     setState(() => _isSubmitting = true);
 
     try {
-      if (widget.buddyType == BuddyType.garba) {
-        // Garba Buddy Group: 6 people group broadcast, 509 coins from host, 0 OTP
+      if (widget.buddyType.isGroup) {
+        // Multi-member Buddy Group Broadcast (Garba: 6, Cricket: 11) - 0 OTP
+        final isCricket = widget.buddyType == BuddyType.cricket;
+        final defaultTitle = isCricket ? 'Cricket Buddy Group' : 'Garba Buddy Group';
         final newGroup = await ref.read(buddyGroupServiceProvider).createGroupBroadcast(
           city: _selectedCity,
+          state: _selectedState,
           targetGender: _selectedGender.id,
-          title: widget.customTitle ?? 'Garba Buddy Group',
+          title: widget.customTitle ?? defaultTitle,
+          buddyType: widget.buddyType.id,
         );
 
         if (!mounted) return;
         Navigator.of(context).pop(); // Close create sheet
 
+        final joinersCount = widget.buddyType.maxGroupMembers - 1;
         AppSnackBar.showSuccess(
           context,
-          'Garba Group broadcast is live! 5 other members can now join.',
+          isCricket
+              ? 'Cricket Team broadcast is live! $joinersCount other players can now join.'
+              : 'Garba Group broadcast is live! $joinersCount other members can now join.',
         );
 
         // Invalidate wallet balance and groups list to refresh UI immediately
@@ -280,6 +179,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
       final newReq = await ref.read(buddyControllerProvider.notifier).createBuddyRequest(
         type: widget.buddyType,
         city: _selectedCity,
+        targetState: _selectedState,
         targetGender: _selectedGender,
         campaignId: widget.campaignId,
         customTitle: widget.customTitle,
@@ -289,9 +189,10 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
       Navigator.of(context).pop(); // Close create sheet
 
       final displayTitle = widget.customTitle ?? widget.buddyType.title;
+      final locationLabel = _selectedState.isNotEmpty ? '$_selectedCity, $_selectedState' : _selectedCity;
       AppSnackBar.showSuccess(
         context,
-        '$displayTitle broadcast is live in $_selectedCity!',
+        '$displayTitle broadcast is live in $locationLabel!',
       );
 
       // Open waiting modal for the initiator
@@ -318,10 +219,10 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
     final typography = context.typography;
     final type = widget.buddyType;
     final displayTitle = widget.customTitle ?? type.title;
-    final displaySubtitle = type == BuddyType.garba
-        ? 'Start a 6-person Garba group chat'
+    final displaySubtitle = type.isGroup
+        ? (type == BuddyType.cricket ? 'Start an 11-person Cricket team chat' : 'Start a 6-person Garba group chat')
         : (widget.customSubtitle ?? type.subtitle);
-    final effectiveCoins = widget.customCoinCost ?? (type == BuddyType.garba ? 501 : type.coinCost);
+    final effectiveCoins = widget.customCoinCost ?? type.coinCost;
     final effectiveAccent = widget.customAccentColor ?? type.accentColor;
     final effectiveGradients = widget.customAccentColor != null
         ? [widget.customAccentColor!, widget.customAccentColor!.withValues(alpha: 0.8)]
@@ -629,8 +530,8 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  type == BuddyType.garba
-                      ? '• Creates a 6-member Garba group. Up to 5 people in $_selectedCity can join for FREE.\n'
+                  type.isGroup
+                      ? '• Creates a ${type.maxGroupMembers}-member ${type == BuddyType.cricket ? "Cricket team" : "Garba group"}. Up to ${type.maxGroupMembers - 1} people in $_selectedCity can join for FREE.\n'
                         '• Group chat unlocks immediately for everyone with ZERO verification OTP.'
                       : '• The first person in $_selectedCity to accept will unlock chat with you immediately.\n'
                         '• When you meet in person, share your 6-digit verification code with your buddy.',
@@ -666,7 +567,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
                         const AppCoinIcon(size: 18),
                         const SizedBox(width: 8),
                         Text(
-                          type == BuddyType.garba
+                          type.isGroup
                               ? 'Broadcast Group ($effectiveCoins Coins)'
                               : 'Broadcast Request ($effectiveCoins Coin${effectiveCoins == 1 ? '' : 's'})',
                           style: typography.bodyMedium.copyWith(
@@ -685,35 +586,75 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
   }
 }
 
-/// Searchable Sheet for selecting Indian cities
-class CityPickerSheet extends StatefulWidget {
+/// API-backed city picker sheet.
+/// Searches cities scoped to [countryIso] via GET /api/geo/cities.
+/// Shows "city, state" for disambiguation (e.g. "Aurangabad, Maharashtra").
+/// Falls back to a free-text `Use typed city` option when no match is found.
+class CityPickerSheet extends ConsumerStatefulWidget {
   final String currentCity;
+  final String currentState;
+  final String countryIso;
 
-  const CityPickerSheet({super.key, required this.currentCity});
+  const CityPickerSheet({
+    super.key,
+    required this.currentCity,
+    required this.currentState,
+    required this.countryIso,
+  });
 
-  static Future<String?> show(BuildContext context, {required String currentCity}) {
-    return showModalBottomSheet<String>(
+  static Future<CityResult?> show(
+    BuildContext context, {
+    required String currentCity,
+    required String currentState,
+    required String countryIso,
+  }) {
+    return showModalBottomSheet<CityResult>(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => CityPickerSheet(currentCity: currentCity),
+      builder: (ctx) => CityPickerSheet(
+        currentCity: currentCity,
+        currentState: currentState,
+        countryIso: countryIso,
+      ),
     );
   }
 
   @override
-  State<CityPickerSheet> createState() => _CityPickerSheetState();
+  ConsumerState<CityPickerSheet> createState() => _CityPickerSheetState();
 }
 
-class _CityPickerSheetState extends State<CityPickerSheet> {
+class _CityPickerSheetState extends ConsumerState<CityPickerSheet> {
   late TextEditingController _searchController;
-  late List<String> _filteredCities;
+  List<CityResult> _results = [];
+  bool _isLoading = false;
+  String _activeCountryIso = '';
+  String _countryFlag = '';
+  String _countryName = '';
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
-    _filteredCities = List.from(kIndianCities);
+    _activeCountryIso = widget.countryIso.toUpperCase();
+    _resolveCountryLabel();
+    // Load popular cities immediately on open
+    _search('');
+  }
+
+  void _resolveCountryLabel() {
+    try {
+      final cc = CountryCodes.allCountries.firstWhere(
+        (c) => c.iso == _activeCountryIso,
+        orElse: () => CountryCodes.defaultCountry,
+      );
+      _countryFlag = cc.flag;
+      _countryName = cc.name;
+    } catch (_) {
+      _countryFlag = '🌍';
+      _countryName = _activeCountryIso;
+    }
   }
 
   @override
@@ -722,19 +663,28 @@ class _CityPickerSheetState extends State<CityPickerSheet> {
     super.dispose();
   }
 
-  void _filter(String query) {
-    setState(() {
-      if (query.trim().isEmpty) {
-        _filteredCities = List.from(kIndianCities);
-      } else {
-        // Use fuzzy matching so typos like "Hyderbad" → Hyderabad still work.
-        // Dedup by lowercase to avoid showing Bangalore + Bengaluru both when
-        // the user typed something that matches only one of them.
-        final seen = <String>{};
-        _filteredCities = kIndianCities.where((c) {
-          if (!_fuzzyMatch(c, query)) return false;
-          return seen.add(c.toLowerCase());
-        }).toList();
+  Future<void> _search(String query) async {
+    setState(() => _isLoading = true);
+    try {
+      final results = await ref.read(geoServiceProvider).searchCities(
+            countryIso: _activeCountryIso,
+            q: query.trim(),
+            limit: 25,
+          );
+      if (mounted) setState(() => _results = results);
+    } catch (_) {
+      if (mounted) setState(() => _results = []);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _onSearchChanged(String value) {
+    // Debounce: cancel previous timer by re-calling after 350ms
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      if (_searchController.text == value) {
+        _search(value);
       }
     });
   }
@@ -743,139 +693,325 @@ class _CityPickerSheetState extends State<CityPickerSheet> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final typography = context.typography;
+    final query = _searchController.text.trim();
+    // Show free-text option only when typed city is not already in results
+    final showCustom = query.isNotEmpty &&
+        !_results.any((r) => r.city.toLowerCase() == query.toLowerCase());
+    final itemCount = _results.length + (showCustom ? 1 : 0);
 
     return Material(
       color: colors.surface,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
-        height: MediaQuery.of(context).size.height * 0.72,
+        height: MediaQuery.of(context).size.height * 0.75,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: colors.border.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(2),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colors.border.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Select City',
-            style: typography.titleCard.copyWith(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-              color: colors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _searchController,
-            onChanged: _filter,
-            decoration: InputDecoration(
-              hintText: 'Search or type your city...',
-              prefixIcon: const Icon(Icons.search_rounded, size: 20),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, size: 18),
-                      onPressed: () {
-                        _searchController.clear();
-                        _filter('');
-                      },
-                    )
-                  : null,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              filled: true,
-              fillColor: colors.surfaceMuted,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: ListView.separated(
-              itemCount: _filteredCities.length + (_searchController.text.trim().isNotEmpty && !_filteredCities.any((c) => c.toLowerCase() == _searchController.text.trim().toLowerCase()) ? 1 : 0),
-              separatorBuilder: (_, index) => Divider(height: 1, color: colors.border.withValues(alpha: 0.5)),
-              itemBuilder: (context, index) {
-                if (index < _filteredCities.length) {
-                  final city = _filteredCities[index];
-                  final isSelected = city.toLowerCase() == widget.currentCity.toLowerCase();
-                  final isAll = city.toLowerCase() == 'all cities' || city.toLowerCase() == 'all';
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    leading: isAll
-                        ? Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: colors.primary.withValues(alpha: 0.12),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(Icons.public_rounded, size: 20, color: colors.primary),
-                          )
-                        : null,
-                    title: Row(
-                      children: [
-                        Text(
-                          city,
-                          style: TextStyle(
-                            fontWeight: (isSelected || isAll) ? FontWeight.bold : FontWeight.w500,
-                            color: isSelected ? colors.primary : colors.textPrimary,
-                          ),
-                        ),
-                        if (isAll) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: colors.primary.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              'Nationwide',
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.bold,
-                                color: colors.primary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    trailing: isSelected ? Icon(Icons.check_circle_rounded, color: colors.primary) : null,
-                    onTap: () => Navigator.of(context).pop(city),
-                  );
-                } else {
-                  // Option to use whatever custom text was entered
-                  final customCity = _searchController.text.trim();
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    leading: Icon(Icons.add_location_alt_rounded, color: colors.primary),
-                    title: Text(
-                      'Use "$customCity"',
-                      style: TextStyle(
+              const SizedBox(height: 16),
+
+              // Title + Country scope chip
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Select City',
+                      style: typography.titleCard.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: colors.primary,
+                        fontSize: 18,
+                        color: colors.textPrimary,
                       ),
                     ),
-                    onTap: () => Navigator.of(context).pop(customCity),
-                  );
-                }
-              },
-            ),
+                  ),
+                  // Country scope indicator — tap to change
+                  GestureDetector(
+                    onTap: _changeCountry,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: colors.primary.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: colors.primary.withValues(alpha: 0.25)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(_countryFlag, style: const TextStyle(fontSize: 16)),
+                          const SizedBox(width: 5),
+                          Text(
+                            _countryName,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: colors.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 3),
+                          Icon(Icons.keyboard_arrow_down_rounded, size: 14, color: colors.primary),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Search field
+              TextField(
+                controller: _searchController,
+                autofocus: true,
+                onChanged: _onSearchChanged,
+                decoration: InputDecoration(
+                  hintText: 'Search city in $_countryName...',
+                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _searchController.clear();
+                            _search('');
+                          },
+                        )
+                      : null,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  filled: true,
+                  fillColor: colors.surfaceMuted,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Results list
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                    : itemCount == 0
+                        ? Center(
+                            child: Text(
+                              'No cities found.\nTry a different spelling.',
+                              textAlign: TextAlign.center,
+                              style: typography.bodySmall.copyWith(
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: itemCount,
+                            separatorBuilder: (_, i) =>
+                                Divider(height: 1, color: colors.border.withValues(alpha: 0.4)),
+                            itemBuilder: (context, index) {
+                              // Custom free-text option at end
+                              if (index == _results.length && showCustom) {
+                                return ListTile(
+                                  contentPadding:
+                                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  leading: Icon(Icons.add_location_alt_rounded,
+                                      color: colors.primary),
+                                  title: Text(
+                                    'Use "$query"',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: colors.primary,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    'Custom city not in the list',
+                                    style:
+                                        TextStyle(fontSize: 11, color: colors.textSecondary),
+                                  ),
+                                  onTap: () => Navigator.of(context)
+                                      .pop(CityResult(city: query, state: '')),
+                                );
+                              }
+
+                              // Regular city result
+                              final result = _results[index];
+                              final isSelected =
+                                  result.city.toLowerCase() ==
+                                          widget.currentCity.toLowerCase() &&
+                                      result.state.toLowerCase() ==
+                                          widget.currentState.toLowerCase();
+
+                              return ListTile(
+                                contentPadding:
+                                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                title: Text(
+                                  result.city,
+                                  style: TextStyle(
+                                    fontWeight:
+                                        isSelected ? FontWeight.bold : FontWeight.w500,
+                                    color: isSelected ? colors.primary : colors.textPrimary,
+                                  ),
+                                ),
+                                // State shown as disambiguation subtitle
+                                subtitle: result.state.isNotEmpty
+                                    ? Text(
+                                        result.state,
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          color: colors.textSecondary,
+                                        ),
+                                      )
+                                    : null,
+                                trailing: isSelected
+                                    ? Icon(Icons.check_circle_rounded, color: colors.primary)
+                                    : null,
+                                onTap: () => Navigator.of(context).pop(result),
+                              );
+                            },
+                          ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
-    ),
-  ),
-);
+    );
+  }
+
+  /// Lets travelers override the scoped country
+  void _changeCountry() {
+    showModalBottomSheet<CountryCode>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CountrySelectSheet(selectedIso: _activeCountryIso),
+    ).then((cc) {
+      if (cc != null && mounted) {
+        setState(() {
+          _activeCountryIso = cc.iso;
+          _countryFlag = cc.flag;
+          _countryName = cc.name;
+          _results = [];
+          _searchController.clear();
+        });
+        _search('');
+      }
+    });
   }
 }
+
+/// Mini country picker shown when the user taps "Change Country" inside CityPickerSheet.
+class _CountrySelectSheet extends StatefulWidget {
+  final String selectedIso;
+  const _CountrySelectSheet({required this.selectedIso});
+
+  @override
+  State<_CountrySelectSheet> createState() => _CountrySelectSheetState();
+}
+
+class _CountrySelectSheetState extends State<_CountrySelectSheet> {
+  late List<CountryCode> _filtered;
+  final TextEditingController _ctrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _filtered = List.from(CountryCodes.allCountries);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _filter(String q) {
+    final query = q.toLowerCase().trim();
+    setState(() {
+      _filtered = query.isEmpty
+          ? List.from(CountryCodes.allCountries)
+          : CountryCodes.allCountries
+              .where((c) => c.searchKey.contains(query))
+              .toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final typography = context.typography;
+    return Material(
+      color: colors.surface,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.65,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Select Country',
+                style: typography.titleCard.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  color: colors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _ctrl,
+                onChanged: _filter,
+                decoration: InputDecoration(
+                  hintText: 'Search country...',
+                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                  filled: true,
+                  fillColor: colors.surfaceMuted,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _filtered.length,
+                  itemBuilder: (_, i) {
+                    final cc = _filtered[i];
+                    final isSelected = cc.iso == widget.selectedIso;
+                    return ListTile(
+                      leading: Text(cc.flag, style: const TextStyle(fontSize: 20)),
+                      title: Text(
+                        cc.name,
+                        style: TextStyle(
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isSelected ? colors.primary : colors.textPrimary,
+                        ),
+                      ),
+                      trailing: isSelected
+                          ? Icon(Icons.check_circle_rounded, color: colors.primary)
+                          : null,
+                      onTap: () => Navigator.of(context).pop(cc),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+

@@ -35,7 +35,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with WidgetsBindingObserv
 
   final _phoneController = TextEditingController();
   final _phoneFocusNode = FocusNode();
-  CountryCode _selectedCountry = CountryCodes.defaultCountry;
+  CountryCode _selectedCountry = CountryCodes.detectDefaultCountry();
   bool _otpSent = false;
   
   // 6-digit OTP controllers & focus nodes

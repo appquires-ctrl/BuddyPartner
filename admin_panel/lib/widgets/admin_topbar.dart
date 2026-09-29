@@ -56,36 +56,100 @@ class AdminTopbar extends ConsumerWidget {
 
           const Spacer(),
 
-          // System Status Indicator
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: AdminColors.successBg,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
+          // Live CCU Badge
+          Builder(builder: (context) {
+            final telemetryAsync = ref.watch(liveTelemetryProvider);
+            final telemetry = telemetryAsync.valueOrNull;
+            final ccu = telemetry?['ccu'] ?? 0;
+            final inCall = telemetry?['activeCalls'] ?? 0;
+            final subRev = telemetry?['subRevenueToday'] ?? 0;
+
+            return Row(
               children: [
+                // Live CCU
                 Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: AdminColors.success,
-                    shape: BoxShape.circle,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF10B981),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$ccu Live CCU',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF10B981),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 6),
-                const Text(
-                  'Backend Online',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AdminColors.success,
+                const SizedBox(width: 10),
+
+                // In-Call Active Channels
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.phone_in_talk_rounded, size: 14, color: Color(0xFF6366F1)),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$inCall In-Call',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF6366F1),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+
+                // Revenue Today
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.currency_rupee_rounded, size: 14, color: Color(0xFFF59E0B)),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$subRev Today',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFF59E0B),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(width: 20),
+            );
+          }),
+          const SizedBox(width: 16),
 
           // Admin Profile Pill & Logout Menu
           PopupMenuButton<String>(

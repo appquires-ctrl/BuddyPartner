@@ -93,6 +93,20 @@ class AdminSidebar extends StatelessWidget {
           ),
           _buildNavItem(
             context,
+            title: 'Push Broadcasts',
+            icon: Icons.campaign_rounded,
+            route: '/broadcasts',
+            isSelected: currentPath == '/broadcasts',
+          ),
+          _buildNavItem(
+            context,
+            title: 'Device Blacklist',
+            icon: Icons.phonelink_erase_rounded,
+            route: '/devices',
+            isSelected: currentPath == '/devices',
+          ),
+          _buildNavItem(
+            context,
             title: 'Advertisements',
             icon: Icons.view_carousel_rounded,
             route: '/advertisements',

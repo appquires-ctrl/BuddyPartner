@@ -347,11 +347,12 @@ class BuddyController extends Notifier<BuddyState> {
     _socket?.emit('join_buddy_city', {'city': city.trim()});
   }
 
-  Future<void> fetchOpenRequests({String? city, BuddyType? buddyType}) async {
+  Future<void> fetchOpenRequests({String? city, String? targetState, BuddyType? buddyType}) async {
     try {
       state = state.copyWith(isLoading: true, clearErrorMessage: true);
       final requests = await ref.read(buddyServiceProvider).listOpenRequests(
         city: city,
+        state: targetState,
         buddyType: buddyType,
       );
       state = state.copyWith(openRequests: requests, isLoading: false);
@@ -371,6 +372,7 @@ class BuddyController extends Notifier<BuddyState> {
   Future<BuddyRequest> createBuddyRequest({
     required BuddyType type,
     required String city,
+    String? targetState,
     required BuddyTargetGender targetGender,
     String? campaignId,
     String? customTitle,
@@ -380,6 +382,7 @@ class BuddyController extends Notifier<BuddyState> {
       final newRequest = await ref.read(buddyServiceProvider).createRequest(
         buddyType: type,
         city: city,
+        state: targetState,
         targetGender: targetGender,
         campaignId: campaignId,
         customTitle: customTitle,

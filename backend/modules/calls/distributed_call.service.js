@@ -74,6 +74,7 @@ class DistributedCallService {
     const pipeline = redis.pipeline();
     pipeline.hset(`call:active:${callId}`, fields);
     pipeline.expire(`call:active:${callId}`, 7200);
+    pipeline.sadd('active_calls_set', String(callId));
     pipeline.set(`user:call:${userAId}`, callId, 'EX', 7200);
     pipeline.set(`user:call:${userBId}`, callId, 'EX', 7200);
     pipeline.set(`call_lock:${userAId}`, '1', 'EX', 7200);
@@ -173,6 +174,7 @@ class DistributedCallService {
     const pipeline = redis.pipeline();
     pipeline.hset(`instant:active:${callId}`, fields);
     pipeline.expire(`instant:active:${callId}`, 7200);
+    pipeline.sadd('active_calls_set', String(callId));
     pipeline.set(`user:call:${maleUserId}`, callId, 'EX', 7200);
     pipeline.set(`user:call:${femaleUserId}`, callId, 'EX', 7200);
     pipeline.set(`instant:in_call:${maleUserId}`, '1', 'EX', 7200);
@@ -243,6 +245,7 @@ class DistributedCallService {
     if (!redis || !callId) return;
     try {
       const pipeline = redis.pipeline();
+      pipeline.srem('active_calls_set', String(callId));
       pipeline.del(`instant:active:${callId}`);
       pipeline.del(`instant:active_call:${callId}`);
       if (maleUserId) {
@@ -308,6 +311,7 @@ class DistributedCallService {
 
         // Clean up Redis keys atomically
         const pipeline = redis.pipeline();
+        pipeline.srem('active_calls_set', String(callId));
         pipeline.del(`call:active:${callId}`);
         pipeline.del(`active_call:${callId}`);
         pipeline.del(`user:call:${callData.userA.userId}`);
@@ -374,6 +378,7 @@ class DistributedCallService {
         };
 
         const pipeline = redis.pipeline();
+        pipeline.srem('active_calls_set', String(callId));
         pipeline.del(`instant:active:${callId}`);
         pipeline.del(`instant:active_call:${callId}`);
         pipeline.del(`user:call:${instantData.maleUserId}`);
@@ -551,6 +556,20 @@ class DistributedCallService {
     } catch (err) {
       console.error(`[Recovery] Error checking active call for ${userId}:`, err.message);
       return null;
+    }
+  }
+
+  /**
+   * Return real-time count of active call channels tracked in Redis set
+   */
+  async getActiveCallsCount(redis) {
+    if (!redis) return 0;
+    try {
+      const count = await redis.scard('active_calls_set');
+      return count || 0;
+    } catch (err) {
+      console.warn('[DistributedCall] Error fetching active calls count:', err.message);
+      return 0;
     }
   }
 }

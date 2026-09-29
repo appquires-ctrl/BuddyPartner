@@ -18,11 +18,13 @@ class BuddyGroupService {
   }
 
   /**
-   * Host initiates a new 6-person Garba Buddy Group Broadcast.
-   * Host is deducted exactly 509 coins (spendable-first, then earned).
+   * Host initiates a new Buddy Group Broadcast.
+   * - Garba: up to 6 members (501 coins or banner configured).
+   * - Cricket: up to 11 members (199 coins or banner configured).
+   * Host is deducted coins (spendable-first, then earned).
    * Host is automatically registered as Member #1 (role: 'host').
    */
-  async createGroupBroadcast({ hostId, city, targetGender = 'all', title = null, idempotencyKey = null }) {
+  async createGroupBroadcast({ hostId, city, state = null, targetGender = 'all', title = null, idempotencyKey = null, buddyType = 'garba' }) {
     if (!this._isValidUUID(hostId)) {
       const err = new Error('Invalid host ID');
       err.statusCode = 400;
@@ -31,10 +33,15 @@ class BuddyGroupService {
 
     const normalizedCity = this._normalizeCity(city);
     if (!normalizedCity) {
-      const err = new Error('City is required to broadcast a Garba group');
+      const err = new Error('City is required to broadcast a group');
       err.statusCode = 400;
       throw err;
     }
+
+    const normalizedState = (state && typeof state === 'string' && state.trim().length > 0) ? state.trim() : null;
+
+    const cleanBuddyType = (buddyType && buddyType.trim().toLowerCase() === 'cricket') ? 'cricket' : 'garba';
+    const isCricket = cleanBuddyType === 'cricket';
 
     // 1. Check Moderation Status
     const modStatus = await ModerationService.isUserBlocked(hostId);
@@ -47,25 +54,31 @@ class BuddyGroupService {
     // 2. Check Subscription
     const isSub = await subscriptionsService.isSubscribed(hostId);
     if (!isSub) {
-      const err = new Error('An active membership subscription is required to host a Garba buddy group');
+      const err = new Error(`An active membership subscription is required to host a ${isCricket ? 'Cricket' : 'Garba'} buddy group`);
       err.code = 'ACTIVE_SUBSCRIPTION_REQUIRED';
       err.statusCode = 403;
       throw err;
     }
 
-    let HOST_COIN_COST = 501;
+    let HOST_COIN_COST = isCricket ? 199 : 501;
+    const maxMembers = isCricket ? 11 : 6;
+    const defaultTitle = isCricket ? 'Cricket Buddy Group' : 'Garba Buddy Group';
+    const welcomeMsg = isCricket
+      ? 'Welcome to Cricket Buddy Group! Up to 11 members can join and form a cricket team together.'
+      : 'Welcome to Garba Buddy Group! Up to 6 members can join and plan Garba together.';
+
     try {
       const bannerRes = await db.query(`
         SELECT sheet_config FROM public.seasonal_banners 
-        WHERE is_active = TRUE AND (sheet_config->>'buddyType' = 'garba' OR sheet_config->>'buddyType' = 'garba_group')
+        WHERE is_active = TRUE AND (sheet_config->>'buddyType' = $1 OR sheet_config->>'buddyType' = $2)
         ORDER BY priority ASC, created_at DESC LIMIT 1
-      `);
+      `, [cleanBuddyType, `${cleanBuddyType}_group`]);
       if (bannerRes.rows.length > 0 && bannerRes.rows[0].sheet_config?.broadcastCoinCost) {
-        HOST_COIN_COST = parseInt(bannerRes.rows[0].sheet_config.broadcastCoinCost, 10) || 501;
+        HOST_COIN_COST = parseInt(bannerRes.rows[0].sheet_config.broadcastCoinCost, 10) || HOST_COIN_COST;
       }
     } catch (_) {}
 
-    const groupTitle = (title && title.trim()) ? title.trim() : 'Garba Buddy Group';
+    const groupTitle = (title && title.trim()) ? title.trim() : defaultTitle;
 
     const client = await db.pool.connect();
     try {
@@ -87,7 +100,7 @@ class BuddyGroupService {
         }
       }
 
-      // 3. Debit 509 Coins from Host (Spendable-first, then earned)
+      // 3. Debit Coins from Host (Spendable-first, then earned)
       const debitRes = await WalletService.debitCoins({
         userId: hostId,
         amount: HOST_COIN_COST,
@@ -100,7 +113,7 @@ class BuddyGroupService {
       if (!debitRes.success) {
         await client.query('ROLLBACK');
         const bal = await WalletService.getBalance(hostId);
-        const err = new Error(`Insufficient coins: ${HOST_COIN_COST} coins required to host a Garba buddy group (current balance: ${bal.balance} coins).`);
+        const err = new Error(`Insufficient coins: ${HOST_COIN_COST} coins required to host a ${isCricket ? 'Cricket' : 'Garba'} buddy group (current balance: ${bal.balance} coins).`);
         err.code = 'INSUFFICIENT_COINS';
         err.statusCode = 400;
         throw err;
@@ -109,11 +122,11 @@ class BuddyGroupService {
       // 4. Create Group Row
       const insertGroup = await client.query(
         `INSERT INTO public.buddy_groups (
-           initiator_id, title, buddy_type, city, target_gender,
+           initiator_id, title, buddy_type, city, state, target_gender,
            host_coin_cost, max_members, member_count, status, idempotency_key
-         ) VALUES ($1, $2, 'garba', $3, $4, $5, 6, 1, 'open', $6)
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, 'open', $9)
          RETURNING *`,
-        [hostId, groupTitle, normalizedCity, targetGender || 'all', HOST_COIN_COST, idempotencyKey]
+        [hostId, groupTitle, cleanBuddyType, normalizedCity, normalizedState, targetGender || 'all', HOST_COIN_COST, maxMembers, idempotencyKey]
       );
       const group = insertGroup.rows[0];
 
@@ -127,8 +140,8 @@ class BuddyGroupService {
       // 6. Insert Welcome System Message
       await client.query(
         `INSERT INTO public.buddy_group_messages (group_id, sender_id, content, type)
-         VALUES ($1, $2, 'Welcome to Garba Buddy Group! Up to 6 members can join and plan Garba together.', 'system')`,
-        [group.id, hostId]
+         VALUES ($1, $2, $3, 'system')`,
+        [group.id, hostId, welcomeMsg]
       );
 
       // Update wallet transaction reference_id to the group ID
@@ -234,15 +247,17 @@ class BuddyGroupService {
         await client.query('ROLLBACK');
         // Check if group exists but is full or cancelled
         const checkGroup = await db.query(
-          `SELECT status, member_count, max_members FROM public.buddy_groups WHERE id = $1`,
+          `SELECT status, member_count, max_members, buddy_type FROM public.buddy_groups WHERE id = $1`,
           [groupId]
         );
         if (checkGroup.rows.length === 0) {
-          const err = new Error('Garba group not found');
+          const err = new Error('Buddy group not found');
           err.statusCode = 404;
           throw err;
         }
-        const err = new Error('Sorry, this Garba group is already full (6/6 members)!');
+        const gType = checkGroup.rows[0]?.buddy_type === 'cricket' ? 'Cricket' : 'Garba';
+        const maxM = checkGroup.rows[0]?.max_members || 6;
+        const err = new Error(`Sorry, this ${gType} group is already full (${maxM}/${maxM} members)!`);
         err.code = 'GROUP_FULL';
         err.statusCode = 409;
         throw err;
@@ -255,25 +270,27 @@ class BuddyGroupService {
       );
       const userName = userRes.rows[0]?.full_name || 'A new member';
 
-      // 5. Insert system join message
+      // 5. Fetch fresh group state
+      const freshGroup = await client.query(
+        `SELECT id, title, city, member_count, max_members, status, buddy_type FROM public.buddy_groups WHERE id = $1`,
+        [groupId]
+      );
+      const groupRow = freshGroup.rows[0] || {};
+      const gType = groupRow.buddy_type === 'cricket' ? 'Cricket' : 'Garba';
+
+      // 6. Insert system join message
       await client.query(
         `INSERT INTO public.buddy_group_messages (group_id, sender_id, content, type)
          VALUES ($1, $2, $3, 'system')`,
-        [groupId, userId, `${userName} joined the Garba group!`]
+        [groupId, userId, `${userName} joined the ${gType} group!`]
       );
 
       await client.query('COMMIT');
 
-      // Fetch fresh group state
-      const freshGroup = await db.query(
-        `SELECT id, title, city, member_count, max_members, status FROM public.buddy_groups WHERE id = $1`,
-        [groupId]
-      );
-
       return {
         alreadyMember: false,
         groupId,
-        group: freshGroup.rows[0],
+        group: groupRow,
         joinedMember: {
           userId,
           fullName: userName,
@@ -288,9 +305,10 @@ class BuddyGroupService {
   }
 
   /**
-   * List open Garba Buddy Groups in a city that have available slots (< 6 members).
+   * List open Buddy Groups in a city that have available slots (< max_members).
+   * Supports optional buddyType ('cricket', 'garba', or all).
    */
-  async listOpenGroups({ city, userId, limit = 20, offset = 0 }) {
+  async listOpenGroups({ city, state = null, userId, limit = 20, offset = 0, buddyType = null }) {
     const normalizedCity = this._normalizeCity(city);
     const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 50);
     const parsedOffset = Math.max(parseInt(offset, 10) || 0, 0);
@@ -299,19 +317,26 @@ class BuddyGroupService {
     const params = [];
     let cityClause = '';
 
-    if (isAll) {
-      params.push(userId, parsedLimit, parsedOffset);
-    } else {
-      params.push(normalizedCity, userId, parsedLimit, parsedOffset);
-      cityClause = `AND (LOWER(TRIM(bg.city)) = $1 OR LOWER(TRIM(bg.city)) IN ('all', 'all cities', 'everywhere', 'nationwide'))`;
+    if (!isAll) {
+      params.push(normalizedCity);
+      cityClause = `AND (LOWER(TRIM(bg.city)) = $${params.length} OR LOWER(TRIM(bg.city)) IN ('all', 'all cities', 'everywhere', 'nationwide'))`;
+      if (state && typeof state === 'string' && state.trim()) {
+        params.push(state.trim());
+        cityClause += ` AND (LOWER(TRIM(bg.state)) = LOWER($${params.length}) OR bg.state IS NULL)`;
+      }
     }
 
-    const userParamIndex = isAll ? 1 : 2;
-    const limitParamIndex = isAll ? 2 : 3;
-    const offsetParamIndex = isAll ? 3 : 4;
+    let typeClause = '';
+    if (buddyType && buddyType !== 'all') {
+      params.push(buddyType.trim().toLowerCase());
+      typeClause = `AND bg.buddy_type = $${params.length}`;
+    }
 
+    let userParamIndex = null;
     let userExclusionClause = '';
     if (this._isValidUUID(userId)) {
+      params.push(userId);
+      userParamIndex = params.length;
       userExclusionClause = `
         AND bg.initiator_id != $${userParamIndex}
         AND NOT EXISTS (
@@ -321,6 +346,15 @@ class BuddyGroupService {
       `;
     }
 
+    params.push(parsedLimit);
+    const limitIndex = params.length;
+    params.push(parsedOffset);
+    const offsetIndex = params.length;
+
+    const isMemberSql = userParamIndex
+      ? `EXISTS (SELECT 1 FROM public.buddy_group_members bgm WHERE bgm.group_id = bg.id AND bgm.user_id = $${userParamIndex}) as is_member`
+      : `FALSE as is_member`;
+
     const query = `
       SELECT 
         bg.id,
@@ -328,6 +362,7 @@ class BuddyGroupService {
         bg.title,
         bg.buddy_type,
         bg.city,
+        bg.state,
         bg.target_gender,
         bg.host_coin_cost,
         bg.max_members,
@@ -338,18 +373,16 @@ class BuddyGroupService {
         u.avatar_seed as host_avatar_seed,
         u.avatar_style as host_avatar_style,
         u.gender as host_gender,
-        EXISTS (
-          SELECT 1 FROM public.buddy_group_members bgm 
-          WHERE bgm.group_id = bg.id AND bgm.user_id = $${userParamIndex}
-        ) as is_member
+        ${isMemberSql}
       FROM public.buddy_groups bg
       JOIN public.users u ON u.id = bg.initiator_id
       WHERE bg.status = 'open'
         AND bg.member_count < bg.max_members
         ${cityClause}
+        ${typeClause}
         ${userExclusionClause}
       ORDER BY bg.created_at DESC
-      LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex};
+      LIMIT $${limitIndex} OFFSET $${offsetIndex};
     `;
 
     const result = await db.query(query, params);

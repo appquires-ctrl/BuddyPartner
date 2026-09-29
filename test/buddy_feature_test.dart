@@ -42,7 +42,7 @@ void main() {
       expect(BuddyType.nightOut.coinCost, 2499);
       expect(BuddyType.clubbing.coinCost, 1499);
       expect(BuddyType.longDrive.coinCost, 999);
-      expect(BuddyType.garba.coinCost, 1);
+      expect(BuddyType.garba.coinCost, 501);
       expect(BuddyType.festival.coinCost, 1);
     });
 

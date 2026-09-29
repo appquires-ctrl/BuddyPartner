@@ -47,4 +47,13 @@ class DigitalAssetPricing {
   /// Breakdown summary text e.g. "₹99 + 18% GST (₹18) = ₹117"
   String get breakdownSummary =>
       '₹$basePriceRupees + 18% GST (₹$gstRupees) = ₹$totalPriceRupees';
+
+  /// Dual-currency formatted summary
+  String formattedSummary({bool isDomestic = true, double? usdPrice}) {
+    if (isDomestic) {
+      return breakdownSummary;
+    }
+    final formattedUsd = (usdPrice ?? 1.99).toStringAsFixed(2);
+    return '\$$formattedUsd USD';
+  }
 }

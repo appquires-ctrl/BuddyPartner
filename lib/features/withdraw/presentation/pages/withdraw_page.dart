@@ -15,6 +15,8 @@ import 'package:buddypartner/features/withdraw/application/withdraw_controller.d
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 import 'package:buddypartner/features/call/application/instant_connect_controller.dart';
 import 'package:buddypartner/features/call/presentation/widgets/scratch_card_dialog.dart';
+import 'package:buddypartner/core/utils/app_currency.dart';
+import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
 class WithdrawPage extends ConsumerStatefulWidget {
   final bool isEmbedded;
@@ -113,6 +115,12 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage>
     final isBalanceLoading = dualWalletAsync.isLoading && dualWalletAsync.value == null;
     final instantState = ref.watch(instantConnectControllerProvider);
     final unscratchedCards = instantState.scratchCards.where((c) => !c.isScratched).toList();
+
+    final authUser = ref.watch(authStateProvider).value;
+    final isDomestic = AppCurrency.isDomestic(
+      country: authUser?.country,
+      phoneNumber: authUser?.phoneNumber,
+    );
 
     return Scaffold(
       backgroundColor: widget.isEmbedded
@@ -318,7 +326,9 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage>
                                   textBaseline: TextBaseline.alphabetic,
                                   children: [
                                     Text(
-                                      '₹$earnedBalance',
+                                      isDomestic
+                                          ? '₹$earnedBalance'
+                                          : '\$${(earnedBalance / 100).toStringAsFixed(2)}',
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 38,
@@ -326,14 +336,15 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage>
                                         letterSpacing: -0.5,
                                       ),
                                     ),
-                                    const Text(
-                                      '.00',
-                                      style: TextStyle(
-                                        color: Colors.white60,
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
+                                    if (isDomestic)
+                                      const Text(
+                                        '.00',
+                                        style: TextStyle(
+                                          color: Colors.white60,
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
-                                    ),
                                     const Spacer(),
                                     AppCoinBadge(
                                       coins: '$earnedBalance',
@@ -357,10 +368,12 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage>
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
-                            children: const [
+                            children: [
                               Text(
-                                '1 Earned Coin = ₹1.00 INR (Direct UPI / Bank Payout)',
-                                style: TextStyle(
+                                isDomestic
+                                    ? '1 Earned Coin = ₹1.00 INR (Direct UPI / Bank Payout)'
+                                    : '100 Earned Coins = \$1.00 USD (PayPal / Direct Bank Wire)',
+                                style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w600,
@@ -464,7 +477,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage>
             ),
             const SizedBox(height: 18),
           ] else ...[
-            _buildEmbeddedRateNotice(isDark),
+            _buildEmbeddedRateNotice(isDark, isDomestic: isDomestic),
             const SizedBox(height: 14),
           ],
 
@@ -721,7 +734,9 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage>
                           ],
                         ),
                         Text(
-                          '₹$_enteredCoins.00',
+                          isDomestic
+                              ? '₹$_enteredCoins.00'
+                              : '\$${(_enteredCoins / 100).toStringAsFixed(2)}',
                           style: const TextStyle(
                             color: Color(0xFF7C6AEF),
                             fontSize: 18,
@@ -801,7 +816,11 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage>
                                   const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
                                   const SizedBox(width: 8),
                                   Text(
-                                    _enteredCoins > 0 ? 'Request Payout of ₹$_enteredCoins' : 'Enter Amount to Withdraw',
+                                    _enteredCoins > 0
+                                        ? (isDomestic
+                                            ? 'Request Payout of ₹$_enteredCoins'
+                                            : 'Request Payout of \$${(_enteredCoins / 100).toStringAsFixed(2)}')
+                                        : 'Enter Amount to Withdraw',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 15,
@@ -918,7 +937,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage>
     );
   }
 
-  Widget _buildEmbeddedRateNotice(bool isDark) {
+  Widget _buildEmbeddedRateNotice(bool isDark, {bool isDomestic = true}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
@@ -944,7 +963,11 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage>
               color: const Color(0xFF10B981).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.currency_rupee_rounded, color: Color(0xFF10B981), size: 17),
+            child: Icon(
+              isDomestic ? Icons.currency_rupee_rounded : Icons.attach_money_rounded,
+              color: const Color(0xFF10B981),
+              size: 17,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -952,7 +975,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '1 Earned Coin = ₹1.00 INR',
+                  isDomestic ? '1 Earned Coin = ₹1.00 INR' : '100 Earned Coins = \$1.00 USD',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 12.5,
@@ -960,7 +983,9 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage>
                   ),
                 ),
                 Text(
-                  'Direct UPI / Bank Transfer • Min 24h Payout',
+                  isDomestic
+                      ? 'Direct UPI / Bank Transfer • Min 24h Payout'
+                      : 'PayPal / Bank Wire • Min 24h Payout',
                   style: TextStyle(
                     fontSize: 11,
                     color: isDark ? Colors.white60 : const Color(0xFF8A8A93),

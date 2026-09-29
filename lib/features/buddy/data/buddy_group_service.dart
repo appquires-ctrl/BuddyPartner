@@ -28,12 +28,14 @@ class BuddyGroupService {
     return e.message ?? fallback;
   }
 
-  /// Host creates a 6-person Garba Buddy Group Broadcast (509 coins deducted from host).
+  /// Host creates a Buddy Group Broadcast (Garba: 6 members, Cricket: 11 members).
   Future<BuddyGroup> createGroupBroadcast({
     required String city,
+    String? state,
     String targetGender = 'all',
     String? title,
     String? idempotencyKey,
+    String buddyType = 'garba',
   }) async {
     try {
       final key = idempotencyKey ?? 'group_${DateTime.now().millisecondsSinceEpoch}';
@@ -41,9 +43,11 @@ class BuddyGroupService {
         '/api/buddy-group/broadcast',
         data: {
           'city': city.trim(),
+          if (state != null && state.trim().isNotEmpty) 'state': state.trim(),
           'targetGender': targetGender,
           if (title != null && title.isNotEmpty) 'title': title.trim(),
           'idempotencyKey': key,
+          'buddyType': buddyType,
         },
       );
 
@@ -51,15 +55,17 @@ class BuddyGroupService {
         final groupData = response.data['group'] as Map<String, dynamic>;
         return BuddyGroup.fromJson(groupData);
       }
-      throw Exception(response.data?['message'] ?? 'Failed to create Garba group');
+      throw Exception(response.data?['message'] ?? 'Failed to create group');
     } on DioException catch (e) {
-      throw Exception(_extractError(e, 'Failed to create Garba group'));
+      throw Exception(_extractError(e, 'Failed to create group'));
     }
   }
 
-  /// List open Garba groups with available slots in the city.
+  /// List open groups with available slots in the city.
   Future<List<BuddyGroup>> listOpenGroups({
     String? city,
+    String? state,
+    String? buddyType,
     int limit = 20,
     int offset = 0,
   }) async {
@@ -68,6 +74,8 @@ class BuddyGroupService {
         'limit': limit,
         'offset': offset,
         if (city != null && city.isNotEmpty) 'city': city.trim(),
+        if (state != null && state.isNotEmpty) 'state': state.trim(),
+        if (buddyType != null && buddyType.isNotEmpty) 'buddyType': buddyType.trim(),
       };
 
       final response = await _apiClient.dio.get(

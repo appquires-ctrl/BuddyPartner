@@ -371,3 +371,217 @@ Future<bool> adminCancelBuddyRequest(String requestId, {String reason = 'admin_a
   }
 }
 
+// ── Real-Time Live Telemetry Provider (4s polling stream) ───────────────────
+final liveTelemetryProvider = StreamProvider.autoDispose<Map<String, dynamic>>((ref) async* {
+  while (true) {
+    try {
+      final res = await ApiService.get('/metrics/live');
+      if (res['success'] == true && res['telemetry'] != null) {
+        yield res['telemetry'] as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    await Future.delayed(const Duration(seconds: 4));
+  }
+});
+
+// ── Push Broadcasts State & Provider ────────────────────────────────────────
+class PushBroadcastsState {
+  final bool isLoading;
+  final bool isSending;
+  final List<dynamic> broadcasts;
+  final int total;
+  final int page;
+  final int totalPages;
+  final String? error;
+  final String? successMessage;
+
+  const PushBroadcastsState({
+    this.isLoading = false,
+    this.isSending = false,
+    this.broadcasts = const [],
+    this.total = 0,
+    this.page = 1,
+    this.totalPages = 1,
+    this.error,
+    this.successMessage,
+  });
+
+  PushBroadcastsState copyWith({
+    bool? isLoading,
+    bool? isSending,
+    List<dynamic>? broadcasts,
+    int? total,
+    int? page,
+    int? totalPages,
+    String? error,
+    String? successMessage,
+  }) {
+    return PushBroadcastsState(
+      isLoading: isLoading ?? this.isLoading,
+      isSending: isSending ?? this.isSending,
+      broadcasts: broadcasts ?? this.broadcasts,
+      total: total ?? this.total,
+      page: page ?? this.page,
+      totalPages: totalPages ?? this.totalPages,
+      error: error,
+      successMessage: successMessage,
+    );
+  }
+}
+
+class PushBroadcastsNotifier extends StateNotifier<PushBroadcastsState> {
+  PushBroadcastsNotifier() : super(const PushBroadcastsState()) {
+    fetchHistory();
+  }
+
+  Future<void> fetchHistory({int page = 1}) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final res = await ApiService.get('/broadcasts/history', queryParams: {
+        'page': page.toString(),
+        'limit': '15',
+      });
+      state = state.copyWith(
+        isLoading: false,
+        broadcasts: res['broadcasts'] as List<dynamic>,
+        total: res['total'] as int,
+        page: res['page'] as int,
+        totalPages: res['totalPages'] as int,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<bool> sendBroadcast({
+    required String title,
+    required String body,
+    String? imageUrl,
+    String targetSegment = 'all',
+    String? targetCity,
+    String? targetGender,
+    String deepLink = '/home',
+  }) async {
+    state = state.copyWith(isSending: true, error: null, successMessage: null);
+    try {
+      final res = await ApiService.post('/broadcasts/send', body: {
+        'title': title,
+        'body': body,
+        'imageUrl': imageUrl,
+        'targetSegment': targetSegment,
+        'targetCity': targetCity,
+        'targetGender': targetGender,
+        'deepLink': deepLink,
+      });
+      final count = res['recipientCount'] ?? 0;
+      final succ = res['successCount'] ?? 0;
+      state = state.copyWith(
+        isSending: false,
+        successMessage: 'Dispatched to $count devices ($succ delivered)',
+      );
+      await fetchHistory(page: 1);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isSending: false, error: e.toString());
+      return false;
+    }
+  }
+}
+
+final pushBroadcastsProvider = StateNotifierProvider<PushBroadcastsNotifier, PushBroadcastsState>((ref) {
+  return PushBroadcastsNotifier();
+});
+
+// ── Banned Devices State & Provider ─────────────────────────────────────────
+class BannedDevicesState {
+  final bool isLoading;
+  final List<dynamic> devices;
+  final int total;
+  final int page;
+  final int totalPages;
+  final String? error;
+
+  const BannedDevicesState({
+    this.isLoading = false,
+    this.devices = const [],
+    this.total = 0,
+    this.page = 1,
+    this.totalPages = 1,
+    this.error,
+  });
+
+  BannedDevicesState copyWith({
+    bool? isLoading,
+    List<dynamic>? devices,
+    int? total,
+    int? page,
+    int? totalPages,
+    String? error,
+  }) {
+    return BannedDevicesState(
+      isLoading: isLoading ?? this.isLoading,
+      devices: devices ?? this.devices,
+      total: total ?? this.total,
+      page: page ?? this.page,
+      totalPages: totalPages ?? this.totalPages,
+      error: error,
+    );
+  }
+}
+
+class BannedDevicesNotifier extends StateNotifier<BannedDevicesState> {
+  BannedDevicesNotifier() : super(const BannedDevicesState()) {
+    fetchDevices();
+  }
+
+  Future<void> fetchDevices({int page = 1}) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final res = await ApiService.get('/devices', queryParams: {
+        'page': page.toString(),
+        'limit': '20',
+      });
+      state = state.copyWith(
+        isLoading: false,
+        devices: res['devices'] as List<dynamic>,
+        total: res['total'] as int,
+        page: res['page'] as int,
+        totalPages: res['totalPages'] as int,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<bool> banDevice(String deviceId, String reason) async {
+    try {
+      await ApiService.post('/devices/ban', body: {
+        'deviceId': deviceId,
+        'reason': reason,
+      });
+      await fetchDevices(page: 1);
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> unbanDevice(String deviceId) async {
+    try {
+      await ApiService.post('/devices/unban', body: {
+        'deviceId': deviceId,
+      });
+      await fetchDevices(page: state.page);
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      return false;
+    }
+  }
+}
+
+final bannedDevicesProvider = StateNotifierProvider<BannedDevicesNotifier, BannedDevicesState>((ref) {
+  return BannedDevicesNotifier();
+});
+

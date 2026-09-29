@@ -123,6 +123,12 @@ enum BuddyType {
     );
   }
 
+  /// Whether this Buddy activity operates as a multi-user group broadcast (Garba, Cricket)
+  bool get isGroup => this == BuddyType.garba || this == BuddyType.cricket;
+
+  /// Max members allowed in a group for this activity
+  int get maxGroupMembers => this == BuddyType.cricket ? 11 : 6;
+
   /// Initiator coin broadcast cost for this Buddy activity type
   int get coinCost {
     switch (this) {
@@ -239,6 +245,7 @@ class BuddyRequest {
   final String initiatorId;
   final BuddyType buddyType;
   final String city;
+  final String? state;
   final BuddyTargetGender targetGender;
   final BuddyRequestStatus status;
   final String? accepterId;
@@ -257,12 +264,14 @@ class BuddyRequest {
   final String? campaignId;
 
   String get displayTitle => (customTitle != null && customTitle!.trim().isNotEmpty) ? customTitle! : buddyType.title;
+  String get locationLabel => (state != null && state!.trim().isNotEmpty) ? '$city, $state' : city;
 
   const BuddyRequest({
     required this.id,
     required this.initiatorId,
     required this.buddyType,
     required this.city,
+    this.state,
     required this.targetGender,
     required this.status,
     this.accepterId,
@@ -290,6 +299,7 @@ class BuddyRequest {
       initiatorId: initId,
       buddyType: BuddyType.fromString(json['buddyType'] as String? ?? json['buddy_type'] as String?),
       city: json['city'] as String? ?? '',
+      state: json['state'] as String?,
       targetGender: BuddyTargetGender.fromString(json['targetGender'] as String? ?? json['target_gender'] as String?),
       status: BuddyRequestStatus.fromString(json['status'] as String?),
       accepterId: accId,
@@ -316,6 +326,7 @@ class BuddyRequest {
     String? initiatorId,
     BuddyType? buddyType,
     String? city,
+    String? state,
     BuddyTargetGender? targetGender,
     BuddyRequestStatus? status,
     String? accepterId,
@@ -338,6 +349,7 @@ class BuddyRequest {
       initiatorId: initiatorId ?? this.initiatorId,
       buddyType: buddyType ?? this.buddyType,
       city: city ?? this.city,
+      state: state ?? this.state,
       targetGender: targetGender ?? this.targetGender,
       status: status ?? this.status,
       accepterId: accepterId ?? this.accepterId,
@@ -363,6 +375,7 @@ class BuddyRequest {
       'initiatorId': initiatorId,
       'buddyType': buddyType.id,
       'city': city,
+      'state': state,
       'targetGender': targetGender.id,
       'status': status.id,
       'accepterId': accepterId,
@@ -390,6 +403,7 @@ class BuddyGroup {
   final String title;
   final String buddyType;
   final String city;
+  final String? state;
   final String targetGender;
   final int hostCoinCost;
   final int maxMembers;
@@ -413,6 +427,7 @@ class BuddyGroup {
     required this.title,
     this.buddyType = 'garba',
     required this.city,
+    this.state,
     this.targetGender = 'all',
     this.hostCoinCost = 501,
     this.maxMembers = 6,
@@ -433,6 +448,14 @@ class BuddyGroup {
 
   bool get isFull => memberCount >= maxMembers || status == 'full';
   int get availableSlots => (maxMembers - memberCount).clamp(0, maxMembers);
+  bool get isCricket => buddyType.toLowerCase() == 'cricket';
+  bool get isGarba => !isCricket;
+  String get locationLabel => (state != null && state!.trim().isNotEmpty) ? '$city, $state' : city;
+  String get stickerAsset => isCricket ? 'assets/images/stickers/cricket_buddy.png' : 'assets/images/garba_buddy.png';
+  List<Color> get gradientColors => isCricket
+      ? const [Color(0xFF3B82F6), Color(0xFF2563EB)]
+      : const [Color(0xFF6B21A8), Color(0xFF9333EA)];
+  Color get accentColor => isCricket ? const Color(0xFF3B82F6) : const Color(0xFF9333EA);
 
   factory BuddyGroup.fromJson(Map<String, dynamic> json) {
     return BuddyGroup(
@@ -441,6 +464,7 @@ class BuddyGroup {
       title: json['title'] as String? ?? 'Garba Buddy Group',
       buddyType: json['buddy_type'] as String? ?? json['buddyType'] as String? ?? 'garba',
       city: json['city'] as String? ?? '',
+      state: json['state'] as String?,
       targetGender: json['target_gender'] as String? ?? json['targetGender'] as String? ?? 'all',
       hostCoinCost: (json['host_coin_cost'] as num?)?.toInt() ?? 501,
       maxMembers: (json['max_members'] as num?)?.toInt() ?? 6,

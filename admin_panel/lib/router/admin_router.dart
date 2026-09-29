@@ -13,6 +13,8 @@ import '../features/advertisements/presentation/pages/advertisements_page.dart';
 import '../features/buddy_banners/presentation/pages/buddy_banners_page.dart';
 import '../features/version_config/presentation/pages/app_config_page.dart';
 import '../features/promo_codes/presentation/pages/promo_codes_page.dart';
+import '../features/broadcasts/presentation/pages/push_broadcasts_page.dart';
+import '../features/devices/presentation/pages/banned_devices_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
@@ -62,15 +64,27 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: '/withdrawals',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: WithdrawalsScreen(),
+            ),
+          ),
+          GoRoute(
             path: '/reports',
             pageBuilder: (context, state) => const NoTransitionPage(
               child: ReportsQueueScreen(),
             ),
           ),
           GoRoute(
-            path: '/withdrawals',
+            path: '/broadcasts',
             pageBuilder: (context, state) => const NoTransitionPage(
-              child: WithdrawalsScreen(),
+              child: PushBroadcastsPage(),
+            ),
+          ),
+          GoRoute(
+            path: '/devices',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: BannedDevicesPage(),
             ),
           ),
           GoRoute(

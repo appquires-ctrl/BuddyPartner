@@ -851,12 +851,29 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
     String displayTitle = group.title.trim();
     if (displayTitle.toLowerCase().contains('garba')) {
       displayTitle = displayTitle
-          .replaceAll(RegExp(r'garba\s*(buddy)?\s*(group)?', caseSensitive: false), 'Garba')
+          .replaceAll(RegExp(r'garba(\s+buddy)?(\s+group)?', caseSensitive: false), 'Garba')
           .trim();
       if (displayTitle.isEmpty) displayTitle = 'Garba';
+    } else if (displayTitle.toLowerCase().contains('cricket')) {
+      displayTitle = displayTitle
+          .replaceAll(RegExp(r'cricket(\s+buddy)?(\s+group)?', caseSensitive: false), 'Cricket')
+          .trim();
+      if (displayTitle.isEmpty) displayTitle = 'Cricket';
     } else if (displayTitle.length > 9) {
       displayTitle = displayTitle.split(' ').first;
     }
+
+    final groupGradient = group.isCricket
+        ? const LinearGradient(
+            colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+        : const LinearGradient(
+            colors: [Color(0xFF9333EA), Color(0xFFFF5277)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          );
 
     return GestureDetector(
       onTap: () async {
@@ -885,14 +902,10 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
               padding: const EdgeInsets.all(2.5),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF9333EA), Color(0xFFFF5277)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                gradient: groupGradient,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF9333EA).withValues(alpha: 0.32),
+                    color: group.accentColor.withValues(alpha: 0.32),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
                   ),
@@ -904,18 +917,14 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                   Positioned.fill(
                     child: ClipOval(
                       child: Image.asset(
-                        'assets/images/stickers/garba_buddy.png',
+                        group.stickerAsset,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Image.asset(
-                          'assets/images/garba_buddy.png',
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Container(
-                            color: const Color(0xFF9333EA),
-                            child: const Icon(
-                              Icons.celebration_rounded,
-                              color: Colors.white,
-                              size: 24,
-                            ),
+                        errorBuilder: (_, _, _) => Container(
+                          color: group.accentColor,
+                          child: Icon(
+                            group.isCricket ? Icons.sports_cricket_rounded : Icons.celebration_rounded,
+                            color: Colors.white,
+                            size: 24,
                           ),
                         ),
                       ),
@@ -1037,15 +1046,15 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                 width: 54,
                 height: 54,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF7C3AED), Color(0xFFC026D3)],
+                  gradient: LinearGradient(
+                    colors: group.gradientColors,
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(18),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF9333EA).withValues(alpha: 0.28),
+                      color: group.accentColor.withValues(alpha: 0.28),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -1054,10 +1063,10 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(18),
                   child: Image.asset(
-                    'assets/images/garba_buddy.png',
+                    group.stickerAsset,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const Icon(
-                      Icons.celebration_rounded,
+                    errorBuilder: (_, _, _) => Icon(
+                      group.isCricket ? Icons.sports_cricket_rounded : Icons.celebration_rounded,
                       color: Colors.white,
                       size: 26,
                     ),
