@@ -198,12 +198,50 @@ class PromoCodesService {
   }
 
   /**
+   * Helper to check if user is based in India
+   */
+  static async isUserDomestic(userId) {
+    if (!userId) return true;
+    try {
+      const res = await db.query(
+        `SELECT country_code, country, phone_number FROM public.users WHERE id = $1`,
+        [userId]
+      );
+      if (res.rows.length === 0) return true;
+      const { country_code, country, phone_number } = res.rows[0];
+      const cc = (country_code || '').toString().trim().replace(/^\+/, '');
+      const c = (country || '').toString().trim().toLowerCase();
+      const phone = (phone_number || '').toString().trim();
+
+      if (c && c !== 'india' && c !== 'in') {
+        return false;
+      }
+      if (cc && cc !== '91') {
+        return false;
+      }
+      if (phone.startsWith('+') && !phone.startsWith('+91')) {
+        return false;
+      }
+      return true;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  /**
    * Validate promo code for subscription purchases
    */
   static async validateSubscriptionPromo(userId, { code, productId }) {
     if (!code || !code.trim()) {
-      throw { statusCode: 400, message: 'Please enter a promo code.' };
+      throw { statusCode: 400, message: 'Invalid coupon' };
     }
+
+    // Coupons strictly work only in India
+    const isDomestic = await PromoCodesService.isUserDomestic(userId);
+    if (!isDomestic) {
+      throw { statusCode: 400, message: 'Invalid coupon' };
+    }
+
     const normalizedCode = code.trim().toUpperCase();
 
     const promoRes = await db.query(
@@ -213,7 +251,7 @@ class PromoCodesService {
     );
 
     if (promoRes.rows.length === 0) {
-      throw { statusCode: 404, message: 'Invalid or inactive promo code.' };
+      throw { statusCode: 400, message: 'Invalid coupon' };
     }
     const promo = promoRes.rows[0];
 
@@ -222,7 +260,7 @@ class PromoCodesService {
       throw { statusCode: 400, message: 'This promo code is not active yet.' };
     }
     if (new Date(promo.expires_at) < now) {
-      throw { statusCode: 400, message: 'This promo code has expired.' };
+      throw { statusCode: 400, message: 'Invalid coupon' };
     }
 
     if (promo.max_uses_total !== null && promo.times_redeemed >= promo.max_uses_total) {
@@ -274,8 +312,15 @@ class PromoCodesService {
    */
   static async redeemDirectPromo(userId, { code, ipAddress = null }) {
     if (!code || !code.trim()) {
-      throw { statusCode: 400, message: 'Please enter a promo code.' };
+      throw { statusCode: 400, message: 'Invalid coupon' };
     }
+
+    // Coupons strictly work only in India
+    const isDomestic = await PromoCodesService.isUserDomestic(userId);
+    if (!isDomestic) {
+      throw { statusCode: 400, message: 'Invalid coupon' };
+    }
+
     const normalizedCode = code.trim().toUpperCase();
 
     const client = await db.pool.connect();
@@ -290,7 +335,7 @@ class PromoCodesService {
       );
 
       if (promoRes.rows.length === 0) {
-        throw { statusCode: 404, message: 'Invalid or inactive promo code.' };
+        throw { statusCode: 400, message: 'Invalid coupon' };
       }
       const promo = promoRes.rows[0];
 

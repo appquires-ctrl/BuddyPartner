@@ -59,8 +59,18 @@ class AppCurrency {
       if (p.startsWith('+91') || p.startsWith('91')) {
         return true;
       }
+      if (p.length == 10 && RegExp(r'^[6-9]\d{9}$').hasMatch(p)) {
+        return true;
+      }
       return false;
     }
+
+    // Check device timezone: Indian Standard Time (+05:30, 330 minutes)
+    try {
+      if (DateTime.now().timeZoneOffset.inMinutes == 330) {
+        return true;
+      }
+    } catch (_) {}
 
     // Fallback: Check device locale
     try {

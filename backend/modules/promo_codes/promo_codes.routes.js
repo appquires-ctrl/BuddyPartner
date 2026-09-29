@@ -85,7 +85,7 @@ userRouter.post('/validate-promo', authMiddleware, async (req, res) => {
     return res.json({ success: true, ...result });
   } catch (err) {
     const statusCode = err.statusCode || 400;
-    return res.status(statusCode).json({ success: false, message: err.message || 'Invalid promo code' });
+    return res.status(statusCode).json({ success: false, message: err.message || 'Invalid coupon' });
   }
 });
 
@@ -98,7 +98,7 @@ userRouter.post('/validate-subscription-promo', authMiddleware, async (req, res)
     return res.json({ success: true, ...result });
   } catch (err) {
     const statusCode = err.statusCode || 400;
-    return res.status(statusCode).json({ success: false, message: err.message || 'Invalid promo code' });
+    return res.status(statusCode).json({ success: false, message: err.message || 'Invalid coupon' });
   }
 });
 
@@ -112,7 +112,7 @@ userRouter.post('/redeem-direct-promo', authMiddleware, async (req, res) => {
     return res.json(result);
   } catch (err) {
     const statusCode = err.statusCode || 400;
-    return res.status(statusCode).json({ success: false, message: err.message || 'Failed to redeem promo code' });
+    return res.status(statusCode).json({ success: false, message: err.message || 'Invalid coupon' });
   }
 });
 

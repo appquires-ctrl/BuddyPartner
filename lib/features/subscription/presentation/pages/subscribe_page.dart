@@ -727,7 +727,19 @@ class _MembershipOrderSummarySheetState
 
   Future<void> _applyPromoCode() async {
     final code = _promoCtrl.text.trim().toUpperCase();
-    if (code.isEmpty) return;
+    if (code.isEmpty) {
+      setState(() => _promoError = 'Invalid coupon');
+      return;
+    }
+
+    // Coupons strictly work only in India
+    if (!widget.isDomestic) {
+      setState(() {
+        _promoError = 'Invalid coupon';
+        _isApplying = false;
+      });
+      return;
+    }
 
     setState(() {
       _isApplying = true;
@@ -753,15 +765,13 @@ class _MembershipOrderSummarySheetState
           _appliedPromoCode = data['code'] as String? ?? code;
           _appliedOfferId = offerId;
           _appliedDiscountAmount = discount;
-          _promoSuccessMessage = widget.isDomestic
-              ? '$title (-₹${discount.toStringAsFixed(0)})'
-              : '$title (-\$${discount.toStringAsFixed(2)})';
+          _promoSuccessMessage = '$title (-₹${discount.toStringAsFixed(0)})';
           _promoError = null;
           _isApplying = false;
         });
       } else {
         setState(() {
-          _promoError = response.data?['message'] ?? 'Invalid promo code.';
+          _promoError = response.data?['message'] ?? 'Invalid coupon';
           _isApplying = false;
         });
       }
@@ -770,14 +780,14 @@ class _MembershipOrderSummarySheetState
           dioErr.response?.data is Map &&
               dioErr.response?.data['message'] != null
           ? dioErr.response?.data['message'].toString()
-          : 'Invalid or expired promo code.';
+          : 'Invalid coupon';
       setState(() {
         _promoError = msg;
         _isApplying = false;
       });
     } catch (e) {
       setState(() {
-        _promoError = 'Failed to validate code: $e';
+        _promoError = 'Invalid coupon';
         _isApplying = false;
       });
     }
@@ -818,7 +828,7 @@ class _MembershipOrderSummarySheetState
 
     final double finalPayable = isDomestic
         ? pricing!.totalPriceRupees.toDouble()
-        : (widget.plan.priceUsd - _appliedDiscountAmount).clamp(0.0, 999999.0);
+        : widget.plan.priceUsd;
 
     final totalDisplay = isDomestic
         ? '₹${pricing!.totalPriceRupees}.00'
@@ -1152,7 +1162,7 @@ class _MembershipOrderSummarySheetState
                 ),
                 child: Column(
                   children: [
-                    if (_appliedDiscountAmount > 0) ...[
+                    if (_appliedDiscountAmount > 0 && isDomestic) ...[
                       // Base Membership Price
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1346,19 +1356,11 @@ class _MembershipOrderSummarySheetState
                                 color: colors.textPrimary,
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Inclusive of all taxes',
-                              style: typography.bodySmall.copyWith(
-                                fontSize: 11,
-                                color: colors.textSecondary,
-                              ),
-                            ),
                           ],
                         ),
                         Row(
                           children: [
-                            if (_appliedDiscountAmount > 0) ...[
+                            if (_appliedDiscountAmount > 0 && isDomestic) ...[
                               Text(
                                 isDomestic
                                     ? '₹${widget.plan.totalPriceRupees}'
@@ -1405,10 +1407,8 @@ class _MembershipOrderSummarySheetState
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _appliedDiscountAmount > 0
-                            ? (isDomestic
-                                ? 'Promo applied: ₹${widget.plan.basePriceRupees} − ₹${_appliedDiscountAmount.toStringAsFixed(0)} + 18% GST (₹$netGstAmount) = ₹${pricing!.totalPriceRupees}. Billed securely through Google Play.'
-                                : 'Special promo applied: you pay $totalDisplay. Billed securely through Google Play.')
+                        (_appliedDiscountAmount > 0 && isDomestic)
+                            ? 'Promo applied: ₹${widget.plan.basePriceRupees} − ₹${_appliedDiscountAmount.toStringAsFixed(0)} + 18% GST (₹$netGstAmount) = ₹${pricing!.totalPriceRupees}. Billed securely through Google Play.'
                             : (isDomestic
                                 ? '₹${widget.plan.basePriceRupees} + 18% GST (₹${widget.plan.gstRupees}) = ₹${widget.plan.totalPriceRupees}. Billed securely through Google Play.'
                                 : '\$${widget.plan.priceUsd.toStringAsFixed(2)} USD. Billed securely through Google Play.'),
