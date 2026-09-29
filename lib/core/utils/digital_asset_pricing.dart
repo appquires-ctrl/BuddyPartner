@@ -31,6 +31,22 @@ class DigitalAssetPricing {
     );
   }
 
+  /// Factory that computes GST and total price after applying a promo discount to base price.
+  /// Option B: discount is deducted from base price first, and 18% GST is charged on the discounted base.
+  factory DigitalAssetPricing.fromBaseWithDiscount({
+    required int basePrice,
+    double discount = 0.0,
+  }) {
+    final discountedBase = (basePrice - discount).clamp(0.0, double.infinity);
+    final discountedBaseInt = discountedBase.round();
+    final gst = (discountedBaseInt * gstRate).round();
+    return DigitalAssetPricing(
+      basePriceRupees: discountedBaseInt,
+      gstRupees: gst,
+      totalPriceRupees: discountedBaseInt + gst,
+    );
+  }
+
   /// Factory for predefined/fixed values
   factory DigitalAssetPricing.withFixedValues({
     required int basePrice,

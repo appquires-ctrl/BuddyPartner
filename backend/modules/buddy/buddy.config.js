@@ -66,8 +66,8 @@ const BUDDY_TYPES = Object.freeze({
   },
   garba: {
     id: 'garba',
-    title: 'Garba Buddy',
-    subtitle: 'Find someone who matches your Garba vibes',
+    title: 'Dandiya Buddy',
+    subtitle: 'Find someone who matches your Dandiya vibes',
     stickerPath: 'assets/images/stickers/garba_buddy.png',
   },
   festival: {
@@ -80,7 +80,7 @@ const BUDDY_TYPES = Object.freeze({
 
 const BUDDY_PRICING = Object.freeze({
   INITIATOR_COIN_COST: 100, // Fallback default
-  GARBA_INITIATOR_COIN_COST: 501, // Garba Buddy Group Host cost: 501 coins for 6-person group
+  GARBA_INITIATOR_COIN_COST: 501, // Dandiya Buddy Group Host cost: 501 coins for 6-person group
   ACCEPTER_COIN_REWARD: 50, // Fallback default
   FEMALE_REWARD_PERCENTAGE: 0.40, // 40% of broadcast coin cost for female accepters
   MALE_REWARD_PERCENTAGE: 0.20, // 20% of broadcast coin cost for male accepters

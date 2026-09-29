@@ -95,7 +95,7 @@ class SeasonalSheetConfig {
 
     return SeasonalSheetConfig(
       title: json['title'] as String? ?? 'Dandiya Buddy',
-      subtitle: json['subtitle'] as String? ?? 'Find someone who matches your Garba vibes',
+      subtitle: json['subtitle'] as String? ?? 'Find someone who matches your Dandiya vibes',
       iconUrl: json['iconUrl'] as String? ?? json['icon_url'] as String?,
       accentColor: parseColor(json['accentColor'] ?? json['accent_color']),
       broadcastCoinCost: (json['broadcastCoinCost'] as num? ?? json['broadcast_coin_cost'] as num? ?? json['coinCost'] as num?)?.toInt() ?? 1,

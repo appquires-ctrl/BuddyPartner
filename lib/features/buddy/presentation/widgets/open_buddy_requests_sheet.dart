@@ -194,7 +194,7 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
     if (group.isFull || group.memberCount >= group.maxMembers) {
       AppSnackBar.showError(
         context,
-        'Sorry, this ${group.isCricket ? "Cricket" : "Garba"} group is already full (${group.maxMembers}/${group.maxMembers} members)!',
+        'Sorry, this ${group.isCricket ? "Cricket" : "Dandiya"} group is already full (${group.maxMembers}/${group.maxMembers} members)!',
       );
       return;
     }
@@ -833,7 +833,7 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Host: ${group.hostName ?? (group.isCricket ? "Cricket Host" : "Garba Host")} • ${(group.city.toLowerCase() == "all" || group.city.toLowerCase() == "all cities") ? "All Cities" : group.locationLabel} • Free Join (0 OTP)',
+                  'Host: ${group.hostName ?? (group.isCricket ? "Cricket Host" : "Dandiya Host")} • ${(group.city.toLowerCase() == "all" || group.city.toLowerCase() == "all cities") ? "All Cities" : group.locationLabel} • Free Join (0 OTP)',
                   style: typography.bodySmall.copyWith(
                     fontSize: 12,
                     color: const Color(0xFF10B981),
@@ -866,7 +866,7 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                       : isFull
                           ? () => AppSnackBar.showError(
                                 context,
-                                'Sorry, this ${group.isCricket ? "Cricket" : "Garba"} group is already full (${group.maxMembers}/${group.maxMembers} members)!',
+                                'Sorry, this ${group.isCricket ? "Cricket" : "Dandiya"} group is already full (${group.maxMembers}/${group.maxMembers} members)!',
                               )
                           : () => _handleJoinGroup(group),
               style: ElevatedButton.styleFrom(

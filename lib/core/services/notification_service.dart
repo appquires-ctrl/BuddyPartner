@@ -400,7 +400,7 @@ class NotificationService {
     final groupId = data['groupId']?.toString();
 
     if (type == 'BUDDY_GROUP_MESSAGE' || (groupId != null && groupId.isNotEmpty)) {
-      final title = data['title']?.toString() ?? 'Garba Buddy Group';
+      final title = data['title']?.toString() ?? 'Dandiya Buddy Group';
       debugPrint('🔔 [FCM Click] User clicked buddy group notification: $groupId');
       onOpenBuddyGroup?.call(groupId: groupId!, title: title);
       return;

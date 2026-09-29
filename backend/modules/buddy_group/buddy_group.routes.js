@@ -38,7 +38,7 @@ router.post('/broadcast', authMiddleware, async (req, res) => {
       city: targetCity,
       state: targetState || null,
       targetGender: targetGender || 'all',
-      title: title || (cleanBuddyType === 'cricket' ? 'Cricket Buddy Group' : 'Garba Buddy Group'),
+      title: title || (cleanBuddyType === 'cricket' ? 'Cricket Buddy Group' : 'Dandiya Buddy Group'),
       idempotencyKey,
       buddyType: cleanBuddyType,
     });

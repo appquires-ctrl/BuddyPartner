@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:buddypartner/core/services/google_play_purchase_service.dart';
+import 'package:buddypartner/core/utils/digital_asset_pricing.dart';
 import 'package:buddypartner/features/subscription/domain/subscription_plan.dart';
 
 void main() {
@@ -54,6 +55,26 @@ void main() {
       expect(kGooglePlaySubscriptionProductIds.contains('1_month'), isTrue);
       expect(kGooglePlaySubscriptionProductIds.contains('6_months'), isTrue);
       expect(kGooglePlaySubscriptionProductIds.contains('1_year'), isTrue);
+    });
+
+    test('Subscription promo discount follows base-first discounting and 18% GST', () {
+      // 1 Month: ₹199 base - ₹50 discount -> ₹149 taxable base + ₹27 GST = ₹176 total
+      final pricing1m = DigitalAssetPricing.fromBaseWithDiscount(basePrice: 199, discount: 50);
+      expect(pricing1m.basePriceRupees, equals(149));
+      expect(pricing1m.gstRupees, equals(27));
+      expect(pricing1m.totalPriceRupees, equals(176));
+
+      // 6 Months: ₹399 base - ₹100 discount -> ₹299 taxable base + ₹54 GST = ₹353 total
+      final pricing6m = DigitalAssetPricing.fromBaseWithDiscount(basePrice: 399, discount: 100);
+      expect(pricing6m.basePriceRupees, equals(299));
+      expect(pricing6m.gstRupees, equals(54));
+      expect(pricing6m.totalPriceRupees, equals(353));
+
+      // 1 Year: ₹699 base - ₹150 discount -> ₹549 taxable base + ₹99 GST = ₹648 total
+      final pricing1y = DigitalAssetPricing.fromBaseWithDiscount(basePrice: 699, discount: 150);
+      expect(pricing1y.basePriceRupees, equals(549));
+      expect(pricing1y.gstRupees, equals(99));
+      expect(pricing1y.totalPriceRupees, equals(648));
     });
   });
 }

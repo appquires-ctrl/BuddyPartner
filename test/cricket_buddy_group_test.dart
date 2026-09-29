@@ -94,11 +94,11 @@ void main() {
     test('Clean title parser for Cricket groups formats properly', () {
       String parseTitle(String title) {
         String displayTitle = title.trim();
-        if (displayTitle.toLowerCase().contains('garba')) {
+        if (displayTitle.toLowerCase().contains('dandiya') || displayTitle.toLowerCase().contains('garba')) {
           displayTitle = displayTitle
-              .replaceAll(RegExp(r'garba(\s+buddy)?(\s+group)?', caseSensitive: false), 'Garba')
+              .replaceAll(RegExp(r'(dandiya|garba)(\s+buddy)?(\s+group)?', caseSensitive: false), 'Dandiya')
               .trim();
-          if (displayTitle.isEmpty) displayTitle = 'Garba';
+          if (displayTitle.isEmpty) displayTitle = 'Dandiya';
         } else if (displayTitle.toLowerCase().contains('cricket')) {
           displayTitle = displayTitle
               .replaceAll(RegExp(r'cricket(\s+buddy)?(\s+group)?', caseSensitive: false), 'Cricket')
@@ -111,14 +111,15 @@ void main() {
       }
 
       expect(parseTitle('Cricket Buddy Group'), equals('Cricket'));
-      expect(parseTitle('Garba Buddy Group'), equals('Garba'));
+      expect(parseTitle('Dandiya Buddy Group'), equals('Dandiya'));
+      expect(parseTitle('Garba Buddy Group'), equals('Dandiya'));
       expect(parseTitle('Weekend Cricket Match'), equals('Weekend Cricket Match'));
-      expect(parseTitle('Falguni Garba Night'), equals('Falguni Garba Night'));
+      expect(parseTitle('Falguni Garba Night'), equals('Falguni Dandiya Night'));
     });
 
-    test('Capacity error message dynamically references Cricket vs Garba', () {
+    test('Capacity error message dynamically references Cricket vs Dandiya', () {
       String getFullErrorMessage(BuddyGroup group) {
-        return 'Sorry, this ${group.isCricket ? "Cricket" : "Garba"} group is already full (${group.maxMembers}/${group.maxMembers} members)!';
+        return 'Sorry, this ${group.isCricket ? "Cricket" : "Dandiya"} group is already full (${group.maxMembers}/${group.maxMembers} members)!';
       }
 
       final cricketGroup = BuddyGroup(
@@ -135,7 +136,7 @@ void main() {
       final garbaGroup = BuddyGroup(
         id: 'g1',
         initiatorId: 'h2',
-        title: 'Garba Group',
+        title: 'Dandiya Group',
         buddyType: 'garba',
         city: 'Ahmedabad',
         maxMembers: 6,
@@ -144,7 +145,7 @@ void main() {
       );
 
       expect(getFullErrorMessage(cricketGroup), equals('Sorry, this Cricket group is already full (11/11 members)!'));
-      expect(getFullErrorMessage(garbaGroup), equals('Sorry, this Garba group is already full (6/6 members)!'));
+      expect(getFullErrorMessage(garbaGroup), equals('Sorry, this Dandiya group is already full (6/6 members)!'));
     });
   });
 }

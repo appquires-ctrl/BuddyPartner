@@ -93,7 +93,7 @@ class BuddyGroupService {
     }
   }
 
-  /// Join a Garba Buddy Group (0 coins, 0 OTP).
+  /// Join a Dandiya Buddy Group (0 coins, 0 OTP).
   Future<BuddyGroup> joinGroup(String groupId) async {
     try {
       final response = await _apiClient.dio.post('/api/buddy-group/$groupId/join');
@@ -102,7 +102,7 @@ class BuddyGroupService {
         final groupData = response.data['group'] as Map<String, dynamic>? ?? {};
         return BuddyGroup.fromJson(groupData);
       }
-      throw Exception(response.data?['message'] ?? 'Failed to join Garba group');
+      throw Exception(response.data?['message'] ?? 'Failed to join Dandiya group');
     } on DioException catch (e) {
       throw Exception(_extractError(e, 'Failed to join group'));
     }

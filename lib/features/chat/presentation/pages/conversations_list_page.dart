@@ -126,7 +126,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
 
     final int onlineCount = conversations.where((c) => presence[c.otherUserId] == true).length;
 
-    // Watch Garba Buddy Groups
+    // Watch Dandiya Buddy Groups
     final myBuddyGroupsAsync = ref.watch(myBuddyGroupsProvider);
     final myBuddyGroups = myBuddyGroupsAsync.valueOrNull ?? <BuddyGroup>[];
     final int unreadGroupTotal = myBuddyGroups.fold<int>(0, (sum, g) => sum + g.unreadCount);
@@ -511,7 +511,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                   ),
                 ),
 
-              // ── 4.5. Explore Garba Squads Discovery Banner (when viewing Garba tab with 0 groups) ──
+              // ── 4.5. Explore Dandiya Squads Discovery Banner (when viewing Dandiya tab with 0 groups) ──
               if (myBuddyGroups.isEmpty && _selectedFilter == 'groups' && _searchQuery.isEmpty)
                 SliverToBoxAdapter(
                   child: _buildGarbaDiscoveryCard(context, isDark, colors, typography),
@@ -526,7 +526,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          _selectedFilter == 'groups' ? 'GARBA SQUADS' : 'MESSAGES',
+                          _selectedFilter == 'groups' ? 'DANDIYA SQUADS' : 'MESSAGES',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
@@ -687,7 +687,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                           _searchQuery.isNotEmpty
                               ? 'No chats matching "$_searchQuery"'
                               : (_selectedFilter == 'groups'
-                                  ? 'No Garba Squads Yet'
+                                  ? 'No Dandiya Squads Yet'
                                   : (_selectedFilter != 'all'
                                       ? 'No $_selectedFilter chats'
                                       : 'No Conversations Yet')),
@@ -703,7 +703,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                           _searchQuery.isNotEmpty
                               ? 'Check your spelling or try searching another name.'
                               : (_selectedFilter == 'groups'
-                                  ? 'Find nearby Navratri Garba groups or create your own squad to celebrate together!'
+                                  ? 'Find nearby Navratri Dandiya groups or create your own squad to celebrate together!'
                                   : 'Start connecting with people on Discover to build your chats here!'),
                           style: TextStyle(
                             color: colors.textSecondary,
@@ -730,7 +730,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                           ElevatedButton.icon(
                             onPressed: () => OpenBuddyRequestsSheet.show(context),
                             icon: const Icon(Icons.explore_rounded, size: 16),
-                            label: const Text('Explore Garba Broadcasts'),
+                            label: const Text('Explore Dandiya Broadcasts'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF9333EA),
                               foregroundColor: Colors.white,
@@ -849,11 +849,11 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
 
     // Clean, readable title
     String displayTitle = group.title.trim();
-    if (displayTitle.toLowerCase().contains('garba')) {
+    if (displayTitle.toLowerCase().contains('dandiya') || displayTitle.toLowerCase().contains('garba')) {
       displayTitle = displayTitle
-          .replaceAll(RegExp(r'garba(\s+buddy)?(\s+group)?', caseSensitive: false), 'Garba')
+          .replaceAll(RegExp(r'(dandiya|garba)(\s+buddy)?(\s+group)?', caseSensitive: false), 'Dandiya')
           .trim();
-      if (displayTitle.isEmpty) displayTitle = 'Garba';
+      if (displayTitle.isEmpty) displayTitle = 'Dandiya';
     } else if (displayTitle.toLowerCase().contains('cricket')) {
       displayTitle = displayTitle
           .replaceAll(RegExp(r'cricket(\s+buddy)?(\s+group)?', caseSensitive: false), 'Cricket')
@@ -1266,7 +1266,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                 Row(
                   children: [
                     const Text(
-                      'Navratri Garba Squads',
+                      'Navratri Dandiya Squads',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -1288,7 +1288,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Join a 6-person Garba squad in your city! 0 OTP required.',
+                  'Join a 6-person Dandiya squad in your city! 0 OTP required.',
                   style: TextStyle(
                     fontSize: 12,
                     color: colors.textSecondary,
@@ -1419,7 +1419,7 @@ class _ConversationsListPageState extends ConsumerState<ConversationsListPage> {
                     _buildFilterPill(
                       id: 'groups',
                       icon: Icons.celebration_rounded,
-                      label: 'Garba',
+                      label: 'Dandiya',
                       isSelected: false,
                       activeColor: const Color(0xFF9333EA),
                     ),

@@ -157,7 +157,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
           context,
           isCricket
               ? 'Cricket Team broadcast is live! $joinersCount other players can now join.'
-              : 'Garba Group broadcast is live! $joinersCount other members can now join.',
+              : 'Dandiya Group broadcast is live! $joinersCount other members can now join.',
         );
 
         // Invalidate wallet balance and groups list to refresh UI immediately
@@ -220,7 +220,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
     final type = widget.buddyType;
     final displayTitle = widget.customTitle ?? type.title;
     final displaySubtitle = type.isGroup
-        ? (type == BuddyType.cricket ? 'Start an 11-person Cricket team chat' : 'Start a 6-person Garba group chat')
+        ? (type == BuddyType.cricket ? 'Start an 11-person Cricket team chat' : 'Start a 6-person Dandiya group chat')
         : (widget.customSubtitle ?? type.subtitle);
     final effectiveCoins = widget.customCoinCost ?? type.coinCost;
     final effectiveAccent = widget.customAccentColor ?? type.accentColor;
@@ -536,7 +536,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
                 const SizedBox(height: 8),
                 Text(
                   type.isGroup
-                      ? '• Creates a ${type.maxGroupMembers}-member ${type == BuddyType.cricket ? "Cricket team" : "Garba group"}. Up to ${type.maxGroupMembers - 1} people in $_selectedCity can join for FREE.\n'
+                      ? '• Creates a ${type.maxGroupMembers}-member ${type == BuddyType.cricket ? "Cricket team" : "Dandiya group"}. Up to ${type.maxGroupMembers - 1} people in $_selectedCity can join for FREE.\n'
                         '• Group chat unlocks immediately for everyone with ZERO verification OTP.'
                       : '• The first person in $_selectedCity to accept will unlock chat with you immediately.\n'
                         '• When you meet in person, share your 6-digit verification code with your buddy.',

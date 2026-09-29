@@ -12,7 +12,7 @@ async function seed() {
           $1, $2, $3, $4, $5, $6, $7, $8
         )
       `, [
-        'Find Your Garba Partner',
+        'Find Your Dandiya Partner',
         'https://res.cloudinary.com/o8dwm2ig/image/upload/v1789916439/buddy_banners/jyreac8grrwdtnflsa6p.png',
         1,
         new Date(Date.now() - 2 * 86400000),
@@ -32,7 +32,7 @@ async function seed() {
           femalePercentage: 20
         })
       ]);
-      console.log('✅ Seeded default Garba Buddy seasonal banner!');
+      console.log('✅ Seeded default Dandiya Buddy seasonal banner!');
     } else {
       console.log('Banners already exist count:', check.rows[0].count);
     }

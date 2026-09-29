@@ -62,10 +62,10 @@ class BuddyGroupService {
 
     let HOST_COIN_COST = isCricket ? 199 : 501;
     const maxMembers = isCricket ? 11 : 6;
-    const defaultTitle = isCricket ? 'Cricket Buddy Group' : 'Garba Buddy Group';
+    const defaultTitle = isCricket ? 'Cricket Buddy Group' : 'Dandiya Buddy Group';
     const welcomeMsg = isCricket
       ? 'Welcome to Cricket Buddy Group! Up to 11 members can join and form a cricket team together.'
-      : 'Welcome to Garba Buddy Group! Up to 6 members can join and plan Garba together.';
+      : 'Welcome to Dandiya Buddy Group! Up to 6 members can join and plan Dandiya together.';
 
     try {
       const bannerRes = await db.query(`

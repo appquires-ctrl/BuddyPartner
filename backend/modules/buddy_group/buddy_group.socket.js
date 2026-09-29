@@ -62,7 +62,7 @@ function registerBuddyGroupSocketHandlers(io, socket, redis) {
           if (membersRes.rows.length === 0) return;
 
           const tokens = membersRes.rows.map(r => r.fcm_token);
-          const groupTitle = membersRes.rows[0]?.title || 'Garba Buddy Group';
+          const groupTitle = membersRes.rows[0]?.title || 'Dandiya Buddy Group';
 
           await sendMulticastPushNotification({
             tokens,

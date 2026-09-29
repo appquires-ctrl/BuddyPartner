@@ -456,7 +456,7 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
                               Text(
                                 widget.title.toLowerCase().contains('cricket')
                                     ? 'Welcome to the Cricket Team!'
-                                    : 'Welcome to the Garba Group!',
+                                    : 'Welcome to the Dandiya Group!',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
@@ -603,7 +603,7 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
                         decoration: InputDecoration(
                           hintText: widget.title.toLowerCase().contains('cricket')
                               ? 'Plan your match or meetup...'
-                              : 'Plan your Garba night...',
+                              : 'Plan your Dandiya night...',
                           hintStyle: const TextStyle(fontSize: 14),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                           border: InputBorder.none,

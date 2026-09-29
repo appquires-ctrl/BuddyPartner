@@ -79,7 +79,7 @@ class GarbaBuddyBanner extends ConsumerWidget {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                'Find Your Garba Partner 🪔',
+                                'Find Your Dandiya Partner 🪔',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 16,
@@ -88,7 +88,7 @@ class GarbaBuddyBanner extends ConsumerWidget {
                               ),
                               SizedBox(height: 4),
                               Text(
-                                'Find someone who matches your Garba vibes',
+                                'Find someone who matches your Dandiya vibes',
                                 style: TextStyle(
                                   color: Colors.white70,
                                   fontSize: 12,

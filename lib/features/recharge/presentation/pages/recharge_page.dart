@@ -14,6 +14,7 @@ import 'package:buddypartner/features/recharge/presentation/widgets/recharge_pla
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 import 'package:buddypartner/core/services/google_play_purchase_service.dart';
 import 'package:buddypartner/core/utils/app_currency.dart';
+import 'package:buddypartner/core/utils/digital_asset_pricing.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
 /// Professional, state-of-the-art Recharge Store screen
@@ -702,25 +703,28 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
         gpState.status == GooglePlayPurchaseStatus.verifying;
 
     final isDomestic = widget.isDomestic;
-    final baseTotal = isDomestic
-        ? widget.plan.totalPriceRupees.toDouble()
-        : widget.plan.priceUsd;
-    final finalPayable = (baseTotal - _appliedDiscountAmount).clamp(0.0, 999999.0);
+
+    // Option B Statutory GST calculation:
+    // 1. Discount applies to BASE coin pack price.
+    // 2. 18% GST applies to the discounted taxable base.
+    // 3. Total payable = discounted base + GST.
+    final pricing = isDomestic
+        ? DigitalAssetPricing.fromBaseWithDiscount(
+            basePrice: widget.plan.basePriceRupees,
+            discount: _appliedDiscountAmount,
+          )
+        : null;
+
+    final double finalPayable = isDomestic
+        ? pricing!.totalPriceRupees.toDouble()
+        : (widget.plan.priceUsd - _appliedDiscountAmount).clamp(0.0, 999999.0);
+
     final totalDisplay = isDomestic
-        ? '₹${finalPayable.toStringAsFixed(0)}.00'
+        ? '₹${pricing!.totalPriceRupees}.00'
         : '\$${finalPayable.toStringAsFixed(2)}';
 
-    // Statutory GST (18%) breakdown:
-    // Under Indian GST laws, GST is levied on the actual discounted transaction value.
-    final double netTaxableAmount;
-    final double netGstAmount;
-    if (_appliedDiscountAmount > 0) {
-      netTaxableAmount = double.parse((finalPayable / 1.18).toStringAsFixed(2));
-      netGstAmount = double.parse((finalPayable - netTaxableAmount).toStringAsFixed(2));
-    } else {
-      netTaxableAmount = widget.plan.basePriceRupees.toDouble();
-      netGstAmount = widget.plan.gstRupees.toDouble();
-    }
+    final int netTaxableAmount = isDomestic ? pricing!.basePriceRupees : 0;
+    final int netGstAmount = isDomestic ? pricing!.gstRupees : 0;
 
     final surfaceColor = isDark ? const Color(0xFF1E1A2E) : Colors.white;
     final mutedColor = isDark ? const Color(0xFF28233C) : const Color(0xFFF7F6FC);
@@ -1021,12 +1025,12 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
                 child: Column(
                   children: [
                     if (_appliedDiscountAmount > 0) ...[
-                      // Original Pack Price
+                      // Coin Pack Base Price
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Original Pack Price',
+                            'Coin Pack Base Price',
                             style: TextStyle(
                               fontSize: 14,
                               color: textMuted,
@@ -1034,7 +1038,7 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
                           ),
                           Text(
                             isDomestic
-                                ? '₹${widget.plan.totalPriceRupees}.00'
+                                ? '₹${widget.plan.basePriceRupees}.00'
                                 : '\$${widget.plan.priceUsd.toStringAsFixed(2)}',
                             style: TextStyle(
                               fontSize: 14,
@@ -1086,7 +1090,7 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
                       ),
 
                       if (isDomestic) ...[
-                        // Net Taxable Base
+                        // Taxable Amount (discounted base)
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -1098,7 +1102,7 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
                               ),
                             ),
                             Text(
-                              '₹${netTaxableAmount.toStringAsFixed(2)}',
+                              '₹$netTaxableAmount.00',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -1121,7 +1125,7 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
                               ),
                             ),
                             Text(
-                              '+ ₹${netGstAmount.toStringAsFixed(2)}',
+                              '+ ₹$netGstAmount.00',
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -1261,9 +1265,13 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        isDomestic
-                            ? '₹${widget.plan.basePriceRupees} + 18% GST (₹${widget.plan.gstRupees}) = ₹${widget.plan.totalPriceRupees}. Billed securely through Google Play.'
-                            : '\$${widget.plan.priceUsd.toStringAsFixed(2)} USD. Billed securely through Google Play.',
+                        _appliedDiscountAmount > 0
+                            ? (isDomestic
+                                ? 'Promo applied: ₹${widget.plan.basePriceRupees} − ₹${_appliedDiscountAmount.toStringAsFixed(0)} + 18% GST (₹$netGstAmount) = ₹${pricing!.totalPriceRupees}. Billed securely through Google Play.'
+                                : 'Special promo applied: you pay $totalDisplay. Billed securely through Google Play.')
+                            : (isDomestic
+                                ? '₹${widget.plan.basePriceRupees} + 18% GST (₹${widget.plan.gstRupees}) = ₹${widget.plan.totalPriceRupees}. Billed securely through Google Play.'
+                                : '\$${widget.plan.priceUsd.toStringAsFixed(2)} USD. Billed securely through Google Play.'),
                         style: TextStyle(
                           fontSize: 11.5,
                           color: textMuted,

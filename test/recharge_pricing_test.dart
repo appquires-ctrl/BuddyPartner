@@ -153,5 +153,42 @@ void main() {
       final partialHangout = findRecommendedRechargePlan(plans, 999 - 600);
       expect(partialHangout.id, equals('plan_499'));
     });
+
+    test('DigitalAssetPricing.fromBaseWithDiscount correctly applies base-first discount and 18% GST', () {
+      // 1. Subscription 1-Week / Coin 199 tier: ₹199 base with ₹50 discount
+      // Taxable = 199 - 50 = 149. GST = (149 * 0.18).round() = 27. Total = 176.
+      final pricing199 = DigitalAssetPricing.fromBaseWithDiscount(basePrice: 199, discount: 50);
+      expect(pricing199.basePriceRupees, equals(149));
+      expect(pricing199.gstRupees, equals(27));
+      expect(pricing199.totalPriceRupees, equals(176));
+
+      // 2. Subscription 1-Month / Coin 499 tier: ₹499 base with ₹100 discount
+      // Taxable = 499 - 100 = 399. GST = (399 * 0.18).round() = 72. Total = 471.
+      final pricing499 = DigitalAssetPricing.fromBaseWithDiscount(basePrice: 499, discount: 100);
+      expect(pricing499.basePriceRupees, equals(399));
+      expect(pricing499.gstRupees, equals(72));
+      expect(pricing499.totalPriceRupees, equals(471));
+
+      // 3. Subscription 3-Month / Coin 999 tier: ₹999 base with ₹200 discount
+      // Taxable = 999 - 200 = 799. GST = (799 * 0.18).round() = 144. Total = 943.
+      final pricing999 = DigitalAssetPricing.fromBaseWithDiscount(basePrice: 999, discount: 200);
+      expect(pricing999.basePriceRupees, equals(799));
+      expect(pricing999.gstRupees, equals(144));
+      expect(pricing999.totalPriceRupees, equals(943));
+
+      // 4. Coin 2500 tier: ₹2500 base with ₹500 discount
+      // Taxable = 2500 - 500 = 2000. GST = (2000 * 0.18).round() = 360. Total = 2360.
+      final pricing2500 = DigitalAssetPricing.fromBaseWithDiscount(basePrice: 2500, discount: 500);
+      expect(pricing2500.basePriceRupees, equals(2000));
+      expect(pricing2500.gstRupees, equals(360));
+      expect(pricing2500.totalPriceRupees, equals(2360));
+
+      // 5. Zero discount edge case
+      final pricingZero = DigitalAssetPricing.fromBaseWithDiscount(basePrice: 199, discount: 0);
+      expect(pricingZero.basePriceRupees, equals(199));
+      expect(pricingZero.gstRupees, equals(36));
+      expect(pricingZero.totalPriceRupees, equals(235));
+    });
   });
 }
+
