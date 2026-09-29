@@ -19,8 +19,8 @@ async function seed() {
         new Date(Date.now() + 30 * 86400000),
         true,
         JSON.stringify({
-          title: 'Garba Buddy 🪔',
-          subtitle: 'Find someone who matches your Garba vibes',
+          title: 'Dandiya Buddy',
+          subtitle: 'Find someone who matches your Dandiya vibes',
           broadcastCoinCost: 1,
           buddyType: 'garba',
           accentColor: '#9333EA'

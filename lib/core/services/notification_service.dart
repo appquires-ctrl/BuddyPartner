@@ -317,7 +317,7 @@ class NotificationService {
     final senderId = data['senderId']?.toString() ?? data['userId']?.toString() ?? (isGroup ? groupId! : '');
     final senderName = data['senderName']?.toString() ??
         data['userName']?.toString() ??
-        (isGroup ? (data['title']?.toString() ?? 'Garba Buddy Group') : null) ??
+        (isGroup ? (data['title']?.toString() ?? 'Dandiya Buddy Group') : null) ??
         notification?.title?.replaceAll('New message from ', '') ??
         'User';
     final messageBody = data['message']?.toString() ??
@@ -353,7 +353,7 @@ class NotificationService {
     final groupId = data['groupId']?.toString();
 
     if (type == 'BUDDY_GROUP_MESSAGE' || (groupId != null && groupId.isNotEmpty)) {
-      final title = data['title']?.toString() ?? 'Garba Buddy Group';
+      final title = data['title']?.toString() ?? 'Dandiya Buddy Group';
       _pendingGroupNotification = PendingGroupNotification(groupId: groupId!, title: title);
       debugPrint('🔔 [FCM Terminated] Cached pending buddy group notification: $groupId');
       return;

@@ -98,12 +98,12 @@ class _BuddyBannersPageState extends State<BuddyBannersPage> {
     final fallback = [
       BuddyBanner(
         id: 'garba_festive_2026',
-        name: 'Find Your Garba Partner',
+        name: 'Find Your Dandiya Partner',
         imageUrl: defaultGarbaImageUrl,
         priority: 1,
         isActive: true,
-        sheetTitle: 'Garba Buddy 🪔',
-        sheetSubtitle: 'Find someone who matches your Garba vibes',
+        sheetTitle: 'Dandiya Buddy 🪔',
+        sheetSubtitle: 'Find someone who matches your Dandiya vibes',
         broadcastCoinCost: 1,
         buddyType: 'garba',
         accentColor: '#9333EA',
@@ -941,7 +941,7 @@ class _AddEditBannerDialogState extends State<_AddEditBannerDialog> {
 
                       TextFormField(
                         controller: _sheetTitleController,
-                        decoration: _inputDecoration('Sheet Title (e.g. Holi Buddy 🎨, Garba Buddy 🪔)', hint: 'e.g. Holi Buddy 🎨'),
+                        decoration: _inputDecoration('Sheet Title (e.g. Holi Buddy 🎨, Dandiya Buddy)', hint: 'e.g. Holi Buddy 🎨'),
                         validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter title' : null,
                       ),
                       const SizedBox(height: 14),

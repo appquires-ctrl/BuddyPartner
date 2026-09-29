@@ -140,7 +140,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
       if (widget.buddyType.isGroup) {
         // Multi-member Buddy Group Broadcast (Garba: 6, Cricket: 11) - 0 OTP
         final isCricket = widget.buddyType == BuddyType.cricket;
-        final defaultTitle = isCricket ? 'Cricket Buddy Group' : 'Garba Buddy Group';
+        final defaultTitle = isCricket ? 'Cricket Buddy Group' : 'Dandiya Buddy Group';
         final newGroup = await ref.read(buddyGroupServiceProvider).createGroupBroadcast(
           city: _selectedCity,
           state: _selectedState,

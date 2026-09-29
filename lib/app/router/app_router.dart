@@ -260,7 +260,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           final extra = state.extra as Map<String, dynamic>? ?? {};
           final qParams = state.uri.queryParameters;
           final groupId = (extra['groupId'] ?? qParams['groupId'] ?? '').toString();
-          final title = (extra['title'] ?? qParams['title'] ?? 'Garba Buddy Group').toString();
+          final title = (extra['title'] ?? qParams['title'] ?? 'Dandiya Buddy Group').toString();
           final memberCount = (extra['memberCount'] as num?)?.toInt() ?? int.tryParse(qParams['memberCount'] ?? '') ?? 1;
           return BuddyGroupChatPage(
             groupId: groupId,

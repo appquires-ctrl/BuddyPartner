@@ -84,8 +84,8 @@ enum BuddyType {
   ),
   garba(
     id: 'garba',
-    title: 'Garba Buddy',
-    subtitle: 'Find someone who matches your Garba vibes',
+    title: 'Dandiya Buddy',
+    subtitle: 'Find someone who matches your Dandiya vibes',
     stickerAsset: 'assets/images/garba_buddy.png',
     gradientColors: [Color(0xFF6B21A8), Color(0xFF9333EA)],
     accentColor: Color(0xFF9333EA),
@@ -461,7 +461,7 @@ class BuddyGroup {
     return BuddyGroup(
       id: json['id'] as String? ?? '',
       initiatorId: json['initiator_id'] as String? ?? json['initiatorId'] as String? ?? '',
-      title: json['title'] as String? ?? 'Garba Buddy Group',
+      title: json['title'] as String? ?? 'Dandiya Buddy Group',
       buddyType: json['buddy_type'] as String? ?? json['buddyType'] as String? ?? 'garba',
       city: json['city'] as String? ?? '',
       state: json['state'] as String?,

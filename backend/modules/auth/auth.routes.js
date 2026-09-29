@@ -66,6 +66,81 @@ const SEND_LIMIT_WINDOW = 600; // 10 minutes
 const VERIFY_ATTEMPTS_MAX = 5; // Max 5 wrong attempts before lockout
 const VERIFY_LOCKOUT_WINDOW = 600; // 10 minutes lockout
 
+// Google Play Review & Demo Test Account credentials (works across India & International)
+const DEMO_TEST_COUNTRY_CODE = process.env.DEMO_TEST_COUNTRY_CODE || '91';
+const DEMO_TEST_MOBILES = new Set([
+  '9999999999', '8888888888', '7777777777', '1234567890', // 10-digit (India, US, UK, Canada)
+  '999999999',  '888888888',  '777777777',  // 9-digit (UAE, Australia, Saudi Arabia)
+  '99999999',   '88888888',   '77777777',   // 8-digit (Singapore, Qatar, Kuwait)
+]);
+const DEMO_TEST_OTP = process.env.DEMO_TEST_OTP || '123456';
+
+/**
+ * Checks if a mobile number is an authorized demo/test account.
+ * Works for India (+91) as well as any international country (US +1, UAE +971, UK +44, etc.)
+ */
+function isDemoTestAccount(cleanCountryCode, cleanMobile) {
+  return DEMO_TEST_MOBILES.has(cleanMobile);
+}
+
+/**
+ * Returns default location & profile metadata for test reviewer accounts based on country dialing code.
+ */
+function getTestAccountDefaults(countryCode, mobile) {
+  switch (countryCode) {
+    case '1': // US / Canada
+      return {
+        country: 'United States',
+        state: 'California',
+        city: 'Los Angeles',
+        fullName: 'US Test User',
+      };
+    case '44': // UK
+      return {
+        country: 'United Kingdom',
+        state: 'England',
+        city: 'London',
+        fullName: 'UK Test User',
+      };
+    case '971': // UAE
+      return {
+        country: 'United Arab Emirates',
+        state: 'Dubai',
+        city: 'Dubai',
+        fullName: 'UAE Test User',
+      };
+    case '61': // Australia
+      return {
+        country: 'Australia',
+        state: 'New South Wales',
+        city: 'Sydney',
+        fullName: 'AU Test User',
+      };
+    case '65': // Singapore
+      return {
+        country: 'Singapore',
+        state: 'Singapore',
+        city: 'Singapore',
+        fullName: 'SG Test User',
+      };
+    case '966': // Saudi Arabia
+      return {
+        country: 'Saudi Arabia',
+        state: 'Riyadh',
+        city: 'Riyadh',
+        fullName: 'KSA Test User',
+      };
+    case '91':
+    default:
+      return {
+        country: 'India',
+        state: 'Delhi',
+        city: 'New Delhi',
+        fullName: (mobile === '9999999999') ? 'Google Reviewer' : 'Test User',
+      };
+  }
+}
+
 /**
  * Endpoint: GET /api/auth/username-available?user_name=<value>
  * Checks if a requested username is valid and available.
@@ -466,7 +541,7 @@ router.post('/forgot-password/send-otp', async (req, res) => {
       return res.status(400).json({ error: 'Valid country code and mobile number are required.' });
     }
 
-    const isTestAccount = (DEMO_TEST_MOBILES.has(cleanMobile) && cleanCountryCode === DEMO_TEST_COUNTRY_CODE);
+    const isTestAccount = isDemoTestAccount(cleanCountryCode, cleanMobile);
     const otpRedisKey = `otp_reset:${cleanCountryCode}${cleanMobile}`;
 
     if (isTestAccount) {
@@ -529,7 +604,7 @@ router.post('/forgot-password/reset', async (req, res) => {
     return res.status(400).json({ error: 'New password must be at least 8 characters long.' });
   }
 
-  const isTestAccount = (DEMO_TEST_MOBILES.has(cleanMobile) && cleanCountryCode === DEMO_TEST_COUNTRY_CODE);
+  const isTestAccount = isDemoTestAccount(cleanCountryCode, cleanMobile);
   const otpRedisKey = `otp_reset:${cleanCountryCode}${cleanMobile}`;
 
   try {
@@ -685,10 +760,7 @@ router.get('/search', authMiddleware, userSearchLimiter, async (req, res) => {
   }
 });
 
-// Google Play Review / Demo Test Account credentials
-const DEMO_TEST_COUNTRY_CODE = process.env.DEMO_TEST_COUNTRY_CODE || '91';
-const DEMO_TEST_MOBILES = new Set(['9999999999', '8888888888', '7777777777']);
-const DEMO_TEST_OTP = process.env.DEMO_TEST_OTP || '123456';
+// Google Play Review & Demo Test Account credentials declared at top of file
 
 /**
  * Endpoint: POST /api/auth/otp/send
@@ -706,7 +778,7 @@ router.post('/otp/send', async (req, res) => {
 
   try {
     // Check if this is a Google Play Reviewer / Demo Test Account
-    const isTestAccount = (DEMO_TEST_MOBILES.has(cleanMobile) && cleanCountryCode === DEMO_TEST_COUNTRY_CODE);
+    const isTestAccount = isDemoTestAccount(cleanCountryCode, cleanMobile);
 
     if (isTestAccount) {
       // Demo test account: Store fixed OTP hash in Redis, skip external WhatsApp API call
@@ -792,7 +864,7 @@ router.post('/otp/verify', async (req, res) => {
       }
     }
 
-    const isTestAccount = (DEMO_TEST_MOBILES.has(cleanMobile) && cleanCountryCode === DEMO_TEST_COUNTRY_CODE);
+    const isTestAccount = isDemoTestAccount(cleanCountryCode, cleanMobile);
     const otpRedisKey = `otp:${cleanCountryCode}${cleanMobile}`;
     const attemptsKey = `otp_verify_attempts:${cleanMobile}`;
 
@@ -858,6 +930,11 @@ router.post('/otp/verify', async (req, res) => {
         let insertUserRes;
         if (isTestAccount) {
           // Pre-populate reviewer profile so reviewer directly accesses app features
+          const testDefaults = getTestAccountDefaults(cleanCountryCode, cleanMobile);
+          const reviewerUserName = (cleanCountryCode === '91' && cleanMobile === '9999999999')
+            ? 'googlereviewer'
+            : `test_${cleanCountryCode}_${cleanMobile}`;
+
           insertUserRes = await client.query(
             `INSERT INTO public.users (
                country_code, mobile, phone_number, full_name, user_name, dob, gender, language, avatar_seed, avatar_style, country, state, city
@@ -866,7 +943,7 @@ router.post('/otp/verify', async (req, res) => {
              RETURNING id, country_code, mobile, phone_number, full_name, user_name, dob, gender, language, avatar_seed, avatar_style, is_telecaller, has_claimed_intro_offer, country, state, city, latitude, longitude, incoming_paid_calls_enabled`,
             [
               cleanCountryCode, cleanMobile, fullPhoneNumber,
-              'Google Reviewer', 'googlereviewer', '1998-01-01', 'Male', 'English', 'male_2f', 'avataaars', 'India', 'Delhi', 'New Delhi'
+              testDefaults.fullName, reviewerUserName, '1998-01-01', 'Male', 'English', 'male_2f', 'avataaars', testDefaults.country, testDefaults.state, testDefaults.city
             ]
           );
         } else {

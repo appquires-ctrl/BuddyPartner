@@ -70,8 +70,8 @@ class SeasonalSheetConfig {
   factory SeasonalSheetConfig.fromJson(Map<String, dynamic>? json) {
     if (json == null) {
       return const SeasonalSheetConfig(
-        title: 'Garba Buddy 🪔',
-        subtitle: 'Find someone who matches your Garba vibes',
+        title: 'Dandiya Buddy',
+        subtitle: 'Find someone who matches your Dandiya vibes',
         broadcastCoinCost: 1,
         buddyType: BuddyType.garba,
         accentColor: Color(0xFF9333EA),
@@ -94,7 +94,7 @@ class SeasonalSheetConfig {
     final parsedType = BuddyType.fromString(typeStr);
 
     return SeasonalSheetConfig(
-      title: json['title'] as String? ?? 'Garba Buddy 🪔',
+      title: json['title'] as String? ?? 'Dandiya Buddy',
       subtitle: json['subtitle'] as String? ?? 'Find someone who matches your Garba vibes',
       iconUrl: json['iconUrl'] as String? ?? json['icon_url'] as String?,
       accentColor: parseColor(json['accentColor'] ?? json['accent_color']),
