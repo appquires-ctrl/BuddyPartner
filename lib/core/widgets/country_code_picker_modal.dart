@@ -75,7 +75,10 @@ class _CountryCodePickerModalState extends State<CountryCodePickerModal> {
         color: colors.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Column(
+      child: SafeArea(
+        top: false,
+        bottom: true,
+        child: Column(
         children: [
           // Bottom sheet drag handle
           const SizedBox(height: 12),
@@ -206,6 +209,7 @@ class _CountryCodePickerModalState extends State<CountryCodePickerModal> {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 }

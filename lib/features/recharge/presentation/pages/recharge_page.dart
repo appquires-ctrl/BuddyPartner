@@ -809,7 +809,7 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
                 ),
                 child: Row(
                   children: [
-                    const AppCoinIcon(size: 38, withGlow: true),
+                    AppCoinIcon(size: 38, withGlow: true, isDomestic: widget.isDomestic),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
@@ -1130,27 +1130,6 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
                             ),
                           ],
                         ),
-                      ] else ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Applicable Taxes & VAT',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: textMuted,
-                              ),
-                            ),
-                            Text(
-                              'Handled at Checkout',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: textMuted,
-                              ),
-                            ),
-                          ],
-                        ),
                       ],
                     ] else ...[
                       // Base Price
@@ -1176,9 +1155,9 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
-
                       if (isDomestic) ...[
+                        const SizedBox(height: 10),
+
                         // 18% GST
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1196,27 +1175,6 @@ class _CoinOrderSummarySheetState extends ConsumerState<_CoinOrderSummarySheet> 
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: Color(0xFFF59E0B),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ] else ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Applicable Taxes & VAT',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: textMuted,
-                              ),
-                            ),
-                            Text(
-                              'Handled at Checkout',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: textMuted,
                               ),
                             ),
                           ],

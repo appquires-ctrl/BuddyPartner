@@ -721,7 +721,11 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage>
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.currency_rupee_rounded, color: Color(0xFF7C6AEF), size: 18),
+                            Icon(
+                              isDomestic ? Icons.currency_rupee_rounded : Icons.attach_money_rounded,
+                              color: const Color(0xFF7C6AEF),
+                              size: 18,
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               'Estimated Payout',

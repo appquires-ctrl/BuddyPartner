@@ -240,16 +240,21 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
           ),
         ],
       ),
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 14,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      child: SafeArea(
+        top: false,
+        bottom: true,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 14,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
           // Drag Handle
           Center(
             child: Container(
@@ -582,7 +587,9 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 }
 
@@ -705,9 +712,12 @@ class _CityPickerSheetState extends ConsumerState<CityPickerSheet> {
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         height: MediaQuery.of(context).size.height * 0.75,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          child: Column(
+        child: SafeArea(
+          top: false,
+          bottom: true,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 20, right: 20, top: 14, bottom: 8),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Drag handle
@@ -881,7 +891,8 @@ class _CityPickerSheetState extends ConsumerState<CityPickerSheet> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   /// Lets travelers override the scoped country
@@ -953,9 +964,12 @@ class _CountrySelectSheetState extends State<_CountrySelectSheet> {
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         height: MediaQuery.of(context).size.height * 0.65,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          child: Column(
+        child: SafeArea(
+          top: false,
+          bottom: true,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 20, right: 20, top: 14, bottom: 8),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
@@ -1011,7 +1025,8 @@ class _CountrySelectSheetState extends State<_CountrySelectSheet> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 

@@ -1263,27 +1263,6 @@ class _MembershipOrderSummarySheetState
                             ),
                           ],
                         ),
-                      ] else ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Applicable Taxes & VAT',
-                              style: typography.bodyMedium.copyWith(
-                                fontSize: 14,
-                                color: colors.textSecondary,
-                              ),
-                            ),
-                            Text(
-                              'Handled at Checkout',
-                              style: typography.bodyMedium.copyWith(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: colors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
                       ],
                     ] else ...[
                       // Base Price
@@ -1309,9 +1288,9 @@ class _MembershipOrderSummarySheetState
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
-
                       if (isDomestic) ...[
+                        const SizedBox(height: 10),
+
                         // 18% GST
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1341,27 +1320,6 @@ class _MembershipOrderSummarySheetState
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: colors.primary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ] else ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Applicable Taxes & VAT',
-                              style: typography.bodyMedium.copyWith(
-                                fontSize: 14,
-                                color: colors.textSecondary,
-                              ),
-                            ),
-                            Text(
-                              'Handled at Checkout',
-                              style: typography.bodyMedium.copyWith(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: colors.textSecondary,
                               ),
                             ),
                           ],

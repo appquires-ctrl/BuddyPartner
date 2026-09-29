@@ -186,8 +186,12 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
             color: colors.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
+          child: SafeArea(
+            top: false,
+            bottom: true,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 8),
+              child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Center(
@@ -286,7 +290,9 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
               ),
             ],
           ),
-        );
+        ),
+      ),
+    );
       },
     );
   }

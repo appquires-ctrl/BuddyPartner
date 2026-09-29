@@ -136,23 +136,23 @@ void main() {
       expect(p199.formattedTotalPrice(isDomestic: true), equals('₹235'));
       expect(p199.formattedTotalPrice(isDomestic: false), equals('\$2.99'));
 
-      // Tier 4: ₹499 base (₹589 total) -> $5.99
+      // Tier 4: ₹499 base (₹589 total) -> $7.99
       final p499 = plans.firstWhere((p) => p.id == 'plan_499');
-      expect(p499.priceUsd, equals(5.99));
+      expect(p499.priceUsd, equals(7.99));
       expect(p499.formattedTotalPrice(isDomestic: true), equals('₹589'));
-      expect(p499.formattedTotalPrice(isDomestic: false), equals('\$5.99'));
+      expect(p499.formattedTotalPrice(isDomestic: false), equals('\$7.99'));
 
-      // Tier 5: ₹999 base (₹1179 total) -> $9.99
+      // Tier 5: ₹999 base (₹1179 total) -> $14.99
       final p999 = plans.firstWhere((p) => p.id == 'plan_999');
-      expect(p999.priceUsd, equals(9.99));
+      expect(p999.priceUsd, equals(14.99));
       expect(p999.formattedTotalPrice(isDomestic: true), equals('₹1179'));
-      expect(p999.formattedTotalPrice(isDomestic: false), equals('\$9.99'));
+      expect(p999.formattedTotalPrice(isDomestic: false), equals('\$14.99'));
 
-      // Tier 6: ₹2500 base (₹2950 total) -> $24.99
+      // Tier 6: ₹2500 base (₹2950 total) -> $35.99
       final p2500 = plans.firstWhere((p) => p.id == 'plan_2500');
-      expect(p2500.priceUsd, equals(24.99));
+      expect(p2500.priceUsd, equals(35.99));
       expect(p2500.formattedTotalPrice(isDomestic: true), equals('₹2950'));
-      expect(p2500.formattedTotalPrice(isDomestic: false), equals('\$24.99'));
+      expect(p2500.formattedTotalPrice(isDomestic: false), equals('\$35.99'));
     });
 
     test('DigitalAssetPricing formattedSummary outputs correct localized format', () {
@@ -229,7 +229,7 @@ void main() {
       isPopular: true,
     );
 
-    testWidgets('Renders INR base price when isDomestic is true', (tester) async {
+    testWidgets('Renders INR base price and Rupee coin icon when isDomestic is true', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -246,9 +246,13 @@ void main() {
       // Verify ₹99 base price is displayed
       expect(find.text('₹99'), findsOneWidget);
       expect(find.text('\$1.99'), findsNothing);
+
+      // Verify gold coin has Rupee icon inside
+      expect(find.byIcon(Icons.currency_rupee_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.attach_money_rounded), findsNothing);
     });
 
-    testWidgets('Renders USD price when isDomestic is false', (tester) async {
+    testWidgets('Renders USD price and Dollar coin icon when isDomestic is false', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -265,6 +269,10 @@ void main() {
       // Verify $1.99 USD price is displayed
       expect(find.text('\$1.99'), findsOneWidget);
       expect(find.text('₹99'), findsNothing);
+
+      // Verify gold coin has Dollar icon inside (NOT Rupee icon)
+      expect(find.byIcon(Icons.attach_money_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.currency_rupee_rounded), findsNothing);
     });
   });
 }

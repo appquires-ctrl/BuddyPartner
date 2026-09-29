@@ -424,9 +424,12 @@ class ProfilePage extends ConsumerWidget {
       backgroundColor: colors.surface,
       builder: (context) {
         final typography = context.typography;
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          child: Column(
+        return SafeArea(
+          top: false,
+          bottom: true,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 24, right: 24, top: 20, bottom: 12),
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // Drag handle
@@ -529,7 +532,8 @@ class ProfilePage extends ConsumerWidget {
               const SizedBox(height: 8),
             ],
           ),
-        );
+        ),
+      );
       },
     );
   }

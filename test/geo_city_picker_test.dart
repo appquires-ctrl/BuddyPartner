@@ -1,6 +1,4 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:buddypartner/core/services/geo_service.dart';
 import 'package:buddypartner/core/constants/country_codes.dart';
 
@@ -145,10 +143,10 @@ void main() {
     });
 
     test('returns empty list when cities value is null', () {
-      final apiResponse = {'cities': null};
-      final data = apiResponse;
-      final cities = (data['cities'] is List)
-          ? (data['cities'] as List)
+      final Map<String, dynamic> data = <String, dynamic>{'cities': null};
+      final dynamic rawCities = data['cities'];
+      final cities = (rawCities is List)
+          ? rawCities
               .whereType<Map<String, dynamic>>()
               .map(CityResult.fromJson)
               .toList()

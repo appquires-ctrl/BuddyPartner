@@ -273,8 +273,12 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
           ),
         ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      child: Column(
+      child: SafeArea(
+        top: false,
+        bottom: true,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 20, right: 20, top: 14, bottom: 8),
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Drag handle
@@ -732,7 +736,9 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
         ],
       ],
     ),
-  );
+  ),
+),
+);
   }
 
   Widget _buildGroupCard(BuddyGroup group) {

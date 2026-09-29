@@ -58,7 +58,7 @@ class RechargePlanCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // 1. Unified Coin Icon
-                  const AppCoinIcon(size: 40, withGlow: true),
+                  AppCoinIcon(size: 40, withGlow: true, isDomestic: isDomestic),
 
                   // 2. Coin Count & Bonus Details
                   Column(

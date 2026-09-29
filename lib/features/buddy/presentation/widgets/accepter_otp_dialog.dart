@@ -108,16 +108,21 @@ class _AccepterOtpDialogState extends ConsumerState<AccepterOtpDialog> {
           ),
         ],
       ),
-      padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 14,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 28,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      child: SafeArea(
+        top: false,
+        bottom: true,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 14,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
           // Drag Handle
           Center(
             child: Container(
@@ -399,6 +404,8 @@ class _AccepterOtpDialogState extends ConsumerState<AccepterOtpDialog> {
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 }

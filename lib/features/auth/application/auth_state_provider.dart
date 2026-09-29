@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/core/services/apptrove_service.dart';
 import 'package:buddypartner/core/services/socket_provider.dart';
+import 'package:buddypartner/core/utils/app_currency.dart';
 
 class CustomUser {
   final String id;
@@ -72,7 +73,7 @@ class CustomUser {
   factory CustomUser.fromJson(Map<String, dynamic> json) {
     final rawFullName = (json['fullName'] as String?)?.trim();
     final bool hasName = rawFullName != null && rawFullName.isNotEmpty;
-    return CustomUser(
+    final user = CustomUser(
       id: json['id'] as String? ?? '',
       phoneNumber: json['phoneNumber'] as String? ?? '',
       isProfileComplete: (json['isProfileComplete'] as bool? ?? false) || hasName,
@@ -92,6 +93,8 @@ class CustomUser {
       longitude: (json['longitude'] != null) ? (json['longitude'] as num).toDouble() : null,
       hasPassword: json['hasPassword'] as bool? ?? false,
     );
+    AppCurrency.setActiveUser(country: user.country, phoneNumber: user.phoneNumber);
+    return user;
   }
 
   /// Factory to construct CustomUser from the backend `user` map returned by
@@ -118,7 +121,7 @@ class CustomUser {
     final backendIsComplete = (userMap['isProfileComplete'] as bool?) ?? isProfileComplete;
     final effectiveIsComplete = backendIsComplete || hasBackendFullName;
 
-    return CustomUser(
+    final user = CustomUser(
       id: userMap['id'] as String? ?? '',
       phoneNumber: rawPhone,
       isProfileComplete: effectiveIsComplete,
@@ -138,6 +141,8 @@ class CustomUser {
       longitude: (userMap['longitude'] != null) ? (userMap['longitude'] as num).toDouble() : null,
       hasPassword: userMap['hasPassword'] as bool? ?? false,
     );
+    AppCurrency.setActiveUser(country: user.country, phoneNumber: user.phoneNumber);
+    return user;
   }
 
   /// Convenience getters for gender-based routing
@@ -357,8 +362,10 @@ class AuthNotifier extends AsyncNotifier<CustomUser?> {
       await ref.read(apiClientProvider).deleteTokens();
 
       // 3. Immediately set session state to null so GoRouter navigates instantly (0ms latency)
+      AppCurrency.setActiveUser(country: null, phoneNumber: null, countryCode: null);
       state = const AsyncData(null);
     } catch (e) {
+      AppCurrency.setActiveUser(country: null, phoneNumber: null, countryCode: null);
       state = const AsyncData(null);
     }
   }

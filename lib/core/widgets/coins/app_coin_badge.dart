@@ -19,6 +19,7 @@ class AppCoinBadge extends StatelessWidget {
   final double iconSize;
   final double fontSize;
   final EdgeInsetsGeometry? padding;
+  final bool? isDomestic;
 
   const AppCoinBadge({
     super.key,
@@ -30,6 +31,7 @@ class AppCoinBadge extends StatelessWidget {
     this.iconSize = 16.0,
     this.fontSize = 13.0,
     this.padding,
+    this.isDomestic,
   });
 
   @override
@@ -127,6 +129,7 @@ class AppCoinBadge extends StatelessWidget {
           AppCoinIcon(
             size: iconSize,
             withGlow: variant == AppCoinBadgeVariant.gold,
+            isDomestic: isDomestic,
           ),
           SizedBox(width: iconSize * 0.35),
           Text(

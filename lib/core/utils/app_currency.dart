@@ -1,9 +1,24 @@
 import 'dart:ui';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 /// Centralized Dual-Currency & Localization Helper (INR for India, USD for Rest of World).
 class AppCurrency {
   AppCurrency._();
+
+  static String? activeUserCountry;
+  static String? activeUserPhone;
+  static String? activeUserCountryCode;
+
+  /// Sets or clears active user country attributes for app-wide currency detection.
+  static void setActiveUser({
+    String? country,
+    String? phoneNumber,
+    String? countryCode,
+  }) {
+    activeUserCountry = country;
+    activeUserPhone = phoneNumber;
+    activeUserCountryCode = countryCode;
+  }
 
   /// Determines if the current context / user is located in India.
   /// Checks country name, ISO code, or phone number prefix (+91).
@@ -13,25 +28,38 @@ class AppCurrency {
     String? phoneNumber,
     String? countryCode,
   }) {
-    if (country != null && country.trim().isNotEmpty) {
-      final c = country.trim().toLowerCase();
+    final effectiveCountry = (country != null && country.trim().isNotEmpty)
+        ? country
+        : activeUserCountry;
+    final effectiveCountryCode = (countryCode != null && countryCode.trim().isNotEmpty)
+        ? countryCode
+        : activeUserCountryCode;
+    final effectivePhone = (phoneNumber != null && phoneNumber.trim().isNotEmpty)
+        ? phoneNumber
+        : activeUserPhone;
+
+    if (effectiveCountry != null && effectiveCountry.trim().isNotEmpty) {
+      final c = effectiveCountry.trim().toLowerCase();
       if (c == 'india' || c == 'in' || c == '+91' || c == '91') {
         return true;
       }
+      return false;
     }
 
-    if (countryCode != null && countryCode.trim().isNotEmpty) {
-      final code = countryCode.trim().replaceAll('+', '');
+    if (effectiveCountryCode != null && effectiveCountryCode.trim().isNotEmpty) {
+      final code = effectiveCountryCode.trim().replaceAll('+', '');
       if (code == '91' || code.toLowerCase() == 'in') {
         return true;
       }
+      return false;
     }
 
-    if (phoneNumber != null && phoneNumber.trim().isNotEmpty) {
-      final p = phoneNumber.trim().replaceAll(' ', '').replaceAll('-', '');
+    if (effectivePhone != null && effectivePhone.trim().isNotEmpty) {
+      final p = effectivePhone.trim().replaceAll(' ', '').replaceAll('-', '');
       if (p.startsWith('+91') || p.startsWith('91')) {
         return true;
       }
+      return false;
     }
 
     // Fallback: Check device locale
@@ -47,6 +75,12 @@ class AppCurrency {
 
     // Default to true (domestic) if completely undetermined
     return true;
+  }
+
+  /// Coin internal icon: Rupee (₹) for India, Dollar ($) for Rest of World
+  static IconData coinIcon({bool? isDomestic}) {
+    final domestic = isDomestic ?? AppCurrency.isDomestic();
+    return domestic ? Icons.currency_rupee_rounded : Icons.attach_money_rounded;
   }
 
   /// Currency symbol: '₹' for India, '$' for Rest of World
