@@ -585,3 +585,106 @@ final bannedDevicesProvider = StateNotifierProvider<BannedDevicesNotifier, Banne
   return BannedDevicesNotifier();
 });
 
+// ── Recharges & Orders State & Provider ──────────────────────────────────────
+class RechargesState {
+  final bool isLoading;
+  final List<dynamic> recharges;
+  final int total;
+  final int page;
+  final int totalPages;
+  final String filter; // 'all', 'coins', 'subscriptions', 'admin_grants'
+  final String search;
+  final Map<String, dynamic> stats;
+  final String? error;
+
+  const RechargesState({
+    this.isLoading = false,
+    this.recharges = const [],
+    this.total = 0,
+    this.page = 1,
+    this.totalPages = 1,
+    this.filter = 'all',
+    this.search = '',
+    this.stats = const {},
+    this.error,
+  });
+
+  RechargesState copyWith({
+    bool? isLoading,
+    List<dynamic>? recharges,
+    int? total,
+    int? page,
+    int? totalPages,
+    String? filter,
+    String? search,
+    Map<String, dynamic>? stats,
+    String? error,
+  }) {
+    return RechargesState(
+      isLoading: isLoading ?? this.isLoading,
+      recharges: recharges ?? this.recharges,
+      total: total ?? this.total,
+      page: page ?? this.page,
+      totalPages: totalPages ?? this.totalPages,
+      filter: filter ?? this.filter,
+      search: search ?? this.search,
+      stats: stats ?? this.stats,
+      error: error,
+    );
+  }
+}
+
+class RechargesNotifier extends StateNotifier<RechargesState> {
+  RechargesNotifier() : super(const RechargesState()) {
+    fetchRecharges();
+  }
+
+  Future<void> fetchRecharges({int? page}) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final p = page ?? state.page;
+      final qParams = {
+        'page': p.toString(),
+        'limit': '20',
+        'type': state.filter,
+        if (state.search.isNotEmpty) 'search': state.search,
+      };
+      final uri = Uri(path: '/recharges', queryParameters: qParams).toString();
+      final res = await ApiService.get(uri);
+      final data = res['data'] ?? {};
+      state = state.copyWith(
+        isLoading: false,
+        recharges: (data['recharges'] as List<dynamic>?) ?? [],
+        total: (data['total'] as num?)?.toInt() ?? 0,
+        page: (data['page'] as num?)?.toInt() ?? 1,
+        totalPages: (data['totalPages'] as num?)?.toInt() ?? 1,
+        stats: (data['stats'] as Map<String, dynamic>?) ?? {},
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  void setFilter(String filter) {
+    if (state.filter != filter) {
+      state = state.copyWith(filter: filter, page: 1);
+      fetchRecharges(page: 1);
+    }
+  }
+
+  void setSearch(String search) {
+    state = state.copyWith(search: search, page: 1);
+    fetchRecharges(page: 1);
+  }
+
+  void setPage(int page) {
+    state = state.copyWith(page: page);
+    fetchRecharges(page: page);
+  }
+}
+
+final rechargesProvider = StateNotifierProvider<RechargesNotifier, RechargesState>((ref) {
+  return RechargesNotifier();
+});
+
+

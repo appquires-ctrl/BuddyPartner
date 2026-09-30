@@ -344,4 +344,15 @@ router.post('/devices/unban', adminAuth, async (req, res) => {
   }
 });
 
+// ── 11. Coin & Subscription Recharges / Orders ──────────────────────────────
+router.get('/recharges', adminAuth, async (req, res) => {
+  try {
+    const { type = 'all', search = '', page = 1, limit = 20 } = req.query;
+    const data = await adminService.getRecharges({ type, search, page, limit });
+    return res.json({ success: true, ...data });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;

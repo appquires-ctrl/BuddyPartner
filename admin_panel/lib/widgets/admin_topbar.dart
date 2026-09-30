@@ -62,7 +62,7 @@ class AdminTopbar extends ConsumerWidget {
             final telemetry = telemetryAsync.valueOrNull;
             final ccu = telemetry?['ccu'] ?? 0;
             final inCall = telemetry?['activeCalls'] ?? 0;
-            final subRev = telemetry?['subRevenueToday'] ?? 0;
+            final totalRev = telemetry?['totalRevenueToday'] ?? (telemetry?['subRevenueToday'] ?? 0);
 
             return Row(
               children: [
@@ -123,27 +123,36 @@ class AdminTopbar extends ConsumerWidget {
                 ),
                 const SizedBox(width: 10),
 
-                // Revenue Today
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                // Revenue Today (Clickable to Recharges & Orders)
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.currency_rupee_rounded, size: 14, color: Color(0xFFF59E0B)),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$subRev Today',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFFF59E0B),
-                        ),
+                    onTap: () => context.go('/recharges'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
                       ),
-                    ],
+                      child: Row(
+                        children: [
+                          const Icon(Icons.currency_rupee_rounded, size: 14, color: Color(0xFFF59E0B)),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$totalRev Today',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFF59E0B),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Color(0xFFF59E0B)),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],

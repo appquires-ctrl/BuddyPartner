@@ -62,80 +62,85 @@ class AdminSidebar extends StatelessWidget {
           const Divider(height: 1),
           const SizedBox(height: 16),
 
-          // Menu Items — Strictly limited to required 4 sections
-          _buildNavItem(
-            context,
-            title: 'Dashboard',
-            icon: Icons.dashboard_rounded,
-            route: '/',
-            isSelected: currentPath == '/',
+          // Menu Items
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  _buildNavItem(
+                    context,
+                    title: 'Dashboard',
+                    icon: Icons.dashboard_rounded,
+                    route: '/',
+                    isSelected: currentPath == '/',
+                  ),
+                  _buildNavItem(
+                    context,
+                    title: 'User Management',
+                    icon: Icons.people_alt_rounded,
+                    route: '/users',
+                    isSelected: currentPath == '/users',
+                  ),
+                  _buildNavItem(
+                    context,
+                    title: 'Recharges & Orders',
+                    icon: Icons.receipt_long_rounded,
+                    route: '/recharges',
+                    isSelected: currentPath == '/recharges',
+                  ),
+                  _buildNavItem(
+                    context,
+                    title: 'Withdrawal Requests',
+                    icon: Icons.account_balance_wallet_rounded,
+                    route: '/withdrawals',
+                    isSelected: currentPath == '/withdrawals',
+                  ),
+                  _buildNavItem(
+                    context,
+                    title: 'Reports Queue',
+                    icon: Icons.report_problem_rounded,
+                    route: '/reports',
+                    isSelected: currentPath == '/reports',
+                  ),
+                  _buildNavItem(
+                    context,
+                    title: 'Push Broadcasts',
+                    icon: Icons.campaign_rounded,
+                    route: '/broadcasts',
+                    isSelected: currentPath == '/broadcasts',
+                  ),
+                  _buildNavItem(
+                    context,
+                    title: 'Advertisements',
+                    icon: Icons.view_carousel_rounded,
+                    route: '/advertisements',
+                    isSelected: currentPath == '/advertisements',
+                  ),
+                  _buildNavItem(
+                    context,
+                    title: 'Buddy Banners',
+                    icon: Icons.celebration_rounded,
+                    route: '/buddy-banners',
+                    isSelected: currentPath == '/buddy-banners',
+                  ),
+                  _buildNavItem(
+                    context,
+                    title: 'App Version Gate',
+                    icon: Icons.system_update_rounded,
+                    route: '/app-config',
+                    isSelected: currentPath == '/app-config',
+                  ),
+                  _buildNavItem(
+                    context,
+                    title: 'Promo Codes',
+                    icon: Icons.local_offer_rounded,
+                    route: '/promo-codes',
+                    isSelected: currentPath == '/promo-codes',
+                  ),
+                ],
+              ),
+            ),
           ),
-          _buildNavItem(
-            context,
-            title: 'User Management',
-            icon: Icons.people_alt_rounded,
-            route: '/users',
-            isSelected: currentPath == '/users',
-          ),
-          _buildNavItem(
-            context,
-            title: 'Withdrawal Requests',
-            icon: Icons.account_balance_wallet_rounded,
-            route: '/withdrawals',
-            isSelected: currentPath == '/withdrawals',
-          ),
-          _buildNavItem(
-            context,
-            title: 'Reports Queue',
-            icon: Icons.report_problem_rounded,
-            route: '/reports',
-            isSelected: currentPath == '/reports',
-          ),
-          _buildNavItem(
-            context,
-            title: 'Push Broadcasts',
-            icon: Icons.campaign_rounded,
-            route: '/broadcasts',
-            isSelected: currentPath == '/broadcasts',
-          ),
-          // _buildNavItem(
-          //   context,
-          //   title: 'Device Blacklist',
-          //   icon: Icons.phonelink_erase_rounded,
-          //   route: '/devices',
-          //   isSelected: currentPath == '/devices',
-          // ),
-          _buildNavItem(
-            context,
-            title: 'Advertisements',
-            icon: Icons.view_carousel_rounded,
-            route: '/advertisements',
-            isSelected: currentPath == '/advertisements',
-          ),
-          _buildNavItem(
-            context,
-            title: 'Buddy Banners',
-            icon: Icons.celebration_rounded,
-            route: '/buddy-banners',
-            isSelected: currentPath == '/buddy-banners',
-          ),
-          _buildNavItem(
-            context,
-            title: 'App Version Gate',
-            icon: Icons.system_update_rounded,
-            route: '/app-config',
-            isSelected: currentPath == '/app-config',
-          ),
-          _buildNavItem(
-            context,
-            title: 'Promo Codes',
-            icon: Icons.local_offer_rounded,
-            route: '/promo-codes',
-            isSelected: currentPath == '/promo-codes',
-          ),
-          
-
-          const Spacer(),
 
           // Version / Environment Tag
           Padding(

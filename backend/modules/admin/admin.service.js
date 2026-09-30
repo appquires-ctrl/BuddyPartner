@@ -652,6 +652,9 @@ class AdminService {
           db.query(`
             SELECT 
               (SELECT COALESCE(SUM(amount_paid), 0)::numeric FROM public.subscriptions WHERE started_at >= CURRENT_DATE) AS sub_revenue_today,
+              (SELECT COALESCE(SUM(amount_paid), 0)::numeric FROM public.google_play_purchases WHERE purchase_type = 'inapp' AND created_at >= CURRENT_DATE) AS coin_revenue_today,
+              ((SELECT COALESCE(SUM(amount_paid), 0)::numeric FROM public.subscriptions WHERE started_at >= CURRENT_DATE) +
+               (SELECT COALESCE(SUM(amount_paid), 0)::numeric FROM public.google_play_purchases WHERE purchase_type = 'inapp' AND created_at >= CURRENT_DATE))::numeric AS total_revenue_today,
               (SELECT COALESCE(SUM(spendable_delta), 0)::bigint FROM public.wallet_transactions WHERE reason IN ('iap_purchase', 'razorpay_purchase', 'recharge') AND created_at >= CURRENT_DATE) AS coins_purchased_today,
               (SELECT COUNT(*)::int FROM public.subscriptions WHERE started_at >= CURRENT_DATE) AS subs_sold_today
           `),
@@ -671,7 +674,9 @@ class AdminService {
         return {
           circulatingSpendable: parseInt(w.circulating_spendable || 0, 10),
           circulatingEarned: parseInt(w.circulating_earned || 0, 10),
+          totalRevenueToday: parseFloat(r.total_revenue_today || 0),
           subRevenueToday: parseFloat(r.sub_revenue_today || 0),
+          coinRevenueToday: parseFloat(r.coin_revenue_today || 0),
           coinsPurchasedToday: parseInt(r.coins_purchased_today || 0, 10),
           subsSoldToday: parseInt(r.subs_sold_today || 0, 10),
           pendingWithdrawalsCount: parseInt(wd.pending_withdrawals_count || 0, 10),
@@ -687,7 +692,9 @@ class AdminService {
         activeCalls: activeCalls || 0,
         circulatingSpendable: dbMetrics.circulatingSpendable,
         circulatingEarned: dbMetrics.circulatingEarned,
+        totalRevenueToday: dbMetrics.totalRevenueToday,
         subRevenueToday: dbMetrics.subRevenueToday,
+        coinRevenueToday: dbMetrics.coinRevenueToday,
         coinsPurchasedToday: dbMetrics.coinsPurchasedToday,
         subsSoldToday: dbMetrics.subsSoldToday,
         pendingWithdrawalsCount: dbMetrics.pendingWithdrawalsCount,
@@ -971,6 +978,218 @@ class AdminService {
       }
     } catch (err) {
       console.warn('⚠️ [DeviceBans] Error caching banned devices:', err.message);
+    }
+  }
+
+  /**
+   * Fetch paginated list of coin & subscription recharges/orders with filtering.
+   * @param {Object} options
+   * @param {string} options.type - 'all' | 'coins' | 'subscriptions' | 'admin_grants'
+   * @param {string} options.search - keyword matching user name, phone, order ID, product ID
+   * @param {number} options.page - page number (1-indexed)
+   * @param {number} options.limit - page limit
+   */
+  async getRecharges({ type = 'all', search = '', page = 1, limit = 20 }) {
+    try {
+      const pageNum = Math.max(1, parseInt(page, 10) || 1);
+      const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 20));
+      const offset = (pageNum - 1) * limitNum;
+
+      let filterConditions = [];
+      let params = [];
+
+      if (type === 'coins') {
+        filterConditions.push("recharge_type = 'coin_pack'");
+      } else if (type === 'subscriptions') {
+        filterConditions.push("recharge_type = 'subscription'");
+      } else if (type === 'admin_grants') {
+        filterConditions.push("recharge_type = 'admin_grant'");
+      }
+
+      if (search && search.trim()) {
+        params.push(`%${search.trim().toLowerCase()}%`);
+        filterConditions.push(`(
+          LOWER(user_name) LIKE $${params.length} OR 
+          phone LIKE $${params.length} OR 
+          LOWER(order_id) LIKE $${params.length} OR 
+          LOWER(product_id) LIKE $${params.length}
+        )`);
+      }
+
+      const whereClause = filterConditions.length > 0 ? `WHERE ${filterConditions.join(' AND ')}` : '';
+
+      const countSql = `
+        WITH unified_recharges AS (
+          SELECT 
+            gp.id::text AS id,
+            gp.user_id,
+            COALESCE(u.full_name, 'User') AS user_name,
+            COALESCE(u.phone_number, '') AS phone,
+            u.gender,
+            u.avatar_seed,
+            u.avatar_style,
+            CASE 
+              WHEN gp.purchase_type = 'inapp' THEN 'coin_pack'
+              ELSE 'subscription'
+            END AS recharge_type,
+            gp.product_id,
+            gp.amount_paid::numeric AS amount_paid,
+            COALESCE(gp.coins_credited, 0)::int AS coins_credited,
+            COALESCE(gp.order_id, 'GPA-DIRECT') AS order_id,
+            COALESCE(gp.status, 'COMPLETED') AS status,
+            'google_play' AS gateway,
+            gp.created_at
+          FROM public.google_play_purchases gp
+          LEFT JOIN public.users u ON u.id = gp.user_id
+
+          UNION ALL
+
+          SELECT 
+            s.id::text AS id,
+            s.user_id,
+            COALESCE(u.full_name, 'User') AS user_name,
+            COALESCE(u.phone_number, '') AS phone,
+            u.gender,
+            u.avatar_seed,
+            u.avatar_style,
+            'admin_grant' AS recharge_type,
+            ('pass_' || s.plan_duration_days || '_days') AS product_id,
+            0::numeric AS amount_paid,
+            0::int AS coins_credited,
+            s.payment_reference AS order_id,
+            CASE WHEN s.expires_at > NOW() THEN 'ACTIVE' ELSE 'EXPIRED' END AS status,
+            'admin_grant' AS gateway,
+            s.started_at AS created_at
+          FROM public.subscriptions s
+          LEFT JOIN public.users u ON u.id = s.user_id
+          WHERE s.payment_reference = 'ADMIN_GRANT'
+        )
+        SELECT COUNT(*)::int AS total FROM unified_recharges ${whereClause};
+      `;
+
+      const dataSql = `
+        WITH unified_recharges AS (
+          SELECT 
+            gp.id::text AS id,
+            gp.user_id,
+            COALESCE(u.full_name, 'User') AS user_name,
+            COALESCE(u.phone_number, '') AS phone,
+            u.gender,
+            u.avatar_seed,
+            u.avatar_style,
+            CASE 
+              WHEN gp.purchase_type = 'inapp' THEN 'coin_pack'
+              ELSE 'subscription'
+            END AS recharge_type,
+            gp.product_id,
+            gp.amount_paid::numeric AS amount_paid,
+            COALESCE(gp.coins_credited, 0)::int AS coins_credited,
+            COALESCE(gp.order_id, 'GPA-DIRECT') AS order_id,
+            COALESCE(gp.status, 'COMPLETED') AS status,
+            'google_play' AS gateway,
+            gp.created_at
+          FROM public.google_play_purchases gp
+          LEFT JOIN public.users u ON u.id = gp.user_id
+
+          UNION ALL
+
+          SELECT 
+            s.id::text AS id,
+            s.user_id,
+            COALESCE(u.full_name, 'User') AS user_name,
+            COALESCE(u.phone_number, '') AS phone,
+            u.gender,
+            u.avatar_seed,
+            u.avatar_style,
+            'admin_grant' AS recharge_type,
+            ('pass_' || s.plan_duration_days || '_days') AS product_id,
+            0::numeric AS amount_paid,
+            0::int AS coins_credited,
+            s.payment_reference AS order_id,
+            CASE WHEN s.expires_at > NOW() THEN 'ACTIVE' ELSE 'EXPIRED' END AS status,
+            'admin_grant' AS gateway,
+            s.started_at AS created_at
+          FROM public.subscriptions s
+          LEFT JOIN public.users u ON u.id = s.user_id
+          WHERE s.payment_reference = 'ADMIN_GRANT'
+        )
+        SELECT * FROM unified_recharges
+        ${whereClause}
+        ORDER BY created_at DESC
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2};
+      `;
+
+      const statsSql = `
+        SELECT 
+          COALESCE(SUM(amount_paid), 0)::numeric AS total_cash_revenue,
+          COALESCE(SUM(amount_paid) FILTER (WHERE created_at >= CURRENT_DATE), 0)::numeric AS today_cash_revenue,
+          COALESCE(SUM(coins_credited) FILTER (WHERE purchase_type = 'inapp'), 0)::int AS total_coins_sold,
+          COALESCE(SUM(amount_paid) FILTER (WHERE purchase_type = 'inapp'), 0)::numeric AS total_coin_cash,
+          COUNT(*) FILTER (WHERE purchase_type = 'inapp')::int AS total_coin_orders,
+          COUNT(*) FILTER (WHERE purchase_type = 'subs')::int AS total_paid_subs,
+          COALESCE(SUM(amount_paid) FILTER (WHERE purchase_type = 'subs'), 0)::numeric AS total_sub_cash,
+          (SELECT COUNT(*)::int FROM public.subscriptions WHERE payment_reference = 'ADMIN_GRANT') AS total_admin_grants
+        FROM public.google_play_purchases;
+      `;
+
+      const [countResult, dataResult, statsResult] = await Promise.all([
+        db.query(countSql, params),
+        db.query(dataSql, [...params, limitNum, offset]),
+        db.query(statsSql),
+      ]);
+
+      const total = countResult.rows[0]?.total || 0;
+      const stats = statsResult.rows[0] || {};
+
+      const items = dataResult.rows.map((row) => {
+        let displayName = row.product_id;
+        let benefitLabel = '';
+        if (row.recharge_type === 'coin_pack') {
+          if (row.product_id === 'plan_49') { displayName = '49 Coins Pack'; benefitLabel = '+49 Coins'; }
+          else if (row.product_id === 'plan_99') { displayName = '99 Coins Pack'; benefitLabel = '+99 Coins'; }
+          else if (row.product_id === 'plan_999') { displayName = '1,099 Coins Pack'; benefitLabel = '+1,099 Coins'; }
+          else if (row.product_id === 'plan_100') { displayName = '110 Coins Pack'; benefitLabel = '+110 Coins'; }
+          else { displayName = `${row.coins_credited || ''} Coins (${row.product_id})`; benefitLabel = `+${row.coins_credited} Coins`; }
+        } else if (row.recharge_type === 'subscription') {
+          if (row.product_id === 'pass_1_day') { displayName = '1-Day VIP Pass'; benefitLabel = '1 Day Unlimited VIP'; }
+          else if (row.product_id === 'pass_7_days') { displayName = '7-Days VIP Pass'; benefitLabel = '7 Days Unlimited VIP'; }
+          else if (row.product_id === 'pass_1_month') { displayName = '1-Month VIP Pass'; benefitLabel = '30 Days Unlimited VIP'; }
+          else if (row.product_id === 'pass_3_months') { displayName = '3-Months VIP Pass'; benefitLabel = '90 Days Unlimited VIP'; }
+          else if (row.product_id === 'pass_1_year') { displayName = '1-Year VIP Pass'; benefitLabel = '365 Days Unlimited VIP'; }
+          else { displayName = `VIP Pass (${row.product_id})`; benefitLabel = 'Unlimited VIP'; }
+        } else if (row.recharge_type === 'admin_grant') {
+          displayName = '1-Year VIP Membership (Admin Gift)';
+          benefitLabel = '365 Days Granted';
+        }
+
+        return {
+          ...row,
+          amount_paid: parseFloat(row.amount_paid || 0),
+          display_name: displayName,
+          benefit_label: benefitLabel,
+        };
+      });
+
+      return {
+        recharges: items,
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum) || 1,
+        stats: {
+          totalCashRevenue: parseFloat(stats.total_cash_revenue || 0),
+          todayCashRevenue: parseFloat(stats.today_cash_revenue || 0),
+          totalCoinsSold: parseInt(stats.total_coins_sold || 0, 10),
+          totalCoinCash: parseFloat(stats.total_coin_cash || 0),
+          totalCoinOrders: parseInt(stats.total_coin_orders || 0, 10),
+          totalPaidSubs: parseInt(stats.total_paid_subs || 0, 10),
+          totalSubCash: parseFloat(stats.total_sub_cash || 0),
+          totalAdminGrants: parseInt(stats.total_admin_grants || 0, 10),
+        },
+      };
+    } catch (err) {
+      console.error('❌ Error fetching recharges for admin:', err.message);
+      throw err;
     }
   }
 }

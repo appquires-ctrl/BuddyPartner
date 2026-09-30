@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../theme/admin_colors.dart';
 import '../../providers/admin_providers.dart';
@@ -83,7 +84,11 @@ class DashboardScreen extends ConsumerWidget {
               final liveCcu = telemetry?['ccu'] ?? 0;
               final activeCalls = telemetry?['activeCalls'] ?? 0;
               final subRevToday = telemetry?['subRevenueToday'] ?? 0;
+              final coinRevToday = telemetry?['coinRevenueToday'] ?? 0;
+              final totalRevToday = telemetry?['totalRevenueToday'] ?? (subRevToday + coinRevToday);
               final subsSoldToday = telemetry?['subsSoldToday'] ?? 0;
+              final coinsSoldToday = telemetry?['coinsSoldToday'] ?? 0;
+              final totalOrdersToday = subsSoldToday + coinsSoldToday;
               final system = telemetry?['system'] as Map<String, dynamic>?;
               final memRss = system?['memoryRssMb'] ?? 0;
               final dbPoolWaiting = system?['dbPoolWaiting'] ?? 0;
@@ -160,27 +165,35 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                   ),
 
-                  // Today's Subscriptions Revenue
+                  // Today's Total Cash Inflow (Subscriptions + Coins)
                   _buildLiveCard(
-                    title: "Today's Sub Revenue",
-                    value: currencyFormatter.format(subRevToday),
-                    subtitle: '$subsSoldToday memberships activated today',
-                    icon: Icons.workspace_premium_rounded,
+                    title: "Today's Cash Inflow",
+                    value: currencyFormatter.format(totalRevToday),
+                    subtitle: '₹$subRevToday passes + ₹$coinRevToday coins ($totalOrdersToday orders)',
+                    icon: Icons.monetization_on_rounded,
                     accentColor: const Color(0xFFF59E0B),
+                    onTap: () => context.go('/recharges'),
                     badge: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Text(
-                        'CASH REVENUE',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFFF59E0B),
-                          letterSpacing: 0.5,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Text(
+                            'ORDERS HUB',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFFF59E0B),
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          SizedBox(width: 4),
+                          Icon(Icons.arrow_forward_ios_rounded, size: 8, color: Color(0xFFF59E0B)),
+                        ],
                       ),
                     ),
                   ),
@@ -441,8 +454,9 @@ class DashboardScreen extends ConsumerWidget {
     required IconData icon,
     required Color accentColor,
     required Widget badge,
+    VoidCallback? onTap,
   }) {
-    return Container(
+    final cardContent = Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AdminColors.surface,
@@ -506,6 +520,20 @@ class DashboardScreen extends ConsumerWidget {
         ],
       ),
     );
+
+    if (onTap != null) {
+      return Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: cardContent,
+        ),
+      );
+    }
+
+    return cardContent;
   }
 
   Widget _buildLedgerItem({
