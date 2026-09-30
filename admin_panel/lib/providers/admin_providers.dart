@@ -649,9 +649,10 @@ class RechargesNotifier extends StateNotifier<RechargesState> {
         'type': state.filter,
         if (state.search.isNotEmpty) 'search': state.search,
       };
-      final uri = Uri(path: '/recharges', queryParameters: qParams).toString();
-      final res = await ApiService.get(uri);
-      final data = res['data'] ?? {};
+      final res = await ApiService.get('/recharges', queryParams: qParams);
+      final Map<String, dynamic> data = (res is Map<String, dynamic> && res.containsKey('data') && res['data'] is Map<String, dynamic>)
+          ? (res['data'] as Map<String, dynamic>)
+          : (res as Map<String, dynamic>);
       state = state.copyWith(
         isLoading: false,
         recharges: (data['recharges'] as List<dynamic>?) ?? [],

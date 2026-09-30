@@ -349,7 +349,7 @@ router.get('/recharges', adminAuth, async (req, res) => {
   try {
     const { type = 'all', search = '', page = 1, limit = 20 } = req.query;
     const data = await adminService.getRecharges({ type, search, page, limit });
-    return res.json({ success: true, ...data });
+    return res.json({ success: true, ...data, data });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }

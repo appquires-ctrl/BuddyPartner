@@ -202,17 +202,36 @@ class _RechargesPageState extends ConsumerState<RechargesPage> {
                     padding: EdgeInsets.all(60.0),
                     child: Center(child: CircularProgressIndicator(color: AdminColors.primary)),
                   )
-                : state.recharges.isEmpty
-                    ? const Padding(
-                        padding: EdgeInsets.all(60.0),
+                : state.error != null
+                    ? Padding(
+                        padding: const EdgeInsets.all(40.0),
                         child: Center(
-                          child: Text(
-                            'No recharge or subscription orders found matching your filters.',
-                            style: TextStyle(color: AdminColors.textSecondary),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.error_outline_rounded, size: 36, color: AdminColors.danger),
+                              const SizedBox(height: 8),
+                              Text(state.error!, style: const TextStyle(color: AdminColors.danger, fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 12),
+                              ElevatedButton(
+                                onPressed: () => ref.read(rechargesProvider.notifier).fetchRecharges(),
+                                child: const Text('Retry'),
+                              ),
+                            ],
                           ),
                         ),
                       )
-                    : Column(
+                    : state.recharges.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.all(60.0),
+                            child: Center(
+                              child: Text(
+                                'No recharge or subscription orders found matching your filters.',
+                                style: TextStyle(color: AdminColors.textSecondary),
+                              ),
+                            ),
+                          )
+                        : Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           ClipRRect(
