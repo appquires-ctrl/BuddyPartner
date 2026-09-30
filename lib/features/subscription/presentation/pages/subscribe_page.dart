@@ -131,6 +131,7 @@ class _SubscribePageState extends ConsumerState<SubscribePage> {
     final isDomestic = AppCurrency.isDomestic(
       country: authUser?.country,
       phoneNumber: authUser?.phoneNumber,
+      countryCode: authUser?.countryCode,
     );
 
     final allPlans = SubscriptionPlan.defaultPlans;

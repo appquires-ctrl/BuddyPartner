@@ -13,6 +13,7 @@ import 'package:buddypartner/features/buddy/data/buddy_group_service.dart';
 import 'package:buddypartner/features/buddy/presentation/widgets/create_buddy_request_sheet.dart';
 import 'package:buddypartner/core/services/location_service.dart';
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
+import 'package:buddypartner/core/constants/country_codes.dart';
 import 'package:buddypartner/features/home/presentation/widgets/vip_live_activity_ticker.dart';
 import 'package:buddypartner/features/home/presentation/widgets/instant_connect_sheet.dart';
 
@@ -59,7 +60,7 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
 
   void _openCityPicker() {
     final authUser = ref.read(authStateProvider).value;
-    final countryIso = authUser?.country ?? 'IN';
+    final countryIso = CountryCodes.resolveIso(authUser?.countryCode ?? authUser?.country);
     CityPickerSheet.show(
       context,
       currentCity: _selectedCity ?? '',
@@ -244,9 +245,15 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
 
     final currentUserId = ref.watch(authStateProvider).value?.id;
 
+    final myOpenRequests = buddyState.myRequests.where((r) => r.status == BuddyRequestStatus.open).toList();
+    final allOpen = [
+      ...myOpenRequests,
+      ...buddyState.openRequests.where((r) => !myOpenRequests.any((m) => m.id == r.id)),
+    ];
+
     final filteredRequests = _selectedFilterType == null
-        ? buddyState.openRequests.where((r) => !r.buddyType.isGroup).toList()
-        : buddyState.openRequests.where((r) => r.buddyType == _selectedFilterType && !r.buddyType.isGroup).toList();
+        ? allOpen.where((r) => !r.buddyType.isGroup).toList()
+        : allOpen.where((r) => r.buddyType == _selectedFilterType && !r.buddyType.isGroup).toList();
 
     final showGroups = (_selectedFilterType == null || _selectedFilterType!.isGroup);
     final displayedGroups = showGroups
@@ -695,37 +702,63 @@ class _OpenBuddyRequestsSheetState extends ConsumerState<OpenBuddyRequestsSheet>
                                   const SizedBox(width: 8),
 
                                   // Accept Button
-                                  SizedBox(
-                                    height: 40,
-                                    child: ElevatedButton(
-                                      onPressed: isAccepting ? null : () => _handleAccept(req),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: type.accentColor,
-                                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        elevation: 1,
-                                      ),
-                                      child: isAccepting
-                                          ? const SizedBox(
-                                              width: 16,
-                                              height: 16,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                color: Colors.white,
+                                  ((currentUserId != null && req.initiatorId == currentUserId) || req.isInitiator)
+                                      ? Container(
+                                          height: 38,
+                                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                                          decoration: BoxDecoration(
+                                            color: colors.primary.withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(color: colors.primary.withValues(alpha: 0.3)),
+                                          ),
+                                          alignment: Alignment.center,
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.radar_rounded, size: 14, color: colors.primary),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'Your Request',
+                                                style: TextStyle(
+                                                  color: colors.primary,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                ),
                                               ),
-                                            )
-                                          : const Text(
-                                              'Accept',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 13,
+                                            ],
+                                          ),
+                                        )
+                                      : SizedBox(
+                                          height: 40,
+                                          child: ElevatedButton(
+                                            onPressed: isAccepting ? null : () => _handleAccept(req),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: type.accentColor,
+                                              padding: const EdgeInsets.symmetric(horizontal: 14),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(12),
                                               ),
+                                              elevation: 1,
                                             ),
-                                    ),
-                                  ),
+                                            child: isAccepting
+                                                ? const SizedBox(
+                                                    width: 16,
+                                                    height: 16,
+                                                    child: CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color: Colors.white,
+                                                    ),
+                                                  )
+                                                : const Text(
+                                                    'Accept',
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 13,
+                                                    ),
+                                                  ),
+                                          ),
+                                        ),
                                 ],
                               ),
                             );

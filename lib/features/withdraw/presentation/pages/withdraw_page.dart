@@ -120,6 +120,7 @@ class _WithdrawPageState extends ConsumerState<WithdrawPage>
     final isDomestic = AppCurrency.isDomestic(
       country: authUser?.country,
       phoneNumber: authUser?.phoneNumber,
+      countryCode: authUser?.countryCode,
     );
 
     return Scaffold(

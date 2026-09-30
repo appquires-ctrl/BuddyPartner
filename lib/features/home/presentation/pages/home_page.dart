@@ -148,9 +148,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     });
     ref.invalidate(matchedUsersProvider);
     ref.invalidate(activeAdvertisementsProvider);
+    final userCity = ref.read(authStateProvider).value?.city;
     await Future.wait<dynamic>([
       ref.read(matchedUsersProvider.future).catchError((_) => <MatchedUser>[]),
       ref.read(activeAdvertisementsProvider.future).catchError((_) => <Advertisement>[]),
+      ref.read(buddyControllerProvider.notifier).fetchMyRequests().catchError((_) {}),
+      ref.read(buddyControllerProvider.notifier).fetchOpenRequests(city: userCity).catchError((_) {}),
     ]);
     if (mounted) {
       setState(() {

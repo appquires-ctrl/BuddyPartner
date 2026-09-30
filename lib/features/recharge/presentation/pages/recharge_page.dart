@@ -209,6 +209,7 @@ class _RechargePageState extends ConsumerState<RechargePage>
     final isDomestic = AppCurrency.isDomestic(
       country: authUser?.country,
       phoneNumber: authUser?.phoneNumber,
+      countryCode: authUser?.countryCode,
     );
 
     return Scaffold(

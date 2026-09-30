@@ -76,6 +76,7 @@ async function authMiddleware(req, res, next) {
       db.query(
         `UPDATE public.users 
          SET last_active_at = NOW(), 
+             uninstalled_at = NULL,
              device_id = COALESCE($1, device_id)
          WHERE id = $2`,
         [deviceId, decoded.id]

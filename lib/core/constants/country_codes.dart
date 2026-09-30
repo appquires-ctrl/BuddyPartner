@@ -95,6 +95,37 @@ class CountryCodes {
     );
   }
 
+  /// Safely resolves a 2-letter ISO code from an ISO code, full country name, or phone dialing code.
+  static String resolveIso(String? input) {
+    if (input == null || input.trim().isEmpty) {
+      return defaultCountry.iso;
+    }
+    final clean = input.trim();
+    final upper = clean.toUpperCase();
+    final lower = clean.toLowerCase();
+    final withPlus = clean.startsWith('+') ? clean : '+$clean';
+
+    // 1. Direct ISO match
+    for (final c in allCountries) {
+      if (c.iso.toUpperCase() == upper) return c.iso;
+    }
+    // 2. Name match (e.g. 'United States', 'India', 'Canada')
+    for (final c in allCountries) {
+      if (c.name.toLowerCase() == lower) return c.iso;
+    }
+    // 3. Dial code match (e.g. '+1', '1', '+91', '91')
+    for (final c in allCountries) {
+      if (c.code == withPlus || c.code.replaceAll('+', '') == clean) return c.iso;
+    }
+    return defaultCountry.iso;
+  }
+
+  /// Finds a CountryCode by ISO code, country name, or dialing code.
+  static CountryCode findCountry(String? input) {
+    final iso = resolveIso(input);
+    return findByIso(iso);
+  }
+
   /// Automatically detect user's default country from device locale
   static CountryCode detectDefaultCountry() {
     try {

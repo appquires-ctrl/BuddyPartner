@@ -227,6 +227,10 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                               value: 'true',
                               child: Text('Banned Only'),
                             ),
+                            DropdownMenuItem(
+                              value: 'uninstalled',
+                              child: Text('Uninstalled Only'),
+                            ),
                           ],
                           onChanged: (val) {
                             if (val != null) usersNotifier.setIsBanned(val);
@@ -904,39 +908,73 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                                         ),
 
                                         // STATUS
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 12,
-                                          ),
-                                          child: Align(
-                                            alignment: Alignment.centerLeft,
-                                            child: Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 10,
-                                                    vertical: 4,
+                                        Builder(builder: (context) {
+                                          final uninstalledAtStr = user['uninstalled_at'] as String?;
+                                          final isUninstalled = uninstalledAtStr != null;
+                                          DateTime? uninstalledDate;
+                                          if (isUninstalled) {
+                                            uninstalledDate = DateTime.tryParse(uninstalledAtStr);
+                                          }
+
+                                          return Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 12,
+                                            ),
+                                            child: Align(
+                                              alignment: Alignment.centerLeft,
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 10,
+                                                          vertical: 4,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: isBanned
+                                                          ? AdminColors.dangerBg
+                                                          : (isUninstalled
+                                                              ? const Color(0xFFF1F5F9)
+                                                              : AdminColors.successBg),
+                                                      borderRadius:
+                                                          BorderRadius.circular(12),
+                                                    ),
+                                                    child: Text(
+                                                      isBanned
+                                                          ? 'BANNED'
+                                                          : (isUninstalled
+                                                              ? 'UNINSTALLED'
+                                                              : 'ACTIVE'),
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: isBanned
+                                                            ? AdminColors.danger
+                                                            : (isUninstalled
+                                                                ? const Color(0xFF64748B)
+                                                                : AdminColors.success),
+                                                      ),
+                                                    ),
                                                   ),
-                                              decoration: BoxDecoration(
-                                                color: isBanned
-                                                    ? AdminColors.dangerBg
-                                                    : AdminColors.successBg,
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                              child: Text(
-                                                isBanned ? 'BANNED' : 'ACTIVE',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: isBanned
-                                                      ? AdminColors.danger
-                                                      : AdminColors.success,
-                                                ),
+                                                  if (isUninstalled && uninstalledDate != null) ...[
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      'Det: ${DateFormat('dd MMM').format(uninstalledDate)}',
+                                                      style: const TextStyle(
+                                                        fontSize: 10,
+                                                        color: AdminColors.textMuted,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
                                               ),
                                             ),
-                                          ),
-                                        ),
+                                          );
+                                        }),
 
                                         // ACTIONS
                                         Padding(

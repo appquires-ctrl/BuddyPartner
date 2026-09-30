@@ -1027,7 +1027,7 @@ class _AddEditBannerDialogState extends State<_AddEditBannerDialog> {
                                           ),
                                           SizedBox(height: 2),
                                           Text(
-                                            'Male Accepter receives 40%, Female Accepter receives 20% of broadcast coins.',
+                                            'Female Accepter receives 40%, Male Accepter receives 20% of broadcast coins.',
                                             style: TextStyle(fontSize: 12, color: AdminColors.textSecondary),
                                           ),
                                         ],

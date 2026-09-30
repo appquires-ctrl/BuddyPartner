@@ -38,28 +38,41 @@ class AppCurrency {
         ? phoneNumber
         : activeUserPhone;
 
-    if (effectiveCountry != null && effectiveCountry.trim().isNotEmpty) {
-      final c = effectiveCountry.trim().toLowerCase();
-      if (c == 'india' || c == 'in' || c == '+91' || c == '91') {
-        return true;
-      }
-      return false;
-    }
-
+    // 1. Phone dialing code has TOP PRIORITY for account billing/pricing
     if (effectiveCountryCode != null && effectiveCountryCode.trim().isNotEmpty) {
       final code = effectiveCountryCode.trim().replaceAll('+', '');
       if (code == '91' || code.toLowerCase() == 'in') {
         return true;
       }
+      return false; // e.g. 1 (US), 44 (UK), 971 (UAE), etc.
+    }
+
+    // 2. Phone number prefix (e.g. +91 vs +1)
+    if (effectivePhone != null && effectivePhone.trim().isNotEmpty) {
+      final p = effectivePhone.trim().replaceAll(' ', '').replaceAll('-', '');
+      if (p.startsWith('+91') || (p.startsWith('91') && p.length > 10)) {
+        return true;
+      }
+      if (p.startsWith('+')) {
+        // Any international dialing prefix (+1, +44, +971, +61, etc.)
+        return false;
+      }
+      if (p.length == 10 && RegExp(r'^[6-9]\d{9}$').hasMatch(p)) {
+        return true; // Standard 10-digit Indian mobile
+      }
+      if (p.length == 11 && p.startsWith('1')) {
+        return false; // US 11-digit e.g. 12025550123
+      }
+      if (p.length == 10 && RegExp(r'^[2-5]\d{9}$').hasMatch(p)) {
+        return false; // US/Canada area code format
+      }
       return false;
     }
 
-    if (effectivePhone != null && effectivePhone.trim().isNotEmpty) {
-      final p = effectivePhone.trim().replaceAll(' ', '').replaceAll('-', '');
-      if (p.startsWith('+91') || p.startsWith('91')) {
-        return true;
-      }
-      if (p.length == 10 && RegExp(r'^[6-9]\d{9}$').hasMatch(p)) {
+    // 3. Physical / Detected Location fallback (e.g. unauthenticated / guest users)
+    if (effectiveCountry != null && effectiveCountry.trim().isNotEmpty) {
+      final c = effectiveCountry.trim().toLowerCase();
+      if (c == 'india' || c == 'in' || c == '+91' || c == '91') {
         return true;
       }
       return false;

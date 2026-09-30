@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:buddypartner/core/utils/app_currency.dart';
 
 /// AppCoinIcon is the universal, standardized 3D-styled Gold Coin icon
 /// used consistently across the entire BuddyPartner application.
-/// Displays currency symbol inside: Rupee (₹) for domestic/India, Dollar ($) for international.
+/// Displays a heart icon (Icons.favorite_rounded) inside the coin.
 class AppCoinIcon extends StatelessWidget {
   final double size;
   final bool withGlow;
@@ -18,8 +17,7 @@ class AppCoinIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveIsDomestic = isDomestic ?? AppCurrency.isDomestic();
-    final innerIconSize = size * 0.58;
+    final innerIconSize = size * 0.52;
 
     return Container(
       width: size,
@@ -63,9 +61,7 @@ class AppCoinIcon extends StatelessWidget {
           ),
           child: Center(
             child: Icon(
-              effectiveIsDomestic
-                  ? Icons.currency_rupee_rounded
-                  : Icons.attach_money_rounded,
+              Icons.favorite_rounded,
               color: Colors.white,
               size: innerIconSize,
             ),

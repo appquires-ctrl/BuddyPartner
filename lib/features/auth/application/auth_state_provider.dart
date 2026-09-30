@@ -9,6 +9,7 @@ import 'package:buddypartner/core/utils/app_currency.dart';
 class CustomUser {
   final String id;
   final String phoneNumber;
+  final String? countryCode;
   final bool isProfileComplete;
   final String gender;
   final String? fullName;
@@ -29,6 +30,7 @@ class CustomUser {
   CustomUser({
     required this.id,
     required this.phoneNumber,
+    this.countryCode,
     required this.isProfileComplete,
     required this.gender,
     this.fullName,
@@ -51,6 +53,7 @@ class CustomUser {
     return {
       'id': id,
       'phoneNumber': phoneNumber,
+      'countryCode': countryCode,
       'isProfileComplete': isProfileComplete,
       'gender': gender,
       'fullName': fullName,
@@ -76,6 +79,7 @@ class CustomUser {
     final user = CustomUser(
       id: json['id'] as String? ?? '',
       phoneNumber: json['phoneNumber'] as String? ?? '',
+      countryCode: (json['countryCode'] ?? json['country_code']) as String?,
       isProfileComplete: (json['isProfileComplete'] as bool? ?? false) || hasName,
       gender: json['gender'] as String? ?? 'Male',
       fullName: rawFullName,
@@ -93,7 +97,11 @@ class CustomUser {
       longitude: (json['longitude'] != null) ? (json['longitude'] as num).toDouble() : null,
       hasPassword: json['hasPassword'] as bool? ?? false,
     );
-    AppCurrency.setActiveUser(country: user.country, phoneNumber: user.phoneNumber);
+    AppCurrency.setActiveUser(
+      country: user.country,
+      phoneNumber: user.phoneNumber,
+      countryCode: user.countryCode,
+    );
     return user;
   }
 
@@ -124,6 +132,7 @@ class CustomUser {
     final user = CustomUser(
       id: userMap['id'] as String? ?? '',
       phoneNumber: rawPhone,
+      countryCode: (userMap['countryCode'] ?? userMap['country_code']) as String?,
       isProfileComplete: effectiveIsComplete,
       gender: userMap['gender'] as String? ?? fallbackGender ?? 'Male',
       fullName: rawFullName.isNotEmpty ? rawFullName : null,
@@ -141,7 +150,11 @@ class CustomUser {
       longitude: (userMap['longitude'] != null) ? (userMap['longitude'] as num).toDouble() : null,
       hasPassword: userMap['hasPassword'] as bool? ?? false,
     );
-    AppCurrency.setActiveUser(country: user.country, phoneNumber: user.phoneNumber);
+    AppCurrency.setActiveUser(
+      country: user.country,
+      phoneNumber: user.phoneNumber,
+      countryCode: user.countryCode,
+    );
     return user;
   }
 
@@ -159,6 +172,7 @@ class CustomUser {
   CustomUser copyWith({
     String? id,
     String? phoneNumber,
+    String? countryCode,
     bool? isProfileComplete,
     String? gender,
     String? fullName,
@@ -179,6 +193,7 @@ class CustomUser {
     return CustomUser(
       id: id ?? this.id,
       phoneNumber: phoneNumber ?? this.phoneNumber,
+      countryCode: countryCode ?? this.countryCode,
       isProfileComplete: isProfileComplete ?? this.isProfileComplete,
       gender: gender ?? this.gender,
       fullName: fullName ?? this.fullName,

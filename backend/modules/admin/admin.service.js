@@ -130,9 +130,13 @@ class AdminService {
       }
 
       if (isBanned !== 'all') {
-        const bannedBool = isBanned === 'true';
-        params.push(bannedBool);
-        conditions.push(`COALESCE(u.is_banned, FALSE) = $${params.length}`);
+        if (isBanned === 'uninstalled') {
+          conditions.push('u.uninstalled_at IS NOT NULL');
+        } else if (isBanned === 'false' || isBanned === 'active') {
+          conditions.push('COALESCE(u.is_banned, FALSE) = FALSE AND u.uninstalled_at IS NULL');
+        } else if (isBanned === 'true' || isBanned === 'banned') {
+          conditions.push('COALESCE(u.is_banned, FALSE) = TRUE');
+        }
       }
 
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -170,6 +174,7 @@ class AdminService {
           u.state,
           u.country,
           u.last_active_at,
+          u.uninstalled_at,
           COALESCE(w.spendable_balance, 0)::int AS spendable_balance,
           COALESCE(w.earned_balance, 0)::int AS earned_balance,
           (COALESCE(w.spendable_balance, 0) + COALESCE(w.earned_balance, 0))::int AS coin_balance,
@@ -215,7 +220,7 @@ class AdminService {
   async getUserDetail(userId) {
     try {
       const userRes = await db.query(
-        `SELECT id, COALESCE(full_name, 'User') AS name, COALESCE(phone_number, '') AS phone, gender, COALESCE(is_banned, FALSE) AS is_banned, COALESCE(strike_count, 0) AS strike_count, is_telecaller, created_at, city, state, country, last_active_at FROM public.users WHERE id = $1`,
+        `SELECT id, COALESCE(full_name, 'User') AS name, COALESCE(phone_number, '') AS phone, gender, COALESCE(is_banned, FALSE) AS is_banned, COALESCE(strike_count, 0) AS strike_count, is_telecaller, created_at, city, state, country, last_active_at, uninstalled_at FROM public.users WHERE id = $1`,
         [userId]
       );
       if (userRes.rows.length === 0) return null;

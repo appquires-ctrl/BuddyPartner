@@ -178,6 +178,7 @@ class TransactionHistoryPage extends ConsumerWidget {
           final isDomestic = AppCurrency.isDomestic(
             country: authUser?.country,
             phoneNumber: authUser?.phoneNumber,
+            countryCode: authUser?.countryCode,
           );
 
           if (subscriptions.isEmpty) {

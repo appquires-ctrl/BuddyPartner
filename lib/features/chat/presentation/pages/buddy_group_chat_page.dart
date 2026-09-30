@@ -8,8 +8,10 @@ import 'package:buddypartner/core/widgets/feedback/app_loading_indicator.dart';
 import 'package:buddypartner/core/widgets/gradient_avatar.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/features/buddy/data/buddy_group_service.dart';
-import 'package:buddypartner/core/widgets/feedback/in_app_notification_banner.dart';
 import 'package:buddypartner/features/buddy/domain/buddy_models.dart';
+import 'package:buddypartner/core/widgets/feedback/in_app_notification_banner.dart';
+import 'package:buddypartner/core/utils/app_throttler.dart';
+import 'package:buddypartner/app/router/route_names.dart';
 
 class BuddyGroupChatPage extends ConsumerStatefulWidget {
   final String groupId;
@@ -166,7 +168,31 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
     }
   }
 
+  void _navigateToUserChat({
+    required String userId,
+    required String userName,
+    String? avatarSeed,
+    String? avatarStyle,
+    String? gender,
+  }) {
+    if (!mounted) return;
+    final currentUserId = ref.read(authStateProvider).value?.id;
+    if (userId.isEmpty || userId == currentUserId) return;
+    if (!AppThrottler.canProcess(actionId: 'open_chat_$userId')) return;
+
+    HapticFeedback.lightImpact();
+    context.push(RouteNames.chat, extra: {
+      'conversationId': 'user:$userId',
+      'userId': userId,
+      'userName': userName,
+      'avatarSeed': avatarSeed,
+      'avatarStyle': avatarStyle,
+      'gender': gender,
+    });
+  }
+
   void _showMembersSheet() {
+    final currentUserId = ref.read(authStateProvider).value?.id;
     final members = (_groupDetails?['members'] as List<dynamic>? ?? [])
         .map((m) => BuddyGroupMember.fromJson(Map<String, dynamic>.from(m as Map)))
         .toList();
@@ -236,8 +262,22 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
                         separatorBuilder: (context, index) => Divider(height: 1, color: colors.border.withValues(alpha: 0.3)),
                         itemBuilder: (context, index) {
                           final member = members[index];
+                          final isMe = (currentUserId != null && member.id == currentUserId);
                           return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            onTap: isMe
+                                ? null
+                                : () {
+                                    Navigator.of(ctx).pop();
+                                    _navigateToUserChat(
+                                      userId: member.id,
+                                      userName: member.fullName,
+                                      avatarSeed: member.avatarSeed,
+                                      avatarStyle: member.avatarStyle,
+                                      gender: member.gender,
+                                    );
+                                  },
                             leading: GradientAvatar(
                               initials: member.fullName.isNotEmpty ? member.fullName[0].toUpperCase() : '?',
                               avatarSeed: member.avatarSeed,
@@ -245,12 +285,30 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
                               gender: member.gender,
                               radius: 20,
                             ),
-                            title: Text(
-                              member.fullName,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: colors.textPrimary,
-                              ),
+                            title: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    member.fullName,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: colors.textPrimary,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (isMe) ...[
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '(You)',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: colors.textSecondary,
+                                      fontWeight: FontWeight.normal,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                             trailing: member.isHost
                                 ? Container(
@@ -521,12 +579,26 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   if (!isMe) ...[
-                                    GradientAvatar(
-                                      initials: senderName.isNotEmpty ? senderName[0].toUpperCase() : '?',
-                                      avatarSeed: avatarSeed,
-                                      avatarStyle: avatarStyle,
-                                      gender: gender,
-                                      radius: 14,
+                                    GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () {
+                                        if (senderId != null) {
+                                          _navigateToUserChat(
+                                            userId: senderId.toString(),
+                                            userName: senderName,
+                                            avatarSeed: avatarSeed,
+                                            avatarStyle: avatarStyle,
+                                            gender: gender,
+                                          );
+                                        }
+                                      },
+                                      child: GradientAvatar(
+                                        initials: senderName.isNotEmpty ? senderName[0].toUpperCase() : '?',
+                                        avatarSeed: avatarSeed,
+                                        avatarStyle: avatarStyle,
+                                        gender: gender,
+                                        radius: 14,
+                                      ),
                                     ),
                                     const SizedBox(width: 8),
                                   ],
@@ -553,12 +625,26 @@ class _BuddyGroupChatPageState extends ConsumerState<BuddyGroupChatPage> {
                                         crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                                         children: [
                                           if (!isMe) ...[
-                                            Text(
-                                              senderName,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 11,
-                                                color: Color(0xFF9333EA),
+                                            GestureDetector(
+                                              behavior: HitTestBehavior.opaque,
+                                              onTap: () {
+                                                if (senderId != null) {
+                                                  _navigateToUserChat(
+                                                    userId: senderId.toString(),
+                                                    userName: senderName,
+                                                    avatarSeed: avatarSeed,
+                                                    avatarStyle: avatarStyle,
+                                                    gender: gender,
+                                                  );
+                                                }
+                                              },
+                                              child: Text(
+                                                senderName,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 11,
+                                                  color: Color(0xFF9333EA),
+                                                ),
                                               ),
                                             ),
                                             const SizedBox(height: 3),

@@ -93,7 +93,7 @@ class _CreateBuddyRequestSheetState extends ConsumerState<CreateBuddyRequestShee
   void _openCityPicker() {
     // Determine user's registered country ISO for scoping the city search
     final authUser = ref.read(authStateProvider).value;
-    final countryIso = authUser?.country ?? 'IN';
+    final countryIso = CountryCodes.resolveIso(authUser?.countryCode ?? authUser?.country);
     CityPickerSheet.show(
       context,
       currentCity: _selectedCity,
@@ -654,10 +654,8 @@ class _CityPickerSheetState extends ConsumerState<CityPickerSheet> {
 
   void _resolveCountryLabel() {
     try {
-      final cc = CountryCodes.allCountries.firstWhere(
-        (c) => c.iso == _activeCountryIso,
-        orElse: () => CountryCodes.defaultCountry,
-      );
+      final cc = CountryCodes.findCountry(_activeCountryIso);
+      _activeCountryIso = cc.iso;
       _countryFlag = cc.flag;
       _countryName = cc.name;
     } catch (_) {

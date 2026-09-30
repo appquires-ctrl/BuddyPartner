@@ -35,7 +35,12 @@ class BuddyStickerCarousel extends ConsumerWidget {
     final colors = context.colors;
     final typography = context.typography;
     final buddyState = ref.watch(buddyControllerProvider);
-    final openCount = buddyState.openRequests.length;
+    final myOpenRequests = buddyState.myRequests.where((r) => r.status == BuddyRequestStatus.open).toList();
+    final allOpenRequests = [
+      ...myOpenRequests,
+      ...buddyState.openRequests.where((r) => !myOpenRequests.any((m) => m.id == r.id)),
+    ];
+    final openCount = allOpenRequests.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

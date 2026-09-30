@@ -422,7 +422,7 @@ router.post('/login', async (req, res) => {
       7 * 24 * 60 * 60
     );
 
-    db.query('UPDATE public.users SET last_active_at = NOW(), device_id = COALESCE($1, device_id) WHERE id = $2', [deviceId, user.id]).catch(() => {});
+    db.query('UPDATE public.users SET last_active_at = NOW(), uninstalled_at = NULL, device_id = COALESCE($1, device_id) WHERE id = $2', [deviceId, user.id]).catch(() => {});
 
     const isProfileComplete = Boolean(user.full_name && user.full_name.trim().length > 0);
     const sBal = parseFloat(user.spendable_balance) || 0;
@@ -1080,7 +1080,7 @@ router.post('/otp/verify', async (req, res) => {
       7 * 24 * 60 * 60
     );
 
-    db.query('UPDATE public.users SET last_active_at = NOW(), device_id = COALESCE($1, device_id) WHERE id = $2', [deviceId, user.id]).catch(() => {});
+    db.query('UPDATE public.users SET last_active_at = NOW(), uninstalled_at = NULL, device_id = COALESCE($1, device_id) WHERE id = $2', [deviceId, user.id]).catch(() => {});
 
     const isProfileComplete = !!(user.full_name && user.full_name.trim().length > 0);
 
@@ -1777,7 +1777,7 @@ router.post('/fcm-token', authMiddleware, async (req, res) => {
     }
 
     await db.query(
-      `UPDATE public.users SET fcm_token = $1 WHERE id = $2`,
+      `UPDATE public.users SET fcm_token = $1, uninstalled_at = NULL WHERE id = $2`,
       [fcmToken.trim(), req.user.id]
     );
 

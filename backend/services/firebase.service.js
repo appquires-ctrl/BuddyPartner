@@ -112,11 +112,17 @@ async function sendPushNotification({ token, title, body, tag, data = {}, collap
     console.log(`🔔 [FCM Push] Sent successfully to ${token.substring(0, 10)}... (tag: ${notifTag}, ID: ${response})`);
     return response;
   } catch (err) {
-    console.error(`❌ [FCM Push Error] Failed to send push to ${token.substring(0, 10)}...:`, err.message);
+    const errorCode = err.code || err.errorInfo?.code;
     if (
-      err.code === 'messaging/registration-token-not-registered' ||
-      err.code === 'messaging/invalid-registration-token'
+      errorCode === 'messaging/registration-token-not-registered' ||
+      errorCode === 'messaging/invalid-registration-token'
     ) {
+      const db = require('../db');
+      db.query(
+        'UPDATE public.users SET fcm_token = NULL, uninstalled_at = COALESCE(uninstalled_at, NOW()) WHERE fcm_token = $1',
+        [token]
+      ).catch(() => {});
+    } else if (errorCode === 'messaging/invalid-argument') {
       const db = require('../db');
       db.query('UPDATE public.users SET fcm_token = NULL WHERE fcm_token = $1', [token]).catch(() => {});
     }
@@ -174,7 +180,8 @@ async function sendMulticastPushNotification({ tokens = [], title, body, tag, da
     let totalSuccess = 0;
     let totalFailure = 0;
     const allResponses = [];
-    const tokensToPrune = [];
+    const uninstalledTokens = [];
+    const invalidTokens = [];
 
     const batchPromises = chunks.map(async (batchTokens, batchIndex) => {
       try {
@@ -217,13 +224,14 @@ async function sendMulticastPushNotification({ tokens = [], title, body, tag, da
         if (response.failureCount > 0 && response.responses) {
           response.responses.forEach((resp, idx) => {
             if (!resp.success && resp.error) {
-              const code = resp.error.code;
+              const code = resp.error.code || resp.error.errorInfo?.code;
               if (
                 code === 'messaging/registration-token-not-registered' ||
-                code === 'messaging/invalid-registration-token' ||
-                code === 'messaging/invalid-argument'
+                code === 'messaging/invalid-registration-token'
               ) {
-                tokensToPrune.push(batchTokens[idx]);
+                uninstalledTokens.push(batchTokens[idx]);
+              } else if (code === 'messaging/invalid-argument') {
+                invalidTokens.push(batchTokens[idx]);
               }
             }
           });
@@ -233,16 +241,27 @@ async function sendMulticastPushNotification({ tokens = [], title, body, tag, da
       }
     }
 
-    // Prune invalid or unregistered tokens from database
-    if (tokensToPrune.length > 0) {
-      const db = require('../db');
-      db.query('UPDATE public.users SET fcm_token = NULL WHERE fcm_token = ANY($1)', [tokensToPrune])
+    const db = require('../db');
+    // Mark genuinely uninstalled users & clear their invalid tokens
+    if (uninstalledTokens.length > 0) {
+      db.query(
+        'UPDATE public.users SET fcm_token = NULL, uninstalled_at = COALESCE(uninstalled_at, NOW()) WHERE fcm_token = ANY($1)',
+        [uninstalledTokens]
+      )
         .then((pruneRes) => {
-          console.log(`🧹 [FCM Prune] Pruned ${pruneRes.rowCount} invalid/unregistered FCM tokens from database.`);
+          console.log(`🧹 [FCM Prune] Marked ${pruneRes.rowCount} users as uninstalled & pruned dead FCM tokens.`);
         })
         .catch((err) => {
           console.warn('⚠️ [FCM Prune Error]:', err.message);
         });
+    }
+
+    // Clear malformed tokens without marking the user as uninstalled
+    if (invalidTokens.length > 0) {
+      db.query(
+        'UPDATE public.users SET fcm_token = NULL WHERE fcm_token = ANY($1)',
+        [invalidTokens]
+      ).catch(() => {});
     }
 
     console.log(`🔔 [FCM Multicast Complete] Total ${validTokens.length} devices across ${chunks.length} batches: ${totalSuccess} succeeded, ${totalFailure} failed`);

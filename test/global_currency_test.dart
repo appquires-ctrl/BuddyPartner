@@ -32,6 +32,13 @@ void main() {
       expect(AppCurrency.isDomestic(phoneNumber: '+12025550123'), isFalse);
       expect(AppCurrency.isDomestic(phoneNumber: '+447911123456'), isFalse);
       expect(AppCurrency.isDomestic(phoneNumber: '+971501234567'), isFalse);
+
+      // Priority tests: Phone / Country Code takes precedence over physical GPS location
+      expect(AppCurrency.isDomestic(country: 'India', phoneNumber: '+12025550123'), isFalse);
+      expect(AppCurrency.isDomestic(country: 'IN', countryCode: '+1'), isFalse);
+      expect(AppCurrency.isDomestic(country: 'India', countryCode: '1'), isFalse);
+      expect(AppCurrency.isDomestic(country: 'United States', phoneNumber: '+919876543210'), isTrue);
+      expect(AppCurrency.isDomestic(country: 'US', countryCode: '+91'), isTrue);
     });
 
     test('symbol and code return correct tokens', () {
@@ -247,9 +254,8 @@ void main() {
       expect(find.text('₹99'), findsOneWidget);
       expect(find.text('\$1.99'), findsNothing);
 
-      // Verify gold coin has Rupee icon inside
-      expect(find.byIcon(Icons.currency_rupee_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.attach_money_rounded), findsNothing);
+      // Verify gold coin has Heart icon inside
+      expect(find.byIcon(Icons.favorite_rounded), findsOneWidget);
     });
 
     testWidgets('Renders USD price and Dollar coin icon when isDomestic is false', (tester) async {
@@ -270,9 +276,8 @@ void main() {
       expect(find.text('\$1.99'), findsOneWidget);
       expect(find.text('₹99'), findsNothing);
 
-      // Verify gold coin has Dollar icon inside (NOT Rupee icon)
-      expect(find.byIcon(Icons.attach_money_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.currency_rupee_rounded), findsNothing);
+      // Verify gold coin has Heart icon inside
+      expect(find.byIcon(Icons.favorite_rounded), findsOneWidget);
     });
   });
 }

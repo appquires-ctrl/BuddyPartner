@@ -77,6 +77,20 @@ class BuddyController extends Notifier<BuddyState> {
       _setupSocketListeners(socket);
     }
 
+    ref.listen<AsyncValue<CustomUser?>>(authStateProvider, (prev, next) {
+      final user = next.value;
+      if (user != null) {
+        fetchMyRequests();
+        final city = user.city;
+        if (city != null && city.isNotEmpty) {
+          joinCityRoom(city);
+          fetchOpenRequests(city: city);
+        } else {
+          fetchOpenRequests();
+        }
+      }
+    });
+
     // Auto-fetch requests on init
     Future.microtask(() {
       fetchMyRequests();
@@ -84,6 +98,8 @@ class BuddyController extends Notifier<BuddyState> {
       if (city != null && city.isNotEmpty) {
         joinCityRoom(city);
         fetchOpenRequests(city: city);
+      } else {
+        fetchOpenRequests();
       }
     });
 
@@ -391,11 +407,19 @@ class BuddyController extends Notifier<BuddyState> {
       // Refresh wallet balance (100 coins deducted)
       ref.read(walletBalanceProvider.notifier).fetchBalance();
 
-      // Update state
+      // Ensure city socket room is joined
+      if (city.isNotEmpty) {
+        joinCityRoom(city);
+      }
+
+      // Update state: immediately add newRequest to myRequests so openCount updates instantly
       state = state.copyWith(
         isLoading: false,
         myRequests: [newRequest, ...state.myRequests.where((r) => r.id != newRequest.id)],
       );
+
+      // Re-fetch open requests in background to synchronize with server
+      fetchOpenRequests(city: city.isNotEmpty ? city : null);
 
       return newRequest;
     } catch (e) {

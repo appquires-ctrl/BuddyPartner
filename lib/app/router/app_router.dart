@@ -470,12 +470,19 @@ final routerProvider = Provider<GoRouter>((ref) {
 });
 
 /// Dynamic Tab 3 router widget:
-/// Renders the Unified Wallet Hub (Buy Coins & Withdraw) for all users.
-class DynamicPlansOrWalletTab extends StatelessWidget {
+/// If the user has an active subscription:
+///   - Unified Wallet Hub (Buy Coins & Withdraw)
+/// Else:
+///   - Subscription Plans Page
+class DynamicPlansOrWalletTab extends ConsumerWidget {
   const DynamicPlansOrWalletTab({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const WalletHubPage();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isSubscribed = ref.watch(subscriptionStatusProvider).value?.isSubscribed ?? false;
+    if (isSubscribed) {
+      return const WalletHubPage();
+    }
+    return const SubscribePage();
   }
 }

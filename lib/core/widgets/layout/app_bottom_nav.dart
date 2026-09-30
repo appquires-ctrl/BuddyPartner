@@ -102,10 +102,11 @@ class AppBottomNav extends StatelessWidget {
               child: NavigationBar(
                 selectedIndex: navSelectedIndex,
                 onDestinationSelected: (index) {
-                  const tabNames = [
+                  final middleTabName = isSubscribed ? 'Wallet' : 'Plans';
+                  final tabNames = [
                     'Home',
                     'Chat',
-                    'Wallet',
+                    middleTabName,
                     'Discover',
                     'Settings',
                   ];
@@ -154,13 +155,19 @@ class AppBottomNav extends StatelessWidget {
                         : const Icon(Icons.chat_bubble, color: Colors.white),
                     label: 'Chat',
                   ),
-                  const NavigationDestination(
-                    icon: Icon(Icons.account_balance_wallet_outlined),
+                  NavigationDestination(
+                    icon: Icon(
+                      isSubscribed
+                          ? Icons.account_balance_wallet_outlined
+                          : Icons.subscriptions_outlined,
+                    ),
                     selectedIcon: Icon(
-                      Icons.account_balance_wallet,
+                      isSubscribed
+                          ? Icons.account_balance_wallet
+                          : Icons.subscriptions,
                       color: Colors.white,
                     ),
-                    label: 'Wallet',
+                    label: isSubscribed ? 'Wallet' : 'Plans',
                   ),
                   const NavigationDestination(
                     icon: Icon(Icons.explore_outlined),
