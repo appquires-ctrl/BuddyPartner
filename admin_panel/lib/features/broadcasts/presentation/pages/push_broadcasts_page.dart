@@ -245,7 +245,7 @@ class _PushBroadcastsPageState extends ConsumerState<PushBroadcastsPage> {
                   children: [
                     // Target Segment
                     SizedBox(
-                      width: 260,
+                      width: 280,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -253,12 +253,14 @@ class _PushBroadcastsPageState extends ConsumerState<PushBroadcastsPage> {
                           const SizedBox(height: 6),
                           DropdownButtonFormField<String>(
                             initialValue: _targetSegment,
+                            isExpanded: true,
+                            dropdownColor: AdminColors.surface,
                             decoration: _inputDecoration(),
                             items: const [
-                              DropdownMenuItem(value: 'all', child: Text('All Registered Users')),
-                              DropdownMenuItem(value: 'unsubscribed', child: Text('Unsubscribed (VIP Upsell)')),
-                              DropdownMenuItem(value: 'inactive_48h', child: Text('Inactive > 48 Hours')),
-                              DropdownMenuItem(value: 'active_today', child: Text('Active Today')),
+                              DropdownMenuItem(value: 'all', child: Text('All Registered Users', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 'unsubscribed', child: Text('Unsubscribed (VIP Upsell)', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 'inactive_48h', child: Text('Inactive > 48 Hours', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 'active_today', child: Text('Active Today', overflow: TextOverflow.ellipsis)),
                             ],
                             onChanged: (val) {
                               if (val != null) setState(() => _targetSegment = val);
@@ -278,11 +280,13 @@ class _PushBroadcastsPageState extends ConsumerState<PushBroadcastsPage> {
                           const SizedBox(height: 6),
                           DropdownButtonFormField<String>(
                             initialValue: _targetGender,
+                            isExpanded: true,
+                            dropdownColor: AdminColors.surface,
                             decoration: _inputDecoration(),
                             items: const [
-                              DropdownMenuItem(value: 'all', child: Text('All Genders')),
-                              DropdownMenuItem(value: 'male', child: Text('Male Only')),
-                              DropdownMenuItem(value: 'female', child: Text('Female Only')),
+                              DropdownMenuItem(value: 'all', child: Text('All Genders', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 'male', child: Text('Male Only', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 'female', child: Text('Female Only', overflow: TextOverflow.ellipsis)),
                             ],
                             onChanged: (val) {
                               if (val != null) setState(() => _targetGender = val);
@@ -310,7 +314,7 @@ class _PushBroadcastsPageState extends ConsumerState<PushBroadcastsPage> {
 
                     // Deep Link
                     SizedBox(
-                      width: 220,
+                      width: 240,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -318,12 +322,14 @@ class _PushBroadcastsPageState extends ConsumerState<PushBroadcastsPage> {
                           const SizedBox(height: 6),
                           DropdownButtonFormField<String>(
                             initialValue: _deepLink,
+                            isExpanded: true,
+                            dropdownColor: AdminColors.surface,
                             decoration: _inputDecoration(),
                             items: const [
-                              DropdownMenuItem(value: '/subscribe', child: Text('Subscription / VIP')),
-                              DropdownMenuItem(value: '/coins', child: Text('Coin Packs')),
-                              DropdownMenuItem(value: '/home', child: Text('App Home')),
-                              DropdownMenuItem(value: '/buddy', child: Text('Buddy Connect')),
+                              DropdownMenuItem(value: '/subscribe', child: Text('Subscription / VIP', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: '/coins', child: Text('Coin Packs', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: '/home', child: Text('App Home', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: '/buddy', child: Text('Buddy Connect', overflow: TextOverflow.ellipsis)),
                             ],
                             onChanged: (val) {
                               if (val != null) setState(() => _deepLink = val);
@@ -442,7 +448,9 @@ class _PushBroadcastsPageState extends ConsumerState<PushBroadcastsPage> {
                       )
                     : ClipRRect(
                         borderRadius: BorderRadius.circular(16),
-                        child: DataTable(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
                           headingRowColor: WidgetStateProperty.all(AdminColors.surfaceMuted),
                           columns: const [
                             DataColumn(label: Text('Campaign Title', style: TextStyle(fontWeight: FontWeight.bold))),
@@ -531,6 +539,7 @@ class _PushBroadcastsPageState extends ConsumerState<PushBroadcastsPage> {
                           }).toList(),
                         ),
                       ),
+                    ),
           ),
         ],
       ),

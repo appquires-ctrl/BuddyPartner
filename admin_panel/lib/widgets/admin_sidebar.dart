@@ -98,13 +98,13 @@ class AdminSidebar extends StatelessWidget {
             route: '/broadcasts',
             isSelected: currentPath == '/broadcasts',
           ),
-          _buildNavItem(
-            context,
-            title: 'Device Blacklist',
-            icon: Icons.phonelink_erase_rounded,
-            route: '/devices',
-            isSelected: currentPath == '/devices',
-          ),
+          // _buildNavItem(
+          //   context,
+          //   title: 'Device Blacklist',
+          //   icon: Icons.phonelink_erase_rounded,
+          //   route: '/devices',
+          //   isSelected: currentPath == '/devices',
+          // ),
           _buildNavItem(
             context,
             title: 'Advertisements',

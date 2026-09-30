@@ -508,6 +508,36 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                                                         ),
                                                       ),
                                                     ],
+                                                    if (user['city'] != null &&
+                                                        user['city']
+                                                            .toString()
+                                                            .trim()
+                                                            .isNotEmpty) ...[
+                                                      const SizedBox(height: 2),
+                                                      Row(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: [
+                                                          const Icon(
+                                                            Icons.location_on_outlined,
+                                                            size: 11,
+                                                            color: AdminColors.textMuted,
+                                                          ),
+                                                          const SizedBox(width: 2),
+                                                          Flexible(
+                                                            child: Text(
+                                                              '${user['city']}${user['country'] != null && user['country'].toString().trim().isNotEmpty ? ', ${user['country']}' : ''}',
+                                                              maxLines: 1,
+                                                              overflow: TextOverflow.ellipsis,
+                                                              style: const TextStyle(
+                                                                fontSize: 11,
+                                                                color: AdminColors.textMuted,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
                                                   ],
                                                 ),
                                               ),
@@ -1836,6 +1866,49 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                       } catch (_) {}
                     }
 
+                    // Location formatting
+                    final city = (user['city'] ?? userSummary['city'])?.toString().trim();
+                    final state = (user['state'] ?? userSummary['state'])?.toString().trim();
+                    final country = (user['country'] ?? userSummary['country'])?.toString().trim();
+                    final locationParts = [
+                      if (city != null && city.isNotEmpty) city,
+                      if (state != null && state.isNotEmpty) state,
+                      if (country != null && country.isNotEmpty) country,
+                    ];
+                    final locationStr = locationParts.isNotEmpty ? locationParts.join(', ') : 'Not set';
+
+                    // Created date formatting
+                    String createdDateStr = 'N/A';
+                    final rawCreatedAt = user['created_at'] ?? user['signup_date'] ?? userSummary['signup_date'];
+                    if (rawCreatedAt != null) {
+                      try {
+                        final dt = DateTime.parse(rawCreatedAt.toString()).toLocal();
+                        createdDateStr = DateFormat('dd MMM yyyy • hh:mm a').format(dt);
+                      } catch (_) {
+                        createdDateStr = rawCreatedAt.toString();
+                      }
+                    }
+
+                    // Last seen formatting
+                    String lastSeenStr = 'Never';
+                    final rawLastActive = user['last_active_at'] ?? userSummary['last_active_at'];
+                    if (rawLastActive != null) {
+                      try {
+                        final dt = DateTime.parse(rawLastActive.toString()).toLocal();
+                        final diff = DateTime.now().difference(dt);
+                        if (diff.inMinutes < 5) {
+                          lastSeenStr = 'Online now';
+                        } else if (diff.inHours < 24) {
+                          final hours = diff.inHours == 0 ? 1 : diff.inHours;
+                          lastSeenStr = '${hours}h ago (${DateFormat('hh:mm a').format(dt)})';
+                        } else {
+                          lastSeenStr = DateFormat('dd MMM yyyy • hh:mm a').format(dt);
+                        }
+                      } catch (_) {
+                        lastSeenStr = rawLastActive.toString();
+                      }
+                    }
+
                     return SingleChildScrollView(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -1860,16 +1933,83 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                           const Divider(),
                           const SizedBox(height: 8),
 
-                          // Basic Info
-                          Text(
-                            'Phone: ${user['phone'] ?? 'N/A'}',
-                            style: AdminTheme.tabularNumeralStyle,
-                          ),
-                          const SizedBox(height: 4),
-                          Text('Gender: ${user['gender'] ?? 'N/A'}'),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Status: ${user['is_banned'] == true ? 'BANNED' : 'ACTIVE'}',
+                          // Basic Info Details Card
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: AdminColors.surfaceMuted.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AdminColors.border.withValues(alpha: 0.5)),
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildDetailRow(
+                                        Icons.phone_rounded,
+                                        'Phone',
+                                        user['phone'] ?? 'N/A',
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: _buildDetailRow(
+                                        Icons.location_on_rounded,
+                                        'Location',
+                                        locationStr,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildDetailRow(
+                                        Icons.person_rounded,
+                                        'Gender',
+                                        user['gender'] ?? 'N/A',
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: _buildDetailRow(
+                                        Icons.calendar_month_rounded,
+                                        'Account Created',
+                                        createdDateStr,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildDetailRow(
+                                        Icons.shield_rounded,
+                                        'Status',
+                                        user['is_banned'] == true ? 'BANNED' : 'ACTIVE',
+                                        valueColor: user['is_banned'] == true
+                                            ? AdminColors.danger
+                                            : AdminColors.success,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: _buildDetailRow(
+                                        Icons.access_time_rounded,
+                                        'Last Seen',
+                                        lastSeenStr,
+                                        valueColor: lastSeenStr == 'Online now'
+                                            ? AdminColors.success
+                                            : null,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 16),
 
@@ -2356,6 +2496,46 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildDetailRow(
+    IconData icon,
+    String label,
+    String value, {
+    Color? valueColor,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 14, color: AdminColors.textSecondary),
+        const SizedBox(width: 5),
+        Expanded(
+          child: RichText(
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            text: TextSpan(
+              style: const TextStyle(fontSize: 12, color: AdminColors.textPrimary),
+              children: [
+                TextSpan(
+                  text: '$label: ',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AdminColors.textSecondary,
+                  ),
+                ),
+                TextSpan(
+                  text: value,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    color: valueColor ?? AdminColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

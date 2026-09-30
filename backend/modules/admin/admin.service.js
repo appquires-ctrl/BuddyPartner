@@ -166,6 +166,10 @@ class AdminService {
           COALESCE(u.is_banned, FALSE) AS is_banned, 
           COALESCE(u.strike_count, 0) AS strike_count,
           COALESCE(u.created_at, NOW()) AS signup_date,
+          u.city,
+          u.state,
+          u.country,
+          u.last_active_at,
           COALESCE(w.spendable_balance, 0)::int AS spendable_balance,
           COALESCE(w.earned_balance, 0)::int AS earned_balance,
           (COALESCE(w.spendable_balance, 0) + COALESCE(w.earned_balance, 0))::int AS coin_balance,
@@ -211,7 +215,7 @@ class AdminService {
   async getUserDetail(userId) {
     try {
       const userRes = await db.query(
-        `SELECT id, COALESCE(full_name, 'User') AS name, COALESCE(phone_number, '') AS phone, gender, COALESCE(is_banned, FALSE) AS is_banned, COALESCE(strike_count, 0) AS strike_count, is_telecaller, created_at FROM public.users WHERE id = $1`,
+        `SELECT id, COALESCE(full_name, 'User') AS name, COALESCE(phone_number, '') AS phone, gender, COALESCE(is_banned, FALSE) AS is_banned, COALESCE(strike_count, 0) AS strike_count, is_telecaller, created_at, city, state, country, last_active_at FROM public.users WHERE id = $1`,
         [userId]
       );
       if (userRes.rows.length === 0) return null;
