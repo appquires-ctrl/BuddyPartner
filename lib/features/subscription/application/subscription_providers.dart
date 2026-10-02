@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:socket_io_client/socket_io_client.dart' as sio;
 import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/core/services/apptrove_service.dart';
+import 'package:buddypartner/core/services/meta_events_service.dart';
 import 'package:buddypartner/core/services/socket_provider.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 import 'package:buddypartner/features/subscription/application/subscription_state.dart';
@@ -205,12 +206,17 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
       }
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        // Track subscription purchase in Apptrove
+        // Track subscription purchase in Apptrove and Meta
         AppTroveService.trackSubscriptionPurchase(
           planId: plan.id,
           planTitle: plan.title,
           priceRupees: plan.priceRupees.toDouble(),
           durationDays: plan.durationDays,
+        );
+        MetaEventsService.trackMembershipPurchase(
+          amount: plan.priceRupees.toDouble(),
+          planId: plan.id,
+          planName: plan.title,
         );
 
         // Refresh auth state so hasClaimedIntroOffer updates across app
@@ -229,12 +235,17 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
       }
     }
 
-    // Track subscription purchase in Apptrove (fallback mode)
+    // Track subscription purchase in Apptrove and Meta (fallback mode)
     AppTroveService.trackSubscriptionPurchase(
       planId: plan.id,
       planTitle: plan.title,
       priceRupees: plan.priceRupees.toDouble(),
       durationDays: plan.durationDays,
+    );
+    MetaEventsService.trackMembershipPurchase(
+      amount: plan.priceRupees.toDouble(),
+      planId: plan.id,
+      planName: plan.title,
     );
 
     final expiresAt = DateTime.now().add(Duration(days: plan.durationDays));

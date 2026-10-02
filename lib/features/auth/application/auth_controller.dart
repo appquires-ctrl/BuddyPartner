@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/core/services/apptrove_service.dart';
+import 'package:buddypartner/core/services/meta_events_service.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
 /// AuthController coordinates client-side authentication triggers
@@ -425,7 +426,7 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
         age--;
       }
 
-      // Track Sign-Up / Registration completion event in Apptrove
+      // Track Sign-Up / Registration completion event in Apptrove and Meta
       AppTroveService.trackSignUp(
         userId: userId,
         phoneNumber: phone,
@@ -435,6 +436,7 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
         dob: dob,
         age: age,
       );
+      MetaEventsService.instance.logCompletedRegistration(registrationMethod: 'phone');
     });
 
     if (result.hasError) {

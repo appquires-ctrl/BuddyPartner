@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Meta App ID and Client Token from developers.facebook.com -->
+    <string name="facebook_app_id">1078598035162739</string>
+    <string name="facebook_client_token">ccd01cebca8b9bb7fbca83ed4a61d81d</string>
+</resources>

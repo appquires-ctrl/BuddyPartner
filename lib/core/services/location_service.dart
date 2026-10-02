@@ -6,6 +6,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:buddypartner/core/services/api_client.dart';
+import 'package:buddypartner/core/services/meta_events_service.dart';
 import 'package:buddypartner/features/auth/application/auth_state_provider.dart';
 
 class LocationService {
@@ -186,6 +187,13 @@ class LocationService {
             };
             await apiClient.dio.post('/api/auth/location', data: payload);
             await _markLocationSynced();
+            if (city != null && city.trim().isNotEmpty) {
+              MetaEventsService.trackUserCity(
+                city,
+                state: state,
+                country: country,
+              );
+            }
             try {
               final currentUser = ref.read(authStateProvider).value;
               if (currentUser != null) {

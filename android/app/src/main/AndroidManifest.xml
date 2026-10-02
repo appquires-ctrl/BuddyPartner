@@ -88,6 +88,14 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
+        <!-- Meta / Facebook SDK Configuration -->
+        <meta-data
+            android:name="com.facebook.sdk.ApplicationId"
+            android:value="@string/facebook_app_id" />
+        <meta-data
+            android:name="com.facebook.sdk.ClientToken"
+            android:value="@string/facebook_client_token" />
+
         <!-- Strip Agora screen sharing service and activity to comply with Play Store -->
         <service
             android:name="io.agora.rtc2.extensions.MediaProjectionMgr$LocalScreenSharingService"

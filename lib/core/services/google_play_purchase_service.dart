@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:buddypartner/core/services/api_client.dart';
+import 'package:buddypartner/core/services/meta_events_service.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/features/wallet/application/wallet_balance_provider.dart';
 import 'package:buddypartner/features/subscription/application/subscription_providers.dart';
@@ -343,6 +344,30 @@ class GooglePlayPurchaseNotifier extends StateNotifier<GooglePlayState> {
         final msg = isCoin
             ? 'Successfully added ${data['coinsCredited']} coins to your wallet!'
             : 'VIP Subscription Pass activated successfully!';
+
+        // Track purchase event in Meta Events
+        final productDetails = state.products[productId];
+        final rawPrice = productDetails?.rawPrice ?? 0.0;
+        final currencyCode = productDetails?.currencyCode ?? 'INR';
+
+        if (isCoin) {
+          final coinsCredited = (data['coinsCredited'] is num)
+              ? (data['coinsCredited'] as num).toInt()
+              : 0;
+          MetaEventsService.trackCoinPurchase(
+            amount: rawPrice,
+            coins: coinsCredited,
+            planId: productId,
+            currency: currencyCode,
+          );
+        } else {
+          MetaEventsService.trackMembershipPurchase(
+            amount: rawPrice,
+            planId: productId,
+            planName: productDetails?.title ?? productId,
+            currency: currencyCode,
+          );
+        }
 
         state = state.copyWith(
           status: GooglePlayPurchaseStatus.success,

@@ -86,7 +86,7 @@ class AdminTopbar extends ConsumerWidget {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        '$ccu Live CCU',
+                        '$ccu Online',
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,

@@ -661,7 +661,8 @@ class AdminService {
               ((SELECT COALESCE(SUM(amount_paid), 0)::numeric FROM public.subscriptions WHERE started_at >= CURRENT_DATE) +
                (SELECT COALESCE(SUM(amount_paid), 0)::numeric FROM public.google_play_purchases WHERE purchase_type = 'inapp' AND created_at >= CURRENT_DATE))::numeric AS total_revenue_today,
               (SELECT COALESCE(SUM(spendable_delta), 0)::bigint FROM public.wallet_transactions WHERE reason IN ('iap_purchase', 'razorpay_purchase', 'recharge') AND created_at >= CURRENT_DATE) AS coins_purchased_today,
-              (SELECT COUNT(*)::int FROM public.subscriptions WHERE started_at >= CURRENT_DATE) AS subs_sold_today
+              (SELECT COUNT(*)::int FROM public.subscriptions WHERE started_at >= CURRENT_DATE) AS subs_sold_today,
+              (SELECT COUNT(*)::int FROM public.google_play_purchases WHERE purchase_type = 'inapp' AND created_at >= CURRENT_DATE) AS coins_sold_today
           `),
           db.query(`
             SELECT 
@@ -684,6 +685,7 @@ class AdminService {
           coinRevenueToday: parseFloat(r.coin_revenue_today || 0),
           coinsPurchasedToday: parseInt(r.coins_purchased_today || 0, 10),
           subsSoldToday: parseInt(r.subs_sold_today || 0, 10),
+          coinsSoldToday: parseInt(r.coins_sold_today || 0, 10),
           pendingWithdrawalsCount: parseInt(wd.pending_withdrawals_count || 0, 10),
           pendingWithdrawalsAmount: parseFloat(wd.pending_withdrawals_amount || 0),
         };
@@ -702,6 +704,7 @@ class AdminService {
         coinRevenueToday: dbMetrics.coinRevenueToday,
         coinsPurchasedToday: dbMetrics.coinsPurchasedToday,
         subsSoldToday: dbMetrics.subsSoldToday,
+        coinsSoldToday: dbMetrics.coinsSoldToday,
         pendingWithdrawalsCount: dbMetrics.pendingWithdrawalsCount,
         pendingWithdrawalsAmount: dbMetrics.pendingWithdrawalsAmount,
         system: {

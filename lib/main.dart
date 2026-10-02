@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:buddypartner/core/services/apptrove_service.dart';
+import 'package:buddypartner/core/services/meta_events_service.dart';
 import 'package:buddypartner/core/services/notification_service.dart';
 import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
@@ -32,6 +33,10 @@ Future<void> main() async {
 
   // Initialize Apptrove MMP SDK
   await AppTroveService.initialize();
+
+  // Initialize Meta App Events SDK (Tracks Installs and App Launches)
+  await MetaEventsService.initialize();
+  await MetaEventsService.trackAppLaunch();
 
   // Attach global error handlers to route unhandled errors into AppLogger
   FlutterError.onError = (details) {

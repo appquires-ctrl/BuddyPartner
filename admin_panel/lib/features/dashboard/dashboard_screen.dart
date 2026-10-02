@@ -33,7 +33,7 @@ class DashboardScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
                     Text(
-                      'Platform Telemetry & Command Center',
+                      'Platform Overview & Live Activity',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -42,7 +42,7 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'Live 5,000 CCU concurrent user tracking, active in-call channels, and circulating ledger balance',
+                      'Live active users, ongoing calls, today\'s revenue, and user wallet balances',
                       style: TextStyle(
                         fontSize: 13,
                         color: AdminColors.textSecondary,
@@ -86,9 +86,10 @@ class DashboardScreen extends ConsumerWidget {
               final subRevToday = telemetry?['subRevenueToday'] ?? 0;
               final coinRevToday = telemetry?['coinRevenueToday'] ?? 0;
               final totalRevToday = telemetry?['totalRevenueToday'] ?? (subRevToday + coinRevToday);
-              final subsSoldToday = telemetry?['subsSoldToday'] ?? 0;
-              final coinsSoldToday = telemetry?['coinsSoldToday'] ?? 0;
+              final subsSoldToday = ((telemetry?['subsSoldToday'] ?? 0) as num).toInt();
+              final coinsSoldToday = ((telemetry?['coinsSoldToday'] ?? 0) as num).toInt();
               final totalOrdersToday = subsSoldToday + coinsSoldToday;
+              final orderText = totalOrdersToday == 1 ? '1 order' : '$totalOrdersToday orders';
               final system = telemetry?['system'] as Map<String, dynamic>?;
               final memRss = system?['memoryRssMb'] ?? 0;
               final dbPoolWaiting = system?['dbPoolWaiting'] ?? 0;
@@ -103,9 +104,9 @@ class DashboardScreen extends ConsumerWidget {
                 children: [
                   // Live CCU Card
                   _buildLiveCard(
-                    title: 'Live Concurrent Users (CCU)',
+                    title: 'Active Users Online',
                     value: formatter.format(liveCcu),
-                    subtitle: 'Real-time WebSocket & lease active',
+                    subtitle: 'Users currently in the app',
                     icon: Icons.speed_rounded,
                     accentColor: const Color(0xFF10B981),
                     badge: Container(
@@ -127,7 +128,7 @@ class DashboardScreen extends ConsumerWidget {
                           ),
                           const SizedBox(width: 4),
                           const Text(
-                            'LIVE PULSE',
+                            'LIVE',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
@@ -142,9 +143,9 @@ class DashboardScreen extends ConsumerWidget {
 
                   // In-Call Channels Card
                   _buildLiveCard(
-                    title: 'In-Call Agora Channels',
+                    title: 'Live Voice & Video Calls',
                     value: formatter.format(activeCalls),
-                    subtitle: 'Active simultaneous audio/video calls',
+                    subtitle: 'Active calls happening now',
                     icon: Icons.phone_in_talk_rounded,
                     accentColor: const Color(0xFF6366F1),
                     badge: Container(
@@ -154,7 +155,7 @@ class DashboardScreen extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Text(
-                        'UNLIMITED VIP',
+                        'IN CALL',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
@@ -167,9 +168,9 @@ class DashboardScreen extends ConsumerWidget {
 
                   // Today's Total Cash Inflow (Subscriptions + Coins)
                   _buildLiveCard(
-                    title: "Today's Cash Inflow",
+                    title: "Today's Total Revenue",
                     value: currencyFormatter.format(totalRevToday),
-                    subtitle: '₹$subRevToday passes + ₹$coinRevToday coins ($totalOrdersToday orders)',
+                    subtitle: '₹$subRevToday memberships + ₹$coinRevToday coins ($orderText)',
                     icon: Icons.monetization_on_rounded,
                     accentColor: const Color(0xFFF59E0B),
                     onTap: () => context.go('/recharges'),
@@ -183,7 +184,7 @@ class DashboardScreen extends ConsumerWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: const [
                           Text(
-                            'ORDERS HUB',
+                            'VIEW ORDERS',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
@@ -200,11 +201,11 @@ class DashboardScreen extends ConsumerWidget {
 
                   // Cluster Memory & DB Pool Health
                   _buildLiveCard(
-                    title: 'Cluster Node Health',
-                    value: '${memRss}MB RSS',
+                    title: 'Server & Database Health',
+                    value: '${memRss}MB RAM',
                     subtitle: dbPoolWaiting > 0
-                        ? '⚠️ $dbPoolWaiting queries waiting pool'
-                        : 'PostgreSQL pool healthy (0 waiting)',
+                        ? '⚠️ $dbPoolWaiting queries waiting'
+                        : 'Database & server running smoothly',
                     icon: Icons.dns_rounded,
                     accentColor: const Color(0xFF8B5CF6),
                     badge: Container(
@@ -214,7 +215,7 @@ class DashboardScreen extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Text(
-                        'REDIS CLUSTER',
+                        'HEALTHY',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
@@ -266,7 +267,7 @@ class DashboardScreen extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: const [
                               Text(
-                                'Circulating Dual-Balance Ledger Audit',
+                                'User Wallet Balances & Cash Withdrawals',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -274,7 +275,7 @@ class DashboardScreen extends ConsumerWidget {
                                 ),
                               ),
                               Text(
-                                'Separate tracking of purchased spendable coins vs earned withdrawable Buddy meetup rewards',
+                                'Track total purchased coins, user reward coins, and pending cash withdrawal requests',
                                 style: TextStyle(fontSize: 12, color: AdminColors.textSecondary),
                               ),
                             ],
@@ -288,7 +289,7 @@ class DashboardScreen extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Text(
-                          'AUDITED REAL-TIME',
+                          'LIVE UPDATES',
                           style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AdminColors.activePillText),
                         ),
                       ),
@@ -302,9 +303,9 @@ class DashboardScreen extends ConsumerWidget {
                       // Spendable Balance
                       Expanded(
                         child: _buildLedgerItem(
-                          title: 'Circulating Spendable Coins',
+                          title: 'Purchased Coins (In Wallets)',
                           value: '🪙 ${formatter.format(telemetry?['circulatingSpendable'] ?? 0)}',
-                          note: 'Purchased coins & promotional bonuses (Non-withdrawable)',
+                          note: 'Bought by users & bonus coins (Cannot be withdrawn)',
                           badgeColor: const Color(0xFF3B82F6),
                         ),
                       ),
@@ -312,9 +313,9 @@ class DashboardScreen extends ConsumerWidget {
                       // Earned Balance
                       Expanded(
                         child: _buildLedgerItem(
-                          title: 'Circulating Earned Coins',
+                          title: 'Earned Reward Coins',
                           value: '🪙 ${formatter.format(telemetry?['circulatingEarned'] ?? 0)}',
-                          note: 'Buddy meetup rewards (50 coins per verified OTP meetup)',
+                          note: 'Earned from Buddy meetups (Can be withdrawn for cash)',
                           badgeColor: const Color(0xFF10B981),
                         ),
                       ),
@@ -322,9 +323,9 @@ class DashboardScreen extends ConsumerWidget {
                       // Pending Payout Liability
                       Expanded(
                         child: _buildLedgerItem(
-                          title: 'Pending Withdrawal Liability',
+                          title: 'Pending Cash Withdrawals',
                           value: currencyFormatter.format(telemetry?['pendingWithdrawalsAmount'] ?? 0),
-                          note: '${telemetry?['pendingWithdrawalsCount'] ?? 0} withdrawal requests awaiting approval',
+                          note: '${telemetry?['pendingWithdrawalsCount'] ?? 0} withdrawal requests waiting for approval',
                           badgeColor: const Color(0xFFEF4444),
                         ),
                       ),

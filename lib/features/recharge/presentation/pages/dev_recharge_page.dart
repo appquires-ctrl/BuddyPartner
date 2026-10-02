@@ -8,6 +8,7 @@ import 'package:buddypartner/app/theme/app_spacing.dart';
 import 'package:buddypartner/core/extensions/context_extensions.dart';
 import 'package:buddypartner/core/services/api_client.dart';
 import 'package:buddypartner/core/services/apptrove_service.dart';
+import 'package:buddypartner/core/services/meta_events_service.dart';
 import 'package:buddypartner/core/utils/app_logger.dart';
 import 'package:buddypartner/core/utils/app_snack_bar.dart';
 import 'package:buddypartner/core/widgets/buttons/app_primary_button.dart';
@@ -60,11 +61,16 @@ class _DevRechargePageState extends ConsumerState<DevRechargePage> {
       if (response.data != null && response.data['success'] == true) {
         ref.invalidate(walletBalanceProvider);
 
-        // Track Coin Recharge event in AppTrove
+        // Track Coin Recharge event in AppTrove and Meta
         AppTroveService.trackCoinRecharge(
           coins: coinsToCredit,
           priceRupees: priceToPay.toDouble(),
           orderId: response.data['transactionId']?.toString() ?? refId,
+          planId: 'COIN_PACK_$coinsToCredit',
+        );
+        MetaEventsService.trackCoinPurchase(
+          amount: priceToPay.toDouble(),
+          coins: coinsToCredit,
           planId: 'COIN_PACK_$coinsToCredit',
         );
 

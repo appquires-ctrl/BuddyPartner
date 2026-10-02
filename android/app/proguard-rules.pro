@@ -25,3 +25,9 @@
 -dontwarn javax.annotation.**
 -dontwarn org.codehaus.mojo.animal_sniffer.IgnoreJRERequirement
 
+# Facebook / Meta SDK rules
+-keep class com.facebook.** { *; }
+-keepclassmembers class * extends com.facebook.FacebookActivity { *; }
+-dontwarn com.facebook.**
+
+
