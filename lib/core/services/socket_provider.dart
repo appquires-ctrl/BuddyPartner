@@ -21,6 +21,7 @@ import 'package:buddypartner/core/utils/app_snack_bar.dart';
 class SocketNotifier extends Notifier<sio.Socket?> {
   String? _connectedUserId;
   sio.Socket? _socket;
+  int _authRetryCount = 0;
 
   @override
   sio.Socket? build() {
@@ -85,6 +86,7 @@ class SocketNotifier extends Notifier<sio.Socket?> {
     };
 
     if (_socket != null && _connectedUserId == currentUser.id) {
+      _socket!.auth = authPayload;
       if (_socket!.io.options != null) {
         _socket!.io.options!['auth'] = authPayload;
       }
@@ -122,6 +124,7 @@ class SocketNotifier extends Notifier<sio.Socket?> {
     _socket = socket;
 
     socket.onConnect((_) {
+      _authRetryCount = 0;
       debugPrint('[SocketProvider] Connected to backend as user: $_connectedUserId');
       state = socket;
       // Immediately notify backend of online status on connect
@@ -156,12 +159,16 @@ class SocketNotifier extends Notifier<sio.Socket?> {
       final activeUser = ref.read(authStateProvider).value;
       if (activeUser != null && activeUser.id == _connectedUserId) {
         final token = await ref.read(apiClientProvider).getToken();
-        if (token != null && socket.io.options != null) {
-          socket.io.options!['auth'] = {
+        if (token != null) {
+          final newAuth = {
             'token': token,
             'appVersion': appVersion,
             'platform': platform,
           };
+          socket.auth = newAuth;
+          if (socket.io.options != null) {
+            socket.io.options!['auth'] = newAuth;
+          }
         }
       }
     });
@@ -197,17 +204,37 @@ class SocketNotifier extends Notifier<sio.Socket?> {
       } else if (errStr.contains('Authentication error') || errStr.contains('invalid token')) {
         if (isRefreshingToken) return;
         isRefreshingToken = true;
+        _authRetryCount++;
+        if (_authRetryCount > 3) {
+          debugPrint('⚠️ [SocketProvider] Max auth retries exceeded ($_authRetryCount). Forcing session re-login.');
+          _dispose();
+          await ref.read(apiClientProvider).clearTokens();
+          await ref.read(authStateProvider.notifier).clearSession();
+          final context = rootNavigatorKey.currentContext;
+          if (context != null && context.mounted) {
+            AppSnackBar.showError(context, 'Session expired. Please log in again.');
+            context.go(RouteNames.login);
+          }
+          isRefreshingToken = false;
+          return;
+        }
+
         try {
           final refreshed = await ref.read(apiClientProvider).refreshToken();
           if (refreshed) {
             final newToken = await ref.read(apiClientProvider).getToken();
-            if (newToken != null && socket.io.options != null) {
-              socket.io.options!['auth'] = {
+            if (newToken != null) {
+              final newAuth = {
                 'token': newToken,
                 'appVersion': appVersion,
                 'platform': platform,
               };
+              socket.auth = newAuth;
+              if (socket.io.options != null) {
+                socket.io.options!['auth'] = newAuth;
+              }
               socket.disconnect();
+              await Future.delayed(const Duration(milliseconds: 300));
               socket.connect();
             }
           } else {
@@ -267,6 +294,7 @@ class SocketNotifier extends Notifier<sio.Socket?> {
 
   void _dispose() {
     _connectedUserId = null;
+    _authRetryCount = 0;
     final sock = _socket ?? state;
     _socket = null;
     if (sock != null) {

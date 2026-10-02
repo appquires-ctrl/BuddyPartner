@@ -289,7 +289,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     color: colors.primary.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.videocam_sharp, color: colors.primary, size: 18),
+                  child: Icon(Icons.phone, color: colors.primary, size: 18),
                 ),
                 onPressed: () {
                   final matchState = ref.read(matchmakingControllerProvider);
